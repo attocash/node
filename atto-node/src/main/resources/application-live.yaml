@@ -1,0 +1,9 @@
+atto:
+  node:
+    network: LOCAL
+    publicAddress: localhost:8310
+  peer:
+    defaultNodes:
+      - peering.live.atto.money:8310
+  transaction:
+    genesis:

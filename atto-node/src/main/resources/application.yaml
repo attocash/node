@@ -1,0 +1,58 @@
+spring:
+  application:
+    name: atto-node
+  main:
+    banner-mode: off
+  mvc:
+    log-resolved-exception: true
+  flyway:
+    url: jdbc:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
+    user: ${ATTO_DB_USER:atto}
+    password: ${ATTO_DB_PASSWORD:''}
+  r2dbc:
+    url: r2dbcs:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
+    username: ${spring.flyway.user}
+    password: ${spring.flyway.password}
+    pool:
+      initial-size: 10
+      max-size: 10
+      max-life-time: 8h
+  jackson:
+    serialization:
+      write_dates_as_timestamps: false
+atto:
+  network:
+    broadcaster:
+      cache-expiration-time-in-seconds: 10
+  handshake:
+    expiration-time-in-seconds: 5
+  peer:
+    expiration-time-in-seconds: 300
+  transaction:
+    cache-max-size: 20_000
+    cache-expiration-time-in-seconds: 86400
+    validator:
+      group-max-size: 1_000
+      cache-max-size: 20_000
+      cache-expiration-time-in-seconds: 86400
+  vote:
+    validator:
+      group-max-size: 1_000
+      cache-max-size: 20_000
+      cache-expiration-time-in-seconds: 86400
+    weight:
+      minimal-rebroadcast-weight: 180_000_000_000_000_000 #180m
+      minimal-confirmation-weight: 9_000_000_000_000_000_000 #8b
+      confirmation-threshold: 65
+      sample-period-in-days: 14
+    election:
+      staling-after-time-in-seconds: 120
+      staled-after-time-in-seconds: 180
+
+logging:
+  level:
+    org.atto: INFO
+
+server:
+  port:
+

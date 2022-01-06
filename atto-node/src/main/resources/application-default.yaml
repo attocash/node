@@ -1,0 +1,31 @@
+spring:
+  flyway:
+    url: jdbc:h2:mem:${ATTO_DB_NAME:atto};MODE=MySQL;DB_CLOSE_DELAY=-1
+    user:
+    password:
+  r2dbc:
+    url: r2dbc:h2:mem:///${ATTO_DB_NAME:atto}
+
+atto:
+  node:
+    voterStrategy: FORCE_ENABLED
+    network: LOCAL
+    publicAddress: localhost:8313
+  network:
+    broadcaster:
+      cache-expiration-time-in-seconds: 0
+
+server:
+  error:
+    include-message: ALWAYS
+
+logging:
+  level:
+    org.atto: TRACE
+#    org.atto.node.network: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: '*'
