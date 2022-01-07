@@ -10,6 +10,7 @@ import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.vote.HashVoteValidated
+import org.atto.node.vote.WeightedHashVote
 import org.atto.node.vote.election.ElectionObserver
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.Node
@@ -71,7 +72,8 @@ class ElectionVoter(
     }
 
     private fun vote(transaction: Transaction, timestamp: Instant) {
-        if (!isVoter()) {
+        val weight = voteWeightService.get()
+        if (!canVoter(weight)) {
             return
         }
 
@@ -98,12 +100,12 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $hashVote" }
 
-        eventPublisher.publish(HashVoteValidated(hashVote))
+        eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), this, votePush))
     }
 
-    private fun isVoter(): Boolean {
-        return thisNode.isVoter() && voteWeightService.get() > 0UL
+    private fun canVoter(weight: ULong): Boolean {
+        return thisNode.isVoter() && weight > 0UL
     }
 
     private fun remove(transaction: Transaction) {

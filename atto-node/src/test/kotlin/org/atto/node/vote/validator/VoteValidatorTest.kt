@@ -18,6 +18,7 @@ import org.atto.node.transaction.TransactionObserved
 import org.atto.node.vote.HashVoteRejected
 import org.atto.node.vote.HashVoteValidated
 import org.atto.node.vote.VoteRejectionReasons
+import org.atto.node.vote.WeightedHashVote
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.Node
 import org.atto.protocol.NodeFeature
@@ -134,7 +135,8 @@ internal class VoteValidatorTest {
     @Test
     fun `should not broadcast when this node is not voting node`() {
         // given
-        every { voteWeightService.get(thisNode.publicKey) } returns 1UL
+        val weight = 1UL
+        every { voteWeightService.get(thisNode.publicKey) } returns weight
         val hashVote = createHashVote(transaction.hash, Instant.now())
 
         // when
@@ -143,7 +145,7 @@ internal class VoteValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(HashVoteValidated(hashVote))
+            eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         }
         verify(exactly = 0) {
             messagePublisher.publish(any<BroadcastNetworkMessage<*>>())
@@ -154,7 +156,8 @@ internal class VoteValidatorTest {
     fun `should not broadcast when vote is below minimal weight`() {
         // given
         features.add(NodeFeature.VOTING)
-        every { voteWeightService.get(thisNode.publicKey) } returns 1UL
+        val weight = 1UL
+        every { voteWeightService.get(thisNode.publicKey) } returns weight
         every { voteWeightService.isAboveMinimalRebroadcastWeight(thisNode.publicKey) } returns false
         val hashVote = createHashVote(transaction.hash, Instant.now())
 
@@ -164,7 +167,7 @@ internal class VoteValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(HashVoteValidated(hashVote))
+            eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         }
         verify(exactly = 0) {
             messagePublisher.publish(any<BroadcastNetworkMessage<*>>())
@@ -175,7 +178,8 @@ internal class VoteValidatorTest {
     fun `should not broadcast when this node is below minimal weight`() {
         // given
         features.add(NodeFeature.VOTING)
-        every { voteWeightService.get(thisNode.publicKey) } returns 1UL
+        val weight = 1UL
+        every { voteWeightService.get(thisNode.publicKey) } returns weight
         every { voteWeightService.isAboveMinimalRebroadcastWeight(thisNode.publicKey) } returnsMany listOf(true, false)
         val hashVote = createHashVote(transaction.hash, Instant.now())
 
@@ -185,7 +189,7 @@ internal class VoteValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(HashVoteValidated(hashVote))
+            eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         }
         verify(exactly = 0) {
             messagePublisher.publish(any<BroadcastNetworkMessage<*>>())
@@ -196,7 +200,8 @@ internal class VoteValidatorTest {
     fun `should broadcast to EVERYONE when vote is final`() {
         // given
         features.add(NodeFeature.VOTING)
-        every { voteWeightService.get(thisNode.publicKey) } returns 1UL
+        val weight = 1UL
+        every { voteWeightService.get(thisNode.publicKey) } returns weight
         every { voteWeightService.isAboveMinimalRebroadcastWeight(thisNode.publicKey) } returns true
         val hashVote = createHashVote(transaction.hash, Vote.finalTimestamp)
 
@@ -206,7 +211,7 @@ internal class VoteValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(HashVoteValidated(hashVote))
+            eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         }
         verify {
             messagePublisher.publish(
@@ -224,7 +229,8 @@ internal class VoteValidatorTest {
     fun `should broadcast to VOTERS when vote is not final`() {
         // given
         features.add(NodeFeature.VOTING)
-        every { voteWeightService.get(thisNode.publicKey) } returns 1UL
+        val weight = 1UL
+        every { voteWeightService.get(thisNode.publicKey) } returns weight
         every { voteWeightService.isAboveMinimalRebroadcastWeight(thisNode.publicKey) } returns true
         val hashVote = createHashVote(transaction.hash, Instant.now())
 
@@ -234,7 +240,7 @@ internal class VoteValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(HashVoteValidated(hashVote))
+            eventPublisher.publish(HashVoteValidated(WeightedHashVote(hashVote, weight)))
         }
         verify {
             messagePublisher.publish(

@@ -16,10 +16,7 @@ import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.transaction.TransactionConfirmed
 import org.atto.node.transaction.TransactionObserved
 import org.atto.node.transaction.TransactionStaled
-import org.atto.node.vote.HashVoteQueue
-import org.atto.node.vote.HashVoteRejected
-import org.atto.node.vote.HashVoteValidated
-import org.atto.node.vote.VoteRejectionReasons
+import org.atto.node.vote.*
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.Node
 import org.atto.protocol.vote.HashVote
@@ -56,7 +53,7 @@ class VoteValidator(
         .maximumSize(properties.cacheMaxSize!!)
         .build()
 
-    private val voteBuffer: Cache<AttoHash, HashMap<AttoPublicKey, HashVote>> = Caffeine.newBuilder()
+    private val voteBuffer: Cache<AttoHash, HashMap<AttoPublicKey, WeightedHashVote>> = Caffeine.newBuilder()
         .expireAfterWrite(properties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
         .maximumSize(properties.cacheMaxSize!!)
         .build()
@@ -96,16 +93,18 @@ class VoteValidator(
             return
         }
 
+        val weightedHashVote = WeightedHashVote(hashVote, voteWeightService.get(hashVote.vote.publicKey))
+
         scope.launch {
             withContext(singleDispatcher) {
-                add(hashVote)
+                add(weightedHashVote)
             }
         }
     }
 
-    suspend fun add(hashVote: HashVote) {
-        queue.add(voteWeightService.get(hashVote.vote.publicKey), hashVote)
-        logger.trace { "Queued $hashVote" }
+    suspend fun add(weightedHashVote: WeightedHashVote) {
+        queue.add(weightedHashVote)
+        logger.trace { "Queued $weightedHashVote" }
     }
 
 
@@ -115,11 +114,11 @@ class VoteValidator(
         job = GlobalScope.launch(CoroutineName("vote-validator")) {
             while (isActive) {
                 val hashVote = withContext(singleDispatcher) {
-                    val hashVote = queue.poll()
-                    if (hashVote != null) {
-                        process(hashVote)
+                    val weightedHashVote = queue.poll()
+                    if (weightedHashVote != null) {
+                        process(weightedHashVote)
                     }
-                    hashVote
+                    weightedHashVote
                 }
                 if (hashVote == null) {
                     delay(100)
@@ -128,7 +127,8 @@ class VoteValidator(
         }
     }
 
-    private suspend fun process(hashVote: HashVote) {
+    private suspend fun process(weightedHashVote: WeightedHashVote) {
+        val hashVote = weightedHashVote.hashVote
         val rejectionReason = validate(hashVote)
         if (rejectionReason != null) {
             val socketAddress = socketAddresses.getIfPresent(hashVote.vote.signature)
@@ -137,14 +137,14 @@ class VoteValidator(
             eventPublisher.publish(event)
         } else {
             if (activeElections.contains(hashVote.hash)) {
-                sendEvent(hashVote)
+                sendEvent(weightedHashVote)
             } else if (voteWeightService.isAboveMinimalRebroadcastWeight(hashVote.vote.publicKey)) {
                 withContext(singleDispatcher) {
                     voteBuffer.asMap().compute(hashVote.hash) { _, existingVoteMap ->
                         val voteMap = existingVoteMap ?: HashMap()
                         voteMap.compute(hashVote.vote.publicKey) { _, existingHashVote ->
-                            if (existingHashVote == null || existingHashVote.vote.timestamp < hashVote.vote.timestamp) {
-                                hashVote
+                            if (existingHashVote == null || existingHashVote.hashVote.vote.timestamp < hashVote.vote.timestamp) {
+                                weightedHashVote
                             } else {
                                 existingHashVote
                             }
@@ -160,8 +160,8 @@ class VoteValidator(
         }
     }
 
-    private fun sendEvent(hashVote: HashVote) {
-        val event = HashVoteValidated(hashVote)
+    private fun sendEvent(weightedHashVote: WeightedHashVote) {
+        val event = HashVoteValidated(weightedHashVote)
         logger.trace { "$event" }
         eventPublisher.publish(event)
     }

@@ -6,6 +6,7 @@ import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.node.transaction.TransactionValidated
 import org.atto.node.vote.HashVoteValidated
+import org.atto.node.vote.WeightedHashVote
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.transaction.PublicKeyHeight
 import org.atto.protocol.transaction.Transaction
@@ -178,12 +179,6 @@ class Election(
                     }
                 }
         }
-    }
-}
-
-data class WeightedHashVote(val hashVote: HashVote, val weight: ULong) {
-    fun isFinal(): Boolean {
-        return hashVote.vote.isFinal()
     }
 }
 

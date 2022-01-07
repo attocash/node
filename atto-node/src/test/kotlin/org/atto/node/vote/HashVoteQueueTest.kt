@@ -18,19 +18,19 @@ internal class HashVoteQueueTest {
     @Test
     fun `should return first transaction with higher weight`() = runTest {
         // given
-        val hashVote1 = createHashVote()
-        val hashVote20 = createHashVote()
-        val hashVote3 = createHashVote()
+        val weightedHashVote3 = WeightedHashVote(createHashVote(), 3UL)
+        val weightedHashVote1 = WeightedHashVote(createHashVote(), 1UL)
+        val weightedHashVote20 = WeightedHashVote(createHashVote(), 20UL)
 
         // when
-        assertNull(queue.add(1UL, hashVote1))
-        assertNull(queue.add(20UL, hashVote20))
-        val deleted = queue.add(5UL, hashVote3)
+        assertNull(queue.add(weightedHashVote3))
+        assertNull(queue.add(weightedHashVote1))
+        val deleted = queue.add(weightedHashVote20)
 
         // then
-        assertEquals(hashVote1, deleted)
-        assertEquals(hashVote20, queue.poll())
-        assertEquals(hashVote3, queue.poll())
+        assertEquals(weightedHashVote1, deleted)
+        assertEquals(weightedHashVote20, queue.poll())
+        assertEquals(weightedHashVote3, queue.poll())
         assertNull(queue.poll())
     }
 

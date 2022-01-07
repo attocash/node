@@ -10,6 +10,7 @@ import org.atto.node.CacheSupport
 import org.atto.node.transaction.TransactionConfirmed
 import org.atto.node.transaction.TransactionRepository
 import org.atto.node.vote.HashVoteRepository
+import org.atto.node.vote.HashVoteValidated
 import org.atto.protocol.Node
 import org.atto.protocol.vote.HashVote
 import org.springframework.context.event.EventListener
@@ -45,9 +46,10 @@ class VoteWeightService(
     }
 
     @EventListener
-    fun listen(hashVote: HashVote) {
+    fun listen(event: HashVoteValidated) {
+        val hashVote = event.hashVote
         latestVoteMap.compute(hashVote.vote.publicKey) { _, previousHashVote ->
-            if (previousHashVote == null || hashVote.vote.timestamp > previousHashVote.vote.timestamp) {
+            if (previousHashVote == null || hashVote.receivedTimestamp > previousHashVote.receivedTimestamp) {
                 hashVote
             } else {
                 previousHashVote

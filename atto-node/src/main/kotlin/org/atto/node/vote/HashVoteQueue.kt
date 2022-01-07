@@ -2,7 +2,6 @@ package org.atto.node.vote
 
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
-import org.atto.protocol.vote.HashVote
 import java.util.*
 import java.util.Comparator.comparing
 
@@ -13,9 +12,7 @@ class HashVoteQueue(private val maxSize: Int) {
     private val map = HashMap<PublicKeyHash, WeightedHashVote>()
     private val set = TreeSet(weightComparator)
 
-    fun add(weight: ULong, hashVote: HashVote): HashVote? {
-        val entry = WeightedHashVote(weight, hashVote)
-
+    fun add(entry: WeightedHashVote): WeightedHashVote? {
         val publicKeyHash = entry.toPublicKeyHash()
         val oldEntry = map.remove(publicKeyHash)
 
@@ -33,26 +30,24 @@ class HashVoteQueue(private val maxSize: Int) {
 
         if (oldEntry == null && set.size > maxSize) {
             val removedEntry = set.pollFirst()!!
-            return map.remove(removedEntry.toPublicKeyHash())?.hashVote
+            return map.remove(removedEntry.toPublicKeyHash())
         }
 
         return null
     }
 
-    fun poll(): HashVote? {
+    fun poll(): WeightedHashVote? {
         val entry = set.pollLast()
 
         if (entry != null) {
             map.remove(entry.toPublicKeyHash())
         }
 
-        return entry?.hashVote
+        return entry
     }
 
-    private data class WeightedHashVote(val weight: ULong, val hashVote: HashVote) {
-        fun toPublicKeyHash(): PublicKeyHash {
-            return PublicKeyHash(hashVote.vote.publicKey, hashVote.hash)
-        }
+    private fun WeightedHashVote.toPublicKeyHash(): PublicKeyHash {
+        return PublicKeyHash(this.hashVote.vote.publicKey, this.hashVote.hash)
     }
 
     private data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
