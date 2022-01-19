@@ -41,8 +41,14 @@ class TransactionQueue(private val groupMaxSize: Int) {
         ChronoUnit.MILLIS.between(it.receivedTimestamp, it.block.timestamp)
     }
 
+    private val versionComparator: Comparator<Transaction> = comparing {
+        it.block.version
+    }
+
+    private val comparator = versionComparator.thenComparing(dateComparator)
+
     private var currentGroup = 0
-    private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(dateComparator) }
+    private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
     private var size = 0
 
     /**

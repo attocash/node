@@ -57,9 +57,7 @@ class TransactionValidator(
     @EventListener
     fun process(event: TransactionStaled) {
         scope.launch {
-            withContext(singleDispatcher) {
-                remove(event.transaction.hash)
-            }
+            remove(event.transaction.hash)
         }
     }
 
@@ -79,7 +77,7 @@ class TransactionValidator(
         }
     }
 
-    private suspend fun remove(hash: AttoHash) {
+    private suspend fun remove(hash: AttoHash) = withContext(singleDispatcher) {
         activeElections.remove(hash)
         previousBuffer.remove(hash)
         linkBuffer.remove(hash)
@@ -96,13 +94,11 @@ class TransactionValidator(
         }
 
         scope.launch {
-            withContext(singleDispatcher) {
-                add(transaction)
-            }
+            add(transaction)
         }
     }
 
-    suspend fun add(transaction: Transaction) {
+    suspend fun add(transaction: Transaction) = withContext(singleDispatcher) {
         val block = transaction.block
         if (previousSupport.contains(block.type) && activeElections.contains(block.previous)) {
             previousBuffer.compute(block.previous) { _, v ->
@@ -133,7 +129,9 @@ class TransactionValidator(
                     queue.poll()
                 }
                 if (transaction != null) {
-                    process(transaction)
+                    scope.launch {
+                        process(transaction)
+                    }
                 } else {
                     delay(100)
                 }
@@ -183,12 +181,12 @@ class TransactionValidator(
                 return TransactionRejectionReasons.LINK_NOT_FOUND
             }
 
-            if (linkTransaction.block.type != AttoBlockType.SEND) {
-                return TransactionRejectionReasons.INVALID_LINK
-            }
-
             if (linkTransaction.status != TransactionStatus.CONFIRMED) {
                 return TransactionRejectionReasons.LINK_NOT_CONFIRMED
+            }
+
+            if (linkTransaction.block.type != AttoBlockType.SEND) {
+                return TransactionRejectionReasons.INVALID_LINK
             }
 
             if (linkTransaction.block.amount != block.amount) {
@@ -199,7 +197,7 @@ class TransactionValidator(
                 return TransactionRejectionReasons.INVALID_TIMESTAMP
             }
 
-            if (!linkTransaction.block.link.publicKey!!.value.contentEquals(transaction.block.publicKey.value)) {
+            if (linkTransaction.block.link.publicKey != transaction.block.publicKey) {
                 return TransactionRejectionReasons.INVALID_LINK
             }
 
@@ -223,6 +221,10 @@ class TransactionValidator(
                 return TransactionRejectionReasons.PREVIOUS_NOT_FOUND
             }
 
+            if (latestTransaction.hash != transaction.block.previous) {
+                return TransactionRejectionReasons.INVALID_PREVIOUS
+            }
+
             if (latestTransaction.status != TransactionStatus.CONFIRMED) {
                 return TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED
             }
@@ -231,28 +233,24 @@ class TransactionValidator(
                 return TransactionRejectionReasons.INVALID_TIMESTAMP
             }
 
+            if (latestTransaction.block.version > transaction.block.version) {
+                return TransactionRejectionReasons.INVALID_VERSION
+            }
+
             if (block.type == AttoBlockType.CHANGE && latestTransaction.block.representative.value.contentEquals(block.representative.value)) {
                 return TransactionRejectionReasons.INVALID_CHANGE
             }
 
             val latestBalance = latestTransaction.block.balance
 
-            if (block.type != AttoBlockType.SEND) {
-                val total = latestBalance + block.amount
-                if (total != block.balance || total < latestBalance) {
-                    return TransactionRejectionReasons.INVALID_BALANCE
-                }
+            if (block.type != AttoBlockType.SEND && latestBalance + block.amount != block.balance) {
+                return TransactionRejectionReasons.INVALID_BALANCE
             }
 
             if (block.type == AttoBlockType.SEND) {
-                val total = latestBalance - block.amount
-                if (total != block.balance || total > latestBalance) {
+                if (latestBalance - block.amount != block.balance || block.amount > latestBalance) {
                     return TransactionRejectionReasons.INVALID_BALANCE
                 }
-            }
-
-            if (latestTransaction.block.version > transaction.block.version) {
-                return TransactionRejectionReasons.INVALID_VERSION
             }
         }
 
@@ -277,16 +275,12 @@ class TransactionValidator(
     }
 
 
-    internal suspend fun getPreviousBuffer(): Map<AttoHash, List<Transaction>> {
-        return withContext(singleDispatcher) {
-            previousBuffer.entries.associate { it.key to it.value.toList() }
-        }
+    internal suspend fun getPreviousBuffer(): Map<AttoHash, List<Transaction>> = withContext(singleDispatcher) {
+        previousBuffer.entries.associate { it.key to it.value.toList() }
     }
 
-    internal suspend fun getLinkBuffer(): Map<AttoHash, List<Transaction>> {
-        return withContext(singleDispatcher) {
-            linkBuffer.entries.associate { it.key to it.value.toList() }
-        }
+    internal suspend fun getLinkBuffer(): Map<AttoHash, List<Transaction>> = withContext(singleDispatcher) {
+        linkBuffer.entries.associate { it.key to it.value.toList() }
     }
 
     override fun clear() {

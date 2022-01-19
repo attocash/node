@@ -19,19 +19,15 @@ import org.atto.protocol.transaction.TransactionPush
 import org.atto.protocol.transaction.TransactionStatus
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
-import org.junit.jupiter.params.ParameterizedTest
-import org.junit.jupiter.params.provider.Arguments
-import org.junit.jupiter.params.provider.MethodSource
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.time.Instant
-import java.util.stream.Stream
-import kotlin.random.Random
-
+import kotlin.test.assertEquals
 
 @ExtendWith(MockKExtension::class)
-internal class TransactionValidatorTest {
+class TransactionValidatorTest {
     private val defaultTimeout = 200L
 
     @MockK
@@ -51,7 +47,6 @@ internal class TransactionValidatorTest {
     val transactionRepository = MockTransactionRepository(transactionProperties)
 
     lateinit var transactionValidator: TransactionValidator
-
 
     @BeforeEach
     fun start() {
@@ -75,16 +70,806 @@ internal class TransactionValidatorTest {
         transactionValidator.stop()
     }
 
-    @ParameterizedTest
-    @MethodSource("validTransactionProvider")
-    fun `should publish TransactionValidate when transaction is valid`(
-        existingTransactions: List<Transaction>,
-        receivedTransaction: Transaction
+    @Test
+    fun `should publish TransactionValidate when SEND transaction is valid`() {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val sendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        checkValid(sendBlockA, listOf(existingOpenBlockA))
+    }
+
+    @Test
+    fun `should publish TransactionValidate when OPEN transaction is valid`() {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        Thread.sleep(1)
+        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+
+        checkValid(openBlockB, listOf(existingSendBlockA))
+    }
+
+    @Test
+    fun `should publish TransactionValidate when RECEIVE transaction is valid`() {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkValid(receiveBlockB, listOf(existingSendBlockA, existingOpenBlockB))
+    }
+
+    @Test
+    fun `should publish TransactionValidate when CHANGE transaction is valid`() {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val changeBlockA = existingOpenBlockA.change(publicKeyB)
+
+        checkValid(changeBlockA, listOf(existingOpenBlockA))
+    }
+
+    @Test
+    fun `should ignore transactions when duplicates`() {
+        // given
+        val blockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        val transaction = createTransaction(TransactionStatus.RECEIVED, blockA)
+
+        // when
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(transaction)
+            )
+        )
+
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(transaction)
+            )
+        ) // duplicated
+
+        // then
+        verify(exactly = 1, timeout = defaultTimeout) {
+            eventPublisher.publish(any())
+        }
+    }
+
+    @Test
+    fun `should buffer transaction when previous transaction is being observed`() = runBlocking {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        transactionRepository.save(createTransaction(TransactionStatus.CONFIRMED, existingOpenBlockA))
+
+        val sendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val sendTransactionA = createTransaction(TransactionStatus.RECEIVED, sendBlockA)
+
+        val changeBlockA = sendBlockA.change(publicKeyB)
+        val changeTransactionA = createTransaction(TransactionStatus.RECEIVED, changeBlockA)
+
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(sendTransactionA)
+            )
+        )
+
+        verify(exactly = 1, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(sendTransactionA.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        // when
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(changeTransactionA)
+            )
+        )
+
+        verify(exactly = 0, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(changeTransactionA.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        assertEquals(1, transactionValidator.getPreviousBuffer().size)
+
+        runBlocking { transactionRepository.save(sendTransactionA.copy(status = TransactionStatus.CONFIRMED)) }
+
+        transactionValidator.process(TransactionConfirmed(sendTransactionA))
+
+        // then
+        verify(exactly = 1, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(changeTransactionA.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        assertEquals(0, transactionValidator.getLinkBuffer().size)
+    }
+
+    @Test
+    fun `should buffer transaction when link transaction is being observed`() = runBlocking {
+        // given
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        transactionRepository.save(createTransaction(TransactionStatus.CONFIRMED, existingOpenBlockA))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+        transactionRepository.save(createTransaction(TransactionStatus.CONFIRMED, existingOpenBlockB))
+
+        val sendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val sendTransactionA = createTransaction(TransactionStatus.RECEIVED, sendBlockA)
+
+        val receiveBlockB = existingOpenBlockB.receive(sendBlockA)
+        val receiveTransactionB = createTransaction(TransactionStatus.RECEIVED, receiveBlockB)
+
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(sendTransactionA)
+            )
+        )
+
+        verify(exactly = 1, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(sendTransactionA.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        // when
+        transactionValidator.add(
+            InboundNetworkMessage(
+                thisNode.socketAddress,
+                this,
+                TransactionPush(receiveTransactionB)
+            )
+        )
+
+        verify(exactly = 0, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(receiveTransactionB.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        assertEquals(1, transactionValidator.getLinkBuffer().size)
+
+        runBlocking { transactionRepository.save(sendTransactionA.copy(status = TransactionStatus.CONFIRMED)) }
+
+        transactionValidator.process(TransactionConfirmed(sendTransactionA))
+
+        // then
+        verify(exactly = 1, timeout = defaultTimeout) {
+            eventPublisher.publish(TransactionValidated(receiveTransactionB.copy(status = TransactionStatus.VALIDATED)))
+        }
+
+        assertEquals(0, transactionValidator.getLinkBuffer().size)
+    }
+
+    @Test
+    fun `should publish INVALID_TRANSACTION when transaction is invalid`() {
+        val openBlockA = createOpenBlock(publicKeyA, publicKeyA, 0UL, ByteArray(32))
+
+        checkInvalid(TransactionRejectionReasons.INVALID_TRANSACTION, openBlockA, listOf())
+    }
+
+    @Test
+    fun `should publish LINK_NOT_FOUND when OPEN transaction is invalid`() {
+        val openBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        checkInvalid(TransactionRejectionReasons.LINK_NOT_FOUND, openBlockA, listOf())
+    }
+
+    @Test
+    fun `should publish LINK_NOT_FOUND when RECEIVE transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(TransactionRejectionReasons.LINK_NOT_FOUND, receiveBlockB, listOf())
+    }
+
+    @Test
+    fun `should publish INVALID_LINK when OPEN transaction link is not a SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+            .copy(link = AttoLink.from(existingOpenBlockA.getHash()))
+
+        checkInvalid(TransactionRejectionReasons.INVALID_LINK, openBlockB, listOf(existingOpenBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_LINK when RECEIVE transaction is not a SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+            .copy(link = AttoLink.from(existingOpenBlockA.getHash()))
+
+        checkInvalid(TransactionRejectionReasons.INVALID_LINK, receiveBlockB, listOf(existingOpenBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_AMOUNT when OPEN transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        Thread.sleep(1)
+        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+            .copy(balance = AttoAmount.max, amount = AttoAmount.max)
+
+        checkInvalid(TransactionRejectionReasons.INVALID_AMOUNT, openBlockB, listOf(existingSendBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_AMOUNT when RECEIVE transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA).copy(amount = AttoAmount.max)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_AMOUNT,
+            receiveBlockB,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_TIMESTAMP when OPEN transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+            .copy(timestamp = existingSendBlockA.timestamp)
+
+        checkInvalid(TransactionRejectionReasons.INVALID_TIMESTAMP, openBlockB, listOf(existingSendBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_TIMESTAMP when RECEIVE transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        val receiveBlockB =
+            existingOpenBlockB.receive(existingSendBlockA).copy(timestamp = existingSendBlockA.timestamp)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_TIMESTAMP,
+            receiveBlockB,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_LINK when OPEN transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val openBlockB = AttoBlock(
+            type = AttoBlockType.OPEN,
+            version = existingOpenBlockA.version,
+            publicKey = publicKeyB,
+            height = 0U,
+            previous = AttoHash(AttoBlock.zeros32),
+            representative = publicKeyB,
+            link = AttoLink.from(existingOpenBlockA.getHash()),
+            balance = existingOpenBlockA.amount,
+            amount = existingOpenBlockA.amount,
+            timestamp = Instant.now()
+        )
+
+        checkInvalid(TransactionRejectionReasons.INVALID_LINK, openBlockB, listOf(existingOpenBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_LINK when RECEIVE transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyC, AttoAmount(100UL))
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlockB = AttoBlock(
+            type = AttoBlockType.RECEIVE,
+            version = existingOpenBlockB.version,
+            publicKey = existingOpenBlockB.publicKey,
+            height = existingOpenBlockB.height + 1U,
+            previous = existingOpenBlockB.getHash(),
+            representative = existingOpenBlockB.representative,
+            link = AttoLink.from(existingSendBlockA.getHash()),
+            balance = existingOpenBlockB.balance.plus(existingSendBlockA.amount),
+            amount = existingSendBlockA.amount,
+            timestamp = Instant.now()
+        )
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_LINK,
+            receiveBlockB,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_VERSION when OPEN transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(version = 1U)
+
+        Thread.sleep(1)
+        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA).copy(version = 0u)
+
+        checkInvalid(TransactionRejectionReasons.INVALID_VERSION, openBlockB, listOf(existingSendBlockA))
+    }
+
+    @Test
+    fun `should publish INVALID_VERSION when RECEIVE transaction is invalid`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(version = 1U)
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA).copy(version = 0u)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_VERSION,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish LINK_NOT_CONFIRMED when OPEN transaction link is not confirmed`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        Thread.sleep(1)
+        val receiveBlock = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.LINK_NOT_CONFIRMED,
+            receiveBlock,
+            emptyList(),
+            listOf(existingSendBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish LINK_NOT_CONFIRMED when RECEIVE transaction link is not confirmed`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.LINK_NOT_CONFIRMED,
+            receiveBlock,
+            listOf(existingOpenBlockB),
+            listOf(existingSendBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish ACCOUNT_NOT_FOUND when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        checkInvalid(
+            TransactionRejectionReasons.ACCOUNT_NOT_FOUND,
+            sendBlock,
+            listOf()
+        )
+    }
+
+    @Test
+    fun `should publish ACCOUNT_NOT_FOUND when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.ACCOUNT_NOT_FOUND,
+            receiveBlock,
+            listOf(existingSendBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish ACCOUNT_NOT_FOUND when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        val changeBlock = existingOpenBlockA.change(publicKeyB)
+
+        checkInvalid(
+            TransactionRejectionReasons.ACCOUNT_NOT_FOUND,
+            changeBlock,
+            listOf()
+        )
+    }
+
+
+    @Test
+    fun `should publish OLD_TRANSACTION when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        checkInvalid(
+            TransactionRejectionReasons.OLD_TRANSACTION,
+            sendBlock,
+            listOf(existingSendBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish OLD_TRANSACTION when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+        val existingReceiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.OLD_TRANSACTION,
+            receiveBlock,
+            listOf(existingSendBlockA, existingReceiveBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish OLD_TRANSACTION when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingChangeBlockA = existingOpenBlockA.change(publicKeyB)
+
+        val changeBlock = existingOpenBlockA.change(publicKeyB)
+
+        checkInvalid(
+            TransactionRejectionReasons.OLD_TRANSACTION,
+            changeBlock,
+            listOf(existingChangeBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_FOUND when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val sendBlock = existingSendBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_FOUND,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_FOUND when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+        val existingChangeBlockB = existingOpenBlockB.change(publicKeyA)
+
+        Thread.sleep(1)
+        val receiveBlock = existingChangeBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_FOUND,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_FOUND when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingChangeBlockA = existingOpenBlockA.change(publicKeyB)
+
+        val changeBlock = existingChangeBlockA.change(publicKeyA)
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_FOUND,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+
+    @Test
+    fun `should publish INVALID_PREVIOUS when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(previous = AttoHash(ByteArray(32)))
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_PREVIOUS,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_PREVIOUS when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA).copy(previous = AttoHash(ByteArray(32)))
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_PREVIOUS,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_PREVIOUS when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val changeBlock = existingOpenBlockA.change(publicKeyB).copy(previous = AttoHash(ByteArray(32)))
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_PREVIOUS,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_CONFIRMED when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED,
+            sendBlock,
+            listOf(),
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_CONFIRMED when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED,
+            receiveBlock,
+            listOf(existingSendBlockA),
+            listOf(existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish PREVIOUS_NOT_CONFIRMED when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val changeBlock = existingOpenBlockA.change(publicKeyB)
+
+        checkInvalid(
+            TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED,
+            changeBlock,
+            listOf(),
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_TIMESTAMP when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        val sendBlock =
+            existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(timestamp = existingOpenBlockA.timestamp)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_TIMESTAMP,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_TIMESTAMP when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        Thread.sleep(1)
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA).copy(timestamp = existingOpenBlockB.timestamp)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_TIMESTAMP,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_TIMESTAMP when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        val changeBlock = existingOpenBlockA.change(publicKeyB).copy(timestamp = existingOpenBlockA.timestamp)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_TIMESTAMP,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_VERSION when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32)).copy(version = 1U)
+
+        Thread.sleep(1)
+        val sendBlock =
+            existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(version = 0U)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_VERSION,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_VERSION when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32)).copy(version = 1U)
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA).copy(version = 0U)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_VERSION,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_VERSION when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32)).copy(version = 1U)
+
+        Thread.sleep(1)
+        val changeBlock = existingOpenBlockA.change(publicKeyB).copy(version = 0U)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_VERSION,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_CHANGE when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val changeBlock = existingOpenBlockA.change(publicKeyA)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_CHANGE,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_BALANCE when SEND transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(balance = AttoAmount(100UL))
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_BALANCE,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_BALANCE when SEND transaction overflows`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 1UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val sendBlock = existingOpenBlockA.send(publicKeyB, AttoAmount(2UL)).copy(balance = AttoAmount(ULong.MAX_VALUE))
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_BALANCE,
+            sendBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_BALANCE when RECEIVE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val receiveBlock = existingOpenBlockB.receive(existingSendBlockA).copy(balance = AttoAmount.max)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_BALANCE,
+            receiveBlock,
+            listOf(existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
+    @Test
+    fun `should publish INVALID_BALANCE when CHANGE transaction`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+
+        Thread.sleep(1)
+        val changeBlock = existingOpenBlockA.change(publicKeyB).copy(balance = AttoAmount.max)
+
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_BALANCE,
+            changeBlock,
+            listOf(existingOpenBlockA)
+        )
+    }
+
+
+    private fun checkValid(
+        receivedBlock: AttoBlock,
+        existingBlocks: List<AttoBlock>
     ) {
         // given
-        existingTransactions.asSequence()
-            .filter { it.status == TransactionStatus.CONFIRMED }
+        existingBlocks.asSequence()
+            .map { createTransaction(TransactionStatus.CONFIRMED, it) }
             .forEach { runBlocking { transactionRepository.save(it) } }
+
+        val receivedTransaction = createTransaction(TransactionStatus.RECEIVED, receivedBlock)
 
         // when
         transactionValidator.add(
@@ -101,15 +886,33 @@ internal class TransactionValidatorTest {
         }
     }
 
-    @ParameterizedTest
-    @MethodSource("invalidTransactionProvider")
-    fun `should publish TransactionRejected when transaction is invalid`(
-        existingTransactions: List<Transaction>,
-        receivedTransaction: Transaction,
-        reason: TransactionRejectionReasons
+    private fun checkInvalid(
+        reason: TransactionRejectionReasons,
+        receivedBlock: AttoBlock,
+        existingConfirmedBlocks: List<AttoBlock>
+    ) {
+        checkInvalid(reason, receivedBlock, existingConfirmedBlocks, emptyList())
+    }
+
+    private fun checkInvalid(
+        reason: TransactionRejectionReasons,
+        receivedBlock: AttoBlock,
+        existingConfirmedBlocks: List<AttoBlock>,
+        existingValidateBlocks: List<AttoBlock>
     ) {
         // given
-        existingTransactions.asSequence().forEach { runBlocking { transactionRepository.save(it) } }
+        existingConfirmedBlocks.asSequence()
+            .map { createTransaction(TransactionStatus.CONFIRMED, it) }
+            .forEach { runBlocking { transactionRepository.save(it) } }
+
+        existingValidateBlocks.asSequence()
+            .map { createTransaction(TransactionStatus.VALIDATED, it) }
+            .forEach { runBlocking { transactionRepository.save(it) } }
+
+        val receivedTransaction = createTransaction(
+            TransactionStatus.RECEIVED,
+            receivedBlock
+        )
 
         // when
         transactionValidator.add(
@@ -122,1162 +925,85 @@ internal class TransactionValidatorTest {
 
         // then
         verify(timeout = defaultTimeout) {
-            eventPublisher.publish(TransactionRejected(thisNode.socketAddress, reason, receivedTransaction))
+            eventPublisher.publish(
+                TransactionRejected(
+                    thisNode.socketAddress,
+                    reason,
+                    receivedTransaction
+                )
+            )
         }
     }
 
     companion object {
         val seed = AttoSeed("1234567890123456789012345678901234567890123456789012345678901234".fromHexToByteArray())
-        val privateKey = seed.toPrivateKey(0u)
-        val anotherPrivateKey = seed.toPrivateKey(1u)
-        val evenAnotherPrivateKey = seed.toPrivateKey(2u)
+
+        val privatekeyA = seed.toPrivateKey(0u)
+        val privatekeyB = seed.toPrivateKey(1u)
+        val privatekeyC = seed.toPrivateKey(2u)
+
+        val publicKeyA = privatekeyA.toPublicKey()
+        val publicKeyB = privatekeyB.toPublicKey()
+        val publicKeyC = privatekeyC.toPublicKey()
+
+
+        val privateKeyMap = mapOf(
+            privatekeyA.toPublicKey() to privatekeyA,
+            privatekeyB.toPublicKey() to privatekeyB,
+            privatekeyC.toPublicKey() to privatekeyC,
+        )
 
         val thisNode = Node(
             network = AttoNetwork.LOCAL,
             protocolVersion = 0u,
             minimalProtocolVersion = 0u,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privatekeyA.toPublicKey(),
             socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330),
             features = emptySet()
         )
 
-        val anotherOpenBlock = AttoBlock(
-            type = AttoBlockType.OPEN,
-            version = 0u,
-            publicKey = anotherPrivateKey.toPublicKey(),
-            height = 0u,
-            previous = AttoHash(ByteArray(32)),
-            representative = anotherPrivateKey.toPublicKey(),
-            link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
-            balance = AttoAmount(100u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now()
-        )
+        val openBlock0 = createOpenBlock(privatekeyA.toPublicKey(), privatekeyA.toPublicKey(), 100UL, ByteArray(32))
 
-        val anotherSendBlock = AttoBlock(
-            type = AttoBlockType.SEND,
-            version = 0u,
-            publicKey = anotherPrivateKey.toPublicKey(),
-            height = 1u,
-            previous = anotherOpenBlock.getHash(),
-            representative = anotherPrivateKey.toPublicKey(),
-            link = AttoLink.from(privateKey.toPublicKey()),
-            balance = AttoAmount(0u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now()
-        )
 
-        val evenAnotherSendBlock = AttoBlock(
-            type = AttoBlockType.SEND,
-            version = 0u,
-            publicKey = evenAnotherPrivateKey.toPublicKey(),
-            height = 1u,
-            previous = AttoHash(ByteArray(32)),
-            representative = evenAnotherPrivateKey.toPublicKey(),
-            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-            balance = AttoAmount(0u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now()
-        )
-
-        val anotherReceiveBlock = AttoBlock(
-            type = AttoBlockType.RECEIVE,
-            version = 0u,
-            publicKey = anotherPrivateKey.toPublicKey(),
-            height = 2u,
-            previous = anotherSendBlock.getHash(),
-            representative = anotherPrivateKey.toPublicKey(),
-            link = AttoLink.from(AttoHash(ByteArray(32))),
-            balance = AttoAmount(50u),
-            amount = AttoAmount(50u),
-            timestamp = Instant.now()
-        )
-
-        val openBlock = AttoBlock(
-            type = AttoBlockType.OPEN,
-            version = 0u,
-            publicKey = privateKey.toPublicKey(),
-            height = 0u,
-            previous = AttoHash(ByteArray(32)),
-            representative = privateKey.toPublicKey(),
-            link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
-            balance = AttoAmount(100u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now()
-        )
-
-        val sendBlock = AttoBlock(
-            type = AttoBlockType.SEND,
-            version = 0u,
-            publicKey = privateKey.toPublicKey(),
-            height = 1u,
-            previous = openBlock.getHash(),
-            representative = privateKey.toPublicKey(),
-            link = AttoLink.from(privateKey.toPublicKey()),
-            balance = AttoAmount(0u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now()
-        )
-
-        val receiveBlock = AttoBlock(
-            type = AttoBlockType.RECEIVE,
-            version = 0u,
-            publicKey = privateKey.toPublicKey(),
-            height = 2u,
-            previous = sendBlock.previous,
-            representative = privateKey.toPublicKey(),
-            link = AttoLink.from(anotherSendBlock.getHash()),
-            balance = AttoAmount(50u),
-            amount = AttoAmount(50u),
-            timestamp = Instant.now()
-        )
-
-        @JvmStatic
-        fun validTransactionProvider(): Stream<Arguments> {
-            return Stream.of(
-                Arguments.of(
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    )
-                ),
-                Arguments.of(
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = receiveBlock.getHash(),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(20u),
-                            amount = AttoAmount(30u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    )
-                ),
-                Arguments.of(
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(150u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    )
-                ),
-                Arguments.of(
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = AttoPublicKey(ByteArray(32)),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    )
-                ),
+        fun createOpenBlock(
+            publicKey: AttoPublicKey,
+            representative: AttoPublicKey,
+            amount: ULong,
+            hash: ByteArray
+        ): AttoBlock {
+            return AttoBlock(
+                type = AttoBlockType.OPEN,
+                version = AttoBlock.maxVersion,
+                publicKey = publicKey,
+                height = 0U,
+                previous = AttoHash(ByteArray(32)),
+                representative = representative,
+                link = AttoLink.from(AttoHash(hash)),
+                balance = AttoAmount(amount),
+                amount = AttoAmount(amount),
+                timestamp = Instant.now()
             )
         }
+    }
 
-        @JvmStatic
-        fun invalidTransactionProvider(): Stream<Arguments> {
-            return Stream.of(
-                Arguments.of( // 1: invalid transaction
-                    arrayListOf<Transaction>(),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u, // invalid
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey
-                    ),
-                    TransactionRejectionReasons.INVALID_TRANSACTION
-                ),
-                Arguments.of( // 2: OPEN transaction with invalid link - linked transaction not found
-                    arrayListOf<Transaction>(),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.LINK_NOT_FOUND
-                ),
-                Arguments.of( // 3: RECEIVE transaction with invalid link - linked transaction not found
-                    arrayListOf<Transaction>(),
-                    createTransaction(
-                        TransactionStatus.CONFIRMED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.LINK_NOT_FOUND
-                ),
-                Arguments.of( // 4: OPEN transaction with invalid link - linked transaction is not SEND type
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherReceiveBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherReceiveBlock.getHash()), // invalid
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_LINK
-                ),
-                Arguments.of( // 5: RECEIVE transaction with invalid link - linked transaction is not SEND type
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherReceiveBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherReceiveBlock.getHash()), // invalid
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_LINK
-                ),
-                Arguments.of( // 6: OPEN transaction with invalid link - linked transaction not confirmed
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.RECEIVED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()), // not confirmed
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.LINK_NOT_CONFIRMED
-                ),
-                Arguments.of( // 7: RECEIVE transaction with invalid link - linked transaction not confirmed
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.RECEIVED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()), // not confirmed
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.LINK_NOT_CONFIRMED
-                ),
-                Arguments.of( // 8: OPEN transaction with invalid link - wrong amount
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(50u), // wrong amount
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_AMOUNT
-                ),
-                Arguments.of( // 9: SEND transaction with invalid previous - previous transaction not found
-                    arrayListOf<Transaction>(),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)), // invalid
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(50u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.ACCOUNT_NOT_FOUND
-                ),
-                Arguments.of( // 10: RECEIVE transaction with invalid previous - previous transaction not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)), // invalid
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.ACCOUNT_NOT_FOUND
-                ),
-                Arguments.of( // 11: SEND transaction with invalid previous - previous transaction not found
-                    arrayListOf<Transaction>(),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)), // invalid
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.ACCOUNT_NOT_FOUND
-                ),
-                Arguments.of( // 12: SEND transaction with invalid previous - old transaction
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            sendBlock,
-                            privateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = receiveBlock.height, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.OLD_TRANSACTION
-                ),
-                Arguments.of( // 13: RECEIVE transaction with invalid previous - old transaction
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            sendBlock,
-                            privateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = receiveBlock.height, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.OLD_TRANSACTION
-                ),
-                Arguments.of( // 14: CHANGE transaction with invalid previous - old transaction
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            sendBlock,
-                            privateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u, // invalid
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.OLD_TRANSACTION
-                ),
-                Arguments.of( // 15: SEND transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            openBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_FOUND
-                ),
-                Arguments.of( // 16: RECEIVE transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            openBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_FOUND
-                ),
-                Arguments.of( // 17: CHANGE transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            openBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_FOUND
-                ),
-                Arguments.of( // 18: SEND transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.VALIDATED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED
-                ),
-                Arguments.of( // 19: RECEIVE transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.VALIDATED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED
-                ),
-                Arguments.of( // 20: CHANGE transaction with invalid previous - previous not found
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.VALIDATED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u, // invalid
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED
-                ),
-                Arguments.of( // 21: CHANGE transaction with invalid previous - change to the same rep
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = receiveBlock.representative, // invalid
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_CHANGE
-                ),
-                Arguments.of( // 22: SEND transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(50u), // invalid
-                            amount = AttoAmount(50u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_BALANCE
-                ),
-                Arguments.of( // 23: RECEIVE transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(50u), // invalid
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_BALANCE
-                ),
-                Arguments.of( // 24: CHANGE transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = AttoPublicKey(ByteArray(32)),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(100u),  // invalid
-                            amount = AttoAmount(0u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_BALANCE
-                ),
-                Arguments.of( // 25: RECEIVE transaction with invalid link - linked transaction has another target account
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            evenAnotherSendBlock,
-                            evenAnotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(evenAnotherSendBlock.getHash()), // not confirmed
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_LINK
-                ),
-                Arguments.of( // 26: OPEN transaction with invalid link - linked transaction has another target account
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            evenAnotherSendBlock,
-                            evenAnotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(evenAnotherSendBlock.getHash()),  // invalid link
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_LINK
-                ),
-                Arguments.of( // 27: RECEIVE transaction with invalid link - linked transaction has timestamp afterwards
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 1u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = anotherSendBlock.timestamp.minusSeconds(1)  // not confirmed
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_TIMESTAMP
-                ),
-                Arguments.of( // 28: OPEN transaction with invalid link - linked transaction has timestamp afterwards
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        )
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.OPEN,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 0u,
-                            previous = AttoHash(ByteArray(32)),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(100u),
-                            amount = AttoAmount(100u),
-                            timestamp = anotherSendBlock.timestamp // invalid link
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_TIMESTAMP
-                ),
-                Arguments.of( // 29: SEND transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(0u),
-                            amount = AttoAmount(50u),
-                            timestamp = anotherSendBlock.timestamp.minusSeconds(1)  // invalid
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_TIMESTAMP
-                ),
-                Arguments.of( // 30: RECEIVE transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.RECEIVE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = sendBlock.previous,
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherSendBlock.getHash()),
-                            balance = AttoAmount(150u),
-                            amount = AttoAmount(100u),
-                            timestamp = anotherSendBlock.timestamp  // invalid
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_TIMESTAMP
-                ),
-                Arguments.of( // 31: CHANGE transaction with invalid previous - invalid balance
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.CHANGE,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = AttoPublicKey(ByteArray(32)),
-                            link = AttoLink.from(AttoHash(ByteArray(32))),
-                            balance = AttoAmount(50u),
-                            amount = AttoAmount(0u),
-                            timestamp = anotherSendBlock.timestamp  // invalid
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_TIMESTAMP
-                ),
-                Arguments.of( // 32: SEND transaction with invalid previous - invalid balance (underflow)
-                    arrayListOf(
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            anotherSendBlock,
-                            anotherPrivateKey,
-                        ),
-                        createTransaction(
-                            TransactionStatus.CONFIRMED,
-                            receiveBlock,
-                            privateKey,
-                        ),
-                    ),
-                    createTransaction(
-                        TransactionStatus.RECEIVED,
-                        AttoBlock(
-                            type = AttoBlockType.SEND,
-                            version = 0u,
-                            publicKey = privateKey.toPublicKey(),
-                            height = 3u,
-                            previous = receiveBlock.getHash(),
-                            representative = privateKey.toPublicKey(),
-                            link = AttoLink.from(anotherPrivateKey.toPublicKey()),
-                            balance = AttoAmount(51u), // overflow
-                            amount = AttoAmount(ULong.MAX_VALUE),
-                            timestamp = Instant.now()
-                        ),
-                        privateKey,
-                    ),
-                    TransactionRejectionReasons.INVALID_BALANCE
-                )
-            )
+    fun createTransaction(
+        status: TransactionStatus,
+        block: AttoBlock
+    ): Transaction {
+        val work = if (block.type == AttoBlockType.OPEN) {
+            AttoWork.work(block.publicKey, thisNode.network)
+        } else {
+            AttoWork.work(block.previous, thisNode.network)
         }
 
-        private fun createTransaction(
-            status: TransactionStatus,
-            block: AttoBlock,
-            privateKey: AttoPrivateKey
-        ): Transaction {
-            val work = if (block.type == AttoBlockType.OPEN) {
-                AttoWork.work(block.publicKey, thisNode.network)
-            } else {
-                AttoWork.work(block.previous, thisNode.network)
-            }
-            return Transaction(
-                status = status,
-                block = block,
-                signature = privateKey.sign(block.getHash().value),
-                work = work,
-                receivedTimestamp = Instant.now()
-            )
-        }
+        val privateKey = privateKeyMap[block.publicKey]!!
+
+        return Transaction(
+            status = status,
+            block = block,
+            signature = privateKey.sign(block.getHash().value),
+            work = work,
+            receivedTimestamp = Instant.now()
+        )
     }
 }

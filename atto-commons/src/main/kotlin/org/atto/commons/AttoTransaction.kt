@@ -67,8 +67,9 @@ data class AttoBlock(
 ) {
 
     companion object {
-        private val zeros32 = ByteArray(32)
+        val zeros32 = ByteArray(32)
         val size = 163
+        val maxVersion: UShort = 0U
 
         fun fromByteArray(byteArray: ByteArray): AttoBlock? {
             if (size > byteArray.size) {
@@ -98,20 +99,23 @@ data class AttoBlock(
             return AttoLink.from(AttoHash(byteArray))
         }
 
-        fun open(publicKey: AttoPublicKey, representative: AttoPublicKey, linkBlock: AttoBlock): AttoBlock {
-            if (linkBlock.type != AttoBlockType.SEND) {
-                throw IllegalArgumentException("You can create Open blocks from ${AttoBlockType.SEND} but not ${linkBlock.type}")
+        fun open(publicKey: AttoPublicKey, representative: AttoPublicKey, sendBlock: AttoBlock): AttoBlock {
+            if (sendBlock.type != AttoBlockType.SEND) {
+                throw IllegalArgumentException("You can create Open blocks from ${AttoBlockType.SEND} but not ${sendBlock.type}")
+            }
+            if (sendBlock.link.publicKey != publicKey) {
+                throw IllegalArgumentException("You can't create an Open block for ${sendBlock.getHash()}")
             }
             return AttoBlock(
                 type = AttoBlockType.OPEN,
-                version = linkBlock.version,
+                version = sendBlock.version,
                 publicKey = publicKey,
                 height = 0U,
                 previous = AttoHash(zeros32),
                 representative = representative,
-                link = AttoLink.from(linkBlock.getHash()),
-                balance = linkBlock.amount,
-                amount = linkBlock.amount,
+                link = AttoLink.from(sendBlock.getHash()),
+                balance = sendBlock.amount,
+                amount = sendBlock.amount,
                 timestamp = Instant.now()
             )
         }
@@ -157,7 +161,7 @@ data class AttoBlock(
             return false
         }
 
-        if (version > 0u) {
+        if (version > maxVersion) {
             return false
         }
 
@@ -174,6 +178,10 @@ data class AttoBlock(
         }
 
         if (type == AttoBlockType.CHANGE && amount.raw > 0UL) {
+            return false
+        }
+
+        if (type != AttoBlockType.CHANGE && amount.raw == 0UL) {
             return false
         }
 
@@ -204,6 +212,12 @@ data class AttoBlock(
     }
 
     fun receive(sendBlock: AttoBlock): AttoBlock {
+        if (sendBlock.type != AttoBlockType.SEND) {
+            throw IllegalArgumentException("You can create Receive blocks from ${AttoBlockType.SEND} but not ${sendBlock.type}")
+        }
+        if (sendBlock.link.publicKey != publicKey) {
+            throw IllegalArgumentException("You can't create an Receive block for ${sendBlock.getHash()}")
+        }
         return AttoBlock(
             type = AttoBlockType.RECEIVE,
             version = max(version, sendBlock.version),
