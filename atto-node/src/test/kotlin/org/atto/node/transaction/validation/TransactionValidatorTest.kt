@@ -274,9 +274,10 @@ class TransactionValidatorTest {
 
         val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
 
+        Thread.sleep(1)
         val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
 
-        checkInvalid(TransactionRejectionReasons.LINK_NOT_FOUND, receiveBlockB, listOf())
+        checkInvalid(TransactionRejectionReasons.LINK_NOT_FOUND, receiveBlockB, listOf(existingOpenBlockB))
     }
 
     @Test
@@ -300,7 +301,11 @@ class TransactionValidatorTest {
         val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
             .copy(link = AttoLink.from(existingOpenBlockA.getHash()))
 
-        checkInvalid(TransactionRejectionReasons.INVALID_LINK, receiveBlockB, listOf(existingOpenBlockA))
+        checkInvalid(
+            TransactionRejectionReasons.INVALID_LINK,
+            receiveBlockB,
+            listOf(existingOpenBlockA, existingOpenBlockB)
+        )
     }
 
     @Test
@@ -322,7 +327,8 @@ class TransactionValidatorTest {
         val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
 
         Thread.sleep(1)
-        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA).copy(amount = AttoAmount.max)
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+            .copy(balance = AttoAmount(300UL), amount = AttoAmount(200UL))
 
         checkInvalid(
             TransactionRejectionReasons.INVALID_AMOUNT,
@@ -859,6 +865,23 @@ class TransactionValidatorTest {
         )
     }
 
+    @Test
+    fun `should publish LINK_ALREADY_USED when RECEIVE linked transaction is already used`() {
+        val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
+        val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
+
+        val existingOpenBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+
+        Thread.sleep(1)
+        val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
+
+        checkInvalid(
+            TransactionRejectionReasons.LINK_ALREADY_USED,
+            receiveBlockB,
+            listOf(existingOpenBlockA, existingSendBlockA, existingOpenBlockB)
+        )
+    }
+
 
     private fun checkValid(
         receivedBlock: AttoBlock,
@@ -929,7 +952,7 @@ class TransactionValidatorTest {
                 TransactionRejected(
                     thisNode.socketAddress,
                     reason,
-                    receivedTransaction
+                    receivedTransaction.copy(status = TransactionStatus.REJECTED)
                 )
             )
         }

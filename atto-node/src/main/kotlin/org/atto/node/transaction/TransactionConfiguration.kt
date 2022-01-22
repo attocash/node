@@ -84,7 +84,7 @@ class TransactionConfiguration {
                 val network = thisNode.network
                 val hash = genesisTransaction.hash
                 logger.info { "Initialized $network database with genesis transaction hash $hash" }
-            } else if (transactionRepository.findLastByPublicKeyId(genesisTransaction.block.publicKey) == null) {
+            } else if (transactionRepository.findLastConfirmedByPublicKeyId(genesisTransaction.block.publicKey) == null) {
                 throw IllegalStateException("Database initialized but doesn't contains current genesis account")
             }
         }

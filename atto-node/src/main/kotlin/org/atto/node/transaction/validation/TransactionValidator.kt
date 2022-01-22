@@ -144,22 +144,31 @@ class TransactionValidator(
         job.cancel()
     }
 
-    internal suspend fun process(transaction: Transaction) {
+    suspend fun process(transaction: Transaction): Transaction {
         val rejectionReason = validate(transaction)
         val socketAddress = socketAddresses.getIfPresent(transaction.hash)
 
-
         if (rejectionReason != null) {
-            val event = TransactionRejected(socketAddress, rejectionReason, transaction)
+            val rejectTransaction = transaction.copy(status = TransactionStatus.REJECTED)
+            val event = TransactionRejected(socketAddress, rejectionReason, rejectTransaction)
             sendEvent(event)
-        } else {
-            withContext(singleDispatcher) {
-                activeElections.add(transaction.hash)
-            }
-            val event = TransactionValidated(transaction.copy(status = TransactionStatus.VALIDATED))
-            sendEvent(event)
-            broadcast(transaction)
+            return rejectTransaction
         }
+
+        withContext(singleDispatcher) {
+            activeElections.add(transaction.hash)
+        }
+        val validatedTransaction = transaction.copy(status = TransactionStatus.VALIDATED)
+
+        if (socketAddresses.getIfPresent(validatedTransaction.hash) == null) {
+            transactionRepository.save(validatedTransaction)
+        }
+
+        val event = TransactionValidated(transaction.copy(status = TransactionStatus.VALIDATED))
+        sendEvent(event)
+        broadcast(transaction)
+
+        return validatedTransaction
     }
 
     private fun sendEvent(event: TransactionEvent) {
@@ -174,40 +183,8 @@ class TransactionValidator(
 
         val block = transaction.block
 
-        if (linkSupport.contains(block.type)) {
-            val linkTransaction = transactionRepository.findById(block.link.hash!!)
-
-            if (linkTransaction == null) {
-                return TransactionRejectionReasons.LINK_NOT_FOUND
-            }
-
-            if (linkTransaction.status != TransactionStatus.CONFIRMED) {
-                return TransactionRejectionReasons.LINK_NOT_CONFIRMED
-            }
-
-            if (linkTransaction.block.type != AttoBlockType.SEND) {
-                return TransactionRejectionReasons.INVALID_LINK
-            }
-
-            if (linkTransaction.block.amount != block.amount) {
-                return TransactionRejectionReasons.INVALID_AMOUNT
-            }
-
-            if (linkTransaction.block.timestamp >= block.timestamp) {
-                return TransactionRejectionReasons.INVALID_TIMESTAMP
-            }
-
-            if (linkTransaction.block.link.publicKey != transaction.block.publicKey) {
-                return TransactionRejectionReasons.INVALID_LINK
-            }
-
-            if (linkTransaction.block.version > transaction.block.version) {
-                return TransactionRejectionReasons.INVALID_VERSION
-            }
-        }
-
         if (previousSupport.contains(block.type)) {
-            val latestTransaction = transactionRepository.findLastByPublicKeyId(transaction.block.publicKey)
+            val latestTransaction = transactionRepository.findLastConfirmedByPublicKeyId(transaction.block.publicKey)
 
             if (latestTransaction == null) {
                 return TransactionRejectionReasons.ACCOUNT_NOT_FOUND
@@ -254,6 +231,42 @@ class TransactionValidator(
             }
         }
 
+        if (linkSupport.contains(block.type)) {
+            val linkTransaction = transactionRepository.findById(block.link.hash!!)
+
+            if (linkTransaction == null) {
+                return TransactionRejectionReasons.LINK_NOT_FOUND
+            }
+
+            if (linkTransaction.status != TransactionStatus.CONFIRMED) {
+                return TransactionRejectionReasons.LINK_NOT_CONFIRMED
+            }
+
+            if (linkTransaction.block.type != AttoBlockType.SEND) {
+                return TransactionRejectionReasons.INVALID_LINK
+            }
+
+            if (linkTransaction.block.amount != block.amount) {
+                return TransactionRejectionReasons.INVALID_AMOUNT
+            }
+
+            if (linkTransaction.block.timestamp >= block.timestamp) {
+                return TransactionRejectionReasons.INVALID_TIMESTAMP
+            }
+
+            if (linkTransaction.block.link.publicKey != transaction.block.publicKey) {
+                return TransactionRejectionReasons.INVALID_LINK
+            }
+
+            if (linkTransaction.block.version > transaction.block.version) {
+                return TransactionRejectionReasons.INVALID_VERSION
+            }
+
+            if (transactionRepository.findConfirmedByHashLink(linkTransaction.hash) != null) {
+                return TransactionRejectionReasons.LINK_ALREADY_USED
+            }
+        }
+
         return null
     }
 
@@ -264,16 +277,15 @@ class TransactionValidator(
         } else {
             BroadcastStrategy.MAJORITY
         }
-        val exceptions = if (socketAddress != null) setOf(socketAddress) else setOf()
+        val exceptions = setOfNotNull(socketAddress)
         val transactionPush = TransactionPush(transaction)
         val broadcast = BroadcastNetworkMessage(broadcastStrategy, exceptions, this, transactionPush)
         messagePublisher.publish(broadcast)
     }
 
-    internal fun getQueueSize(): Int {
+    fun getQueueSize(): Int {
         return queue.size()
     }
-
 
     internal suspend fun getPreviousBuffer(): Map<AttoHash, List<Transaction>> = withContext(singleDispatcher) {
         previousBuffer.entries.associate { it.key to it.value.toList() }

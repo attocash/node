@@ -7,6 +7,7 @@ import java.time.Instant
 
 enum class TransactionStatus(val valid: Boolean) {
     RECEIVED(false),
+    REJECTED(false),
     VALIDATED(true),
     CONFIRMED(true);
 

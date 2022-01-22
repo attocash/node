@@ -28,6 +28,7 @@ enum class TransactionRejectionReasons {
     PREVIOUS_NOT_CONFIRMED,
     LINK_NOT_FOUND,
     LINK_NOT_CONFIRMED,
+    LINK_ALREADY_USED,
     OLD_TRANSACTION,
 }
 

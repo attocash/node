@@ -47,7 +47,7 @@ class WalletService(
     }
 
     private suspend fun receive(sendBlock: AttoBlock) {
-        val latestTransaction = transactionRepository.findLastByPublicKeyId(thisNode.publicKey)
+        val latestTransaction = transactionRepository.findLastConfirmedByPublicKeyId(thisNode.publicKey)
 
         val receiveTransaction = if (latestTransaction == null) {
             val openBlock = AttoBlock.open(thisNode.publicKey, thisNode.publicKey, sendBlock)

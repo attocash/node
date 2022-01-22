@@ -114,11 +114,10 @@ class VoteValidator(
         job = GlobalScope.launch(CoroutineName("vote-validator")) {
             while (isActive) {
                 val hashVote = withContext(singleDispatcher) {
-                    val weightedHashVote = queue.poll()
-                    if (weightedHashVote != null) {
-                        process(weightedHashVote)
-                    }
-                    weightedHashVote
+                    queue.poll()
+                }
+                if (hashVote != null) {
+                    process(hashVote)
                 }
                 if (hashVote == null) {
                     delay(100)

@@ -36,6 +36,11 @@ class TransactionRepository(
         .maximumSize(properties.cacheMaxSize!!.toLong())
         .build()
 
+    private val hashLinkTransactions: Cache<AttoHash, Deferred<Transaction?>> = Caffeine.newBuilder()
+        .expireAfterAccess(properties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
+        .maximumSize(properties.cacheMaxSize!!.toLong())
+        .build()
+
     private val latestTransactions: Cache<AttoPublicKey, Deferred<Transaction?>> = Caffeine.newBuilder()
         .expireAfterAccess(properties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
         .maximumSize(properties.cacheMaxSize!!.toLong())
@@ -119,6 +124,7 @@ class TransactionRepository(
                                     :work,
                                     :receivedTimestamp
                         )
+                        ON DUPLICATE KEY UPDATE status = VALUES(status);
     """.trimIndent()
 
     override suspend fun save(entity: Transaction): Transaction {
@@ -143,16 +149,13 @@ class TransactionRepository(
             .fetch()
             .awaitRowsUpdated()
 
-        transactions.asMap().compute(transaction.hash) { _, _ -> scope.async { transaction } }
+        transactions.put(transaction.hash, scope.async { transaction })
 
-        latestTransactions.asMap().compute(transaction.block.publicKey) { _, value ->
-            scope.async {
-                val oldTransaction = value?.await()
-                if (oldTransaction == null || oldTransaction.block.height < transaction.block.height) {
-                    transaction
-                } else {
-                    value.await()
-                }
+        if (transaction.status == TransactionStatus.CONFIRMED) {
+            latestTransactions.put(transaction.block.publicKey, scope.async { transaction })
+
+            if (transaction.block.type == AttoBlockType.OPEN || transaction.block.type == AttoBlockType.RECEIVE) {
+                hashLinkTransactions.put(transaction.block.link.hash, scope.async { transaction })
             }
         }
 
@@ -171,15 +174,29 @@ class TransactionRepository(
         }?.await()
     }
 
-    suspend fun findLastByPublicKeyId(publicKey: AttoPublicKey): Transaction? {
+    suspend fun findConfirmedByHashLink(link: AttoHash): Transaction? {
+        return hashLinkTransactions.get(link) {
+            scope.async {
+                client.sql("SELECT * FROM transactions WHERE status = ? and link = ?")
+                    .bind(0, TransactionStatus.CONFIRMED)
+                    .bind(1, link.value)
+                    .map(transactionMappingFunction)
+                    .one()
+                    .awaitFirstOrNull()
+            }
+        }?.await()
+    }
+
+    suspend fun findLastConfirmedByPublicKeyId(publicKey: AttoPublicKey): Transaction? {
         val sql = """SELECT * FROM transactions t1
             |WHERE publicKey = ?
-            |AND height = (SELECT MAX(height) FROM transactions t2 where t1.publicKey = t2.publicKey)
+            |AND height = (SELECT MAX(height) FROM transactions t2 where t1.publicKey = t2.publicKey and t2.status = ?)
             |""".trimMargin()
         return latestTransactions.get(publicKey) {
             scope.async {
                 client.sql(sql)
                     .bind(0, publicKey.value)
+                    .bind(1, TransactionStatus.CONFIRMED)
                     .map(transactionMappingFunction)
                     .one()
                     .awaitFirstOrNull()

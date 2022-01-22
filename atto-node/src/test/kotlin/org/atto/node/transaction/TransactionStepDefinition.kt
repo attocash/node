@@ -27,7 +27,7 @@ class TransactionStepDefinition(
     fun sendTransaction(transactionShortId: String, shortId: String, receiverShortId: String) = runTest {
         val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
-        val latestTransaction = transactionRepository.findLastByPublicKeyId(publicKey)!!
+        val latestTransaction = transactionRepository.findLastConfirmedByPublicKeyId(publicKey)!!
 
         val receiverPublicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
 
@@ -52,7 +52,7 @@ class TransactionStepDefinition(
     fun changeTransaction(transactionShortId: String, shortId: String, representativeShortId: String) = runTest {
         val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
-        val latestTransaction = transactionRepository.findLastByPublicKeyId(publicKey)!!
+        val latestTransaction = transactionRepository.findLastConfirmedByPublicKeyId(publicKey)!!
 
         val receiverPublicKey = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
 
@@ -94,7 +94,7 @@ class TransactionStepDefinition(
 
         val transaction = waitUntilNonNull {
             runBlocking {
-                val matchingTransaction = transactionRepository.findLastByPublicKeyId(linkedPublicKey)
+                val matchingTransaction = transactionRepository.findLastConfirmedByPublicKeyId(linkedPublicKey)
                 if (matchingTransaction != null && matchingTransaction.block.link.hash == sendTransaction.hash) {
                     matchingTransaction
                 } else {

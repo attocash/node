@@ -22,10 +22,14 @@ class MockTransactionRepository(properties: TransactionProperties) :
         return transactions[id]
     }
 
-    override suspend fun findLastByPublicKeyId(publicKey: AttoPublicKey): Transaction? {
+    override suspend fun findLastConfirmedByPublicKeyId(publicKey: AttoPublicKey): Transaction? {
         return transactions.values
-            .filter { it.block.publicKey.value.contentEquals(publicKey.value) }
+            .filter { it.block.publicKey == publicKey }
             .maxByOrNull { it.block.height }
+    }
+
+    override suspend fun findConfirmedByHashLink(link: AttoHash): Transaction? {
+        return transactions.values.firstOrNull { it.block.link.hash == link }
     }
 
     override suspend fun findAnyTransaction(): Transaction? {
