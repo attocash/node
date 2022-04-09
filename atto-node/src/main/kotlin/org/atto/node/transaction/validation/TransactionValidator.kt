@@ -176,7 +176,7 @@ class TransactionValidator(
         eventPublisher.publish(event)
     }
 
-    private suspend fun validate(transaction: Transaction): TransactionRejectionReasons? {
+    suspend fun validate(transaction: Transaction): TransactionRejectionReasons? {
         if (!transaction.isValid(thisNode.network)) {
             return TransactionRejectionReasons.INVALID_TRANSACTION
         }
@@ -200,10 +200,6 @@ class TransactionValidator(
 
             if (latestTransaction.hash != transaction.block.previous) {
                 return TransactionRejectionReasons.INVALID_PREVIOUS
-            }
-
-            if (latestTransaction.status != TransactionStatus.CONFIRMED) {
-                return TransactionRejectionReasons.PREVIOUS_NOT_CONFIRMED
             }
 
             if (latestTransaction.block.timestamp >= block.timestamp) {

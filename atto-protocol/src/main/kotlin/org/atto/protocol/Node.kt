@@ -23,6 +23,11 @@ data class Node(
         return features.contains(NodeFeature.VOTING)
     }
 
+    @JsonIgnore
+    fun isHistorical(): Boolean {
+        return features.contains(NodeFeature.HISTORICAL)
+    }
+
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false

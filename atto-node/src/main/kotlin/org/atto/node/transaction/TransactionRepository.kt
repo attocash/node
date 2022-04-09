@@ -41,7 +41,7 @@ class TransactionRepository(
         .maximumSize(properties.cacheMaxSize!!.toLong())
         .build()
 
-    private val latestTransactions: Cache<AttoPublicKey, Deferred<Transaction?>> = Caffeine.newBuilder()
+    private val latestConfirmedTransactions: Cache<AttoPublicKey, Deferred<Transaction?>> = Caffeine.newBuilder()
         .expireAfterAccess(properties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
         .maximumSize(properties.cacheMaxSize!!.toLong())
         .build()
@@ -127,7 +127,7 @@ class TransactionRepository(
                         ON DUPLICATE KEY UPDATE status = VALUES(status);
     """.trimIndent()
 
-    override suspend fun save(entity: Transaction): Transaction {
+    internal suspend fun save(entity: Transaction): Transaction {
         val transaction = entity
         val block = transaction.block
         client.sql(insertStatement)
@@ -152,7 +152,7 @@ class TransactionRepository(
         transactions.put(transaction.hash, scope.async { transaction })
 
         if (transaction.status == TransactionStatus.CONFIRMED) {
-            latestTransactions.put(transaction.block.publicKey, scope.async { transaction })
+            latestConfirmedTransactions.put(transaction.block.publicKey, scope.async { transaction })
 
             if (transaction.block.type == AttoBlockType.OPEN || transaction.block.type == AttoBlockType.RECEIVE) {
                 hashLinkTransactions.put(transaction.block.link.hash, scope.async { transaction })
@@ -161,6 +161,15 @@ class TransactionRepository(
 
         return transaction
     }
+
+//    suspend fun removeAllUnconfirmedABelowHeight(publicKey: AttoPublicKey, height: Long) {
+//        client.sql("DELETE FROM transactions WHERE publicKey = ? and height < ? and status = ?")
+//            .bind(0, publicKey.value)
+//            .bind(1, height.toString())
+//            .bind(2, TransactionStatus.CONFIRMED)
+//            .then()
+//            .awaitFirstOrNull()
+//    }
 
     override suspend fun findById(id: AttoHash): Transaction? {
         return transactions.get(id) {
@@ -187,12 +196,32 @@ class TransactionRepository(
         }?.await()
     }
 
+    suspend fun findByStatusAndHashLink(status: TransactionStatus, link: AttoHash): List<Transaction> {
+        return client.sql("SELECT * FROM transactions WHERE status = ? and link = ?")
+            .bind(0, status)
+            .bind(1, link.value)
+            .map(transactionMappingFunction)
+            .all()
+            .collectList()
+            .awaitFirstOrNull()!!
+    }
+
+    suspend fun findByStatusAndPrevious(status: TransactionStatus, previous: AttoHash): List<Transaction> {
+        return client.sql("SELECT * FROM transactions WHERE status = ? and previous = ?")
+            .bind(0, status)
+            .bind(1, previous.value)
+            .map(transactionMappingFunction)
+            .all()
+            .collectList()
+            .awaitFirstOrNull()!!
+    }
+
     suspend fun findLastConfirmedByPublicKeyId(publicKey: AttoPublicKey): Transaction? {
         val sql = """SELECT * FROM transactions t1
             |WHERE publicKey = ?
             |AND height = (SELECT MAX(height) FROM transactions t2 where t1.publicKey = t2.publicKey and t2.status = ?)
             |""".trimMargin()
-        return latestTransactions.get(publicKey) {
+        return latestConfirmedTransactions.get(publicKey) {
             scope.async {
                 client.sql(sql)
                     .bind(0, publicKey.value)
@@ -203,6 +232,17 @@ class TransactionRepository(
             }
         }?.await()
     }
+
+//    suspend fun findLastByStatusesAndPublicKeyId(publicKey: AttoPublicKey): Transaction? {
+//        val sql = """SELECT * FROM transactions t1
+//            |WHERE publicKey = ?
+//            |AND height = (SELECT MAX(height) FROM transactions t2 where t1.publicKey = t2.publicKey)
+//            |""".trimMargin()
+//        return client.sql(sql)
+//            .map(transactionMappingFunction)
+//            .one()
+//            .awaitFirstOrNull()
+//    }
 
     suspend fun findAnyTransaction(): Transaction? {
         val sql = "SELECT * FROM transactions t1"
@@ -230,7 +270,7 @@ class TransactionRepository(
 
     override suspend fun deleteAll(): Int {
         transactions.invalidateAll()
-        latestTransactions.invalidateAll()
+        latestConfirmedTransactions.invalidateAll()
 
         return client.sql("DELETE FROM transactions")
             .fetch()

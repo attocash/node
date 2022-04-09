@@ -165,7 +165,7 @@ class VoteValidator(
         eventPublisher.publish(event)
     }
 
-    private fun validate(hashVote: HashVote): VoteRejectionReasons? {
+    public fun validate(hashVote: HashVote): VoteRejectionReasons? {
         if (!hashVote.isValid()) {
             return VoteRejectionReasons.INVALID_VOTE
         }

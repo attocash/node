@@ -7,9 +7,8 @@ import org.atto.node.EventPublisher
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
-import org.atto.node.transaction.TransactionConfirmed
 import org.atto.node.transaction.TransactionObserved
-import org.atto.node.transaction.TransactionRepository
+import org.atto.node.transaction.TransactionService
 import org.atto.node.transaction.TransactionStaled
 import org.atto.node.vote.election.ElectionObserver
 import org.atto.protocol.transaction.Transaction
@@ -23,23 +22,19 @@ class ElectionMonitor(
     private val scope: CoroutineScope,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher,
-    private val transactionRepository: TransactionRepository
+    private val transactionService: TransactionService,
 ) : ElectionObserver {
     private val logger = KotlinLogging.logger {}
 
     override suspend fun observed(transaction: Transaction) {
         val event = TransactionObserved(transaction)
         eventPublisher.publish(event)
-        logger.debug { "$event" }
     }
 
     override suspend fun confirmed(transaction: Transaction, hashVotes: Collection<HashVote>) {
         scope.launch {
             val confirmedTransaction = transaction.copy(status = TransactionStatus.CONFIRMED)
-            transactionRepository.save(confirmedTransaction)
-            val event = TransactionConfirmed(confirmedTransaction)
-            eventPublisher.publish(event)
-            logger.debug { "$event" }
+            transactionService.save(confirmedTransaction)
         }
     }
 

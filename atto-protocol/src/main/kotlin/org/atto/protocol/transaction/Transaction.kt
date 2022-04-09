@@ -9,6 +9,12 @@ enum class TransactionStatus(val valid: Boolean) {
     RECEIVED(false),
     REJECTED(false),
     VALIDATED(true),
+
+    /**
+     * This status exists when a transaction has enough quorum to be approved however not all dependencies are fulfilled
+     * The node will try to solve all dependencies, validate and confirm without a new election
+     */
+    VOTED(false),
     CONFIRMED(true);
 
     fun isValid(): Boolean {

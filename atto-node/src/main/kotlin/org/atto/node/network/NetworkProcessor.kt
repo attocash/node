@@ -57,7 +57,6 @@ class NetworkProcessor(
             logger.info { "Connected as a server to $socketAddress" }
             prepareConnection(socketAddress, it)
         }
-//        .wiretap(true)
         .bindNow()
 
     @PreDestroy
