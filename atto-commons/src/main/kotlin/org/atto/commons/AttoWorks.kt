@@ -81,6 +81,10 @@ data class AttoWork(val value: ByteArray) {
         value.checkLength(size)
     }
 
+    fun isValid(byteArray: ByteArray, network: AttoNetwork): Boolean {
+        return AttoWorks.isValid(byteArray, value, network)
+    }
+
     fun isValid(hash: AttoHash, network: AttoNetwork): Boolean {
         return AttoWorks.isValid(hash, this, network)
     }

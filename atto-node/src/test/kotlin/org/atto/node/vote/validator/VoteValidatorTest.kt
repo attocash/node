@@ -284,7 +284,7 @@ internal class VoteValidatorTest {
         }
 
         fun createTransaction(): Transaction {
-            val block = AttoBlock(
+            val block = AttoBlockOld(
                 type = AttoBlockType.RECEIVE,
                 version = 0u,
                 publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),

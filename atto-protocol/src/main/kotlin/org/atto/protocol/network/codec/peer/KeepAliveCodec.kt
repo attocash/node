@@ -1,16 +1,14 @@
 package org.atto.protocol.network.codec.peer
 
+import org.atto.commons.AttoByteBuffer
 import org.atto.protocol.network.MessageType
 import org.atto.protocol.network.codec.MessageCodec
 import org.atto.protocol.network.peer.KeepAlive
-import org.atto.protocol.toByteArray
-import org.atto.protocol.toInetSocketAddress
-import java.nio.ByteBuffer
 import java.util.stream.Collectors
 import java.util.stream.Stream
 
 class KeepAliveCodec : MessageCodec<KeepAlive> {
-    var zeros18 = ByteArray(18)
+    var emptySocketAddress = AttoByteBuffer(18).getInetSocketAddress()
 
     override fun messageType(): MessageType {
         return MessageType.KEEP_ALIVE
@@ -20,28 +18,27 @@ class KeepAliveCodec : MessageCodec<KeepAlive> {
         return KeepAlive::class.java
     }
 
-    override fun fromByteArray(byteArray: ByteArray): KeepAlive? {
-        if (byteArray.size < KeepAlive.size) {
+    override fun fromByteBuffer(byteBuffer: AttoByteBuffer): KeepAlive? {
+        if (byteBuffer.size < KeepAlive.size) {
             return null
         }
 
         val neighbours = Stream.iterate(0) { i -> i + 18 }
             .limit(8)
-            .map { i -> byteArray.sliceArray(i until i + 18) }
-            .filter { !it.contentEquals(zeros18) }
-            .map { it.toInetSocketAddress() }
+            .map { i -> byteBuffer.getInetSocketAddress() }
+            .filter { it != emptySocketAddress }
             .collect(Collectors.toList())
 
         return KeepAlive(neighbours = neighbours)
     }
 
-    override fun toByteArray(t: KeepAlive): ByteArray {
-        val byteBuffer = ByteBuffer.allocate(KeepAlive.size)
+    override fun toByteBuffer(t: KeepAlive): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(KeepAlive.size)
 
         for (neighbour in t.neighbours) {
-            byteBuffer.put(neighbour.toByteArray())
+            byteBuffer.add(neighbour)
         }
 
-        return byteBuffer.array()
+        return byteBuffer
     }
 }

@@ -46,7 +46,7 @@ internal class TransactionQueueTest {
 
 
     private fun createTransaction(amount: ULong, receivedTimestamp: Instant): Transaction {
-        val block = AttoBlock(
+        val block = AttoBlockOld(
             type = AttoBlockType.RECEIVE,
             version = 0u,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),

@@ -39,8 +39,8 @@ internal class HandshakeAnswerCodecTest {
         )
 
         // when
-        val byteArray = codec.toByteArray(expectedHandshakeAnswer)
-        val handshakeAnswer = codec.fromByteArray(byteArray)
+        val byteBuffer = codec.toByteBuffer(expectedHandshakeAnswer)
+        val handshakeAnswer = codec.fromByteBuffer(byteBuffer)
 
         // then
         assertEquals(expectedHandshakeAnswer, handshakeAnswer)

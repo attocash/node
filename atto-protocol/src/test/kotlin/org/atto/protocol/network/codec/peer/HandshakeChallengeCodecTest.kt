@@ -23,8 +23,8 @@ internal class HandshakeChallengeCodecTest {
         )
 
         // when
-        val byteArray = codec.toByteArray(expectedHandshakeChallenge)
-        val handshakeChallenge = codec.fromByteArray(byteArray)
+        val byteBuffer = codec.toByteBuffer(expectedHandshakeChallenge)
+        val handshakeChallenge = codec.fromByteBuffer(byteBuffer)
 
         // then
         assertEquals(expectedHandshakeChallenge, handshakeChallenge)

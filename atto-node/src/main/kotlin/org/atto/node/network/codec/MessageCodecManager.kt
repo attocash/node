@@ -23,7 +23,7 @@ class MessageCodecManager(val thisNode: Node, codecs: List<MessageCodec<*>>) {
             return null
         }
 
-        val network = AttoNetwork.fromCode(byteArray.sliceArray(0 until 3).toString(Charsets.UTF_8))
+        val network = AttoNetwork.from(byteArray.sliceArray(0 until 3).toString(Charsets.UTF_8))
 
         if (thisNode.network != network) {
             return null
@@ -49,7 +49,7 @@ class MessageCodecManager(val thisNode: Node, codecs: List<MessageCodec<*>>) {
 
         val messageByteArray = byteArray.sliceArray(8 until byteArray.size)
 
-        return codecMap[type]!!.fromByteArray(messageByteArray)
+        return codecMap[type]!!.fromByteBuffer(messageByteArray)
     }
 
     @Suppress("UNCHECKED_CAST")

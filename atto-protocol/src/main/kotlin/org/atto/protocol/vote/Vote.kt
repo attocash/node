@@ -13,17 +13,24 @@ data class Vote(
         val size = 104
         val finalTimestamp = Instant.ofEpochMilli(Long.MAX_VALUE)
 
-        fun fromByteArray(byteArray: ByteArray): Vote? {
-            if (byteArray.size < size) {
+        fun fromByteBuffer(byteBuffer: AttoByteBuffer): Vote? {
+            if (byteBuffer.size < size) {
                 return null
             }
 
             return Vote(
-                timestamp = byteArray.sliceArray(0 until 8).toInstant(),
-                publicKey = AttoPublicKey(byteArray.sliceArray(8 until 40)),
-                signature = AttoSignature(byteArray.sliceArray(40 until size))
+                timestamp = byteBuffer.getInstant(),
+                publicKey = byteBuffer.getPublicKey(),
+                signature = byteBuffer.getSignature()
             )
         }
+    }
+
+    fun toByteBuffer(): AttoByteBuffer {
+        return AttoByteBuffer(size)
+            .add(timestamp)
+            .add(publicKey)
+            .add(signature)
     }
 
     fun isFinal(): Boolean {

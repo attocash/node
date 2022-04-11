@@ -10,7 +10,7 @@ enum class AttoNetwork(val environment: String, val threshold: ULong) {
 
     companion object {
         private val map = values().associateBy { it.environment }
-        fun fromCode(environment: String): AttoNetwork {
+        fun from(environment: String): AttoNetwork {
             return map.getOrDefault(environment, UNKNOWN)
         }
     }

@@ -19,28 +19,30 @@ internal class TransactionCodecTest {
     @Test
     fun `should deserialize and serialize`() {
         // given
-        val block = AttoBlock(
-            type = AttoBlockType.OPEN,
+        val block = AttoOpenBlock(
             version = 0u,
             publicKey = privateKey.toPublicKey(),
-            height = 0u,
-            previous = AttoHash(ByteArray(32)),
-            representative = privateKey.toPublicKey(),
-            link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
             balance = AttoAmount(100u),
-            amount = AttoAmount(100u),
-            timestamp = Instant.now().toByteArray().toInstant()
+            timestamp = Instant.now().toByteArray().toInstant(),
+            sendHash = AttoHash(Random.Default.nextBytes(ByteArray(32))),
+            representative = privateKey.toPublicKey(),
         )
-        val expectedTransaction = Transaction(
-            status = TransactionStatus.RECEIVED,
+        val attoTransaction = AttoTransaction(
             block = block,
             signature = privateKey.sign(block.getHash().value),
             work = AttoWork.work(block.publicKey, AttoNetwork.LOCAL),
-            receivedTimestamp = Instant.now()
         )
 
+        val expectedTransaction = Transaction(
+            attoTransaction,
+            status = TransactionStatus.RECEIVED,
+            receivedTimestamp = Instant.now(),
+        )
+
+
         // when
-        val transaction = codec.fromByteArray(expectedTransaction.toByteArray())!!
+        val byteBuffer = expectedTransaction.toByteBuffer();
+        val transaction = codec.fromByteBuffer(byteBuffer)!!
 
         // then
         assertEquals(expectedTransaction, transaction)

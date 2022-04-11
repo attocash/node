@@ -15,14 +15,15 @@ object AttoHashes {
 }
 
 data class AttoHash(val value: ByteArray) {
-    init {
-        value.checkLength(32)
-    }
-
     companion object {
+        val size = 32;
         fun parse(value: String): AttoHash {
             return AttoHash(value.fromHexToByteArray())
         }
+    }
+
+    init {
+        value.checkLength(size)
     }
 
     override fun equals(other: Any?): Boolean {

@@ -22,8 +22,8 @@ internal class KeepAliveCodecTest {
         )
 
         // when
-        val byteArray = codec.toByteArray(expectedKeepAlive)
-        val keepAlive = codec.fromByteArray(byteArray)
+        val byteBuffer = codec.toByteBuffer(expectedKeepAlive)
+        val keepAlive = codec.fromByteBuffer(byteBuffer)
 
         // then
         assertEquals(expectedKeepAlive, keepAlive)

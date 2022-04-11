@@ -1,5 +1,6 @@
 package org.atto.protocol.network.codec.peer.handshake
 
+import org.atto.commons.AttoByteBuffer
 import org.atto.protocol.network.MessageType
 import org.atto.protocol.network.codec.MessageCodec
 import org.atto.protocol.network.handshake.HandshakeChallenge
@@ -14,17 +15,17 @@ class HandshakeChallengeCodec : MessageCodec<HandshakeChallenge> {
         return HandshakeChallenge::class.java
     }
 
-    override fun fromByteArray(byteArray: ByteArray): HandshakeChallenge? {
-        if (byteArray.size < HandshakeChallenge.size) {
+    override fun fromByteBuffer(byteBuffer: AttoByteBuffer): HandshakeChallenge? {
+        if (byteBuffer.size < HandshakeChallenge.size) {
             return null
         }
 
         return HandshakeChallenge(
-            value = byteArray.sliceArray(0 until HandshakeChallenge.size)
+            value = byteBuffer.getByteArray(0, HandshakeChallenge.size)
         )
     }
 
-    override fun toByteArray(t: HandshakeChallenge): ByteArray {
-        return t.value
+    override fun toByteBuffer(t: HandshakeChallenge): AttoByteBuffer {
+        return AttoByteBuffer(HandshakeChallenge.size).add(t.value)
     }
 }

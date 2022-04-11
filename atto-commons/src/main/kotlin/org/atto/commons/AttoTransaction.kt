@@ -1,8 +1,8 @@
 package org.atto.commons
 
-import com.fasterxml.jackson.annotation.JsonIgnore
-import java.nio.ByteBuffer
 import java.time.Instant
+
+val maxVersion: UShort = 0U
 
 enum class AttoBlockType(val code: UByte) {
     OPEN(0u),
@@ -20,303 +20,578 @@ enum class AttoBlockType(val code: UByte) {
     }
 }
 
-data class AttoLink private constructor(val publicKey: AttoPublicKey?, val hash: AttoHash?) {
-    companion object {
-        val empty = from(AttoHash(ByteArray(32)))
-
-        fun from(publicKey: AttoPublicKey): AttoLink {
-            return AttoLink(publicKey, null)
-        }
-
-        fun from(hash: AttoHash): AttoLink {
-            return AttoLink(null, hash)
-        }
-
-        fun parse(value: String): AttoLink {
-            if (value.startsWith("atto_")) {
-                return from(AttoAccount.parse(value).toPublicKey())
-            }
-            return from(AttoHash.parse(value))
-        }
-    }
-
-    fun toByteArray(): ByteArray {
-        return hash?.value ?: publicKey!!.value
-    }
-
-    override fun toString(): String {
-        if (publicKey != null) {
-            return publicKey.toAccount().toString()
-        }
-        return hash.toString()
-    }
-
-}
-
-data class AttoBlock(
-    var type: AttoBlockType,
+abstract class AttoBlock(
     val version: UShort,
     val publicKey: AttoPublicKey,
-    var height: ULong,
-    val previous: AttoHash,
-    val representative: AttoPublicKey,
-    val link: AttoLink,
+    val height: ULong,
     val balance: AttoAmount,
-    val amount: AttoAmount,
-    val timestamp: Instant
+    val timestamp: Instant,
 ) {
-
     companion object {
-        val zeros32 = ByteArray(32)
-        val size = 163
-        val maxVersion: UShort = 0U
-
-        fun fromByteArray(byteArray: ByteArray): AttoBlock? {
-            if (size > byteArray.size) {
-                return null
+        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoBlock? {
+            val type = byteBuffer.getBlockType()
+            return when (type) {
+                AttoBlockType.SEND -> {
+                    AttoSendBlock.fromByteBuffer(byteBuffer)
+                }
+                AttoBlockType.RECEIVE -> {
+                    AttoReceiveBlock.fromByteBuffer(byteBuffer)
+                }
+                AttoBlockType.OPEN -> {
+                    AttoOpenBlock.fromByteBuffer(byteBuffer)
+                }
+                AttoBlockType.CHANGE -> {
+                    AttoChangeBlock.fromByteBuffer(byteBuffer)
+                }
+                AttoBlockType.UNKNOWN -> {
+                    return null
+                }
             }
-
-            val type = AttoBlockType.from(byteArray.sliceArray(0 until 1)[0].toUByte())
-
-            return AttoBlock(
-                type = type,
-                version = byteArray.sliceArray(1 until 3).toUShort(),
-                publicKey = AttoPublicKey(byteArray.sliceArray(3 until 35)),
-                height = byteArray.sliceArray(35 until 43).toULong(),
-                previous = AttoHash(byteArray.sliceArray(43 until 75)),
-                representative = AttoPublicKey(byteArray.sliceArray(75 until 107)),
-                link = getLink(type, byteArray.sliceArray(107 until 139)),
-                balance = AttoAmount(byteArray.sliceArray(139 until 147).toULong()),
-                amount = AttoAmount(byteArray.sliceArray(147 until 155).toULong()),
-                timestamp = byteArray.sliceArray(155 until AttoBlock.size).toInstant()
-            )
-        }
-
-        private fun getLink(type: AttoBlockType, byteArray: ByteArray): AttoLink {
-            if (type == AttoBlockType.SEND) {
-                return AttoLink.from(AttoPublicKey(byteArray))
-            }
-            return AttoLink.from(AttoHash(byteArray))
-        }
-
-        fun open(publicKey: AttoPublicKey, representative: AttoPublicKey, sendBlock: AttoBlock): AttoBlock {
-            if (sendBlock.type != AttoBlockType.SEND) {
-                throw IllegalArgumentException("You can create Open blocks from ${AttoBlockType.SEND} but not ${sendBlock.type}")
-            }
-            if (sendBlock.link.publicKey != publicKey) {
-                throw IllegalArgumentException("You can't create an Open block for ${sendBlock.getHash()}")
-            }
-            return AttoBlock(
-                type = AttoBlockType.OPEN,
-                version = sendBlock.version,
-                publicKey = publicKey,
-                height = 0U,
-                previous = AttoHash(zeros32),
-                representative = representative,
-                link = AttoLink.from(sendBlock.getHash()),
-                balance = sendBlock.amount,
-                amount = sendBlock.amount,
-                timestamp = Instant.now()
-            )
         }
     }
 
-    init {
-        if (type == AttoBlockType.OPEN) {
-            require(link.hash != null) { "Open block should have hash link" }
-        } else if (type == AttoBlockType.RECEIVE) {
-            require(link.hash != null) { "Receive block should have hash link" }
-        } else if (type == AttoBlockType.SEND) {
-            require(link.publicKey != null) { "Send block should have public key as link" }
-        }
-    }
+    abstract fun toByteBuffer(): AttoByteBuffer
 
-    @JsonIgnore
-    fun getHash(): AttoHash {
-        return AttoHash(AttoHashes.hash(32, toByteArray()))
-    }
+    abstract fun getSize(): Int
 
-    @JsonIgnore
-    fun toByteArray(): ByteArray {
-        return ByteBuffer.allocate(size)
-            .put(type.code.toByte())
-            .putShort(version.toShort())
-            .put(publicKey.value)
-            .putLong(height.toLong())
-            .put(previous.value)
-            .put(representative.value)
-            .put(link.toByteArray())
-            .put(balance.toByteArray())
-            .put(amount.toByteArray())
-            .put(timestamp.toByteArray())
-            .array()
-    }
+    abstract fun getHash(): AttoHash
 
-    /**
-     * Minimal block validation. This method doesn't check this transaction against the ledger so further validations are required.
-     */
-    @JsonIgnore
-    fun isValid(): Boolean {
-        if (type == AttoBlockType.UNKNOWN) {
-            return false
-        }
+    abstract fun getType(): AttoBlockType
 
-        if (version > maxVersion) {
-            return false
-        }
+    abstract fun getWorkInfo(): ByteArray // ugly name rename
 
-        if (type == AttoBlockType.OPEN && amount.raw != balance.raw) {
-            return false
-        }
-
-        if (type == AttoBlockType.OPEN && height > 0UL) {
-            return false
-        }
-
-        if (type != AttoBlockType.OPEN && height == 0UL) {
-            return false
-        }
-
-        if (type == AttoBlockType.CHANGE && amount.raw > 0UL) {
-            return false
-        }
-
-        if (type != AttoBlockType.CHANGE && amount.raw == 0UL) {
-            return false
-        }
-
-        if (type == AttoBlockType.CHANGE && !link.toByteArray().contentEquals(zeros32)) {
-            return false
-        }
-
-        if (type == AttoBlockType.SEND && link.publicKey!!.value.contentEquals(publicKey.value)) {
-            return false
-        }
-
-        return true
-    }
-
-    fun send(linkPublicKey: AttoPublicKey, amount: AttoAmount): AttoBlock {
-        return AttoBlock(
-            type = AttoBlockType.SEND,
-            version = version,
-            publicKey = publicKey,
-            height = height + 1U,
-            previous = getHash(),
-            representative = representative,
-            link = AttoLink.from(linkPublicKey),
-            balance = balance.minus(amount),
-            amount = amount,
-            timestamp = Instant.now()
-        )
-    }
-
-    fun receive(sendBlock: AttoBlock): AttoBlock {
-        if (sendBlock.type != AttoBlockType.SEND) {
-            throw IllegalArgumentException("You can create Receive blocks from ${AttoBlockType.SEND} but not ${sendBlock.type}")
-        }
-        if (sendBlock.link.publicKey != publicKey) {
-            throw IllegalArgumentException("You can't create an Receive block for ${sendBlock.getHash()}")
-        }
-        return AttoBlock(
-            type = AttoBlockType.RECEIVE,
-            version = max(version, sendBlock.version),
-            publicKey = publicKey,
-            height = height + 1U,
-            previous = getHash(),
-            representative = representative,
-            link = AttoLink.from(sendBlock.getHash()),
-            balance = balance.plus(sendBlock.amount),
-            amount = sendBlock.amount,
-            timestamp = Instant.now()
-        )
-    }
-
-    fun change(representative: AttoPublicKey): AttoBlock {
-        return AttoBlock(
-            type = AttoBlockType.CHANGE,
-            version = version,
-            publicKey = publicKey,
-            height = height + 1U,
-            previous = getHash(),
-            representative = representative,
-            link = AttoLink.empty,
-            balance = balance,
-            amount = AttoAmount.min,
-            timestamp = Instant.now()
-        )
+    open fun isValid(): Boolean {
+        return version <= maxVersion
     }
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
-        if (javaClass != other?.javaClass) return false
+        if (other !is AttoBlock) return false
 
-        other as AttoBlock
-
-        if (type != other.type) return false
         if (version != other.version) return false
         if (publicKey != other.publicKey) return false
         if (height != other.height) return false
-        if (previous != other.previous) return false
-        if (representative != other.representative) return false
-        if (link != other.link) return false
         if (balance != other.balance) return false
-        if (amount != other.amount) return false
-        if (timestamp.epochSecond != other.timestamp.epochSecond) return false // we need to ignore nanosecond
+        if (timestamp != other.timestamp) return false
 
         return true
     }
 
     override fun hashCode(): Int {
-        var result = type.hashCode()
-        result = 31 * result + version.hashCode()
+        var result = version.hashCode()
         result = 31 * result + publicKey.hashCode()
         result = 31 * result + height.hashCode()
-        result = 31 * result + previous.hashCode()
-        result = 31 * result + representative.hashCode()
-        result = 31 * result + link.hashCode()
         result = 31 * result + balance.hashCode()
-        result = 31 * result + amount.hashCode()
-        result = 31 * result + timestamp.epochSecond.hashCode() // we need to ignore nanosecond
+        result = 31 * result + timestamp.hashCode()
         return result
     }
 }
 
-open class AttoTransaction(
-    open val block: AttoBlock,
-    open val signature: AttoSignature,
-    open val work: AttoWork,
-    open val hash: AttoHash = block.getHash()
-) {
+sealed interface PreviousSupport {
+    fun getPrevious(): AttoHash
+}
 
-    open fun toByteArray(): ByteArray {
-        return ByteBuffer.allocate(size)
-            .put(block.toByteArray())
-            .put(signature.value)
-            .put(work.value)
-            .array()
-    }
+sealed interface ReceiveSupport {
+    fun getSendHash(): AttoHash
+}
+
+sealed interface RepresentativeSupport {
+    fun getRepresentative(): AttoPublicKey
+}
+
+class AttoSendBlock(
+    version: UShort,
+    publicKey: AttoPublicKey,
+    height: ULong,
+    balance: AttoAmount,
+    timestamp: Instant,
+    private val previous: AttoHash,
+    val receiverPublicKey: AttoPublicKey,
+    val amount: AttoAmount,
+) : AttoBlock(version = version, publicKey = publicKey, height = height, balance = balance, timestamp = timestamp),
+    PreviousSupport {
+    private val hash = toByteBuffer().getHash()
 
     companion object {
-        val size = 235
+        val size = 131
 
-        fun fromByteArray(network: AttoNetwork, byteArray: ByteArray): AttoTransaction? {
-            if (byteArray.size < size) {
+        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoSendBlock? {
+            if (size > byteBuffer.size) {
                 return null
             }
 
-            val block = AttoBlock.fromByteArray(byteArray) ?: return null
+            val blockType = byteBuffer.getBlockType(0)
+            if (blockType != AttoBlockType.SEND) {
+                throw IllegalArgumentException("Invalid block type: $blockType")
+            }
 
-            val receivedTimestamp = Instant.now()
+            return AttoSendBlock(
+                version = byteBuffer.getUShort(),
+                publicKey = byteBuffer.getPublicKey(),
+                height = byteBuffer.getULong(),
+                balance = byteBuffer.getAmount(),
+                timestamp = byteBuffer.getInstant(),
+                previous = byteBuffer.getHash(),
+                receiverPublicKey = byteBuffer.getPublicKey(),
+                amount = byteBuffer.getAmount(),
+            )
+        }
+    }
 
-            if (block.timestamp > receivedTimestamp) {
+    override fun toByteBuffer(): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(size)
+        return byteBuffer
+            .add(getType())
+            .add(version)
+            .add(publicKey)
+            .add(height)
+            .add(balance)
+            .add(timestamp)
+            .add(previous)
+            .add(receiverPublicKey)
+            .add(amount)
+    }
+
+    override fun getType(): AttoBlockType {
+        return AttoBlockType.SEND
+    }
+
+    override fun getWorkInfo(): ByteArray {
+        return previous.value
+    }
+
+    override fun getSize(): Int {
+        return size
+    }
+
+    override fun getHash(): AttoHash {
+        return hash
+    }
+
+    override fun getPrevious(): AttoHash {
+        return previous
+    }
+
+    override fun isValid(): Boolean {
+        return super.isValid() && height > 0u && amount.raw > 0u && receiverPublicKey != publicKey
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AttoSendBlock) return false
+        if (!super.equals(other)) return false
+
+        if (previous != other.previous) return false
+        if (receiverPublicKey != other.receiverPublicKey) return false
+        if (amount != other.amount) return false
+        if (hash != other.hash) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + previous.hashCode()
+        result = 31 * result + receiverPublicKey.hashCode()
+        result = 31 * result + amount.hashCode()
+        result = 31 * result + hash.hashCode()
+        return result
+    }
+
+
+}
+
+open class AttoReceiveBlock(
+    version: UShort,
+    publicKey: AttoPublicKey,
+    height: ULong,
+    balance: AttoAmount,
+    timestamp: Instant,
+    private val previous: AttoHash,
+    private val sendHash: AttoHash,
+) : AttoBlock(version = version, publicKey = publicKey, height = height, balance = balance, timestamp = timestamp),
+    PreviousSupport, ReceiveSupport {
+    private val hash = toByteBuffer().getHash()
+
+    companion object {
+        val size = 123
+
+        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoReceiveBlock? {
+            if (size > byteBuffer.size) {
+                return null
+            }
+
+            val blockType = byteBuffer.getBlockType(0)
+            if (blockType != AttoBlockType.RECEIVE) {
+                throw IllegalArgumentException("Invalid block type: $blockType")
+            }
+
+            return AttoReceiveBlock(
+                version = byteBuffer.getUShort(),
+                publicKey = byteBuffer.getPublicKey(),
+                height = byteBuffer.getULong(),
+                balance = byteBuffer.getAmount(),
+                timestamp = byteBuffer.getInstant(),
+                previous = byteBuffer.getHash(),
+                sendHash = byteBuffer.getHash()
+            )
+        }
+    }
+
+    override fun toByteBuffer(): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(size)
+        return byteBuffer
+            .add(getType())
+            .add(version)
+            .add(publicKey)
+            .add(height)
+            .add(balance)
+            .add(timestamp)
+            .add(previous)
+            .add(sendHash)
+    }
+
+    override fun getType(): AttoBlockType {
+        return AttoBlockType.RECEIVE
+    }
+
+    override fun getWorkInfo(): ByteArray {
+        return previous.value
+    }
+
+    override fun getSize(): Int {
+        return size
+    }
+
+    override fun getHash(): AttoHash {
+        return hash
+    }
+
+    override fun getPrevious(): AttoHash {
+        return previous
+    }
+
+    override fun getSendHash(): AttoHash {
+        return sendHash
+    }
+
+    override fun isValid(): Boolean {
+        return super.isValid() && height > 0u && balance > AttoAmount.min
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AttoReceiveBlock) return false
+        if (!super.equals(other)) return false
+
+        if (previous != other.previous) return false
+        if (sendHash != other.sendHash) return false
+        if (hash != other.hash) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + previous.hashCode()
+        result = 31 * result + sendHash.hashCode()
+        result = 31 * result + hash.hashCode()
+        return result
+    }
+
+}
+
+class AttoOpenBlock(
+    version: UShort,
+    publicKey: AttoPublicKey,
+    balance: AttoAmount,
+    timestamp: Instant,
+    private val sendHash: AttoHash,
+    private val representative: AttoPublicKey,
+) : AttoBlock(version = version, publicKey = publicKey, height = 0u, balance = balance, timestamp = timestamp),
+    ReceiveSupport, RepresentativeSupport {
+    private val hash = toByteBuffer().getHash()
+
+    companion object {
+        val size = 115
+
+        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoOpenBlock? {
+            if (size > byteBuffer.size) {
+                return null
+            }
+
+            val blockType = byteBuffer.getBlockType(0)
+            if (blockType != AttoBlockType.OPEN) {
+                throw IllegalArgumentException("Invalid block type: $blockType")
+            }
+
+            return AttoOpenBlock(
+                version = byteBuffer.getUShort(),
+                publicKey = byteBuffer.getPublicKey(),
+                balance = byteBuffer.getAmount(),
+                timestamp = byteBuffer.getInstant(),
+                sendHash = byteBuffer.getHash(),
+                representative = byteBuffer.getPublicKey(),
+            )
+        }
+    }
+
+    override fun toByteBuffer(): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(size)
+        return byteBuffer
+            .add(getType())
+            .add(version)
+            .add(publicKey)
+            .add(balance)
+            .add(timestamp)
+            .add(sendHash)
+            .add(representative)
+    }
+
+    override fun getType(): AttoBlockType {
+        return AttoBlockType.OPEN
+    }
+
+    override fun getWorkInfo(): ByteArray {
+        return publicKey.value
+    }
+
+    override fun getSize(): Int {
+        return size
+    }
+
+    override fun getHash(): AttoHash {
+        return hash
+    }
+
+    override fun getSendHash(): AttoHash {
+        return sendHash
+    }
+
+    override fun getRepresentative(): AttoPublicKey {
+        return representative
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AttoOpenBlock) return false
+        if (!super.equals(other)) return false
+
+        if (sendHash != other.sendHash) return false
+        if (representative != other.representative) return false
+        if (hash != other.hash) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + sendHash.hashCode()
+        result = 31 * result + representative.hashCode()
+        result = 31 * result + hash.hashCode()
+        return result
+    }
+
+}
+
+
+class AttoChangeBlock(
+    version: UShort,
+    publicKey: AttoPublicKey,
+    height: ULong,
+    balance: AttoAmount,
+    timestamp: Instant,
+    private val previous: AttoHash,
+    private val representative: AttoPublicKey,
+) : AttoBlock(version = version, publicKey = publicKey, height = height, balance = balance, timestamp = timestamp),
+    PreviousSupport, RepresentativeSupport {
+    private val hash = toByteBuffer().getHash()
+
+    companion object {
+        val size = 123
+
+        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoChangeBlock? {
+            if (size > byteBuffer.size) {
+                return null
+            }
+
+            val blockType = byteBuffer.getBlockType(0)
+            if (blockType != AttoBlockType.CHANGE) {
+                throw IllegalArgumentException("Invalid block type: $blockType")
+            }
+
+            return AttoChangeBlock(
+                version = byteBuffer.getUShort(),
+                publicKey = byteBuffer.getPublicKey(),
+                height = byteBuffer.getULong(),
+                balance = byteBuffer.getAmount(),
+                timestamp = byteBuffer.getInstant(),
+                previous = byteBuffer.getHash(),
+                representative = byteBuffer.getPublicKey(),
+            )
+        }
+    }
+
+    override fun toByteBuffer(): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(size)
+        return byteBuffer
+            .add(getType())
+            .add(version)
+            .add(publicKey)
+            .add(balance)
+            .add(timestamp)
+            .add(previous)
+            .add(representative)
+    }
+
+    override fun getType(): AttoBlockType {
+        return AttoBlockType.CHANGE
+    }
+
+    override fun getWorkInfo(): ByteArray {
+        return previous.value
+    }
+
+    override fun getSize(): Int {
+        return size
+    }
+
+    override fun getHash(): AttoHash {
+        return hash
+    }
+
+    override fun getPrevious(): AttoHash {
+        return previous
+    }
+
+    override fun getRepresentative(): AttoPublicKey {
+        return representative
+    }
+
+    override fun isValid(): Boolean {
+        return super.isValid() && height > 0u
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AttoChangeBlock) return false
+        if (!super.equals(other)) return false
+
+        if (previous != other.previous) return false
+        if (representative != other.representative) return false
+        if (hash != other.hash) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = super.hashCode()
+        result = 31 * result + previous.hashCode()
+        result = 31 * result + representative.hashCode()
+        result = 31 * result + hash.hashCode()
+        return result
+    }
+}
+
+
+class AccountState(
+    val publicKey: AttoPublicKey,
+    val version: UShort,
+    var height: ULong,
+    val representative: AttoPublicKey,
+    val balance: AttoAmount,
+    val lastHash: AttoHash,
+    val lastTransactionTimestamp: Instant,
+) {
+
+    companion object {
+        fun open(publicKey: AttoPublicKey, representative: AttoPublicKey, sendBlock: AttoSendBlock): AttoOpenBlock {
+            if (sendBlock.receiverPublicKey != publicKey) {
+                throw IllegalArgumentException("You can't create an Open block for ${sendBlock.getHash()}")
+            }
+            return AttoOpenBlock(
+                version = sendBlock.version,
+                publicKey = publicKey,
+                balance = sendBlock.amount,
+                timestamp = Instant.now(),
+                sendHash = sendBlock.getHash(),
+                representative = representative,
+            )
+        }
+    }
+
+    fun send(publicKey: AttoPublicKey, amount: AttoAmount): AttoSendBlock {
+        if (publicKey == this.publicKey) {
+            throw IllegalArgumentException("You can't send money to yourself");
+        }
+        return AttoSendBlock(
+            version = version,
+            publicKey = this.publicKey,
+            height = height + 1U,
+            balance = balance.minus(amount),
+            timestamp = Instant.now(),
+            previous = lastHash,
+            receiverPublicKey = publicKey,
+            amount = amount,
+        )
+    }
+
+    fun receive(sendBlock: AttoSendBlock): AttoReceiveBlock {
+        return AttoReceiveBlock(
+            version = max(version, sendBlock.version),
+            publicKey = publicKey,
+            height = height + 1U,
+            balance = balance.plus(sendBlock.amount),
+            timestamp = Instant.now(),
+            previous = lastHash,
+            sendHash = sendBlock.getHash(),
+        )
+    }
+
+    fun change(representative: AttoPublicKey): AttoChangeBlock {
+        return AttoChangeBlock(
+            version = version,
+            publicKey = publicKey,
+            height = height + 1U,
+            balance = balance,
+            timestamp = Instant.now(),
+            previous = lastHash,
+            representative = representative,
+        )
+    }
+}
+
+open class AttoTransaction(
+    val block: AttoBlock,
+    val signature: AttoSignature,
+    val work: AttoWork
+) {
+
+    open fun toByteBuffer(): AttoByteBuffer {
+        return AttoByteBuffer(size + block.getSize())
+            .add(block.toByteBuffer())
+            .add(signature)
+            .add(work)
+    }
+
+    companion object {
+        val size = 72
+
+        fun fromByteBuffer(network: AttoNetwork, byteBuffer: AttoByteBuffer): AttoTransaction? {
+            if (size > byteBuffer.size) {
+                return null
+            }
+
+            val block = AttoBlock.fromByteBuffer(byteBuffer) ?: return null
+
+            if (block.timestamp > Instant.now()) {
                 return null
             }
 
             val transaction = AttoTransaction(
                 block = block,
-                signature = AttoSignature(byteArray.sliceArray(AttoBlock.size until AttoBlock.size + AttoSignature.size)),
-                work = AttoWork(byteArray.sliceArray(AttoBlock.size + AttoSignature.size until size)),
+                signature = byteBuffer.getSignature(),
+                work = byteBuffer.getWork(),
             )
 
             if (!transaction.isValid(network)) {
@@ -335,16 +610,12 @@ open class AttoTransaction(
             return false
         }
 
-        if (block.type == AttoBlockType.OPEN && !work.isValid(block.publicKey, network)) {
-            return false
-        }
-
-        if (block.type != AttoBlockType.OPEN && !work.isValid(block.previous, network)) {
+        if (!work.isValid(block.getWorkInfo(), network)) {
             return false
         }
 
 
-        if (!signature.isValid(block.publicKey, hash.value)) {
+        if (!signature.isValid(block.publicKey, block.getHash().value)) {
             return false
         }
 

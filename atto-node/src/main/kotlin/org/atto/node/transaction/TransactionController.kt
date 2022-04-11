@@ -21,7 +21,7 @@ class TransactionController(val transactionValidator: TransactionValidator) {
 
     @GetMapping
     fun get(): Transaction {
-        val block = AttoBlock(
+        val block = AttoBlockOld(
             type = AttoBlockType.SEND,
             version = 0u,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),

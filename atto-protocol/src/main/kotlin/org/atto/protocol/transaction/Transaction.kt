@@ -2,7 +2,6 @@ package org.atto.protocol.transaction
 
 import com.fasterxml.jackson.annotation.JsonProperty
 import org.atto.commons.*
-import java.nio.ByteBuffer
 import java.time.Instant
 
 enum class TransactionStatus(val valid: Boolean) {
@@ -24,38 +23,32 @@ enum class TransactionStatus(val valid: Boolean) {
 
 data class PublicKeyHeight(val publicKey: AttoPublicKey, val height: ULong)
 
-data class Transaction(
-    override val block: AttoBlock,
-    override val signature: AttoSignature,
-    override val work: AttoWork,
-    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
-    override val hash: AttoHash = block.getHash(),
+class Transaction(
+    block: AttoBlock,
+    signature: AttoSignature,
+    work: AttoWork,
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     var status: TransactionStatus = TransactionStatus.RECEIVED,
     @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     val receivedTimestamp: Instant = Instant.now(),
 ) : AttoTransaction(block, signature, work) {
 
-    override fun toByteArray(): ByteArray {
-        return ByteBuffer.allocate(size)
-            .put(block.toByteArray())
-            .put(signature.value)
-            .put(work.value)
-            .array()
-    }
+    constructor(
+        transaction: AttoTransaction,
+        status: TransactionStatus = TransactionStatus.RECEIVED,
+        receivedTimestamp: Instant = Instant.now(),
+    ) : this(transaction.block, transaction.signature, transaction.work, status, receivedTimestamp)
 
     companion object {
-        fun fromByteArray(network: AttoNetwork, byteArray: ByteArray): Transaction? {
-            if (byteArray.size < size) {
+        fun fromByteBuffer(network: AttoNetwork, byteBuffer: AttoByteBuffer): Transaction? {
+            if (size > byteBuffer.size) {
                 return null
             }
 
-            val attoTransaction = AttoTransaction.fromByteArray(network, byteArray) ?: return null
+            val attoTransaction = AttoTransaction.fromByteBuffer(network, byteBuffer) ?: return null
 
             return Transaction(
-                block = attoTransaction.block,
-                signature = attoTransaction.signature,
-                work = attoTransaction.work,
+                attoTransaction,
                 status = TransactionStatus.RECEIVED,
                 receivedTimestamp = Instant.now()
             )
@@ -70,11 +63,7 @@ data class Transaction(
             return false
         }
 
-        if (!super.isValid(network)) {
-            return false
-        }
-
-        return true
+        return super.isValid(network)
     }
 
     fun toPublicKeyHeight(): PublicKeyHeight {
@@ -90,10 +79,6 @@ data class Transaction(
         other as Transaction
 
         if (block != other.block) return false
-        if (signature != other.signature) return false
-        if (work != other.work) return false
-        if (hash != other.hash) return false
-        if (status != other.status) return false
 
         return true
     }
@@ -101,15 +86,11 @@ data class Transaction(
     override fun hashCode(): Int {
         var result = super.hashCode()
         result = 31 * result + block.hashCode()
-        result = 31 * result + signature.hashCode()
-        result = 31 * result + work.hashCode()
-        result = 31 * result + hash.hashCode()
-        result = 31 * result + status.hashCode()
         return result
     }
 
     override fun toString(): String {
-        return "Transaction(hash=$hash, status=$status, block=$block, signature=$signature, work=$work, receivedTimestamp=$receivedTimestamp)"
+        return "Transaction(${super.toString()} status=$status, receivedTimestamp=$receivedTimestamp)"
     }
 
 

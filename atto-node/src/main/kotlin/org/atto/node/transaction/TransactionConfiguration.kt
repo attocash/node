@@ -30,7 +30,7 @@ class TransactionConfiguration {
 
         if (genesis != null) {
             val byteArray = genesis.fromHexToByteArray()
-            val transaction = transactionCodec.fromByteArray(byteArray)
+            val transaction = transactionCodec.fromByteBuffer(byteArray)
 
             if (transaction != null) {
                 return transaction.copy(status = TransactionStatus.CONFIRMED)
@@ -41,7 +41,7 @@ class TransactionConfiguration {
 
         logger.info { "No genesis configured. Creating new genesis with this node private key..." }
 
-        val block = AttoBlock(
+        val block = AttoBlockOld(
             type = AttoBlockType.OPEN,
             version = 0u,
             publicKey = privateKey.toPublicKey(),

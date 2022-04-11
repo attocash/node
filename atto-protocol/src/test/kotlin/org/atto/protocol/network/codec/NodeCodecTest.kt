@@ -27,8 +27,8 @@ internal class NodeCodecTest {
         )
 
         // when
-        val byteArray = codec.toByteArray(expectedNode)
-        val node = codec.fromByteArray(byteArray)
+        val byteBuffer = codec.toByteBuffer(expectedNode)
+        val node = codec.fromByteBuffer(byteBuffer)
 
         // then
         assertEquals(expectedNode, node)

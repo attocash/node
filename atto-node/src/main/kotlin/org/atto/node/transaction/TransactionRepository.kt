@@ -57,7 +57,7 @@ class TransactionRepository(
                 AttoLink.from(AttoHash(row["link", ByteArray::class.java]!!))
             }
 
-            val block = AttoBlock(
+            val block = AttoBlockOld(
                 type = type,
                 version = row["version", java.lang.Short::class.java]!!.toShort().toUShort(),
                 publicKey = AttoPublicKey(row["publicKey", ByteArray::class.java]!!),

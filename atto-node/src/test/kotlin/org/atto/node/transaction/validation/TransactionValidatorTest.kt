@@ -88,7 +88,7 @@ class TransactionValidatorTest {
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
         Thread.sleep(1)
-        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val openBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
 
         checkValid(openBlockB, listOf(existingSendBlockA))
     }
@@ -285,7 +285,7 @@ class TransactionValidatorTest {
         val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
-        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val openBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
             .copy(link = AttoLink.from(existingOpenBlockA.getHash()))
 
         checkInvalid(TransactionRejectionReasons.INVALID_LINK, openBlockB, listOf(existingOpenBlockA))
@@ -314,7 +314,7 @@ class TransactionValidatorTest {
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
         Thread.sleep(1)
-        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val openBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
             .copy(balance = AttoAmount.max, amount = AttoAmount.max)
 
         checkInvalid(TransactionRejectionReasons.INVALID_AMOUNT, openBlockB, listOf(existingSendBlockA))
@@ -342,7 +342,7 @@ class TransactionValidatorTest {
         val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
-        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val openBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
             .copy(timestamp = existingSendBlockA.timestamp)
 
         checkInvalid(TransactionRejectionReasons.INVALID_TIMESTAMP, openBlockB, listOf(existingSendBlockA))
@@ -369,12 +369,12 @@ class TransactionValidatorTest {
         val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
 
         Thread.sleep(1)
-        val openBlockB = AttoBlock(
+        val openBlockB = AttoBlockOld(
             type = AttoBlockType.OPEN,
             version = existingOpenBlockA.version,
             publicKey = publicKeyB,
             height = 0U,
-            previous = AttoHash(AttoBlock.zeros32),
+            previous = AttoHash(AttoBlockOld.zeros32),
             representative = publicKeyB,
             link = AttoLink.from(existingOpenBlockA.getHash()),
             balance = existingOpenBlockA.amount,
@@ -392,7 +392,7 @@ class TransactionValidatorTest {
         val existingOpenBlockB = createOpenBlock(publicKeyB, publicKeyB, 100UL, ByteArray(32))
 
         Thread.sleep(1)
-        val receiveBlockB = AttoBlock(
+        val receiveBlockB = AttoBlockOld(
             type = AttoBlockType.RECEIVE,
             version = existingOpenBlockB.version,
             publicKey = existingOpenBlockB.publicKey,
@@ -418,7 +418,7 @@ class TransactionValidatorTest {
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL)).copy(version = 1U)
 
         Thread.sleep(1)
-        val openBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA).copy(version = 0u)
+        val openBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA).copy(version = 0u)
 
         checkInvalid(TransactionRejectionReasons.INVALID_VERSION, openBlockB, listOf(existingSendBlockA))
     }
@@ -445,7 +445,7 @@ class TransactionValidatorTest {
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
         Thread.sleep(1)
-        val receiveBlock = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val receiveBlock = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
 
         checkInvalid(
             TransactionRejectionReasons.LINK_NOT_CONFIRMED,
@@ -870,7 +870,7 @@ class TransactionValidatorTest {
         val existingOpenBlockA = createOpenBlock(publicKeyA, publicKeyA, 100UL, ByteArray(32))
         val existingSendBlockA = existingOpenBlockA.send(publicKeyB, AttoAmount(100UL))
 
-        val existingOpenBlockB = AttoBlock.open(publicKeyB, publicKeyB, existingSendBlockA)
+        val existingOpenBlockB = AttoBlockOld.open(publicKeyB, publicKeyB, existingSendBlockA)
 
         Thread.sleep(1)
         val receiveBlockB = existingOpenBlockB.receive(existingSendBlockA)
@@ -884,8 +884,8 @@ class TransactionValidatorTest {
 
 
     private fun checkValid(
-        receivedBlock: AttoBlock,
-        existingBlocks: List<AttoBlock>
+        receivedBlock: AttoBlockOld,
+        existingBlocks: List<AttoBlockOld>
     ) {
         // given
         existingBlocks.asSequence()
@@ -911,17 +911,17 @@ class TransactionValidatorTest {
 
     private fun checkInvalid(
         reason: TransactionRejectionReasons,
-        receivedBlock: AttoBlock,
-        existingConfirmedBlocks: List<AttoBlock>
+        receivedBlock: AttoBlockOld,
+        existingConfirmedBlocks: List<AttoBlockOld>
     ) {
         checkInvalid(reason, receivedBlock, existingConfirmedBlocks, emptyList())
     }
 
     private fun checkInvalid(
         reason: TransactionRejectionReasons,
-        receivedBlock: AttoBlock,
-        existingConfirmedBlocks: List<AttoBlock>,
-        existingValidateBlocks: List<AttoBlock>
+        receivedBlock: AttoBlockOld,
+        existingConfirmedBlocks: List<AttoBlockOld>,
+        existingValidateBlocks: List<AttoBlockOld>
     ) {
         // given
         existingConfirmedBlocks.asSequence()
@@ -993,10 +993,10 @@ class TransactionValidatorTest {
             representative: AttoPublicKey,
             amount: ULong,
             hash: ByteArray
-        ): AttoBlock {
-            return AttoBlock(
+        ): AttoBlockOld {
+            return AttoBlockOld(
                 type = AttoBlockType.OPEN,
-                version = AttoBlock.maxVersion,
+                version = AttoBlockOld.maxVersion,
                 publicKey = publicKey,
                 height = 0U,
                 previous = AttoHash(ByteArray(32)),
@@ -1011,7 +1011,7 @@ class TransactionValidatorTest {
 
     fun createTransaction(
         status: TransactionStatus,
-        block: AttoBlock
+        block: AttoBlockOld
     ): Transaction {
         val work = if (block.type == AttoBlockType.OPEN) {
             AttoWork.work(block.publicKey, thisNode.network)

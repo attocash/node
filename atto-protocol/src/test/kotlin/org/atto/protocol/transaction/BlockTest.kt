@@ -8,7 +8,6 @@ import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
 import java.time.Instant
 import java.util.stream.Stream
-import kotlin.random.Random
 
 internal class AttoBlockTest {
 
@@ -32,59 +31,47 @@ internal class AttoBlockTest {
         fun validBlockProvider(): Stream<Arguments> {
             return Stream.of(
                 Arguments.of(
-                    AttoBlock(
-                        type = AttoBlockType.OPEN,
+                    AttoSendBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
-                        height = 0u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
+                        height = 1u,
                         balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        receiverPublicKey = AttoPublicKey(ByteArray(32)),
                         amount = AttoAmount(100u),
-                        timestamp = Instant.now()
                     ),
                 ),
                 Arguments.of(
-                    AttoBlock(
-                        type = AttoBlockType.RECEIVE,
+                    AttoReceiveBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         height = 1u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
                         balance = AttoAmount(100u),
-                        amount = AttoAmount(50u),
-                        timestamp = Instant.now()
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        sendHash = AttoHash(ByteArray(32)),
                     ),
                 ),
                 Arguments.of(
-                    AttoBlock(
-                        type = AttoBlockType.SEND,
+                    AttoOpenBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
-                        height = 1u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoPublicKey(Random.nextBytes(ByteArray(32)))),
                         balance = AttoAmount(100u),
-                        amount = AttoAmount(50u),
-                        timestamp = Instant.now()
+                        timestamp = Instant.now(),
+                        sendHash = AttoHash(ByteArray(32)),
+                        representative = privateKey.toPublicKey(),
                     ),
                 ),
                 Arguments.of(
-                    AttoBlock(
-                        type = AttoBlockType.CHANGE,
+                    AttoChangeBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         height = 1u,
+                        balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
                         previous = AttoHash(ByteArray(32)),
                         representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoPublicKey(ByteArray(32))),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(0u),
-                        timestamp = Instant.now()
                     ),
                 ),
             )
@@ -94,117 +81,74 @@ internal class AttoBlockTest {
         fun invalidBlockProvider(): Stream<Arguments> {
             return Stream.of(
                 Arguments.of(
-                    AttoBlock( // UNKNOWN
-                        type = AttoBlockType.UNKNOWN,
+                    AttoSendBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
-                        height = 0u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
+                        height = 0u, // invalid
                         balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        receiverPublicKey = privateKey.toPublicKey(),
                         amount = AttoAmount(100u),
-                        timestamp = Instant.now()
                     ),
                 ),
                 Arguments.of(
-                    AttoBlock( // wrong version
-                        type = AttoBlockType.OPEN,
-                        version = 1u,
+                    AttoReceiveBlock(
+                        version = 0u,
                         publicKey = privateKey.toPublicKey(),
-                        height = 0u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
+                        height = 0u, // invalid
                         balance = AttoAmount(100u),
-                        amount = AttoAmount(100u),
-                        timestamp = Instant.now()
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        sendHash = AttoHash(ByteArray(32))
                     ),
                 ),
                 Arguments.of(
-                    AttoBlock( // OPEN AttoBlock amount and balance not equals
-                        type = AttoBlockType.OPEN,
+                    AttoChangeBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
-                        height = 0u,
+                        height = 0u, // invalid
+                        balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
                         previous = AttoHash(ByteArray(32)),
                         representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(90u),
-                        timestamp = Instant.now()
-                    )
+                    ),
                 ),
                 Arguments.of(
-                    AttoBlock( // OPEN AttoBlock invalid height
-                        type = AttoBlockType.OPEN,
+                    AttoSendBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         height = 1u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
                         balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        receiverPublicKey = AttoPublicKey(ByteArray(32)),
+                        amount = AttoAmount(0u),  // invalid
+                    ),
+                ),
+                Arguments.of(
+                    AttoSendBlock(
+                        version = 0u,
+                        publicKey = privateKey.toPublicKey(),
+                        height = 1u,
+                        balance = AttoAmount(100u),
+                        timestamp = Instant.now(),
+                        previous = AttoHash(ByteArray(32)),
+                        receiverPublicKey = privateKey.toPublicKey(), // invalid
                         amount = AttoAmount(100u),
-                        timestamp = Instant.now()
-                    )
+                    ),
                 ),
                 Arguments.of(
-                    AttoBlock( // CHANGE AttoBlock invalid height
-                        type = AttoBlockType.CHANGE,
-                        version = 0u,
-                        publicKey = privateKey.toPublicKey(),
-                        height = 0u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(ByteArray(32))),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(0u),
-                        timestamp = Instant.now()
-                    )
-                ),
-                Arguments.of(
-                    AttoBlock( // CHANGE AttoBlock nonnull amount
-                        type = AttoBlockType.CHANGE,
+                    AttoReceiveBlock(
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         height = 1u,
+                        balance = AttoAmount.min,  // invalid
+                        timestamp = Instant.now(),
                         previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(ByteArray(32))),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(5u),
-                        timestamp = Instant.now()
-                    )
+                        sendHash = AttoHash(ByteArray(32))
+                    ),
                 ),
-                Arguments.of(
-                    AttoBlock( // CHANGE AttoBlock nonzero link
-                        type = AttoBlockType.CHANGE,
-                        version = 0u,
-                        publicKey = privateKey.toPublicKey(),
-                        height = 1u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(AttoHash(Random.nextBytes(ByteArray(32)))),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(0u),
-                        timestamp = Instant.now()
-                    )
-                ),
-                Arguments.of(
-                    AttoBlock( // CHANGE AttoBlock nonzero link
-                        type = AttoBlockType.SEND,
-                        version = 0u,
-                        publicKey = privateKey.toPublicKey(),
-                        height = 1u,
-                        previous = AttoHash(ByteArray(32)),
-                        representative = privateKey.toPublicKey(),
-                        link = AttoLink.from(privateKey.toPublicKey()),
-                        balance = AttoAmount(100u),
-                        amount = AttoAmount(5u),
-                        timestamp = Instant.now()
-                    )
-                )
             )
         }
     }

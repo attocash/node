@@ -1,9 +1,11 @@
 package org.atto.protocol.network.codec
 
+import org.atto.commons.AttoByteBuffer
+
 interface Codec<T> {
 
-    fun fromByteArray(byteArray: ByteArray): T?
+    fun fromByteBuffer(byteBuffer: AttoByteBuffer): T?
 
-    fun toByteArray(t: T): ByteArray
+    fun toByteBuffer(t: T): AttoByteBuffer
 
 }

@@ -4,7 +4,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.atto.commons.AttoHash
-import org.atto.commons.AttoPublicKey
 import org.atto.node.EventPublisher
 import org.atto.node.network.peer.Peer
 import org.atto.node.network.peer.PeerAddedEvent
@@ -60,10 +59,10 @@ class TransactionDiscoverer(
             if (event.rejectionReason == TransactionRejectionReasons.LINK_NOT_FOUND) {
                 findSingle(transaction.hash)
             } else if (event.rejectionReason == TransactionRejectionReasons.ACCOUNT_NOT_FOUND) {
-                findMultiple(transaction.block.publicKey, 0u, transaction.block.height)
+                findMultiple(transaction, 0u, transaction.block.height)
             } else if (event.rejectionReason == TransactionRejectionReasons.PREVIOUS_NOT_FOUND) {
                 transactionRepository.findLastConfirmedByPublicKeyId(transaction.block.publicKey)?.let {
-                    findMultiple(transaction.block.publicKey, it.block.height + 1u, transaction.block.height)
+                    findMultiple(transaction, it.block.height + 1u, transaction.block.height)
                 }
             }
         }
@@ -76,7 +75,7 @@ class TransactionDiscoverer(
         val job = DiscoveryJob(
             range,
             onReceive = {
-                eventPublisher.publish(TransactionVoted(it))
+                eventPublisher.publish(TransactionVoted(it, null))
             },
             onExpire = {
                 findSingle(hash)
@@ -92,9 +91,9 @@ class TransactionDiscoverer(
         // TODO: Send Single
     }
 
-    private suspend fun findMultiple(publicKey: AttoPublicKey, startHeight: ULong, endHeight: ULong) {
+    private suspend fun findMultiple(transaction: Transaction, startHeight: ULong, endHeight: ULong) {
         val peer = peerHolder.get()
-        val range = MultipleTransactionRage(publicKey, startHeight, endHeight)
+        val range = MultipleTransactionRage(transaction, startHeight, endHeight)
 
         val job = DiscoveryJob(
             range,
@@ -102,7 +101,7 @@ class TransactionDiscoverer(
                 eventPublisher.publish(TransactionVoted(it, null))
             },
             onExpire = {
-                findMultiple(publicKey, startHeight, endHeight)
+                findMultiple(transaction, startHeight, endHeight)
                 // remove from the list
             }
         )

@@ -36,8 +36,8 @@ internal class HashVoteCodecTest {
         )
 
         // when
-        val byteArray = codec.toByteArray(expectedHashVote)
-        val hashVote = codec.fromByteArray(byteArray)!!
+        val byteBuffer = codec.toByteBuffer(expectedHashVote)
+        val hashVote = codec.fromByteBuffer(byteBuffer)!!
 
         // then
         assertEquals(expectedHashVote, hashVote)

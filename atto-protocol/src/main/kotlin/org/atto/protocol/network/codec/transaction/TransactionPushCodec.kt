@@ -1,5 +1,6 @@
 package org.atto.protocol.network.codec.transaction
 
+import org.atto.commons.AttoByteBuffer
 import org.atto.protocol.network.MessageType
 import org.atto.protocol.network.codec.MessageCodec
 import org.atto.protocol.transaction.TransactionPush
@@ -14,19 +15,19 @@ class TransactionPushCodec(private val transactionCodec: TransactionCodec) : Mes
         return TransactionPush::class.java
     }
 
-    override fun fromByteArray(byteArray: ByteArray): TransactionPush? {
-        if (byteArray.size < TransactionPush.size) {
+    override fun fromByteBuffer(byteBuffer: AttoByteBuffer): TransactionPush? {
+        if (byteBuffer.size < TransactionPush.size) {
             return null
         }
 
-        val transaction = transactionCodec.fromByteArray(byteArray) ?: return null
+        val transaction = transactionCodec.fromByteBuffer(byteBuffer) ?: return null
 
         return TransactionPush(
             transaction = transaction
         )
     }
 
-    override fun toByteArray(t: TransactionPush): ByteArray {
-        return transactionCodec.toByteArray(t.transaction)
+    override fun toByteBuffer(t: TransactionPush): AttoByteBuffer {
+        return transactionCodec.toByteBuffer(t.transaction)
     }
 }
