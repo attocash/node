@@ -12,7 +12,7 @@
     <artifactId>atto-node</artifactId>
 
     <properties>
-        <cucumber.version>7.1.0</cucumber.version>
+        <cucumber.version>7.2.3</cucumber.version>
     </properties>
 
     <dependencies>
@@ -70,21 +70,20 @@
         </dependency>
         <dependency>
             <groupId>io.r2dbc</groupId>
+            <artifactId>r2dbc-pool</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>io.r2dbc</groupId>
             <artifactId>r2dbc-h2</artifactId>
+            <scope>runtime</scope>
         </dependency>
         <dependency>
             <groupId>dev.miku</groupId>
             <artifactId>r2dbc-mysql</artifactId>
-            <version>0.8.2.RELEASE</version>
         </dependency>
-        <!--        <dependency>-->
-        <!--            <groupId>org.mariadb.jdbc</groupId>-->
-        <!--            <artifactId>mariadb-java-client</artifactId>-->
-        <!--        </dependency>-->
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
-            <scope>runtime</scope>
         </dependency>
 
 
@@ -135,7 +134,7 @@
         <dependency>
             <groupId>io.mockk</groupId>
             <artifactId>mockk</artifactId>
-            <version>1.12.1</version>
+            <version>1.12.3</version>
             <scope>test</scope>
         </dependency>
 

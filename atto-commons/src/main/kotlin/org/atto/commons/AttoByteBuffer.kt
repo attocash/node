@@ -17,6 +17,10 @@ class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
         }
     }
 
+    fun getIndex(): Int {
+        return lastIndex
+    }
+
     fun slice(startIndex: Int): AttoByteBuffer {
         val slicedByteBuffer = byteBuffer.slice(startIndex, size - startIndex).order(ByteOrder.LITTLE_ENDIAN)
         return AttoByteBuffer(slicedByteBuffer, size - startIndex)

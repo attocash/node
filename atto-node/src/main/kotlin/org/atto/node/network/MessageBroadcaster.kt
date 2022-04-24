@@ -11,12 +11,11 @@ import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import kotlin.math.max
 
 @Component
 class MessageBroadcaster(
     networkBroadcasterProperties: NetworkBroadcasterProperties,
-    val eventPublisher: NetworkMessagePublisher
+    val publisher: NetworkMessagePublisher
 ) : CacheSupport {
     val peers = ConcurrentHashMap<InetSocketAddress, Peer>()
     val voters = ConcurrentHashMap<InetSocketAddress, Peer>()
@@ -27,18 +26,6 @@ class MessageBroadcaster(
             when (it!!) {
                 BroadcastStrategy.EVERYONE -> {
                     peers.values
-                }
-                BroadcastStrategy.MAJORITY -> {
-                    peers.values.asSequence()
-                        .shuffled()
-                        .take(max(100, peers.size * 100 / BroadcastStrategy.MAJORITY.percentage))
-                        .toList()
-                }
-                BroadcastStrategy.MINORITY -> {
-                    peers.values.asSequence()
-                        .shuffled()
-                        .take(max(50, peers.size * 100 / BroadcastStrategy.MINORITY.percentage))
-                        .toList()
                 }
                 BroadcastStrategy.VOTERS -> {
                     voters.values
@@ -69,9 +56,9 @@ class MessageBroadcaster(
         peersByStrategy[event.strategy]!!.asSequence()
             .map { it.connectionSocketAddress }
             .filter { !event.exceptions.contains(it) }
-            .map { OutboundNetworkMessage(it, event.source, event.payload) }
+            .map { OutboundNetworkMessage(it, event.payload) }
             .forEach {
-                eventPublisher.publish(it)
+                publisher.publish(it)
             }
     }
 

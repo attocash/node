@@ -3,7 +3,7 @@ package org.atto.node
 import io.cucumber.java.en.Given
 import org.atto.commons.*
 import org.atto.node.network.peer.PeerProperties
-import org.atto.protocol.transaction.Transaction
+import org.atto.node.transaction.Transaction
 import org.springframework.boot.builder.SpringApplicationBuilder
 import java.io.Closeable
 import java.net.InetSocketAddress
@@ -40,7 +40,7 @@ class NodeStepDefinition(
                     "--atto.node.publicAddress=localhost:${tcpPort}",
                     "--ATTO_DB_NAME=atto-neighbour${shortId}",
                     "--atto.node.private-key=${privateKey.value.toHex()}",
-                    "--atto.transaction.genesis=${transaction.toByteArray().toHex()}",
+                    "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
                 )
                 val context = springApplicationBuilder
                     .getMethod("run", Array<String>::class.java)

@@ -1,7 +1,5 @@
 package org.atto.node
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import org.flywaydb.core.Flyway
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -23,11 +21,6 @@ class ApplicationConfiguration(val environment: Environment) {
                     environment.getProperty("spring.flyway.password")
                 )
         )
-    }
-
-    @Bean
-    fun scope(): CoroutineScope {
-        return CoroutineScope(Dispatchers.Default)
     }
 }
 

@@ -2,8 +2,7 @@ package org.atto.node.transaction
 
 import kotlinx.coroutines.test.runTest
 import org.atto.commons.*
-import org.atto.protocol.transaction.Transaction
-import org.atto.protocol.transaction.TransactionStatus
+import org.atto.node.transaction.priotization.TransactionQueue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -32,10 +31,10 @@ internal class TransactionQueueTest {
 
         // then
         assertEquals(transaction50, deleted)
-        assertEquals(transaction10, queue.poll())
-        assertEquals(transaction200, queue.poll())
-        assertEquals(transaction15, queue.poll())
-        assertNull(queue.poll())
+        assertEquals(transaction10, queue.pollTimed())
+        assertEquals(transaction200, queue.pollTimed())
+        assertEquals(transaction15, queue.pollTimed())
+        assertNull(queue.pollTimed())
     }
 
     @Test
@@ -45,26 +44,22 @@ internal class TransactionQueueTest {
     }
 
 
-    private fun createTransaction(amount: ULong, receivedTimestamp: Instant): Transaction {
-        val block = AttoBlockOld(
-            type = AttoBlockType.RECEIVE,
+    private fun createTransaction(amount: ULong, receivedTimestamp: Instant): TransactionQueue.TimedTransaction {
+        val block = AttoReceiveBlock(
             version = 0u,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            height = 1u,
+            height = 2u,
+            balance = AttoAmount(amount),
+            timestamp = Instant.now(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
-            representative = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            link = AttoLink.from(AttoHash(ByteArray(32))),
-            balance = AttoAmount(0u),
-            amount = AttoAmount(amount),
-            timestamp = Instant.now()
+            sendHash = AttoHash(ByteArray(32)),
         )
-        return Transaction(
+        val transaction = AttoTransaction(
             block = block,
             signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             work = AttoWork(Random.nextBytes(ByteArray(8))),
-            hash = AttoHash(Random.nextBytes(ByteArray(32))),
-            status = TransactionStatus.RECEIVED,
-            receivedTimestamp = receivedTimestamp
         )
+
+        return TransactionQueue.TimedTransaction(transaction, receivedTimestamp)
     }
 }

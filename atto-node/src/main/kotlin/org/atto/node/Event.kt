@@ -4,7 +4,9 @@ import mu.KotlinLogging
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.stereotype.Component
 
-abstract class Event<T>(val payload: T)
+interface Event<T> {
+    val payload: T
+}
 
 @Component
 class EventPublisher(private val publisher: ApplicationEventPublisher) {

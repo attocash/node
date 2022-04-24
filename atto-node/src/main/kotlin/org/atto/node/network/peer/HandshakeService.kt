@@ -10,9 +10,9 @@ import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.network.OutboundNetworkMessage
-import org.atto.protocol.Node
-import org.atto.protocol.network.handshake.HandshakeAnswer
-import org.atto.protocol.network.handshake.HandshakeChallenge
+import org.atto.protocol.AttoNode
+import org.atto.protocol.network.handshake.AttoHandshakeAnswer
+import org.atto.protocol.network.handshake.AttoHandshakeChallenge
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -24,7 +24,7 @@ import java.util.concurrent.TimeUnit
 @Service
 class HandshakeService(
     val properties: PeerProperties,
-    val thisNode: Node,
+    val thisNode: AttoNode,
     val privateKey: AttoPrivateKey,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
@@ -33,7 +33,7 @@ class HandshakeService(
 
     private val peers = ConcurrentHashMap<InetSocketAddress, Peer>()
 
-    private val challenges: Cache<InetSocketAddress, HandshakeChallenge> = Caffeine.newBuilder()
+    private val challenges: Cache<InetSocketAddress, AttoHandshakeChallenge> = Caffeine.newBuilder()
         .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
         .build()
 
@@ -72,29 +72,29 @@ class HandshakeService(
             return
         }
 
-        val handshakeChallenge = HandshakeChallenge.create()
+        val handshakeChallenge = AttoHandshakeChallenge.create()
         challenges.put(socketAddress, handshakeChallenge)
 
-        messagePublisher.publish(OutboundNetworkMessage(socketAddress, this, handshakeChallenge))
+        messagePublisher.publish(OutboundNetworkMessage(socketAddress, handshakeChallenge))
 
         logger.info { "Started handshake with $socketAddress" }
     }
 
 
     @EventListener
-    fun processChallengeMessage(message: InboundNetworkMessage<HandshakeChallenge>) {
-        val handshakeAnswer = HandshakeAnswer(
+    fun processChallengeMessage(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
+        val handshakeAnswer = AttoHandshakeAnswer(
             signature = privateKey.sign(message.payload.value),
             node = thisNode
         )
 
         startHandshake(message.socketAddress)
 
-        messagePublisher.publish(OutboundNetworkMessage(message.socketAddress, this, handshakeAnswer))
+        messagePublisher.publish(OutboundNetworkMessage(message.socketAddress, handshakeAnswer))
     }
 
     @EventListener
-    fun processAnswer(message: InboundNetworkMessage<HandshakeAnswer>) {
+    fun processAnswer(message: InboundNetworkMessage<AttoHandshakeAnswer>) {
         val answer = message.payload
         val node = answer.node
 

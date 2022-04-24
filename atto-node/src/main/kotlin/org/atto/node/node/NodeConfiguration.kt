@@ -5,7 +5,7 @@ import org.atto.commons.AttoPrivateKey
 import org.atto.commons.AttoSeeds
 import org.atto.commons.toHex
 import org.atto.commons.toPrivateKey
-import org.atto.protocol.Node
+import org.atto.protocol.AttoNode
 import org.atto.protocol.NodeFeature
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -26,7 +26,7 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
     }
 
     @Bean
-    fun node(nodeProperties: NodeProperties, privateKey: AttoPrivateKey): Node {
+    fun node(nodeProperties: NodeProperties, privateKey: AttoPrivateKey): AttoNode {
         val features = HashSet<NodeFeature>()
         features.add(NodeFeature.HISTORICAL)
 
@@ -36,7 +36,7 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
             features.add(NodeFeature.VOTING)
         }
 
-        return Node(
+        return AttoNode(
             network = nodeProperties.network!!,
             protocolVersion = 0u,
             minimalProtocolVersion = 0u,

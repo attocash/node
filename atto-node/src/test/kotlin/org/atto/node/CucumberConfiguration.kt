@@ -5,9 +5,9 @@ import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.test.runTest
 import org.atto.commons.AttoPrivateKey
 import org.atto.node.network.peer.PeerProperties
+import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRepository
-import org.atto.protocol.Node
-import org.atto.protocol.transaction.Transaction
+import org.atto.protocol.AttoNode
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
 
@@ -15,12 +15,12 @@ import org.springframework.context.ConfigurableApplicationContext
 @CucumberContextConfiguration
 class CucumberConfiguration(
     val context: ConfigurableApplicationContext,
-    val thisNode: Node,
+    val thisNode: AttoNode,
     val peerProperties: PeerProperties,
     val privateKey: AttoPrivateKey,
     val genesisTransaction: Transaction,
     val caches: List<CacheSupport>,
-    val repositories: List<AttoRepository<*, *>>,
+    val repositories: List<AttoRepository>,
     val transactionRepository: TransactionRepository
 ) {
     @Before

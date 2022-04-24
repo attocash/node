@@ -2,23 +2,23 @@ package org.atto.node.vote.election
 
 import kotlinx.coroutines.*
 import mu.KotlinLogging
+import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
+import org.atto.node.account.Account
+import org.atto.node.transaction.PublicKeyHeight
+import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionValidated
-import org.atto.node.vote.HashVoteValidated
-import org.atto.node.vote.WeightedHashVote
+import org.atto.node.vote.Vote
+import org.atto.node.vote.VoteValidated
 import org.atto.node.vote.weight.VoteWeightService
-import org.atto.protocol.transaction.PublicKeyHeight
-import org.atto.protocol.transaction.Transaction
-import org.atto.protocol.vote.HashVote
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 
-@ExperimentalCoroutinesApi
 @Service
 class Election(
     private val properties: ElectionProperties,
@@ -27,121 +27,85 @@ class Election(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val singleScope = CoroutineScope(singleDispatcher)
 
-    private val transactionWeights = HashMap<AttoHash, TransactionWeight>()
-    private val heightHashes = HashMap<PublicKeyHeight, LinkedList<AttoHash>>()
-    private val heightVotes = HashMap<PublicKeyHeight, HashMap<AttoPublicKey, WeightedHashVote>>()
+    private val transactionWeighters = ConcurrentHashMap<PublicKeyHeight, MutableMap<AttoHash, TransactionWeighter>>()
 
-    @EventListener
-    fun observe(transactionEvent: TransactionValidated) {
-        val transaction = transactionEvent.transaction
-        singleScope.launch {
-            startObserving(transaction)
-        }
+    fun getSize(): Int {
+        return transactionWeighters.size
+    }
+
+    fun getElections(): Map<PublicKeyHeight, Map<AttoHash, TransactionWeighter>> {
+        return transactionWeighters
     }
 
     @EventListener
-    fun process(hashVoteValidated: HashVoteValidated) {
-        val hashVote = hashVoteValidated.hashVote
-
-        singleScope.launch {
-            process(hashVote, voteWeightService.get(hashVote.vote.publicKey))
-        }
+    fun observe(event: TransactionValidated) = runBlocking {
+        val transaction = event.payload
+        observe(event.account, transaction)
     }
 
-    suspend fun getTransactionWeights(): Map<AttoHash, TransactionWeight> {
-        return withContext(singleDispatcher) {
-            transactionWeights.entries.associate { it.key to it.value }
-        }
+    @EventListener
+    fun process(event: VoteValidated) = runBlocking {
+        val vote = event.payload
+        process(event.transaction, vote)
     }
 
-    suspend fun getActiveElections(): Map<PublicKeyHeight, HashMap<AttoPublicKey, WeightedHashVote>> {
-        return withContext(singleDispatcher) {
-            heightVotes.entries.associate { it.key to HashMap(it.value) }
-        }
-    }
-
-    private suspend fun startObserving(transaction: Transaction) {
-        transactionWeights[transaction.hash] = TransactionWeight(transaction)
-
-        val publicKeyHeight = transaction.toPublicKeyHeight()
-        heightHashes.compute(publicKeyHeight) { _, v ->
-            var transactions = v
-            if (transactions == null) {
-                transactions = LinkedList<AttoHash>()
-            }
-            transactions.add(transaction.hash)
-            transactions
+    suspend fun observe(account: Account, transaction: Transaction) {
+        transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
+            val weighter = v ?: ConcurrentHashMap()
+            weighter[transaction.hash] = TransactionWeighter(account, transaction)
+            weighter
         }
 
-        heightVotes[publicKeyHeight] = HashMap()
         logger.trace { "Started observing $transaction" }
 
-        observers.forEach { it.observed(transaction) }
+        observers.forEach { it.observed(account, transaction) }
     }
 
     private fun stopObserving(transaction: Transaction) {
-        transactionWeights.remove(transaction.hash)
-
-        val publicKeyHeight = transaction.toPublicKeyHeight()
-        heightHashes.remove(publicKeyHeight)
-        heightVotes.remove(publicKeyHeight)
+        transactionWeighters.remove(transaction.toPublicKeyHeight())
     }
 
-    private suspend fun process(hashVote: HashVote, weight: ULong) {
-        val transactionWeight = transactionWeights[hashVote.hash] ?: return
+    private suspend fun process(transaction: Transaction, vote: Vote) {
+        val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        logger.trace { "Processing $hashVote" }
+        val transactionWeightMap = transactionWeighters[publicKeyHeight] ?: return
 
-        val publicKeyHeight = transactionWeight.transaction.toPublicKeyHeight()
-        val electionVotes = heightVotes[publicKeyHeight]!!
+        logger.trace { "Processing $vote" }
 
-        val oldWeightedHashVote = electionVotes[hashVote.vote.publicKey]
-        if (oldWeightedHashVote != null && oldWeightedHashVote.hashVote.vote.timestamp >= hashVote.vote.timestamp) {
-            logger.trace { "Ignored old vote $hashVote" }
-            return
-        }
+        val weighter = transactionWeightMap[vote.hash] ?: return
+        weighter.add(vote)
 
-        if (oldWeightedHashVote != null) {
-            val anotherTransactionWeight = transactionWeights[oldWeightedHashVote.hashVote.hash]!!
-            anotherTransactionWeight.remove(oldWeightedHashVote)
-        }
-
-        val newWeightedHashVote = WeightedHashVote(hashVote, weight)
-        electionVotes[hashVote.vote.publicKey] = newWeightedHashVote
-        transactionWeight.add(newWeightedHashVote)
+        transactionWeightMap.values.asSequence()
+            .filter { it != weighter }
+            .forEach { weighter.remove(vote) }
 
         consensed(publicKeyHeight)
 
-        if (transactionWeight.isAgreementAbove(voteWeightService.getMinimalConfirmationWeight())) {
-            observers.forEach { it.agreed(transactionWeight.transaction) }
+        if (weighter.isAgreementAbove(voteWeightService.getMinimalConfirmationWeight())) {
+            observers.forEach { it.agreed(weighter.account, weighter.transaction) }
         }
 
-        if (transactionWeight.isFinalAbove(voteWeightService.getMinimalConfirmationWeight())) {
-            val transaction = transactionWeight.transaction
+        if (weighter.isFinalAbove(voteWeightService.getMinimalConfirmationWeight())) {
             stopObserving(transaction)
 
-            val hashVotes = transactionWeight.weightedHashVotes.asSequence()
-                .filter { it.isFinal() }
-                .map { it.hashVote }
-                .toList()
+            val votes = weighter.votes.values.filter { it.isFinal() }
 
-            observers.forEach { it.confirmed(transaction, hashVotes) }
+            observers.forEach { it.confirmed(weighter.account, transaction, votes) }
         }
     }
 
     private suspend fun consensed(publicKeyHeight: PublicKeyHeight) {
-        val consensedTransactionWeight = getConsensus(publicKeyHeight)
-
-        observers.forEach { it.consensed(consensedTransactionWeight.transaction) }
+        val weighter = getConsensus(publicKeyHeight)
+        observers.forEach { it.consensed(weighter.account, weighter.transaction) }
     }
 
-    private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeight {
-        return heightHashes[publicKeyHeight]!!.asSequence()
-            .map { transactionWeights[it]!! }
-            .maxByOrNull { it.totalWeight }!!
+    private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeighter {
+        return transactionWeighters[publicKeyHeight]!!.values.asSequence()
+            .maxByOrNull { it.totalWeight.raw }!!
     }
 
 
@@ -149,16 +113,17 @@ class Election(
     fun processStaling() {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
         singleScope.launch {
-            transactionWeights.values.asSequence()
+            transactionWeighters.values.asSequence()
+                .flatMap { it.values }
                 .map { it.transaction }
                 .filter { it.receivedTimestamp < minimalTimestamp }
                 .map { it.toPublicKeyHeight() }
                 .distinct()
-                .map { getConsensus(it).transaction }
-                .forEach { transaction ->
-                    logger.trace { "Staling $transaction" }
+                .map { getConsensus(it) }
+                .forEach { weighter ->
+                    logger.trace { "Staling ${weighter.transaction}" }
                     observers.forEach {
-                        it.staling(transaction)
+                        it.staling(weighter.account, weighter.transaction)
                     }
                 }
         }
@@ -168,45 +133,58 @@ class Election(
     fun stopObservingStaled() {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
         singleScope.launch {
-            transactionWeights.values.asSequence()
-                .map { it.transaction }
-                .filter { it.receivedTimestamp < minimalTimestamp }
-                .forEach { transaction ->
-                    logger.trace { "Staled $transaction" }
-                    stopObserving(transaction)
+            transactionWeighters.values.asSequence()
+                .flatMap { it.values }
+                .filter { it.transaction.receivedTimestamp < minimalTimestamp }
+                .forEach { weighter ->
+                    logger.trace { "Staled ${weighter.transaction}" }
+                    stopObserving(weighter.transaction)
                     observers.forEach {
-                        it.staled(transaction)
+                        it.staled(weighter.account, weighter.transaction)
                     }
                 }
         }
     }
 }
 
-data class TransactionWeight(val transaction: Transaction) {
-    var totalWeight: ULong = 0UL
-    var totalFinalWeight: ULong = 0UL
+data class TransactionWeighter(val account: Account, val transaction: Transaction) {
+    var totalWeight: AttoAmount = AttoAmount.min
+    var totalFinalWeight: AttoAmount = AttoAmount.min
 
-    internal val weightedHashVotes = HashSet<WeightedHashVote>()
+    internal val votes = HashMap<AttoPublicKey, Vote>()
 
-    internal fun add(weightedHashVote: WeightedHashVote) {
-        weightedHashVotes.add(weightedHashVote)
-        totalWeight += weightedHashVote.weight
+    internal fun add(vote: Vote): Boolean {
+        val oldVote = votes[vote.publicKey]
 
-        if (weightedHashVote.isFinal()) {
-            totalFinalWeight += weightedHashVote.weight
+        if (oldVote != null && oldVote.timestamp >= vote.timestamp) {
+            return false
         }
+
+        votes[vote.publicKey] = vote
+
+        totalWeight += vote.weight
+        if (vote.isFinal()) {
+            totalFinalWeight += vote.weight
+        }
+
+        return true
     }
 
-    internal fun remove(weightedHashVote: WeightedHashVote) {
-        weightedHashVotes.remove(weightedHashVote)
-        totalWeight -= weightedHashVote.weight
+    internal fun remove(vote: Vote): Vote? {
+        val removed = votes.remove(vote.publicKey)
+
+        if (removed != null) {
+            totalWeight -= vote.weight
+        }
+
+        return removed
     }
 
-    internal fun isAgreementAbove(weight: ULong): Boolean {
+    internal fun isAgreementAbove(weight: AttoAmount): Boolean {
         return totalWeight >= weight
     }
 
-    internal fun isFinalAbove(weight: ULong): Boolean {
+    internal fun isFinalAbove(weight: AttoAmount): Boolean {
         return totalFinalWeight >= weight
     }
 }

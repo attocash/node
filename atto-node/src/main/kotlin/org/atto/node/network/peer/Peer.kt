@@ -1,10 +1,10 @@
 package org.atto.node.network.peer
 
 import org.atto.node.Event
-import org.atto.protocol.Node
+import org.atto.protocol.AttoNode
 import java.net.InetSocketAddress
 
-data class Peer(val connectionSocketAddress: InetSocketAddress, val node: Node) {
+data class Peer(val connectionSocketAddress: InetSocketAddress, val node: AttoNode) {
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
@@ -31,8 +31,8 @@ data class Peer(val connectionSocketAddress: InetSocketAddress, val node: Node) 
 
 }
 
-abstract class PeerEvent(peer: Peer) : Event<Peer>(peer)
+interface PeerEvent : Event<Peer>
 
-class PeerAddedEvent(peer: Peer) : PeerEvent(peer)
+data class PeerAddedEvent(override val payload: Peer) : PeerEvent
 
-class PeerRemovedEvent(peer: Peer) : PeerEvent(peer)
+data class PeerRemovedEvent(override val payload: Peer) : PeerEvent

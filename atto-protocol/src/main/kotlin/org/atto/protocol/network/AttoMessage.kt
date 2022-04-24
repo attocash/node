@@ -5,5 +5,5 @@ interface AttoMessage {
         const val size = 6
     }
 
-    fun messageType(): MessageType
+    fun messageType(): AttoMessageType
 }

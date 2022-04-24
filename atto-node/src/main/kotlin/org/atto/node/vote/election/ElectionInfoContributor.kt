@@ -12,8 +12,8 @@ class ElectionInfoContributor(val election: Election) : InfoContributor {
 
     override fun contribute(builder: Info.Builder) {
         val election = mapOf(
-            "weights" to runBlocking { election.getTransactionWeights() },
-            "active" to runBlocking { election.getActiveElections() }
+            "weights" to runBlocking { election.getElections() },
+            "active" to runBlocking { election.getSize() }
         )
         builder.withDetail("elections", election)
     }

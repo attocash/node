@@ -4,13 +4,14 @@ package org.atto.node.network
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
+import org.atto.commons.AttoByteBuffer
 import org.atto.commons.toHex
 import org.atto.commons.toUShort
 import org.atto.node.CacheSupport
 import org.atto.node.network.codec.MessageCodecManager
-import org.atto.protocol.Node
+import org.atto.protocol.AttoNode
+import org.atto.protocol.network.AttoContextHolder
 import org.atto.protocol.network.AttoMessage
-import org.atto.protocol.network.ContextHolder
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
@@ -28,7 +29,7 @@ import javax.annotation.PreDestroy
 
 @Service
 class NetworkProcessor(
-    val thisNode: Node,
+    val thisNode: AttoNode,
     val codecManager: MessageCodecManager,
     val publisher: NetworkMessagePublisher,
 ) : CacheSupport {
@@ -103,7 +104,7 @@ class NetworkProcessor(
             .splitByMessage()
             .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
             .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
-            .map { InboundNetworkMessage(socketAddress, this, it!!) }
+            .map { InboundNetworkMessage(socketAddress, it!!) }
             .doOnTerminate { disconnect(socketAddress) }
             .subscribe { publisher.publish(it!!) }
 
@@ -123,19 +124,19 @@ class NetworkProcessor(
     }
 
     private fun serialize(message: AttoMessage): ByteArray {
-        val byteArray = codecManager.toByteArray(message)
-        logger.trace { "Serialized $message into ${byteArray.toHex()}" }
-        return byteArray
+        val byteBuffer = codecManager.toByteBuffer(message)
+        logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
+        return byteBuffer.toByteArray()
     }
 
     private fun deserializeOrDisconnect(
         socketAddress: InetSocketAddress,
         byteArray: ByteArray
     ): AttoMessage? {
-        ContextHolder.put("socketAddress", socketAddress)
+        AttoContextHolder.put("socketAddress", socketAddress)
 
         try {
-            val message = codecManager.fromByteArray(byteArray)
+            val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
 
             if (message == null) {
                 logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
@@ -147,7 +148,7 @@ class NetworkProcessor(
 
             return message
         } finally {
-            ContextHolder.clear()
+            AttoContextHolder.clear()
         }
     }
 
@@ -155,7 +156,7 @@ class NetworkProcessor(
      * Just sanity test to avoid produce invalid data
      */
     private fun whenBelowMaxMessageSize(byteArray: ByteArray): Boolean {
-        if (byteArray.size - 8 > maxMessageSize.toInt()) {
+        if (byteArray.size - 8 > maxMessageSize) {
             logger.error { "Message longer than max size: ${byteArray.toHex()}" }
             return false
         }

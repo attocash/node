@@ -1,16 +1,16 @@
 package org.atto.node.network.codec
 
-import org.atto.commons.AttoNetwork
-import org.atto.commons.toUShort
-import org.atto.protocol.Node
+import org.atto.commons.AttoByteBuffer
+import org.atto.protocol.AttoNode
+import org.atto.protocol.add
+import org.atto.protocol.getMessageType
 import org.atto.protocol.network.AttoMessage
-import org.atto.protocol.network.MessageType
-import org.atto.protocol.network.codec.MessageCodec
+import org.atto.protocol.network.AttoMessageType
+import org.atto.protocol.network.codec.AttoMessageCodec
 import org.springframework.stereotype.Component
-import java.nio.ByteBuffer
 
 @Component
-class MessageCodecManager(val thisNode: Node, codecs: List<MessageCodec<*>>) {
+class MessageCodecManager(val thisNode: AttoNode, codecs: List<AttoMessageCodec<*>>) {
     val codecMap = codecs.associateBy({ it.messageType() }, { it })
 
     companion object {
@@ -18,51 +18,48 @@ class MessageCodecManager(val thisNode: Node, codecs: List<MessageCodec<*>>) {
     }
 
 
-    fun fromByteArray(byteArray: ByteArray): AttoMessage? {
-        if (AttoMessage.size >= byteArray.size) {
+    fun fromByteArray(byteBuffer: AttoByteBuffer): AttoMessage? {
+        if (AttoMessage.size >= byteBuffer.size) {
             return null
         }
 
-        val network = AttoNetwork.from(byteArray.sliceArray(0 until 3).toString(Charsets.UTF_8))
+        val network = byteBuffer.getNetwork()
 
         if (thisNode.network != network) {
             return null
         }
 
-        val protocolVersion = byteArray.sliceArray(3 until 5).toUShort()
+        val protocolVersion = byteBuffer.getUShort()
 
         if (thisNode.minimalProtocolVersion > protocolVersion) {
             return null
         }
 
-        val type = MessageType.fromCode(byteArray.sliceArray(5 until 6)[0].toUByte())
+        val type = byteBuffer.getMessageType()
 
-        if (type == MessageType.UNKNOWN) {
+        if (type == AttoMessageType.UNKNOWN) {
             return null
         }
 
-        val size = byteArray.sliceArray(6 until 8).toUShort().toInt()
+        val size = byteBuffer.getUByte().toInt()
 
-        if (size != byteArray.size - 8) {
+        if (size != byteBuffer.size - 8) {
             return null
         }
 
-        val messageByteArray = byteArray.sliceArray(8 until byteArray.size)
-
-        return codecMap[type]!!.fromByteBuffer(messageByteArray)
+        return codecMap[type]!!.fromByteBuffer(byteBuffer.slice(8))
     }
 
     @Suppress("UNCHECKED_CAST")
-    fun <T : AttoMessage> toByteArray(t: T): ByteArray {
-        val codec = codecMap[t.messageType()]!! as MessageCodec<T>
-        val byteArray = codec.toByteArray(t)
+    fun <T : AttoMessage> toByteBuffer(t: T): AttoByteBuffer {
+        val codec = codecMap[t.messageType()]!! as AttoMessageCodec<T>
+        val byteBuffer = codec.toByteBuffer(t)
 
-        return ByteBuffer.allocate(size + byteArray.size)
-            .put(thisNode.network.environment.toByteArray(Charsets.UTF_8))
-            .putShort(thisNode.protocolVersion.toShort())
-            .put(t.messageType().code.toByte())
-            .putShort(byteArray.size.toShort())
-            .put(byteArray)
-            .array()
+        return AttoByteBuffer(size + byteBuffer.size)
+            .add(thisNode.network)
+            .add(thisNode.protocolVersion)
+            .add(t.messageType())
+            .add(byteBuffer.size.toShort())
+            .add(byteBuffer)
     }
 }

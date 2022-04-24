@@ -1,15 +1,15 @@
 package org.atto.node.network.codec
 
-import org.atto.protocol.Node
-import org.atto.protocol.network.codec.NodeCodec
-import org.atto.protocol.network.codec.peer.KeepAliveCodec
-import org.atto.protocol.network.codec.peer.handshake.HandshakeAnswerCodec
-import org.atto.protocol.network.codec.peer.handshake.HandshakeChallengeCodec
-import org.atto.protocol.network.codec.transaction.TransactionCodec
-import org.atto.protocol.network.codec.transaction.TransactionPushCodec
-import org.atto.protocol.network.codec.vote.HashVoteCodec
-import org.atto.protocol.network.codec.vote.VoteCodec
-import org.atto.protocol.network.codec.vote.VotePushCodec
+import org.atto.protocol.AttoNode
+import org.atto.protocol.network.codec.AttoNodeCodec
+import org.atto.protocol.network.codec.peer.AttoKeepAliveCodec
+import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeAnswerCodecTest
+import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeChallengeCodec
+import org.atto.protocol.network.codec.transaction.AttoTransactionCodec
+import org.atto.protocol.network.codec.transaction.AttoTransactionPushCodec
+import org.atto.protocol.network.codec.vote.AttoHashVoteCodec
+import org.atto.protocol.network.codec.vote.AttoVoteCodec
+import org.atto.protocol.network.codec.vote.AttoVotePushCodec
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -17,33 +17,33 @@ import org.springframework.context.annotation.Configuration
 class MessageCodecConfiguration {
 
     @Bean
-    fun handshakeChallengeCodec(): HandshakeChallengeCodec {
-        return HandshakeChallengeCodec()
+    fun handshakeChallengeCodec(): AttoHandshakeChallengeCodec {
+        return AttoHandshakeChallengeCodec()
     }
 
     @Bean
-    fun handshakeAnswerCodec(): HandshakeAnswerCodec {
-        return HandshakeAnswerCodec(NodeCodec())
+    fun handshakeAnswerCodec(): AttoHandshakeAnswerCodecTest {
+        return AttoHandshakeAnswerCodecTest(AttoNodeCodec())
     }
 
     @Bean
-    fun keepAliveCodec(): KeepAliveCodec {
-        return KeepAliveCodec()
+    fun keepAliveCodec(): AttoKeepAliveCodec {
+        return AttoKeepAliveCodec()
     }
 
     @Bean
-    fun transactionCodec(thisNode: Node): TransactionCodec {
-        return TransactionCodec(thisNode.network)
+    fun transactionCodec(thisNode: AttoNode): AttoTransactionCodec {
+        return AttoTransactionCodec(thisNode.network)
     }
 
     @Bean
-    fun transactionPushCodec(transactionCodec: TransactionCodec): TransactionPushCodec {
-        return TransactionPushCodec(transactionCodec)
+    fun transactionPushCodec(transactionCodec: AttoTransactionCodec): AttoTransactionPushCodec {
+        return AttoTransactionPushCodec(transactionCodec)
     }
 
     @Bean
-    fun votePushCodec(thisNode: Node): VotePushCodec {
-        return VotePushCodec(HashVoteCodec(VoteCodec()))
+    fun votePushCodec(thisNode: AttoNode): AttoVotePushCodec {
+        return AttoVotePushCodec(AttoHashVoteCodec(AttoVoteCodec()))
     }
 
 }

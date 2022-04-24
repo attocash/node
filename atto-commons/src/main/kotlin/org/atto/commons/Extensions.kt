@@ -21,6 +21,10 @@ fun ByteBuffer.toHex(): String {
     return this.toByteArray().toHex()
 }
 
+fun AttoByteBuffer.toHex(): String {
+    return this.toByteArray().toHex()
+}
+
 fun String.fromHexToByteArray(): ByteArray {
     val len = this.length
     val data = ByteArray(len / 2)
@@ -45,11 +49,6 @@ fun UShort.toByteArray(): ByteArray {
     return this.toByteBuffer().array()
 }
 
-fun ByteBuffer.toUShort(): UShort {
-    return this
-        .short
-        .toUShort()
-}
 
 fun ByteArray.toUShort(): UShort {
     return ByteBuffer.wrap(this)

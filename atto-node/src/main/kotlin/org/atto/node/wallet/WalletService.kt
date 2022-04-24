@@ -1,17 +1,15 @@
 package org.atto.node.wallet
 
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
+import org.atto.node.account.AccountRepository
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.transaction.TransactionConfirmed
-import org.atto.node.transaction.TransactionRepository
-import org.atto.protocol.Node
-import org.atto.protocol.transaction.Transaction
-import org.atto.protocol.transaction.TransactionPush
+import org.atto.protocol.AttoNode
+import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -19,49 +17,49 @@ import org.springframework.stereotype.Service
 @Service
 @Profile("default")
 class WalletService(
-    private val thisNode: Node,
+    private val thisNode: AttoNode,
     private val privateKey: AttoPrivateKey,
-    private val transactionRepository: TransactionRepository,
+    private val accountRepository: AccountRepository,
     private val messagePublisher: NetworkMessagePublisher
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val scope = CoroutineScope(Dispatchers.Default)
-
     @EventListener
-    fun listen(transactionConfirmed: TransactionConfirmed) {
-        val transaction = transactionConfirmed.transaction
+    fun listen(changeConfirmed: TransactionConfirmed) {
+        val transaction = changeConfirmed.payload
         if (transaction.block.type != AttoBlockType.SEND) {
             return
         }
 
-        val sendBlock = transaction.block
+        val sendBlock = transaction.block as AttoSendBlock
 
-        if (sendBlock.link.publicKey != thisNode.publicKey) {
+        if (sendBlock.receiverPublicKey != thisNode.publicKey) {
             return
         }
 
-        scope.launch {
-            receive(sendBlock)
+        runBlocking {
+            launch {
+                receive(sendBlock)
+            }
         }
     }
 
-    private suspend fun receive(sendBlock: AttoBlockOld) {
-        val latestTransaction = transactionRepository.findLastConfirmedByPublicKeyId(thisNode.publicKey)
+    private suspend fun receive(sendBlock: AttoSendBlock) {
+        val receiverAccount = accountRepository.findByPublicKey(sendBlock.receiverPublicKey)?.toAttoAccount()
 
-        val receiveTransaction = if (latestTransaction == null) {
-            val openBlock = AttoBlockOld.open(thisNode.publicKey, thisNode.publicKey, sendBlock)
-            Transaction(
+        val receiveTransaction = if (receiverAccount == null) {
+            val openBlock = AttoAccount.open(thisNode.publicKey, thisNode.publicKey, sendBlock)
+            AttoTransaction(
                 block = openBlock,
-                signature = privateKey.sign(openBlock.getHash().value),
-                work = AttoWork.Companion.work(openBlock.publicKey, thisNode.network)
+                signature = privateKey.sign(openBlock.hash.value),
+                work = AttoWork.work(openBlock.publicKey, thisNode.network)
             )
         } else {
-            val receiveBlock = latestTransaction.block.receive(sendBlock)
-            Transaction(
+            val receiveBlock = receiverAccount.receive(sendBlock)
+            AttoTransaction(
                 block = receiveBlock,
-                signature = privateKey.sign(receiveBlock.getHash().value),
-                work = AttoWork.Companion.work(latestTransaction.hash, thisNode.network)
+                signature = privateKey.sign(receiveBlock.hash.value),
+                work = AttoWork.Companion.work(receiverAccount.lastHash, thisNode.network)
             )
         }
 
@@ -69,8 +67,7 @@ class WalletService(
         messagePublisher.publish(
             InboundNetworkMessage(
                 thisNode.socketAddress,
-                this,
-                TransactionPush(receiveTransaction)
+                AttoTransactionPush(receiveTransaction)
             )
         )
     }

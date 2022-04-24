@@ -7,7 +7,7 @@ import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.network.OutboundNetworkMessage
-import org.atto.protocol.network.peer.KeepAlive
+import org.atto.protocol.network.peer.AttoKeepAlive
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -34,7 +34,7 @@ class PeerManager(
     }
 
     @EventListener
-    fun process(message: InboundNetworkMessage<KeepAlive>) {
+    fun process(message: InboundNetworkMessage<AttoKeepAlive>) {
         peers.asMap().compute(message.socketAddress) { _, value -> value } // refresh cache
 
         message.payload.neighbours.forEach { handshakeService.startHandshake(it) }
@@ -45,7 +45,7 @@ class PeerManager(
         val peerSample = peerSample()
 
         peers.asMap().keys.forEach {
-            messagePublisher.publish(OutboundNetworkMessage(it, this, KeepAlive(peerSample)))
+            messagePublisher.publish(OutboundNetworkMessage(it, AttoKeepAlive(peerSample)))
         }
     }
 

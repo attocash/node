@@ -2,42 +2,38 @@ package org.atto.node.network
 
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.ApplicationEventPublisher
-import org.springframework.context.PayloadApplicationEvent
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 
-class OutboundNetworkMessage<T : AttoMessage>(val socketAddress: InetSocketAddress, source: Any, payload: T) :
-    PayloadApplicationEvent<T>(source, payload)
+interface NetworkMessage<T : AttoMessage> {
+    val payload: T
+}
 
-class InboundNetworkMessage<T : AttoMessage>(val socketAddress: InetSocketAddress, source: Any, payload: T) :
-    PayloadApplicationEvent<T>(source, payload)
+data class OutboundNetworkMessage<T : AttoMessage>(
+    val socketAddress: InetSocketAddress,
+    override val payload: T
+) : NetworkMessage<T>
+
+data class InboundNetworkMessage<T : AttoMessage>(
+    val socketAddress: InetSocketAddress,
+    override val payload: T
+) : NetworkMessage<T>
 
 enum class BroadcastStrategy(val percentage: Int) {
     EVERYONE(100),
-    MAJORITY(65),
-    MINORITY(40),
     VOTERS(100),
 }
 
 data class BroadcastNetworkMessage<T : AttoMessage>(
     val strategy: BroadcastStrategy,
     val exceptions: Set<InetSocketAddress>,
-    internal val source: Any,
-    internal val payload: T
-) : PayloadApplicationEvent<T>(source, payload)
+    override val payload: T,
+) : NetworkMessage<T>
 
 @Component
 class NetworkMessagePublisher(private val publisher: ApplicationEventPublisher) {
 
-    fun publish(message: OutboundNetworkMessage<*>) {
-        publisher.publishEvent(message)
-    }
-
-    fun publish(message: InboundNetworkMessage<*>) {
-        publisher.publishEvent(message)
-    }
-
-    fun publish(message: BroadcastNetworkMessage<*>) {
+    fun publish(message: NetworkMessage<*>) {
         publisher.publishEvent(message)
     }
 

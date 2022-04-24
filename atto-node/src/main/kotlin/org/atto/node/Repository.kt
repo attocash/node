@@ -1,6 +1,5 @@
 package org.atto.node
 
-interface AttoRepository<T, ID> {
-    suspend fun findById(id: ID): T?
+interface AttoRepository {
     suspend fun deleteAll(): Int
 }
