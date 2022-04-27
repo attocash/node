@@ -14,10 +14,22 @@ object AttoSeeds {
 }
 
 
-@JvmInline
-value class AttoSeed(val value: ByteArray) {
+data class AttoSeed(val value: ByteArray) {
     init {
         value.checkLength(32)
+    }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is AttoSeed) return false
+
+        if (!value.contentEquals(other.value)) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return value.contentHashCode()
     }
 
     override fun toString(): String {

@@ -24,8 +24,7 @@ object AttoWorks {
     }
 
     fun isValid(hash: AttoHash, work: AttoWork, network: AttoNetwork): Boolean {
-        val difficult = AttoHashes.hash(8, work.value, hash.value).toULong()
-        return difficult >= network.threshold
+        return isValid(hash.value, work.value, network)
     }
 
     internal fun isValid(hash: ByteArray, work: ByteArray, network: AttoNetwork): Boolean {
