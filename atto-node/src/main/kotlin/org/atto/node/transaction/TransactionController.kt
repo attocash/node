@@ -1,6 +1,6 @@
 package org.atto.node.transaction
 
-import io.swagger.annotations.ApiOperation
+import io.swagger.v3.oas.annotations.Operation
 import org.atto.commons.*
 import org.atto.node.EventPublisher
 import org.atto.protocol.AttoNode
@@ -18,7 +18,7 @@ class TransactionController(
 ) {
 
     @PostMapping("/transactions")
-    @ApiOperation("Publish transaction")
+    @Operation(description = "Publish transaction")
     suspend fun publish(@RequestBody transaction: AttoTransaction): ResponseEntity.BodyBuilder {
         if (!transaction.isValid(node.network)) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)

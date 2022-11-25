@@ -12,7 +12,7 @@ internal object AttoMnemonics {
     fun seedToBip39(seed: AttoSeed, language: AttoMnemonicLanguage): List<String> {
         val byteArraySeed = seed.value;
         val seedLength = byteArraySeed.size * 8
-        val seedWithChecksum = Arrays.copyOf(byteArraySeed, byteArraySeed.size + 1)
+        val seedWithChecksum = byteArraySeed.copyOf(byteArraySeed.size + 1)
         seedWithChecksum[byteArraySeed.size] = checksum(byteArraySeed)
         val checksumLength = seedLength / 32
         val mnemonicSentenceLength = (seedLength + checksumLength) / 11
@@ -66,7 +66,7 @@ internal object AttoMnemonics {
     }
 
     private fun extractSeed(seedWithChecksum: ByteArray): ByteArray {
-        return Arrays.copyOf(seedWithChecksum, seedWithChecksum.size - 1)
+        return seedWithChecksum.copyOf(seedWithChecksum.size - 1)
     }
 
     private fun checksum(seed: ByteArray): Byte {
@@ -110,18 +110,14 @@ internal object AttoMnemonics {
     enum class AttoMnemonicLanguageType(fileName: String) : AttoMnemonicLanguage {
         ENGLISH("english.txt");
 
-        val dictionary: List<String>
-        val dictionaryMap: Map<String?, Int>
+        private val dictionary: List<String>
+        private val dictionaryMap: Map<String, Int>
 
         init {
             val classLoader = AttoMnemonics::class.java.classLoader
-            val fileLocation = classLoader.getResource(fileName)
-            dictionary = Collections.unmodifiableList(Files.readAllLines(Paths.get(fileLocation.toURI())))
-            val tempDictionaryMap: MutableMap<String, Int> = HashMap()
-            for (word in dictionary) {
-                tempDictionaryMap[word] = dictionary.indexOf(word)
-            }
-            dictionaryMap = Collections.unmodifiableMap<String, Int>(tempDictionaryMap)
+            val fileLocation = classLoader.getResource(fileName)!!
+            dictionary = Files.readAllLines(Paths.get(fileLocation.toURI()))
+            dictionaryMap = dictionary.indices.associateBy({ dictionary[it] }) { it }
         }
 
         override fun getWord(index: Int): String {

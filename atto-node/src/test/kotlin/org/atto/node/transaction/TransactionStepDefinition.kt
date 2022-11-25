@@ -12,8 +12,8 @@ import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.AttoNode
 import org.atto.protocol.transaction.AttoTransactionPush
-import kotlin.test.assertEquals
-import kotlin.test.assertNotNull
+import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNotNull
 
 class TransactionStepDefinition(
     private val thisNode: AttoNode,

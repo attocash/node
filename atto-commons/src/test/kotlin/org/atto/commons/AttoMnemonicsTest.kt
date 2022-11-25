@@ -12,7 +12,7 @@ internal class AttoMnemonicsTest {
 
     // FIXME
     @Test
-    @Disabled("For some reason classloader can't find english.txt file")
+    @Disabled
     fun `should create mnemonic`() {
         // when
         val mnemonic = AttoMnemonics.seedToBip39(seed, AttoMnemonics.AttoMnemonicLanguageType.ENGLISH)

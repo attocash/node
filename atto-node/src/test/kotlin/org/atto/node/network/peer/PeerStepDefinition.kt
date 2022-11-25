@@ -7,7 +7,7 @@ import org.atto.commons.AttoPublicKey
 import org.atto.node.NodeStepDefinition
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
-import kotlin.test.assertNotNull
+import org.junit.jupiter.api.Assertions.assertNotNull
 
 class PeerStepDefinition(
     private val nodeStepDefinition: NodeStepDefinition,

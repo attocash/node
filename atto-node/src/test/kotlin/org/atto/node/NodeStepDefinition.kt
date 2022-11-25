@@ -19,6 +19,7 @@ class NodeStepDefinition(
 ) {
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
+        val applicationClass1 = Application::class.java.canonicalName
         val latch = CountDownLatch(1)
         val neighbourThread = Thread {
             try {
