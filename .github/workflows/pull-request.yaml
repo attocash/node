@@ -1,6 +1,6 @@
 name: Pull Request
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - main
 jobs:
@@ -10,15 +10,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-        with:
-          ref: ${{github.event.pull_request.head.ref}}
-          repository: ${{github.event.pull_request.head.repo.full_name}}
 
       - uses: actions/setup-java@v2
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'maven'
+          cache: 'build'
 
       - name: Build Application
         run: |
