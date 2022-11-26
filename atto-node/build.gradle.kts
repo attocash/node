@@ -53,8 +53,8 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.2")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
-    testImplementation("org.junit.platform:junit-platform-suite")
 
+    testImplementation("org.junit.platform:junit-platform-suite") // for cucumber
     testImplementation("io.cucumber:cucumber-java:${property("cucumberVersion")}")
     testImplementation("io.cucumber:cucumber-spring:${property("cucumberVersion")}")
     testImplementation("io.cucumber:cucumber-junit-platform-engine:${property("cucumberVersion")}")
