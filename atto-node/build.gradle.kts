@@ -45,7 +45,7 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("io.r2dbc:r2dbc-h2")
 
-    implementation("io.github.microutils:kotlin-logging-jvm:2.1.16")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.4")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
