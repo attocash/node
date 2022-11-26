@@ -26,7 +26,7 @@ dependencies {
 
     implementation("org.springdoc:springdoc-openapi-ui:1.6.13")
 
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.1")
+    implementation("com.github.ben-manes.caffeine:caffeine:3.1.2")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
