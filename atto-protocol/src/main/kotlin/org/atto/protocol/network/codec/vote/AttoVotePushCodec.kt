@@ -5,7 +5,7 @@ import org.atto.protocol.network.AttoMessageType
 import org.atto.protocol.network.codec.AttoMessageCodec
 import org.atto.protocol.vote.AttoVotePush
 
-class AttoVotePushCodec(private val hashVoteCodec: AttoHashVoteCodec) : AttoMessageCodec<AttoVotePush> {
+class AttoVotePushCodec(private val hashVoteCodec: AttoVoteCodec) : AttoMessageCodec<AttoVotePush> {
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.VOTE_PUSH

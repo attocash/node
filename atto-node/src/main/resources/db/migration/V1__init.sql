@@ -1,35 +1,49 @@
-CREATE TABLE transactions
+CREATE TABLE account
 (
-    hash              VARBINARY(32) PRIMARY KEY,
-    status            VARCHAR(9) NOT NULl,
+    public_key                 VARBINARY(32) PRIMARY KEY,
+    version                    SMALLINT UNSIGNED                                                  NOT NULl,
+    height                     BIGINT UNSIGNED                                                    NOT NULL,
+    balance                    BIGINT UNSIGNED                                                    NOT NULL,
+    last_transaction_hash      VARBINARY(32)                                                      NOT NULl,
+    last_transaction_timestamp TIMESTAMP(6)                                                       NOT NULL,
+    representative             VARBINARY(32)                                                      NOT NULL,
 
-    type              VARCHAR(7) NOT NULL,
-    version           SMALLINT UNSIGNED NOT NULl,
-    publicKey         VARBINARY(32) NOT NULL,
-    height            BIGINT UNSIGNED NOT NULL,
-    previous          VARBINARY(32) NOT NULL,
-    representative    VARBINARY(32) NOT NULL,
-    link              VARBINARY(32) NOT NULL,
-    balance           BIGINT UNSIGNED NOT NULL,
-    amount            BIGINT UNSIGNED NOT NULL,
-    timestamp         BIGINT UNSIGNED NOT NULL,
-
-    signature         VARBINARY(64) NOT NULL,
-    work              VARBINARY(32) NOT NULL,
-
-    receivedTimestamp BIGINT UNSIGNED NOT NULL,
-
-    createdAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updatedAt         TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    persisted_at               TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP                             NOT NULL,
+    updated_at                 TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE TABLE votes
+CREATE TABLE transaction
 (
-    hash              VARBINARY(32) NOT NULL,
-    publicKey         VARBINARY(32) NOT NULL,
-    timestamp         BIGINT UNSIGNED NOT NULL,
-    signature         VARBINARY(64) NOT NULL,
-    receivedTimestamp BIGINT UNSIGNED NOT NULL,
+    hash         VARBINARY(32) PRIMARY KEY,
 
-    PRIMARY KEY (hash, publicKey)
+    type         VARCHAR(7)                             NOT NULL,
+    version      SMALLINT UNSIGNED                      NOT NULl,
+    public_key   VARBINARY(32)                          NOT NULL,
+    height       BIGINT UNSIGNED                        NOT NULL,
+    balance      BIGINT UNSIGNED                        NOT NULL,
+    timestamp    TIMESTAMP(6)                           NOT NULL,
+    block        VARBINARY(131)                         NOT NULL,
+
+    signature    VARBINARY(64)                          NOT NULL,
+    work         VARBINARY(32)                          NOT NULL,
+
+    received_at  TIMESTAMP(9)                           NOT NULL,
+    persisted_at TIMESTAMP(9) DEFAULT CURRENT_TIMESTAMP NOT NULL
+);
+
+CREATE TABLE account_receivable
+(
+    hash                VARBINARY(32) PRIMARY KEY,
+    receiver_public_key VARBINARY(32)   NOT NULL,
+    amount              BIGINT UNSIGNED NOT NULL
+);
+
+CREATE TABLE vote
+(
+    hash        VARBINARY(32)   NOT NULL,
+    public_key  VARBINARY(32)   NOT NULL,
+    timestamp   TIMESTAMP(6)    NOT NULL,
+    signature   VARBINARY(64) PRIMARY KEY,
+    received_at BIGINT UNSIGNED NOT NULL,
+    weight      BIGINT UNSIGNED NOT NULL
 );

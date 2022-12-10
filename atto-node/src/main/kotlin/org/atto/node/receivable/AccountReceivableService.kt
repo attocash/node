@@ -11,6 +11,6 @@ class AccountReceivableService(private val accountReceivableRepository: AccountR
     }
 
     suspend fun delete(hash: AttoHash) {
-        accountReceivableRepository.delete(hash)
+        accountReceivableRepository.deleteById(hash)
     }
 }

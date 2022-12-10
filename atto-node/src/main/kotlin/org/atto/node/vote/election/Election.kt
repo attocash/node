@@ -116,7 +116,7 @@ class Election(
             transactionWeighters.values.asSequence()
                 .flatMap { it.values }
                 .map { it.transaction }
-                .filter { it.receivedTimestamp < minimalTimestamp }
+                .filter { it.receivedAt < minimalTimestamp }
                 .map { it.toPublicKeyHeight() }
                 .distinct()
                 .map { getConsensus(it) }
@@ -135,7 +135,7 @@ class Election(
         singleScope.launch {
             transactionWeighters.values.asSequence()
                 .flatMap { it.values }
-                .filter { it.transaction.receivedTimestamp < minimalTimestamp }
+                .filter { it.transaction.receivedAt < minimalTimestamp }
                 .forEach { weighter ->
                     logger.trace { "Staled ${weighter.transaction}" }
                     stopObserving(weighter.transaction)

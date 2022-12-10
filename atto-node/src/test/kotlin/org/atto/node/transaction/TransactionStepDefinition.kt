@@ -3,7 +3,6 @@ package org.atto.node.transaction
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.runTest
 import org.atto.commons.*
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
@@ -24,10 +23,10 @@ class TransactionStepDefinition(
     private val defaultSendAmount = AttoAmount(4_500_000_000_000_000_000u)
 
     @When("^send transaction (\\w+) from (\\w+) account to (\\w+) account$")
-    fun sendTransaction(transactionShortId: String, shortId: String, receiverShortId: String) = runTest {
+    fun sendTransaction(transactionShortId: String, shortId: String, receiverShortId: String) = runBlocking {
         val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
-        val account = accountRepository.findByPublicKey(publicKey)!!
+        val account = accountRepository.findById(publicKey)!!
 
         val receiverPublicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
 
@@ -35,7 +34,7 @@ class TransactionStepDefinition(
         val sendTransaction = Transaction(
             block = sendBlock,
             signature = privateKey.sign(sendBlock.hash.value),
-            work = AttoWork.Companion.work(account.lastHash, thisNode.network)
+            work = AttoWork.Companion.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash)
         )
         messagePublisher.publish(
             InboundNetworkMessage(
@@ -48,10 +47,10 @@ class TransactionStepDefinition(
     }
 
     @When("^change transaction (\\w+) from (\\w+) account to (\\w+) representative$")
-    fun changeTransaction(transactionShortId: String, shortId: String, representativeShortId: String) = runTest {
+    fun changeTransaction(transactionShortId: String, shortId: String, representativeShortId: String) = runBlocking {
         val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
-        val account = accountRepository.findByPublicKey(publicKey)!!
+        val account = accountRepository.findById(publicKey)!!
 
         val representative = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
 
@@ -59,7 +58,7 @@ class TransactionStepDefinition(
         val changeTransaction = Transaction(
             block = changeBlock,
             signature = privateKey.sign(changeBlock.hash.value),
-            work = AttoWork.Companion.work(account.lastHash, thisNode.network),
+            work = AttoWork.Companion.work(thisNode.network, changeBlock.timestamp, account.lastTransactionHash),
         )
         messagePublisher.publish(
             InboundNetworkMessage(
@@ -72,18 +71,18 @@ class TransactionStepDefinition(
     }
 
     @Then("^transaction (\\w+) is confirmed$")
-    fun checkConfirmed(transactionShortId: String) = runTest {
+    fun checkConfirmed(transactionShortId: String) = runBlocking {
         val expectedTransaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
         val transaction = waitUntilNonNull {
             runBlocking {
-                transactionRepository.findByHash(expectedTransaction.hash)
+                transactionRepository.findById(expectedTransaction.hash)
             }
         }
         assertEquals(expectedTransaction, transaction)
     }
 
     @Then("^matching open or receive transaction for transaction (\\w+) is confirmed$")
-    fun checkMatchingConfirmed(transactionShortId: String) = runTest {
+    fun checkMatchingConfirmed(transactionShortId: String) = runBlocking {
         val sendTransaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
         val sendBlock = sendTransaction.block as AttoSendBlock
 
@@ -92,7 +91,7 @@ class TransactionStepDefinition(
         val transaction = waitUntilNonNull {
             val transaction = runBlocking {
                 val account = accountRepository.getByPublicKey(receiverPublicKey)
-                transactionRepository.findByHash(account.lastHash)
+                transactionRepository.findById(account.lastTransactionHash)
             }
 
             val block = transaction?.block

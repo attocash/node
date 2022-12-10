@@ -7,7 +7,7 @@ import org.atto.protocol.network.codec.AttoNodeCodec
 import org.atto.protocol.network.handshake.AttoHandshakeAnswer
 
 
-class AttoHandshakeAnswerCodecTest(val nodeCodec: AttoNodeCodec) : AttoMessageCodec<AttoHandshakeAnswer> {
+class AttoHandshakeAnswerCodec(val nodeCodec: AttoNodeCodec) : AttoMessageCodec<AttoHandshakeAnswer> {
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.HANDSHAKE_ANSWER

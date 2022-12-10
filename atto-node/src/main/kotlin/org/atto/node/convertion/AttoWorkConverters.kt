@@ -1,4 +1,4 @@
-package org.atto.node.converter
+package org.atto.node.convertion
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
@@ -31,6 +31,21 @@ class AttoWorkStdDeserializer : StdDeserializer<AttoWork>(AttoWork::class.java) 
     override fun deserialize(parser: JsonParser, context: DeserializationContext): AttoWork {
         val value = parser.readValueAs(String::class.java)
         return AttoWork.parse(value)
+    }
+}
+
+
+@Component
+class AttoWorkSerializerDBConverter : DBConverter<AttoWork, ByteArray> {
+    override fun convert(source: AttoWork): ByteArray {
+        return source.value;
+    }
+}
+
+@Component
+class AttoWorkDeserializerDBConverter : DBConverter<ByteArray, AttoWork> {
+    override fun convert(source: ByteArray): AttoWork {
+        return AttoWork(source)
     }
 }
 

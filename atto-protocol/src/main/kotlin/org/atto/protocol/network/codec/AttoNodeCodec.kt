@@ -21,14 +21,11 @@ class AttoNodeCodec : AttoCodec<AttoNode> {
             }
         }
 
-        val protocolVersion = byteBuffer.getUShort(3)
-
         return AttoNode(
             network = byteBuffer.getNetwork(0),
-            protocolVersion = protocolVersion,
-            minimalProtocolVersion = protocolVersion,
-            publicKey = byteBuffer.getPublicKey(5),
-            socketAddress = byteBuffer.getInetSocketAddress(37),
+            protocolVersion = byteBuffer.getUShort(),
+            publicKey = byteBuffer.getPublicKey(),
+            socketAddress = byteBuffer.getInetSocketAddress(),
             features = features
         )
     }
@@ -37,15 +34,16 @@ class AttoNodeCodec : AttoCodec<AttoNode> {
         val byteBuffer = AttoByteBuffer(AttoNode.size)
 
         byteBuffer
-            .add(t.network)
-            .add(t.protocolVersion)
-            .add(t.publicKey)
-            .add(t.socketAddress)
-            .add(t.features.size.toByte())
+            .add(t.network) // 3 [0..<3]
+            .add(t.protocolVersion) // 2 [3..<5]
+            .add(t.publicKey) // 32 [5..<37]
+            .add(t.socketAddress) // 16 ip + 2 port [37..<55]
+            .add(t.features.size.toByte()) // 1 [55..<56]
 
-        for (feature in t.features) {
-            byteBuffer.add(feature.code)
-        }
+        t.features.asSequence()
+            .map { it.code }
+            .sorted()
+            .forEach { byteBuffer.add(it) }
 
         return byteBuffer
     }

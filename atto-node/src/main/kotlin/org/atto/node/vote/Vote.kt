@@ -15,11 +15,11 @@ import java.time.Instant
 data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
 
 data class Vote(
+    val hash: AttoHash,
+    val publicKey: AttoPublicKey,
+    val timestamp: Instant,
     @Id
     val signature: AttoSignature,
-    val hash: AttoHash,
-    val timestamp: Instant,
-    val publicKey: AttoPublicKey,
     val receivedTimestamp: Instant,
     val weight: AttoAmount,
 ) {

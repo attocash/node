@@ -1,5 +1,7 @@
 package org.atto.node.vote
 
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.atto.commons.AttoSignature
@@ -11,8 +13,6 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
-import javax.annotation.PostConstruct
-import javax.annotation.PreDestroy
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while

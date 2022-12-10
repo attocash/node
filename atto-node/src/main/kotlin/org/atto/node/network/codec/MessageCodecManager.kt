@@ -31,7 +31,11 @@ class MessageCodecManager(val thisNode: AttoNode, codecs: List<AttoMessageCodec<
 
         val protocolVersion = byteBuffer.getUShort()
 
-        if (thisNode.minimalProtocolVersion > protocolVersion) {
+        if (thisNode.minProtocolVersion > protocolVersion) {
+            return null
+        }
+
+        if (thisNode.maxProtocolVersion < protocolVersion) {
             return null
         }
 

@@ -1,5 +1,5 @@
 package org.atto.node
 
 interface AttoRepository {
-    suspend fun deleteAll(): Int
+    suspend fun deleteAll()
 }

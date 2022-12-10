@@ -1,6 +1,5 @@
 package org.atto.protocol.network.codec.peer
 
-import org.atto.protocol.network.AttoContextHolder
 import org.atto.protocol.network.peer.AttoKeepAlive
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -14,7 +13,7 @@ internal class AttoAttoKeepAliveCodecTest {
     fun `should serialize and deserialize`() {
         // given
         val socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330)
-        AttoContextHolder.put("socketAddress", socketAddress)
+//        AttoContextHolder.put("socketAddress", socketAddress)
 
         val neighbors = arrayListOf(InetSocketAddress(InetAddress.getLocalHost(), 8330))
         val expectedKeepAlive = AttoKeepAlive(

@@ -2,7 +2,7 @@ package org.atto.node
 
 import io.cucumber.java.Before
 import io.cucumber.spring.CucumberContextConfiguration
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.atto.commons.AttoPrivateKey
 import org.atto.node.network.peer.PeerProperties
 import org.atto.node.transaction.Transaction
@@ -24,7 +24,7 @@ class CucumberConfiguration(
     val transactionRepository: TransactionRepository
 ) {
     @Before
-    fun setUp() = runTest {
+    fun setUp() = runBlocking {
         repositories.forEach { it.deleteAll() }
         transactionRepository.save(genesisTransaction)
 

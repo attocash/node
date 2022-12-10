@@ -1,6 +1,6 @@
 package org.atto.node.vote
 
-import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.runBlocking
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
@@ -16,7 +16,7 @@ internal class VoteQueueTest {
     val queue = VoteQueue(2)
 
     @Test
-    fun `should return first transaction with higher weight`() = runTest {
+    fun `should return first transaction with higher weight`() = runBlocking {
         // given
         val vote3 = createVote(3UL)
         val vote1 = createVote(1UL)
@@ -35,7 +35,7 @@ internal class VoteQueueTest {
     }
 
     @Test
-    fun `should return null when empty`() = runTest {
+    fun `should return null when empty`() = runBlocking {
         assertNull(queue.poll())
     }
 

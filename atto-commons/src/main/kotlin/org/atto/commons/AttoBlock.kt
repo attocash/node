@@ -21,31 +21,32 @@ enum class AttoBlockType(val code: UByte, val size: Int) {
 }
 
 interface AttoBlock {
+    val hash: AttoHash
+    val type: AttoBlockType
+
     val version: UShort
     val publicKey: AttoPublicKey
     val height: ULong
     val balance: AttoAmount
     val timestamp: Instant
 
-    val type: AttoBlockType
-    val byteBuffer: AttoByteBuffer
-    val hash: AttoHash
+    val serialized: AttoByteBuffer
 
     companion object {
-        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoBlock? {
-            val type = byteBuffer.getBlockType()
+        fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoBlock? {
+            val type = serializedBlock.getBlockType()
             return when (type) {
                 AttoBlockType.SEND -> {
-                    AttoSendBlock.fromByteBuffer(byteBuffer)
+                    AttoSendBlock.fromByteBuffer(serializedBlock)
                 }
                 AttoBlockType.RECEIVE -> {
-                    AttoReceiveBlock.fromByteBuffer(byteBuffer)
+                    AttoReceiveBlock.fromByteBuffer(serializedBlock)
                 }
                 AttoBlockType.OPEN -> {
-                    AttoOpenBlock.fromByteBuffer(byteBuffer)
+                    AttoOpenBlock.fromByteBuffer(serializedBlock)
                 }
                 AttoBlockType.CHANGE -> {
-                    AttoChangeBlock.fromByteBuffer(byteBuffer)
+                    AttoChangeBlock.fromByteBuffer(serializedBlock)
                 }
                 AttoBlockType.UNKNOWN -> {
                     return null
@@ -86,29 +87,29 @@ data class AttoSendBlock(
     val amount: AttoAmount,
 ) : AttoBlock, PreviousSupport {
     override val type = AttoBlockType.SEND
-    override val byteBuffer = toByteBuffer()
-    override val hash = byteBuffer.getHash()
+    override val serialized = toByteBuffer()
+    override val hash = serialized.getHash()
 
     companion object {
-        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoSendBlock? {
-            if (AttoBlockType.SEND.size > byteBuffer.size) {
+        internal fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoSendBlock? {
+            if (AttoBlockType.SEND.size > serializedBlock.size) {
                 return null
             }
 
-            val blockType = byteBuffer.getBlockType(0)
+            val blockType = serializedBlock.getBlockType(0)
             if (blockType != AttoBlockType.SEND) {
                 throw IllegalArgumentException("Invalid block type: $blockType")
             }
 
             return AttoSendBlock(
-                version = byteBuffer.getUShort(),
-                publicKey = byteBuffer.getPublicKey(),
-                height = byteBuffer.getULong(),
-                balance = byteBuffer.getAmount(),
-                timestamp = byteBuffer.getInstant(),
-                previous = byteBuffer.getHash(),
-                receiverPublicKey = byteBuffer.getPublicKey(),
-                amount = byteBuffer.getAmount(),
+                version = serializedBlock.getUShort(),
+                publicKey = serializedBlock.getPublicKey(),
+                height = serializedBlock.getULong(),
+                balance = serializedBlock.getAmount(),
+                timestamp = serializedBlock.getInstant(),
+                previous = serializedBlock.getHash(),
+                receiverPublicKey = serializedBlock.getPublicKey(),
+                amount = serializedBlock.getAmount(),
             )
         }
     }
@@ -147,30 +148,30 @@ data class AttoReceiveBlock(
 ) : AttoBlock, PreviousSupport, ReceiveSupportBlock {
 
     override val type = AttoBlockType.RECEIVE
-    override val byteBuffer = toByteBuffer()
-    override val hash = byteBuffer.getHash()
+    override val serialized = toByteBuffer()
+    override val hash = serialized.getHash()
 
     companion object {
         val size = 123
 
-        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoReceiveBlock? {
-            if (AttoBlockType.RECEIVE.size > byteBuffer.size) {
+        internal fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoReceiveBlock? {
+            if (AttoBlockType.RECEIVE.size > serializedBlock.size) {
                 return null
             }
 
-            val blockType = byteBuffer.getBlockType(0)
+            val blockType = serializedBlock.getBlockType(0)
             if (blockType != AttoBlockType.RECEIVE) {
                 throw IllegalArgumentException("Invalid block type: $blockType")
             }
 
             return AttoReceiveBlock(
-                version = byteBuffer.getUShort(),
-                publicKey = byteBuffer.getPublicKey(),
-                height = byteBuffer.getULong(),
-                balance = byteBuffer.getAmount(),
-                timestamp = byteBuffer.getInstant(),
-                previous = byteBuffer.getHash(),
-                sendHash = byteBuffer.getHash()
+                version = serializedBlock.getUShort(),
+                publicKey = serializedBlock.getPublicKey(),
+                height = serializedBlock.getULong(),
+                balance = serializedBlock.getAmount(),
+                timestamp = serializedBlock.getInstant(),
+                previous = serializedBlock.getHash(),
+                sendHash = serializedBlock.getHash()
             )
         }
     }
@@ -207,30 +208,30 @@ data class AttoOpenBlock(
 ) : AttoBlock, ReceiveSupportBlock, RepresentativeSupportBlock {
 
     override val type = AttoBlockType.OPEN
-    override val byteBuffer = toByteBuffer()
-    override val hash = byteBuffer.getHash()
+    override val serialized = toByteBuffer()
+    override val hash = serialized.getHash()
     override val height = 1UL
 
     companion object {
         val size = 115
 
-        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoOpenBlock? {
-            if (AttoBlockType.OPEN.size > byteBuffer.size) {
+        internal fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoOpenBlock? {
+            if (AttoBlockType.OPEN.size > serializedBlock.size) {
                 return null
             }
 
-            val blockType = byteBuffer.getBlockType(0)
+            val blockType = serializedBlock.getBlockType(0)
             if (blockType != AttoBlockType.OPEN) {
                 throw IllegalArgumentException("Invalid block type: $blockType")
             }
 
             return AttoOpenBlock(
-                version = byteBuffer.getUShort(),
-                publicKey = byteBuffer.getPublicKey(),
-                balance = byteBuffer.getAmount(),
-                timestamp = byteBuffer.getInstant(),
-                sendHash = byteBuffer.getHash(),
-                representative = byteBuffer.getPublicKey(),
+                version = serializedBlock.getUShort(),
+                publicKey = serializedBlock.getPublicKey(),
+                balance = serializedBlock.getAmount(),
+                timestamp = serializedBlock.getInstant(),
+                sendHash = serializedBlock.getHash(),
+                representative = serializedBlock.getPublicKey(),
             )
         }
     }
@@ -263,30 +264,30 @@ data class AttoChangeBlock(
     override val representative: AttoPublicKey,
 ) : AttoBlock, PreviousSupport, RepresentativeSupportBlock {
     override val type = AttoBlockType.CHANGE
-    override val byteBuffer = toByteBuffer()
-    override val hash = byteBuffer.getHash()
+    override val serialized = toByteBuffer()
+    override val hash = serialized.getHash()
 
     companion object {
         val size = 123
 
-        internal fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoChangeBlock? {
-            if (AttoBlockType.CHANGE.size > byteBuffer.size) {
+        internal fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoChangeBlock? {
+            if (AttoBlockType.CHANGE.size > serializedBlock.size) {
                 return null
             }
 
-            val blockType = byteBuffer.getBlockType(0)
+            val blockType = serializedBlock.getBlockType(0)
             if (blockType != AttoBlockType.CHANGE) {
                 throw IllegalArgumentException("Invalid block type: $blockType")
             }
 
             return AttoChangeBlock(
-                version = byteBuffer.getUShort(),
-                publicKey = byteBuffer.getPublicKey(),
-                height = byteBuffer.getULong(),
-                balance = byteBuffer.getAmount(),
-                timestamp = byteBuffer.getInstant(),
-                previous = byteBuffer.getHash(),
-                representative = byteBuffer.getPublicKey(),
+                version = serializedBlock.getUShort(),
+                publicKey = serializedBlock.getPublicKey(),
+                height = serializedBlock.getULong(),
+                balance = serializedBlock.getAmount(),
+                timestamp = serializedBlock.getInstant(),
+                previous = serializedBlock.getHash(),
+                representative = serializedBlock.getPublicKey(),
             )
         }
     }

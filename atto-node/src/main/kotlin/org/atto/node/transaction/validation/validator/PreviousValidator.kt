@@ -16,7 +16,7 @@ class PreviousValidator : TransactionValidationSupport {
     override suspend fun validate(account: Account, change: Transaction): TransactionRejectionReason? {
         val block = change.block as PreviousSupport
 
-        if (account.lastHash == block.previous) {
+        if (account.lastTransactionHash == block.previous) {
             return TransactionRejectionReason.INVALID_PREVIOUS
         }
         return null

@@ -1,74 +1,92 @@
 package org.atto.commons
 
+import java.time.Instant
 import java.util.stream.Stream
 import kotlin.random.Random
 
 object AttoWorks {
 
     /**
-     * This is super slow. Don't use it for live network!!!
+     * WARN: This method is too slow and should be used just for testing purposes
      */
-    fun work(hash: AttoHash, network: AttoNetwork): AttoWork {
-        return work(hash.value, network)
+    fun work(network: AttoNetwork, timestamp: Instant, hash: AttoHash): AttoWork {
+        return work(network, timestamp, hash.value)
     }
 
-    internal fun work(hash: ByteArray, network: AttoNetwork): AttoWork {
-        val controller = WorkerController();
-        return Stream.generate { Worker(controller) }
-            .takeWhile { controller.running }
+    internal fun work(network: AttoNetwork, timestamp: Instant, hash: ByteArray): AttoWork {
+        val controller = WorkerController()
+        return Stream.generate { Worker(controller, network, timestamp, hash) }
+            .takeWhile { controller.isEmpty() }
             .parallel()
-            .flatMap { it.work(hash, network) }
+            .peek { it.work() }
+            .map { controller.get() }
+            .filter { it != null }
             .findAny()
-            .map { AttoWork(it) }
             .get()
     }
 
-    fun isValid(hash: AttoHash, work: AttoWork, network: AttoNetwork): Boolean {
-        return isValid(hash.value, work.value, network)
+    fun isValid(network: AttoNetwork, timestamp: Instant, hash: AttoHash, work: AttoWork): Boolean {
+        return isValid(network, timestamp, hash.value, work.value)
     }
 
-    internal fun isValid(hash: ByteArray, work: ByteArray, network: AttoNetwork): Boolean {
+    internal fun isValid(network: AttoNetwork, timestamp: Instant, hash: ByteArray, work: ByteArray): Boolean {
         val difficult = AttoHashes.hash(8, work, hash).toULong()
-        return difficult >= network.threshold
+        return difficult >= network.getThreshold(timestamp)
     }
 
     private class WorkerController {
-        var running = true
+        private var work: AttoWork? = null
+
+        fun isEmpty(): Boolean {
+            return work == null
+        }
+
+        fun add(work: ByteArray) {
+            this.work = AttoWork(work)
+        }
+
+        fun get(): AttoWork? {
+            return work
+        }
     }
 
-    private class Worker(val controller: WorkerController) {
+    private class Worker(
+        val controller: WorkerController,
+        val network: AttoNetwork,
+        val timestamp: Instant,
+        val hash: ByteArray
+    ) {
         private val work = ByteArray(8)
 
-        fun work(hash: ByteArray, network: AttoNetwork): Stream<ByteArray> {
-            while (controller.running) {
+        fun work() {
+            while (controller.isEmpty()) {
                 Random.nextBytes(work)
                 for (i in work.indices) {
                     val byte = work[i]
                     for (b in -128..126) {
                         work[i] = b.toByte()
-                        if (isValid(hash, work, network)) {
-                            controller.running = false
-                            return Stream.of(work)
+                        if (isValid(network, timestamp, hash, work)) {
+                            controller.add(work)
+                            return
                         }
                     }
                     work[i] = byte
                 }
             }
-            return Stream.empty()
         }
     }
 }
 
 data class AttoWork(val value: ByteArray) {
     companion object {
-        val size = 8
+        const val size = 8
 
-        fun work(hash: AttoHash, network: AttoNetwork): AttoWork {
-            return AttoWorks.work(hash, network)
+        fun work(network: AttoNetwork, timestamp: Instant, hash: AttoHash): AttoWork {
+            return AttoWorks.work(network, timestamp, hash)
         }
 
-        fun work(publicKey: AttoPublicKey, network: AttoNetwork): AttoWork {
-            return AttoWorks.work(publicKey.value, network)
+        fun work(network: AttoNetwork, timestamp: Instant, publicKey: AttoPublicKey): AttoWork {
+            return AttoWorks.work(network, timestamp, publicKey.value)
         }
 
         fun parse(value: String): AttoWork {
@@ -80,16 +98,12 @@ data class AttoWork(val value: ByteArray) {
         value.checkLength(size)
     }
 
-    fun isValid(byteArray: ByteArray, network: AttoNetwork): Boolean {
-        return AttoWorks.isValid(byteArray, value, network)
+    fun isValid(network: AttoNetwork, timestamp: Instant, byteArray: ByteArray): Boolean {
+        return AttoWorks.isValid(network, timestamp, byteArray, value)
     }
 
-    fun isValid(hash: AttoHash, network: AttoNetwork): Boolean {
-        return AttoWorks.isValid(hash, this, network)
-    }
-
-    fun isValid(publicKey: AttoPublicKey, network: AttoNetwork): Boolean {
-        return AttoWorks.isValid(publicKey.value, value, network)
+    fun isValid(network: AttoNetwork, timestamp: Instant, hash: AttoHash): Boolean {
+        return isValid(network, timestamp, hash.value)
     }
 
     override fun equals(other: Any?): Boolean {

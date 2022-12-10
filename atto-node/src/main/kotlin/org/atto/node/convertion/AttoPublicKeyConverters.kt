@@ -1,4 +1,4 @@
-package org.atto.node.converter
+package org.atto.node.convertion
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
@@ -34,3 +34,17 @@ class AttoPublicKeyStdDeserializer : StdDeserializer<AttoPublicKey>(AttoPublicKe
     }
 }
 
+
+@Component
+class AttoPublicKeySerializerDBConverter : DBConverter<AttoPublicKey, ByteArray> {
+    override fun convert(source: AttoPublicKey): ByteArray {
+        return source.value;
+    }
+}
+
+@Component
+class AttoPublicKeyDeserializerDBConverter : DBConverter<ByteArray, AttoPublicKey> {
+    override fun convert(source: ByteArray): AttoPublicKey {
+        return AttoPublicKey(source)
+    }
+}

@@ -28,7 +28,7 @@ class BlockValidator : TransactionValidationSupport {
             return TransactionRejectionReason.INVALID_VERSION
         }
 
-        if (account.lastTimestamp >= block.timestamp) {
+        if (account.lastTransactionTimestamp >= block.timestamp) {
             return TransactionRejectionReason.INVALID_TIMESTAMP
         }
 

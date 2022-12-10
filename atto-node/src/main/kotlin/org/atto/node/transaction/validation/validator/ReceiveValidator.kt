@@ -20,7 +20,7 @@ class ReceiveValidator(
     override suspend fun validate(account: Account, change: Transaction): TransactionRejectionReason? {
         val receiveBlock = change.block as ReceiveSupportBlock
 
-        val receivable = accountReceivableRepository.findByHash(receiveBlock.sendHash)
+        val receivable = accountReceivableRepository.findById(receiveBlock.sendHash)
 
         if (receivable == null) {
             return TransactionRejectionReason.SEND_NOT_FOUND

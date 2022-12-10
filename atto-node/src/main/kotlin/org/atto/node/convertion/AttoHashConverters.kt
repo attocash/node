@@ -1,4 +1,4 @@
-package org.atto.node.converter
+package org.atto.node.convertion
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
@@ -34,3 +34,17 @@ class AttoHashStdDeserializer : StdDeserializer<AttoHash>(AttoHash::class.java) 
     }
 }
 
+
+@Component
+class AttoHashSerializerDBConverter : DBConverter<AttoHash, ByteArray> {
+    override fun convert(source: AttoHash): ByteArray {
+        return source.value;
+    }
+}
+
+@Component
+class AttoHashDeserializerDBConverter : DBConverter<ByteArray, AttoHash> {
+    override fun convert(source: ByteArray): AttoHash {
+        return AttoHash(source)
+    }
+}

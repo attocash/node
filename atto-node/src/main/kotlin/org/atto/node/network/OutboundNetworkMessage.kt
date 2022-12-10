@@ -2,11 +2,16 @@ package org.atto.node.network
 
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.core.ResolvableType
+import org.springframework.core.ResolvableTypeProvider
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 
-interface NetworkMessage<T : AttoMessage> {
+interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
+    override fun getResolvableType(): ResolvableType {
+        return ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
+    }
 }
 
 data class OutboundNetworkMessage<T : AttoMessage>(

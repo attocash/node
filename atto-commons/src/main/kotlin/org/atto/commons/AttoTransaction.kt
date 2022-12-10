@@ -40,7 +40,7 @@ data class AttoTransaction(
             return false
         }
 
-        if (!work.isValid(block.getWorkHash(), network)) {
+        if (!work.isValid(network, block.timestamp, block.getWorkHash())) {
             return false
         }
 
@@ -54,7 +54,7 @@ data class AttoTransaction(
 
     fun toByteBuffer(): AttoByteBuffer {
         return AttoByteBuffer(size + block.type.size)
-            .add(block.byteBuffer)
+            .add(block.serialized)
             .add(signature)
             .add(work)
     }

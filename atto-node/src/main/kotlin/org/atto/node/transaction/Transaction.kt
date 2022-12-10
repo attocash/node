@@ -3,7 +3,7 @@ package org.atto.node.transaction
 import org.atto.commons.*
 import org.atto.node.Event
 import org.atto.node.account.Account
-import org.springframework.data.annotation.Id
+import org.springframework.data.domain.Persistable
 import java.time.Instant
 
 data class PublicKeyHeight(val publicKey: AttoPublicKey, val height: ULong)
@@ -12,10 +12,18 @@ data class Transaction(
     val block: AttoBlock,
     val signature: AttoSignature,
     val work: AttoWork,
-    val receivedTimestamp: Instant = Instant.now(),
-) {
-    @Id
+    val receivedAt: Instant = Instant.now(),
+    val persistedAt: Instant? = null,
+) : Persistable<AttoHash> {
     val hash = block.hash
+    val publicKey = block.publicKey
+    override fun getId(): AttoHash {
+        return hash
+    }
+
+    override fun isNew(): Boolean {
+        return persistedAt == null
+    }
 
     fun toAttoTransaction(): AttoTransaction {
         return AttoTransaction(
@@ -28,6 +36,14 @@ data class Transaction(
     fun toPublicKeyHeight(): PublicKeyHeight {
         return PublicKeyHeight(this.block.publicKey, this.block.height)
     }
+}
+
+fun AttoTransaction.toTransaction(): Transaction {
+    return Transaction(
+        block = block,
+        signature = signature,
+        work = work
+    )
 }
 
 interface AttoTransactionEvent : Event<AttoTransaction>

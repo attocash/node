@@ -48,6 +48,7 @@ atto:
 logging:
   level:
     org.atto: INFO
+    io.r2dbc.h2: TRACE
 
 server:
   port:

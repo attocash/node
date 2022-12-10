@@ -82,7 +82,7 @@ class HandshakeService(
 
 
     @EventListener
-    fun processChallengeMessage(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
+    fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val handshakeAnswer = AttoHandshakeAnswer(
             signature = privateKey.sign(message.payload.value),
             node = thisNode

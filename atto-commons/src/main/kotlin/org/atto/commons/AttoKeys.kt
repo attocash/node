@@ -28,7 +28,7 @@ class AttoPrivateKey(val value: ByteArray) {
     }
 
     override fun toString(): String {
-        return "${this.javaClass.simpleName}(value='${value.size} bytes')"
+        return "${value.size} bytes"
     }
 }
 

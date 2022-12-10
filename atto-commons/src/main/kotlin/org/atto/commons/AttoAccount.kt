@@ -8,8 +8,8 @@ data class AttoAccount(
     var version: UShort,
     var height: ULong,
     var balance: AttoAmount,
-    var lastHash: AttoHash,
-    var lastTimestamp: Instant,
+    var lastTransactionHash: AttoHash,
+    var lastTransactionTimestamp: Instant,
     var representative: AttoPublicKey,
 ) {
 
@@ -39,7 +39,7 @@ data class AttoAccount(
             height = height + 1U,
             balance = balance.minus(amount),
             timestamp = Instant.now(),
-            previous = lastHash,
+            previous = lastTransactionHash,
             receiverPublicKey = publicKey,
             amount = amount,
         )
@@ -52,7 +52,7 @@ data class AttoAccount(
             height = height + 1U,
             balance = balance.plus(sendBlock.amount),
             timestamp = Instant.now(),
-            previous = lastHash,
+            previous = lastTransactionHash,
             sendHash = sendBlock.hash,
         )
     }
@@ -64,7 +64,7 @@ data class AttoAccount(
             height = height + 1U,
             balance = balance,
             timestamp = Instant.now(),
-            previous = lastHash,
+            previous = lastTransactionHash,
             representative = representative,
         )
     }

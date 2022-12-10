@@ -1,9 +1,11 @@
 package org.atto.node.transaction
 
+import org.atto.commons.AttoOpenBlock
 import org.atto.commons.AttoSendBlock
 import org.atto.commons.ReceiveSupportBlock
 import org.atto.commons.RepresentativeSupportBlock
 import org.atto.node.account.Account
+import org.atto.node.account.AccountRepository
 import org.atto.node.account.AccountService
 import org.atto.node.receivable.AccountReceivable
 import org.atto.node.receivable.AccountReceivableService
@@ -12,20 +14,22 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class TransactionService(
+    private val accountRepository: AccountRepository,
     private val accountService: AccountService,
     private val accountReceivableService: AccountReceivableService,
     private val transactionRepository: TransactionRepository
 ) {
 
     @Transactional
-    suspend fun save(account: Account, transaction: Transaction) {
+    suspend fun save(transaction: Transaction) {
         val block = transaction.block
 
+        val account = getAccount(transaction)
         account.version = block.version
         account.height = block.height
         account.balance = block.balance
-        account.lastHash = block.hash
-        account.lastTimestamp = block.timestamp
+        account.lastTransactionHash = block.hash
+        account.lastTransactionTimestamp = block.timestamp
 
         if (block is RepresentativeSupportBlock) {
             account.representative = block.representative
@@ -44,5 +48,21 @@ class TransactionService(
         } else if (block is ReceiveSupportBlock) {
             accountReceivableService.delete(block.sendHash)
         }
+    }
+
+    private suspend fun getAccount(transaction: Transaction): Account {
+        val block = transaction.block
+        if (block is AttoOpenBlock) {
+            return Account(
+                publicKey = block.publicKey,
+                version = block.version,
+                height = block.height,
+                balance = block.balance,
+                lastTransactionHash = block.hash,
+                lastTransactionTimestamp = block.timestamp,
+                representative = block.representative
+            )
+        }
+        return accountRepository.findById(transaction.publicKey)!!
     }
 }

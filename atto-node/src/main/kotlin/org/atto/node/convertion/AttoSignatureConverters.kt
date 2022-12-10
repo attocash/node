@@ -1,4 +1,4 @@
-package org.atto.node.converter
+package org.atto.node.convertion
 
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
@@ -31,6 +31,21 @@ class AttoSignatureStdDeserializer : StdDeserializer<AttoSignature>(AttoSignatur
     override fun deserialize(parser: JsonParser, context: DeserializationContext): AttoSignature {
         val value = parser.readValueAs(String::class.java)
         return AttoSignature.parse(value)
+    }
+}
+
+
+@Component
+class AttoSignatureSerializerDBConverter : DBConverter<AttoSignature, ByteArray> {
+    override fun convert(source: AttoSignature): ByteArray {
+        return source.value;
+    }
+}
+
+@Component
+class AttoSignatureDeserializerDBConverter : DBConverter<ByteArray, AttoSignature> {
+    override fun convert(source: ByteArray): AttoSignature {
+        return AttoSignature(source)
     }
 }
 

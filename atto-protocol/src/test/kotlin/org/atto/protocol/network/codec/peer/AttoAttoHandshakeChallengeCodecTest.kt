@@ -1,6 +1,6 @@
 package org.atto.protocol.network.codec.peer
 
-import org.atto.protocol.network.AttoContextHolder
+//import org.atto.protocol.network.AttoContextHolder
 import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeChallengeCodec
 import org.atto.protocol.network.handshake.AttoHandshakeChallenge
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -16,7 +16,7 @@ internal class AttoAttoHandshakeChallengeCodecTest {
     fun `should serialize and deserialize`() {
         // given
         val socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330)
-        AttoContextHolder.put("socketAddress", socketAddress)
+//        AttoContextHolder.put("socketAddress", socketAddress)
 
         val expectedHandshakeChallenge = AttoHandshakeChallenge(
             value = Random.nextBytes(ByteArray(16))

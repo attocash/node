@@ -9,10 +9,10 @@ import org.springframework.scheduling.annotation.EnableScheduling
 
 
 @Configuration
-class ApplicationConfiguration(val environment: Environment) {
+class ApplicationConfiguration {
 
     @Bean(initMethod = "migrate")
-    fun flyway(): Flyway {
+    fun flyway(environment: Environment): Flyway {
         return Flyway(
             Flyway.configure()
                 .dataSource(

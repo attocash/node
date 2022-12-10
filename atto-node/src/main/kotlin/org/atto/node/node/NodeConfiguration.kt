@@ -39,7 +39,6 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
         return AttoNode(
             network = nodeProperties.network!!,
             protocolVersion = 0u,
-            minimalProtocolVersion = 0u,
             publicKey = privateKey.toPublicKey(),
             socketAddress = nodeProperties.getPublicAddress(),
             features = features

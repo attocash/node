@@ -1,21 +1,20 @@
 package org.atto.node.account
 
+import io.r2dbc.spi.Row
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.node.AttoRepository
+import org.atto.node.convertion.DBConverter
 import org.springframework.data.r2dbc.repository.Query
-import org.springframework.data.repository.Repository
+import org.springframework.data.repository.kotlin.CoroutineCrudRepository
+import org.springframework.stereotype.Component
 import java.time.Instant
 
-interface AccountRepository : Repository<AttoPublicKey, Account>, AttoRepository {
-
-    suspend fun save(account: Account)
-
-    suspend fun findByPublicKey(publicKey: AttoPublicKey): Account?
+interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AttoRepository {
 
     suspend fun getByPublicKey(publicKey: AttoPublicKey): Account {
-        val account = findByPublicKey(publicKey)
+        val account = findById(publicKey)
         if (account != null) {
             return account
         }
@@ -26,13 +25,27 @@ interface AccountRepository : Repository<AttoPublicKey, Account>, AttoRepository
             height = 0u,
             representative = AttoPublicKey(ByteArray(32)),
             balance = AttoAmount.min,
-            lastHash = AttoHash(ByteArray(32)),
-            lastTimestamp = Instant.MIN
+            lastTransactionHash = AttoHash(ByteArray(32)),
+            lastTransactionTimestamp = Instant.MIN
         )
     }
 
-    @Query("select a.publicKey, sum(a.balance) from Account a group by a.publicKey")
+    @Query("select representative public_key, CAST(sum(balance) AS BIGINT) weight from Account group by representative")
     suspend fun findAllWeights(): List<WeightView>
+}
 
-    data class WeightView(val publicKey: AttoPublicKey, val weight: AttoAmount)
+data class WeightView(
+    val publicKey: AttoPublicKey,
+    val weight: AttoAmount
+)
+
+@Component
+class WeightViewDeserializerDBConverter : DBConverter<Row, WeightView> {
+    override fun convert(row: Row): WeightView {
+        return WeightView(
+            publicKey = AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
+            weight = AttoAmount(row.get("weight", Long::class.javaObjectType)!!.toULong()),
+        )
+    }
+
 }

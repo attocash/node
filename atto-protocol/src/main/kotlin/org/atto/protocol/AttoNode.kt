@@ -8,11 +8,18 @@ import java.net.InetSocketAddress
 data class AttoNode(
     val network: AttoNetwork,
     val protocolVersion: UShort,
-    val minimalProtocolVersion: UShort,
     val publicKey: AttoPublicKey,
     val socketAddress: InetSocketAddress,
     val features: Set<NodeFeature>
 ) {
+    val minProtocolVersion: UShort = when (protocolVersion) {
+        0.toUShort() -> 0u
+        1.toUShort() -> 0u
+        else -> (protocolVersion - 2u).toUShort()
+    }
+
+    val maxProtocolVersion = (protocolVersion + 2u).toUShort()
+
     companion object {
         val maxFeaturesSize = 5
         val size = 56 + maxFeaturesSize

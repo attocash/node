@@ -3,6 +3,7 @@ package org.atto.node.network
 
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import jakarta.annotation.PreDestroy
 import mu.KotlinLogging
 import org.atto.commons.AttoByteBuffer
 import org.atto.commons.toHex
@@ -10,7 +11,6 @@ import org.atto.commons.toUShort
 import org.atto.node.CacheSupport
 import org.atto.node.network.codec.MessageCodecManager
 import org.atto.protocol.AttoNode
-import org.atto.protocol.network.AttoContextHolder
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -24,7 +24,6 @@ import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
-import javax.annotation.PreDestroy
 
 
 @Service
@@ -133,23 +132,23 @@ class NetworkProcessor(
         socketAddress: InetSocketAddress,
         byteArray: ByteArray
     ): AttoMessage? {
-        AttoContextHolder.put("socketAddress", socketAddress)
+//        AttoContextHolder.put("socketAddress", socketAddress)
 
-        try {
-            val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
+//        try {
+        val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
 
-            if (message == null) {
-                logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
-                disconnect(socketAddress)
-                return message
-            }
-
-            logger.trace { "Deserialized $message from ${byteArray.toHex()}" }
-
+        if (message == null) {
+            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
+            disconnect(socketAddress)
             return message
-        } finally {
-            AttoContextHolder.clear()
         }
+
+        logger.trace { "Deserialized $message from ${byteArray.toHex()}" }
+
+        return message
+//        } finally {
+//            AttoContextHolder.clear()
+//        }
     }
 
     /**

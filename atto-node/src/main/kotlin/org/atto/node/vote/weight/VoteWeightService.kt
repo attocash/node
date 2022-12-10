@@ -1,5 +1,6 @@
 package org.atto.node.vote.weight
 
+import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
@@ -18,7 +19,6 @@ import java.time.Instant
 import java.time.LocalDateTime
 import java.time.ZoneOffset
 import java.util.concurrent.ConcurrentHashMap
-import javax.annotation.PostConstruct
 import kotlin.math.max
 
 @Component
@@ -39,7 +39,11 @@ class VoteWeightService(
     override fun init() = runBlocking {
         weightMap.putAll(accountRepository.findAllWeights().associateBy({ it.publicKey }, { it.weight }))
 
-        latestVoteMap.putAll(voteRepository.findLatest().asSequence().map { it.publicKey to it }.toMap())
+        val minTimestamp = getMinTimestamp()
+        val voteMap = voteRepository.findLatestAfter(minTimestamp).asSequence()
+            .map { it.publicKey to it }
+            .toMap()
+        latestVoteMap.putAll(voteMap)
         calculateMinimalWeights()
     }
 
@@ -117,7 +121,7 @@ class VoteWeightService(
 
     @Scheduled(cron = "0 0 0/1 * * *")
     fun calculateMinimalWeights() {
-        val minTimestamp = LocalDateTime.now().minusDays(properties.samplePeriodInDays!!).toInstant(ZoneOffset.UTC)
+        val minTimestamp = getMinTimestamp()
 
         val onlineWeights = weightMap.asSequence()
             .filter { minTimestamp < (latestVoteMap[it.key]?.timestamp ?: Instant.MIN) }
@@ -144,6 +148,10 @@ class VoteWeightService(
         }
 
         logger.info { "Minimal rebroadcast weight updated to ${this.minimalRebroadcastWeight}" }
+    }
+
+    fun getMinTimestamp(): Instant {
+        return LocalDateTime.now().minusDays(properties.samplePeriodInDays!!).toInstant(ZoneOffset.UTC)
     }
 
     override fun clear() {

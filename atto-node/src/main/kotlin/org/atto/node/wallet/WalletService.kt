@@ -45,21 +45,25 @@ class WalletService(
     }
 
     private suspend fun receive(sendBlock: AttoSendBlock) {
-        val receiverAccount = accountRepository.findByPublicKey(sendBlock.receiverPublicKey)?.toAttoAccount()
+        val receiverAccount = accountRepository.findById(sendBlock.receiverPublicKey)?.toAttoAccount()
 
         val receiveTransaction = if (receiverAccount == null) {
             val openBlock = AttoAccount.open(thisNode.publicKey, thisNode.publicKey, sendBlock)
             AttoTransaction(
                 block = openBlock,
                 signature = privateKey.sign(openBlock.hash.value),
-                work = AttoWork.work(openBlock.publicKey, thisNode.network)
+                work = AttoWork.work(thisNode.network, openBlock.timestamp, openBlock.publicKey)
             )
         } else {
             val receiveBlock = receiverAccount.receive(sendBlock)
             AttoTransaction(
                 block = receiveBlock,
                 signature = privateKey.sign(receiveBlock.hash.value),
-                work = AttoWork.Companion.work(receiverAccount.lastHash, thisNode.network)
+                work = AttoWork.Companion.work(
+                    thisNode.network,
+                    receiveBlock.timestamp,
+                    receiverAccount.lastTransactionHash
+                )
             )
         }
 

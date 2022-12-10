@@ -1,5 +1,6 @@
 package org.atto.node.transaction
 
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.atto.commons.*
 import org.atto.node.transaction.priotization.TransactionQueue
@@ -16,7 +17,7 @@ internal class TransactionQueueTest {
 
     @Test
     @Timeout(1)
-    fun `should remove first entry when maxSize exceeded`() = runTest {
+    fun `should remove first entry when maxSize exceeded`() = runBlocking {
         // given
         val transaction200 = createTransaction(200u, Instant.now())
         val transaction50 = createTransaction(50u, Instant.now())

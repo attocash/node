@@ -1,6 +1,8 @@
 package org.atto.node.transaction.priotization
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.atto.commons.AttoHash
@@ -16,8 +18,6 @@ import org.atto.node.transaction.TransactionStaled
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
-import javax.annotation.PostConstruct
-import javax.annotation.PreDestroy
 
 @Service
 class TransactionPrioritizer(

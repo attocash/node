@@ -41,7 +41,7 @@ data class AttoHandshakeChallenge(val value: ByteArray) : AttoMessage {
     }
 
     override fun toString(): String {
-        return "HandshakeChallenge(value=${value.toHex()})"
+        return "AttoHandshakeChallenge(value=${value.toHex()})"
     }
 }
 

@@ -10,7 +10,7 @@ import kotlin.random.Random
 internal class AttoByteBufferTest {
 
     @Test
-    fun testAll() {
+    fun test() {
         // given
         val buffer = AttoByteBuffer(184)
 
@@ -87,6 +87,23 @@ internal class AttoByteBufferTest {
 
         // then
         assertEquals(3, short)
+    }
+
+    @Test
+    fun testToByteArray() {
+        // given
+        val buffer = AttoByteBuffer(2)
+            .add((1u).toUByte())
+            .add((2u).toUByte())
+            .slice(1)
+
+        buffer.getUByte()
+
+        // when
+        val byteArray = buffer.toByteArray()
+
+        // then
+        assertEquals(1, byteArray.size)
     }
 
 }

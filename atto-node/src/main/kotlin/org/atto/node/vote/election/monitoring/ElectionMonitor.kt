@@ -32,7 +32,7 @@ class ElectionMonitor(
 
     override suspend fun confirmed(account: Account, transaction: Transaction, votes: Collection<Vote>) {
         CoroutineScope(Dispatchers.Default).launch {
-            transactionService.save(account, transaction)
+            transactionService.save(transaction)
             voteService.saveAll(votes)
 
             val event = TransactionConfirmed(account, transaction)

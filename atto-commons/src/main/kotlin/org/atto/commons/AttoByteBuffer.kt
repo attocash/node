@@ -6,10 +6,21 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.time.Instant
 
-class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
+class AttoByteBuffer {
+    private val byteBuffer: ByteBuffer
+    val size: Int
+
     private var lastIndex = 0
 
-    constructor(size: Int) : this(ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN), size)
+    private constructor(byteBuffer: ByteBuffer) {
+        this.byteBuffer = byteBuffer
+        this.size = byteBuffer.capacity()
+    }
+
+    constructor(size: Int) : this(ByteBuffer.allocate(size).order(ByteOrder.LITTLE_ENDIAN))
+    constructor(byteArray: ByteArray) : this(byteArray.size) {
+        add(byteArray)
+    }
 
     companion object {
         fun from(byteArray: ByteArray): AttoByteBuffer {
@@ -23,7 +34,7 @@ class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
 
     fun slice(startIndex: Int): AttoByteBuffer {
         val slicedByteBuffer = byteBuffer.slice(startIndex, size - startIndex).order(ByteOrder.LITTLE_ENDIAN)
-        return AttoByteBuffer(slicedByteBuffer, size - startIndex)
+        return AttoByteBuffer(slicedByteBuffer)
     }
 
     fun add(byteArray: ByteArray): AttoByteBuffer {
@@ -37,7 +48,13 @@ class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
     }
 
     fun toByteArray(): ByteArray {
-        return byteBuffer.array()
+        val byteArray = ByteArray(size)
+
+        byteBuffer.duplicate()
+            .rewind()
+            .get(byteArray)
+
+        return byteArray
     }
 
     fun getByteArray(index: Int, length: Int): ByteArray {
@@ -252,7 +269,7 @@ class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
 
     fun add(inetSocketAddress: InetSocketAddress): AttoByteBuffer {
         val address = inetSocketAddress.address.address
-        val port = inetSocketAddress.port.toShort()
+        val port = inetSocketAddress.port.toUShort()
 
         val byteArray = ByteArray(16)
         if (address.size == 16) {
@@ -275,14 +292,17 @@ class AttoByteBuffer(private val byteBuffer: ByteBuffer, val size: Int) {
 
     fun getInetSocketAddress(index: Int): InetSocketAddress {
         val address = InetAddress.getByAddress(getByteArray(index, 16))
-        val port = getShort().toInt()
+        val port = getUShort().toInt()
 
         return InetSocketAddress(address, port)
     }
 
     override fun toString(): String {
-        return "AttoByteBuffer(${byteBuffer.toByteArray().toHex()})"
+        return "AttoByteBuffer(${toByteArray().toHex()})"
     }
 
+}
 
+fun ByteArray.toAttoByteBuffer(): AttoByteBuffer {
+    return AttoByteBuffer(this)
 }

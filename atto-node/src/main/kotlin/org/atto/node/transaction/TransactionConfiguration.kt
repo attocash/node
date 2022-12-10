@@ -1,18 +1,18 @@
 package org.atto.node.transaction
 
+import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
-import org.atto.node.ApplicationProperties
-import org.atto.node.account.Account
+import org.atto.node.account.AccountRepository
+import org.atto.node.network.codec.TransactionCodec
 import org.atto.protocol.AttoNode
-import org.atto.protocol.network.codec.transaction.AttoTransactionCodec
+import org.flywaydb.core.Flyway
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import java.time.Instant
-import javax.annotation.PostConstruct
 
 @Configuration
 class TransactionConfiguration {
@@ -20,22 +20,18 @@ class TransactionConfiguration {
 
     @Bean
     fun genesisAttoTransaction(
-        properties: ApplicationProperties,
-        transactionCodec: AttoTransactionCodec,
+        properties: TransactionProperties,
+        transactionCodec: TransactionCodec,
         privateKey: AttoPrivateKey,
         thisNode: AttoNode
-    ): AttoTransaction {
+    ): Transaction {
         val genesis = properties.genesis
 
         if (genesis != null) {
             val byteArray = genesis.fromHexToByteArray()
-            val transaction = transactionCodec.fromByteBuffer(AttoByteBuffer.from(byteArray))
 
-            if (transaction != null) {
-                return transaction
-            }
-
-            throw IllegalStateException("Invalid genesis: ${properties.genesis}")
+            return transactionCodec.fromByteBuffer(AttoByteBuffer.from(byteArray))
+                ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
         }
 
         logger.info { "No genesis configured. Creating new genesis with this node private key..." }
@@ -49,56 +45,53 @@ class TransactionConfiguration {
             representative = privateKey.toPublicKey(),
         )
 
-        val attoTransaction = AttoTransaction(
+        val transaction = Transaction(
             block = block,
             signature = privateKey.sign(block.hash.value),
-            work = AttoWork.work(block.publicKey, thisNode.network)
+            work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey)
         )
 
-        logger.info { "Created genesis transaction ${transactionCodec.toByteBuffer(attoTransaction).toHex()}" }
+        logger.info { "Created genesis transaction ${transactionCodec.toByteBuffer(transaction).toHex()}" }
 
-        return attoTransaction
+        return transaction
     }
 
     @Component
-    @Order(Integer.MIN_VALUE)
-    class GenesisChecker(
+    class GenesisInitializer(
+        val flyway: Flyway,
         val thisNode: AttoNode,
-        val genesisAttoTransaction: AttoTransaction,
+        val accountRepository: AccountRepository,
+        val genesisTransaction: Transaction,
         val transactionService: TransactionService,
         val transactionRepository: TransactionRepository,
     ) {
         private val logger = KotlinLogging.logger {}
 
         @PostConstruct
-        fun check() = runBlocking {
-            val anyAccountChange = transactionRepository.findFirst()
+        fun init() = runBlocking {
+            val anyAccountChange = transactionRepository.findFirstBy()
             if (anyAccountChange == null) {
-                val block = genesisAttoTransaction.block as AttoOpenBlock
-
-                val account = Account(
-                    publicKey = block.publicKey,
-                    version = 0u,
-                    height = 0u,
-                    representative = AttoPublicKey(ByteArray(32)),
-                    balance = AttoAmount.min,
-                    lastHash = AttoHash(ByteArray(32)),
-                    lastTimestamp = Instant.MIN
-                )
+                val block = genesisTransaction.block as AttoOpenBlock
 
                 val transaction = Transaction(
                     block = block,
-                    signature = genesisAttoTransaction.signature,
-                    work = genesisAttoTransaction.work,
-                    receivedTimestamp = Instant.now(),
+                    signature = genesisTransaction.signature,
+                    work = genesisTransaction.work,
+                    receivedAt = Instant.now(),
                 )
 
-                transactionService.save(account, transaction)
+                transactionService.save(transaction)
+
+                val accounts = accountRepository.findAll().toList()
+                logger.info { "Accounts: $accounts" }
+
+                val transactions = transactionRepository.findAll().toList()
+                logger.info { "Transactions: $transactions" }
 
                 val network = thisNode.network
-                val hash = genesisAttoTransaction.hash
+                val hash = genesisTransaction.hash
                 logger.info { "Initialized $network database with genesis transaction hash $hash" }
-            } else if (transactionRepository.findFirstByPublicKey(genesisAttoTransaction.block.publicKey) == null) {
+            } else if (transactionRepository.findFirstByPublicKey(genesisTransaction.block.publicKey) == null) {
                 throw IllegalStateException("Database initialized but doesn't contains current genesis account")
             }
         }

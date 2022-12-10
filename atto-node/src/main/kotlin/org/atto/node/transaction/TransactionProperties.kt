@@ -1,10 +1,11 @@
-package org.atto.node
+package org.atto.node.transaction
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 
 
 @Configuration
-@ConfigurationProperties(prefix = "atto")
-class ApplicationProperties {
+@ConfigurationProperties(prefix = "atto.transaction")
+class TransactionProperties {
+    var genesis: String? = null
 }

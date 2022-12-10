@@ -1,20 +1,18 @@
 package org.atto.commons
 
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 import java.time.Instant
 import java.util.*
 
 
-private val HEX_ARRAY = "0123456789ABCDEF".toCharArray()
+// TODO: Migrate ByteArray extensions to AttoByteBuffer
+
+
+private val hexFormat = HexFormat.of().withUpperCase()
 
 fun ByteArray.toHex(): String {
-    val hexChars = CharArray(this.size * 2)
-    for (j in this.indices) {
-        val v: Int = this[j].toInt() and 0xFF
-        hexChars[j * 2] = HEX_ARRAY.get(v ushr 4)
-        hexChars[j * 2 + 1] = HEX_ARRAY.get(v and 0x0F)
-    }
-    return String(hexChars)
+    return hexFormat.formatHex(this)
 }
 
 fun ByteBuffer.toHex(): String {
@@ -26,14 +24,11 @@ fun AttoByteBuffer.toHex(): String {
 }
 
 fun String.fromHexToByteArray(): ByteArray {
-    val len = this.length
-    val data = ByteArray(len / 2)
-    var i = 0
-    while (i < len) {
-        data[i / 2] = ((Character.digit(this[i], 16) shl 4) + Character.digit(this[i + 1], 16)).toByte()
-        i += 2
-    }
-    return data
+    return hexFormat.parseHex(this)
+}
+
+fun String.fromHexToAttoByteBuffer(): AttoByteBuffer {
+    return AttoByteBuffer(this.fromHexToByteArray())
 }
 
 fun ByteArray.wipe() {
@@ -42,6 +37,7 @@ fun ByteArray.wipe() {
 
 fun UShort.toByteBuffer(): ByteBuffer {
     return ByteBuffer.allocate(2)
+        .order(ByteOrder.LITTLE_ENDIAN)
         .putShort(this.toShort())
 }
 
@@ -52,12 +48,14 @@ fun UShort.toByteArray(): ByteArray {
 
 fun ByteArray.toUShort(): UShort {
     return ByteBuffer.wrap(this)
+        .order(ByteOrder.LITTLE_ENDIAN)
         .short
         .toUShort()
 }
 
 fun UInt.toByteBuffer(): ByteBuffer {
     return ByteBuffer.allocate(4)
+        .order(ByteOrder.LITTLE_ENDIAN)
         .putInt(this.toInt())
 }
 
@@ -65,20 +63,9 @@ fun UInt.toByteArray(): ByteArray {
     return this.toByteBuffer().array()
 }
 
-fun ByteBuffer.toUInt(): UInt {
-    return this
-        .int
-        .toUInt()
-}
-
-fun ByteArray.toUInt(): UInt {
-    return ByteBuffer.wrap(this)
-        .int
-        .toUInt()
-}
-
 fun ULong.toByteBuffer(): ByteBuffer {
     return ByteBuffer.allocate(8)
+        .order(ByteOrder.LITTLE_ENDIAN)
         .putLong(this.toLong())
 }
 
@@ -94,9 +81,8 @@ fun ByteBuffer.toULong(): ULong {
 }
 
 fun ByteArray.toULong(): ULong {
-    return ByteBuffer.wrap(this)
-        .long
-        .toULong()
+    return AttoByteBuffer(this)
+        .getULong()
 }
 
 fun ByteArray.checkLength(size: Int) {

@@ -1,6 +1,8 @@
 package org.atto.node.vote.priotization
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.atto.commons.AttoAmount
@@ -15,8 +17,6 @@ import org.atto.node.transaction.TransactionStaled
 import org.atto.node.vote.*
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
-import javax.annotation.PostConstruct
-import javax.annotation.PreDestroy
 
 @Service
 class VotePrioritizer(
