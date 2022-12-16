@@ -8,5 +8,4 @@ import org.springframework.context.annotation.Configuration
 @ConfigurationProperties(prefix = "atto.transaction.prioritization")
 class TransactionPrioritizationProperties {
     var groupMaxSize: Int? = null
-    var cacheMaxSize: Int? = null
 }

@@ -1,5 +1,6 @@
 package org.atto.node.vote.priotization
 
+import org.atto.node.transaction.Transaction
 import org.atto.node.vote.PublicKeyHash
 import org.atto.node.vote.Vote
 import java.util.*
@@ -7,17 +8,19 @@ import java.util.Comparator.comparing
 
 
 class VoteQueue(private val maxSize: Int) {
-    private val weightComparator: Comparator<Vote> = comparing { it.weight.raw }
+    private val weightComparator: Comparator<TransactionVote> = comparing { it.vote.weight.raw }
 
-    private val map = HashMap<PublicKeyHash, Vote>()
+    private val map = HashMap<PublicKeyHash, TransactionVote>()
     private val set = TreeSet(weightComparator)
     private var size = 0
 
-    fun add(entry: Vote): Vote? {
-        val publicKeyHash = entry.toPublicKeyHash()
+    fun add(entry: TransactionVote): TransactionVote? {
+        val vote = entry.vote
+        val publicKeyHash = vote.toPublicKeyHash()
 
         val oldEntry = map.remove(publicKeyHash)
-        if (oldEntry != null && oldEntry.timestamp > entry.timestamp) {
+        val oldVote = oldEntry?.vote
+        if (oldVote != null && oldVote.timestamp > vote.timestamp) {
             map[publicKeyHash] = oldEntry
             return entry
         }
@@ -35,18 +38,18 @@ class VoteQueue(private val maxSize: Int) {
         if (oldEntry == null && set.size > maxSize) {
             size--
             val removedEntry = set.pollFirst()!!
-            return map.remove(removedEntry.toPublicKeyHash())
+            return map.remove(removedEntry.vote.toPublicKeyHash())
         }
 
         return null
     }
 
-    fun poll(): Vote? {
+    fun poll(): TransactionVote? {
         val entry = set.pollLast()
 
         if (entry != null) {
             size--
-            map.remove(entry.toPublicKeyHash())
+            map.remove(entry.vote.toPublicKeyHash())
         }
 
         return entry
@@ -61,4 +64,9 @@ class VoteQueue(private val maxSize: Int) {
         set.clear()
         size = 0
     }
+
+    public data class TransactionVote(
+        val transaction: Transaction,
+        val vote: Vote
+    )
 }

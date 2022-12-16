@@ -1,10 +1,12 @@
 package org.atto.node.vote
 
+import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.AttoSignature
+import org.atto.node.transaction.Transaction
 import org.atto.node.vote.priotization.VoteQueue
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
@@ -18,9 +20,10 @@ internal class VoteQueueTest {
     @Test
     fun `should return first transaction with higher weight`() = runBlocking {
         // given
-        val vote3 = createVote(3UL)
-        val vote1 = createVote(1UL)
-        val vote20 = createVote(20UL)
+        val transaction = mockk<Transaction>()
+        val vote3 = VoteQueue.TransactionVote(transaction, createVote(3UL))
+        val vote1 = VoteQueue.TransactionVote(transaction, createVote(1UL))
+        val vote20 = VoteQueue.TransactionVote(transaction, createVote(20UL))
 
         // when
         assertNull(queue.add(vote3))

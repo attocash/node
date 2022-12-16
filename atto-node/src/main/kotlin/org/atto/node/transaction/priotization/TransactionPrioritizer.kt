@@ -1,6 +1,5 @@
 package org.atto.node.transaction.priotization
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
@@ -10,6 +9,7 @@ import org.atto.commons.AttoTransaction
 import org.atto.commons.PreviousSupport
 import org.atto.commons.ReceiveSupportBlock
 import org.atto.node.CacheSupport
+import org.atto.node.DuplicateDetector
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.transaction.AttoTransactionDropped
@@ -35,11 +35,29 @@ class TransactionPrioritizer(
     private val queue = TransactionQueue(properties.groupMaxSize!!)
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<AttoTransaction>>()
+    private val duplicateDetector = DuplicateDetector<AttoHash>()
 
-    private val hashCache: MutableMap<AttoHash, AttoHash> = Caffeine.newBuilder()
-        .maximumSize(properties.cacheMaxSize!!.toLong())
-        .build<AttoHash, AttoHash>()
-        .asMap()
+    @OptIn(DelicateCoroutinesApi::class)
+    @PostConstruct
+    fun start() {
+        job = GlobalScope.launch(CoroutineName("transaction-prioritizer")) {
+            while (isActive) {
+                val transaction = withContext(singleDispatcher) {
+                    queue.poll()
+                }
+                if (transaction != null) {
+                    eventPublisher.publish(AttoTransactionReceived(transaction))
+                } else {
+                    delay(100)
+                }
+            }
+        }
+    }
+
+    @PreDestroy
+    fun stop() {
+        job.cancel()
+    }
 
     fun getQueueSize(): Int {
         return queue.getSize()
@@ -74,7 +92,7 @@ class TransactionPrioritizer(
     fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
         val attoTransaction = message.payload.transaction
 
-        if (hashCache.contains(attoTransaction.hash)) {
+        if (duplicateDetector.isDuplicate(attoTransaction.hash)) {
             logger.trace { "Ignored duplicated $attoTransaction" }
             return
         }
@@ -108,34 +126,11 @@ class TransactionPrioritizer(
         logger.trace { "Buffered $hash" }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        job = GlobalScope.launch(CoroutineName("transaction-prioritizer")) {
-            while (isActive) {
-                val transaction = withContext(singleDispatcher) {
-                    queue.poll()
-                }
-                if (transaction != null) {
-                    hashCache.putIfAbsent(transaction.hash, transaction.hash)
-                    eventPublisher.publish(AttoTransactionReceived(transaction))
-                } else {
-                    delay(100)
-                }
-            }
-        }
-    }
-
-    @PreDestroy
-    fun stop() {
-        job.cancel()
-    }
-
     override fun clear() {
         queue.clear()
         activeElections.clear()
         buffer.clear()
-        hashCache.clear()
+        duplicateDetector.clear()
     }
 
 }

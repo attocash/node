@@ -10,6 +10,7 @@ import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.AttoSignature
 import org.atto.node.CacheSupport
+import org.atto.node.DuplicateDetector
 import org.atto.node.EventPublisher
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionConfirmed
@@ -18,6 +19,7 @@ import org.atto.node.transaction.TransactionStaled
 import org.atto.node.vote.*
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class VotePrioritizer(
@@ -33,17 +35,14 @@ class VotePrioritizer(
 
     private val queue = VoteQueue(properties.groupMaxSize!!)
 
-    private val activeElections = HashMap<AttoHash, Transaction>()
+    private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
+
+    private val duplicateDetector = DuplicateDetector<AttoSignature>()
 
     private val voteBuffer: MutableMap<AttoHash, MutableMap<AttoPublicKey, Vote>> = Caffeine.newBuilder()
         .maximumWeight(properties.cacheMaxSize!!.toLong())
         .weigher { _: AttoHash, v: MutableMap<AttoPublicKey, Vote> -> v.size }
         .build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
-        .asMap()
-
-    private val signatureCache: MutableMap<AttoSignature, AttoSignature> = Caffeine.newBuilder()
-        .maximumSize(properties.cacheMaxSize!!.toLong())
-        .build<AttoSignature, AttoSignature>()
         .asMap()
 
     fun getQueueSize(): Int {
@@ -55,26 +54,28 @@ class VotePrioritizer(
     }
 
     @EventListener
-    fun processObserved(event: TransactionObserved) = runBlocking(singleDispatcher) {
+    fun processObserved(event: TransactionObserved) {
         val transaction = event.payload
 
         activeElections[transaction.hash] = transaction
 
         val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
 
-        votes.forEach {
-            logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
-            add(it)
+        runBlocking(singleDispatcher) {
+            votes.forEach {
+                logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
+                add(it)
+            }
         }
     }
 
     @EventListener
-    fun processStaled(event: TransactionStaled) = runBlocking(singleDispatcher) {
+    fun processStaled(event: TransactionStaled) {
         activeElections.remove(event.payload.hash)
     }
 
     @EventListener
-    fun processConfirmed(event: TransactionConfirmed) = runBlocking(singleDispatcher) {
+    fun processConfirmed(event: TransactionConfirmed) {
         activeElections.remove(event.payload.hash)
     }
 
@@ -82,8 +83,7 @@ class VotePrioritizer(
     fun add(event: VoteReceived) {
         val vote = event.payload
 
-        val currentSignature = signatureCache.putIfAbsent(vote.signature, vote.signature)
-        if (currentSignature != null) {
+        if (duplicateDetector.isDuplicate(vote.signature)) {
             logger.trace { "Ignored duplicated $vote" }
             return
         }
@@ -93,13 +93,16 @@ class VotePrioritizer(
         }
     }
 
-    private suspend fun add(vote: Vote) = withContext(singleDispatcher) {
+    private suspend fun add(vote: Vote) {
         val transaction = activeElections[vote.hash]
         if (transaction != null) {
             logger.trace { "Queued for prioritization. $vote" }
-            queue.add(vote)?.let {
-                logger.trace { "Dropped from buffer. $it" }
-                eventPublisher.publish(VoteDropped(transaction, it))
+
+            withContext(singleDispatcher) {
+                queue.add(VoteQueue.TransactionVote(transaction, vote))?.let {
+                    logger.trace { "Dropped from buffer. $it" }
+                    eventPublisher.publish(VoteDropped(transaction, it.vote))
+                }
             }
         } else {
             logger.trace { "Buffered for prioritization $vote" }
@@ -122,22 +125,22 @@ class VotePrioritizer(
     fun start() {
         job = GlobalScope.launch(CoroutineName("vote-prioritizer")) {
             while (isActive) {
-                val vote = withContext(singleDispatcher) {
-                    val vote = queue.poll() ?: return@withContext null
+                val transactionVote = withContext(singleDispatcher) {
+                    queue.poll()
+                }
 
-                    val transaction = activeElections[vote.hash]!!
+                if (transactionVote != null) {
+                    val transaction = transactionVote.transaction
+                    val vote = transactionVote.vote
 
                     val rejectionReason = validate(vote)
+
                     if (rejectionReason != null) {
                         eventPublisher.publish(VoteRejected(rejectionReason, vote))
                     } else {
                         eventPublisher.publish(VoteValidated(transaction, vote))
                     }
-
-                    return@withContext vote
-                }
-
-                if (vote == null) {
+                } else {
                     delay(100)
                 }
             }
@@ -161,6 +164,6 @@ class VotePrioritizer(
         queue.clear()
         activeElections.clear()
         voteBuffer.clear()
-        signatureCache.clear()
+        duplicateDetector.clear()
     }
 }
