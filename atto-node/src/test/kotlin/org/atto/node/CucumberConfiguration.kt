@@ -5,8 +5,7 @@ import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.runBlocking
 import org.atto.commons.AttoPrivateKey
 import org.atto.node.network.peer.PeerProperties
-import org.atto.node.transaction.Transaction
-import org.atto.node.transaction.TransactionRepository
+import org.atto.node.transaction.TransactionConfiguration
 import org.atto.protocol.AttoNode
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
@@ -18,15 +17,15 @@ class CucumberConfiguration(
     val thisNode: AttoNode,
     val peerProperties: PeerProperties,
     val privateKey: AttoPrivateKey,
-    val genesisTransaction: Transaction,
+    val genesisInitializer: TransactionConfiguration.GenesisInitializer,
     val caches: List<CacheSupport>,
-    val repositories: List<AttoRepository>,
-    val transactionRepository: TransactionRepository
+    val repositories: List<AttoRepository>
 ) {
     @Before
     fun setUp() = runBlocking {
         repositories.forEach { it.deleteAll() }
-        transactionRepository.save(genesisTransaction)
+
+        genesisInitializer.init()
 
         caches.forEach {
             it.clear()
@@ -40,7 +39,6 @@ class CucumberConfiguration(
         PropertyHolder.add("THIS", thisNode)
         PropertyHolder.add("THIS", privateKey)
         PropertyHolder.add("THIS", privateKey.toPublicKey())
-        PropertyHolder.add("THIS", genesisTransaction)
 
         NodeHolder.clear(context)
         NodeHolder.add(context)

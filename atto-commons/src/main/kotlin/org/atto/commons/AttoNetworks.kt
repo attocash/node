@@ -32,7 +32,7 @@ enum class AttoNetwork(val environment: String, private val difficultReductionFa
 //        }
 
         val years = timestamp.atZone(ZoneOffset.UTC).year - INITIAL_DATE.year
-        val increaseFactor = (2.0).pow(years / 2).toULong()
+        val increaseFactor = (2.0).pow(years / 2).toULong() + 1UL // the +1 is just until next year
 
         val initialDifficult = (ULong.MAX_VALUE - INITIAL_LIVE_THRESHOLD) * difficultReductionFactor
         val difficult = initialDifficult / increaseFactor

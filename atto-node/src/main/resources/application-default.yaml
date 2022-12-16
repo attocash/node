@@ -22,7 +22,8 @@ server:
 logging:
   level:
     org.atto: TRACE
-#    org.atto.node.network: INFO
+    #    org.atto.node.network: INFO
+    io.r2dbc.h2: INFO
 
 management:
   endpoints:

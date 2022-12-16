@@ -1,7 +1,7 @@
 package org.atto.node.transaction.convertion.converter
 
 import org.atto.commons.AttoBlockType
-import org.atto.commons.AttoReceiveBlock
+import org.atto.commons.AttoSendBlock
 import org.atto.commons.AttoTransaction
 import org.atto.node.account.Account
 import org.atto.node.transaction.Transaction
@@ -13,7 +13,7 @@ class SendTransactionConverter : TransactionConversionSupport {
     override val blockType = AttoBlockType.SEND
 
     override fun toAccountChange(account: Account, transaction: AttoTransaction): Transaction {
-        val block = transaction.block as AttoReceiveBlock
+        val block = transaction.block as AttoSendBlock
 
         return Transaction(
             block = block,

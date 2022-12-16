@@ -21,6 +21,8 @@ spring:
     serialization:
       write_dates_as_timestamps: false
 atto:
+  node:
+    publicAddress: ${ATTO_NODE_HOST}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 10
@@ -48,7 +50,6 @@ atto:
 logging:
   level:
     org.atto: INFO
-    io.r2dbc.h2: TRACE
 
 server:
   port:

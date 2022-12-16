@@ -29,7 +29,7 @@ internal class AttoKeysTest {
         val publicKey = privateKey.toPublicKey()
 
         // then
-        val expectedPublicKey = "19D3D919475DEED4696B5D13018151D1AF88B2BD3BCFF048B45031C1F36D1858"
+        val expectedPublicKey = "3B6A27BCCEB6A42D62A3A8D02A6F0D73653215771DE243A63AC048A18B59DA29"
         assertEquals(expectedPublicKey, publicKey.value.toHex())
     }
 }

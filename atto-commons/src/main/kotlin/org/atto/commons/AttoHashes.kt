@@ -1,29 +1,30 @@
 package org.atto.commons
 
-import com.rfksystems.blake2b.Blake2b
+import org.bouncycastle.crypto.digests.Blake2bDigest
 
 object AttoHashes {
     fun hash(digestSize: Int, vararg byteArrays: ByteArray): ByteArray {
-        val blake2b = Blake2b(null, digestSize, null, null)
+        val blake2b = Blake2bDigest(null, digestSize, null, null)
         for (byteArray in byteArrays) {
             blake2b.update(byteArray, 0, byteArray.size)
         }
         val output = ByteArray(digestSize)
-        blake2b.digest(output, 0)
+        blake2b.doFinal(output, 0)
         return output
     }
 }
 
 data class AttoHash(val value: ByteArray) {
+
+    init {
+        value.checkLength(size)
+    }
+
     companion object {
         val size = 32;
         fun parse(value: String): AttoHash {
             return AttoHash(value.fromHexToByteArray())
         }
-    }
-
-    init {
-        value.checkLength(size)
     }
 
     override fun equals(other: Any?): Boolean {

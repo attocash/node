@@ -13,6 +13,7 @@ import java.time.Instant
 
 interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AttoRepository {
 
+    @JvmDefault
     suspend fun getByPublicKey(publicKey: AttoPublicKey): Account {
         val account = findById(publicKey)
         if (account != null) {

@@ -1,6 +1,7 @@
 package org.atto.node
 
 import io.cucumber.java.en.Given
+import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.network.peer.PeerProperties
 import org.atto.node.transaction.Transaction
@@ -17,6 +18,8 @@ class NodeStepDefinition(
     private val peerProperties: PeerProperties,
     private val transaction: Transaction
 ) {
+    private val logger = KotlinLogging.logger {}
+
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
         val latch = CountDownLatch(1)
@@ -76,12 +79,14 @@ class NodeStepDefinition(
     }
 
     private fun createClassLoader(): URLClassLoader {
-        val path = System.getProperty("java.class.path").replace("\\", "/")
-        val urlList = path.split(";").asSequence()
+        val urlList = System.getProperty("java.class.path")
+            .replace("\\", "/")
+            .split(";")
+            .asSequence()
             .map { if (it.endsWith(".jar")) it else "$it/" }
             .map { URL("file:/$it") }
             .toList()
         val urlArray = Array(urlList.size) { urlList[it] }
-        return URLClassLoader(urlArray, Thread.currentThread().contextClassLoader.parent)
+        return URLClassLoader(urlArray, ClassLoader.getPlatformClassLoader())
     }
 }

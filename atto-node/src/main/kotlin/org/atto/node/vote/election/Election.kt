@@ -5,6 +5,7 @@ import mu.KotlinLogging
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
+import org.atto.node.CacheSupport
 import org.atto.node.account.Account
 import org.atto.node.transaction.PublicKeyHeight
 import org.atto.node.transaction.Transaction
@@ -24,9 +25,12 @@ class Election(
     private val properties: ElectionProperties,
     private val voteWeightService: VoteWeightService,
     private val observers: List<ElectionObserver>
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
+    /**
+     * Refactoring me. Too many potential side effects. Migrate to single thread
+     */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
     private val singleScope = CoroutineScope(singleDispatcher)
@@ -65,6 +69,10 @@ class Election(
         observers.forEach { it.observed(account, transaction) }
     }
 
+    private fun isObserving(transaction: Transaction): Boolean {
+        return transactionWeighters.containsKey(transaction.toPublicKeyHeight())
+    }
+
     private fun stopObserving(transaction: Transaction) {
         transactionWeighters.remove(transaction.toPublicKeyHeight())
     }
@@ -81,15 +89,17 @@ class Election(
 
         transactionWeightMap.values.asSequence()
             .filter { it != weighter }
-            .forEach { weighter.remove(vote) }
+            .forEach { _ -> weighter.remove(vote) }
 
         consensed(publicKeyHeight)
 
-        if (weighter.isAgreementAbove(voteWeightService.getMinimalConfirmationWeight())) {
+        val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
+
+        if (isObserving(transaction) && weighter.isAgreementAbove(minimalConfirmationWeight)) {
             observers.forEach { it.agreed(weighter.account, weighter.transaction) }
         }
 
-        if (weighter.isFinalAbove(voteWeightService.getMinimalConfirmationWeight())) {
+        if (isObserving(transaction) && weighter.isFinalAbove(minimalConfirmationWeight)) {
             stopObserving(transaction)
 
             val votes = weighter.votes.values.filter { it.isFinal() }
@@ -105,7 +115,7 @@ class Election(
 
     private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeighter {
         return transactionWeighters[publicKeyHeight]!!.values.asSequence()
-            .maxByOrNull { it.totalWeight.raw }!!
+            .maxByOrNull { it.totalWeight() }!!
     }
 
 
@@ -145,12 +155,13 @@ class Election(
                 }
         }
     }
+
+    override fun clear() {
+        transactionWeighters.clear()
+    }
 }
 
 data class TransactionWeighter(val account: Account, val transaction: Transaction) {
-    var totalWeight: AttoAmount = AttoAmount.min
-    var totalFinalWeight: AttoAmount = AttoAmount.min
-
     internal val votes = HashMap<AttoPublicKey, Vote>()
 
     internal fun add(vote: Vote): Boolean {
@@ -162,29 +173,29 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
 
         votes[vote.publicKey] = vote
 
-        totalWeight += vote.weight
-        if (vote.isFinal()) {
-            totalFinalWeight += vote.weight
-        }
-
         return true
     }
 
+    internal fun totalWeight(): ULong {
+        return votes.values.asSequence()
+            .sumOf { it.weight.raw }
+    }
+
+    internal fun totalFinalWeight(): ULong {
+        return votes.values.asSequence()
+            .filter { it.isFinal() }
+            .sumOf { it.weight.raw }
+    }
+
     internal fun remove(vote: Vote): Vote? {
-        val removed = votes.remove(vote.publicKey)
-
-        if (removed != null) {
-            totalWeight -= vote.weight
-        }
-
-        return removed
+        return votes.remove(vote.publicKey)
     }
 
     internal fun isAgreementAbove(weight: AttoAmount): Boolean {
-        return totalWeight >= weight
+        return totalWeight() >= weight.raw
     }
 
     internal fun isFinalAbove(weight: AttoAmount): Boolean {
-        return totalFinalWeight >= weight
+        return totalFinalWeight() >= weight.raw
     }
 }

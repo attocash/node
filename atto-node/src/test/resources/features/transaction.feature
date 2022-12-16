@@ -1,5 +1,6 @@
 Feature: Transaction
 
+
   Scenario: Single transaction should be confirmed
     Given the peer A
 

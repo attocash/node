@@ -9,6 +9,7 @@ import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.AttoSignature
+import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionConfirmed
@@ -22,7 +23,7 @@ import org.springframework.stereotype.Service
 class VotePrioritizer(
     properties: VotePrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var job: Job
@@ -62,7 +63,7 @@ class VotePrioritizer(
         val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
 
         votes.forEach {
-            logger.trace { "Unbuffered $it" }
+            logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
             add(it)
         }
     }
@@ -95,15 +96,22 @@ class VotePrioritizer(
     private suspend fun add(vote: Vote) = withContext(singleDispatcher) {
         val transaction = activeElections[vote.hash]
         if (transaction != null) {
-            val droppedVote = queue.add(vote)
-            if (droppedVote != null) {
-                eventPublisher.publish(VoteDropped(transaction, vote))
+            logger.trace { "Queued for prioritization. $vote" }
+            queue.add(vote)?.let {
+                logger.trace { "Dropped from buffer. $it" }
+                eventPublisher.publish(VoteDropped(transaction, it))
             }
-            logger.trace { "Queued $vote" }
         } else {
-            voteBuffer.compute(vote.hash) { _, v ->
-                val map = v ?: HashMap()
-                map[vote.publicKey] = vote
+            logger.trace { "Buffered for prioritization $vote" }
+            voteBuffer.compute(vote.hash) { _, m ->
+                val map = m ?: HashMap()
+                map.compute(vote.publicKey) { _, v ->
+                    if (v == null || vote.timestamp > v.timestamp) {
+                        vote
+                    } else {
+                        v
+                    }
+                }
                 map
             }
         }
@@ -147,5 +155,12 @@ class VotePrioritizer(
         }
 
         return null
+    }
+
+    override fun clear() {
+        queue.clear()
+        activeElections.clear()
+        voteBuffer.clear()
+        signatureCache.clear()
     }
 }

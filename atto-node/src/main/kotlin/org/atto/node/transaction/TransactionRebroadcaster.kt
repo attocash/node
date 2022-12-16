@@ -46,28 +46,27 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
             holder
         }
 
-        logger.trace { "Started observing $transaction to rebroadcast" }
+        logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
     }
 
     @EventListener
     fun process(event: TransactionValidated) = runBlocking(singleDispatcher) {
         val transactionHolder = holderMap.remove(event.payload.hash)!!
         transactionQueue.add(transactionHolder)
-        logger.trace { "Stopped observing ${event.payload.hash} and add it to the buffer." }
-    }
-
-    @EventListener
-    fun process(event: AttoTransactionDropped) = runBlocking(singleDispatcher) {
-        holderMap.remove(event.payload.hash)
-        logger.trace { "Stopped observing ${event.payload.hash}. Transaction was dropped" }
+        logger.trace { "Transaction queued for rebroadcast. ${event.payload}" }
     }
 
     @EventListener
     fun process(event: TransactionRejected) = runBlocking(singleDispatcher) {
         holderMap.remove(event.payload.hash)
-        logger.trace { "Stopped observing ${event.payload.hash}. Transaction was rejected" }
+        logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.payload}" }
     }
 
+    @EventListener
+    fun process(event: AttoTransactionDropped) = runBlocking(singleDispatcher) {
+        holderMap.remove(event.payload.hash)
+        logger.trace { "Stopped monitoring transaction because event was dropped. ${event.payload}" }
+    }
 
     @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct

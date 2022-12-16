@@ -65,10 +65,7 @@ class VoteWeightService(
         val change = changeConfirmed.payload
         val block = change.block
 
-        if (block is AttoOpenBlock) {
-            val amount = block.balance - account.balance
-            add(block.representative, amount, block.balance)
-        } else if (block is AttoReceiveBlock) {
+        if (block is ReceiveSupportBlock) {
             val amount = block.balance - account.balance
             add(account.representative, amount, block.balance)
         } else if (block is AttoSendBlock) {
@@ -77,6 +74,7 @@ class VoteWeightService(
             subtract(account.representative, block.balance, AttoAmount.min)
             add(block.representative, block.balance, block.balance)
         }
+        println(weightMap)
     }
 
     private fun add(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {

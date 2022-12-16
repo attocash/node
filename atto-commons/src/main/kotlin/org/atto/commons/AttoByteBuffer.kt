@@ -50,9 +50,7 @@ class AttoByteBuffer {
     fun toByteArray(): ByteArray {
         val byteArray = ByteArray(size)
 
-        byteBuffer.duplicate()
-            .rewind()
-            .get(byteArray)
+        byteBuffer.get(0, byteArray)
 
         return byteArray
     }
@@ -295,6 +293,10 @@ class AttoByteBuffer {
         val port = getUShort().toInt()
 
         return InetSocketAddress(address, port)
+    }
+
+    fun copy(): AttoByteBuffer {
+        return AttoByteBuffer(byteBuffer.duplicate().rewind())
     }
 
     override fun toString(): String {

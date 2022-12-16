@@ -11,7 +11,6 @@ import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.AttoNode
 import org.atto.protocol.transaction.AttoTransactionPush
-import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
 
 class TransactionStepDefinition(
@@ -73,12 +72,12 @@ class TransactionStepDefinition(
     @Then("^transaction (\\w+) is confirmed$")
     fun checkConfirmed(transactionShortId: String) = runBlocking {
         val expectedTransaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
-        val transaction = waitUntilNonNull {
+
+        waitUntilNonNull {
             runBlocking {
                 transactionRepository.findById(expectedTransaction.hash)
             }
         }
-        assertEquals(expectedTransaction, transaction)
     }
 
     @Then("^matching open or receive transaction for transaction (\\w+) is confirmed$")
@@ -95,7 +94,7 @@ class TransactionStepDefinition(
             }
 
             val block = transaction?.block
-            if (block !is AttoReceiveBlock) {
+            if (block !is ReceiveSupportBlock) {
                 return@waitUntilNonNull null
             }
 

@@ -106,6 +106,7 @@ class HandshakeService(
 
         val publicKey = node.publicKey
 
+        // TODO: Signature should be against hash(challenge + node)
         if (!answer.signature.isValid(publicKey, challenge.value)) {
             logger.warn { "Invalid handshake answer was received $answer" }
             return

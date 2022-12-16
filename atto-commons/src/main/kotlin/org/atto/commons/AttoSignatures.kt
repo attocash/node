@@ -1,33 +1,25 @@
 package org.atto.commons
 
-import com.rfksystems.blake2b.Blake2b
-import net.i2p.crypto.eddsa.EdDSAEngine
-import net.i2p.crypto.eddsa.EdDSAPrivateKey
-import net.i2p.crypto.eddsa.EdDSAPublicKey
-import net.i2p.crypto.eddsa.spec.EdDSAPrivateKeySpec
-import net.i2p.crypto.eddsa.spec.EdDSAPublicKeySpec
-import java.security.MessageDigest
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
+import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
+import org.bouncycastle.crypto.signers.Ed25519Signer
 
 object AttoSignatures {
 
     fun sign(privateKey: AttoPrivateKey, hash: ByteArray): AttoSignature {
-        val edDSAPrivateKeySpec = EdDSAPrivateKeySpec(privateKey.value, ED25519.ED25519_BLAKE2B_CURVES_PEC)
-        val edDSAEngine = EdDSAEngine(MessageDigest.getInstance(Blake2b.BLAKE2_B_512))
-        val edDSAPrivateKey = EdDSAPrivateKey(edDSAPrivateKeySpec)
-        edDSAEngine.initSign(edDSAPrivateKey)
-        edDSAEngine.setParameter(EdDSAEngine.ONE_SHOT_MODE)
-        edDSAEngine.update(hash)
-        return AttoSignature(edDSAEngine.sign())
+        val parameters = Ed25519PrivateKeyParameters(privateKey.value, 0)
+        val signer = Ed25519Signer()
+        signer.init(true, parameters)
+        signer.update(hash, 0, hash.size)
+        return AttoSignature(signer.generateSignature())
     }
 
     fun isValid(publicKey: AttoPublicKey, signature: AttoSignature, hash: ByteArray): Boolean {
-        val edDSAPublicKeySpec = EdDSAPublicKeySpec(publicKey.value, ED25519.ED25519_BLAKE2B_CURVES_PEC)
-        val edDSAEngine = EdDSAEngine(MessageDigest.getInstance(Blake2b.BLAKE2_B_512))
-        val edDSAPublicKey = EdDSAPublicKey(edDSAPublicKeySpec)
-        edDSAEngine.initVerify(edDSAPublicKey)
-        edDSAEngine.setParameter(EdDSAEngine.ONE_SHOT_MODE)
-        edDSAEngine.update(hash)
-        return edDSAEngine.verify(signature.value)
+        val parameters = Ed25519PublicKeyParameters(publicKey.value, 0)
+        val signer = Ed25519Signer()
+        signer.init(false, parameters)
+        signer.update(hash, 0, hash.size)
+        return signer.verifySignature(signature.value)
     }
 
 }

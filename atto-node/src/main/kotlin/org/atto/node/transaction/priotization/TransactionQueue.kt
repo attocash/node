@@ -104,6 +104,10 @@ class TransactionQueue(private val groupMaxSize: Int) {
         return size
     }
 
+    fun clear() {
+        groups.forEach { it.clear() }
+    }
+
     internal data class TimedTransaction(
         val transaction: AttoTransaction,
         val receivedTimestamp: Instant = Instant.now()

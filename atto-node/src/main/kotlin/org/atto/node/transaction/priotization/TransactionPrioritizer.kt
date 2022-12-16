@@ -9,6 +9,7 @@ import org.atto.commons.AttoHash
 import org.atto.commons.AttoTransaction
 import org.atto.commons.PreviousSupport
 import org.atto.commons.ReceiveSupportBlock
+import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.transaction.AttoTransactionDropped
@@ -23,7 +24,7 @@ import org.springframework.stereotype.Service
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var job: Job
@@ -128,6 +129,13 @@ class TransactionPrioritizer(
     @PreDestroy
     fun stop() {
         job.cancel()
+    }
+
+    override fun clear() {
+        queue.clear()
+        activeElections.clear()
+        buffer.clear()
+        hashCache.clear()
     }
 
 }

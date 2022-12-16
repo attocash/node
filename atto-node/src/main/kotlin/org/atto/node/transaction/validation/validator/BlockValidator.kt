@@ -20,7 +20,7 @@ class BlockValidator : TransactionValidationSupport {
             return TransactionRejectionReason.PREVIOUS_NOT_FOUND
         }
 
-        if (account.height >= block.height - 1u) {
+        if (account.height >= block.height) {
             return TransactionRejectionReason.OLD_TRANSACTION
         }
 

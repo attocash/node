@@ -13,8 +13,8 @@ class EventPublisher(private val publisher: ApplicationEventPublisher) {
     private val logger = KotlinLogging.logger {}
 
     fun publish(event: Event<*>) {
+        logger.trace { "$event" }
         publisher.publishEvent(event)
-        logger.debug { "$event" }
     }
 
 }

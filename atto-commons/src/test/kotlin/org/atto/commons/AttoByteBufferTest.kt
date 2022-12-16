@@ -12,7 +12,8 @@ internal class AttoByteBufferTest {
     @Test
     fun test() {
         // given
-        val buffer = AttoByteBuffer(184)
+        val size = 184
+        val buffer = AttoByteBuffer(size)
 
         val expectedHash = AttoHash(Random.Default.nextBytes(ByteArray(32)))
         buffer.add(expectedHash)
@@ -72,10 +73,11 @@ internal class AttoByteBufferTest {
         assertEquals(expectedWork, work)
         assertEquals(expectedInetSocketAddress, inetSocketAddress)
         assertEquals(expectedNetwork, network)
+        assertEquals(size, buffer.toByteArray().size)
     }
 
     @Test
-    fun testSlice() {
+    fun slice() {
         // given
         val buffer = AttoByteBuffer(6)
         buffer.add((1).toShort())
@@ -90,7 +92,7 @@ internal class AttoByteBufferTest {
     }
 
     @Test
-    fun testToByteArray() {
+    fun toByteArray() {
         // given
         val buffer = AttoByteBuffer(2)
             .add((1u).toUByte())

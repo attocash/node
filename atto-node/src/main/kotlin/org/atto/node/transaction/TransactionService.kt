@@ -1,5 +1,6 @@
 package org.atto.node.transaction
 
+import mu.KotlinLogging
 import org.atto.commons.AttoOpenBlock
 import org.atto.commons.AttoSendBlock
 import org.atto.commons.ReceiveSupportBlock
@@ -19,6 +20,7 @@ class TransactionService(
     private val accountReceivableService: AccountReceivableService,
     private val transactionRepository: TransactionRepository
 ) {
+    private val logger = KotlinLogging.logger {}
 
     @Transactional
     suspend fun save(transaction: Transaction) {
@@ -37,6 +39,7 @@ class TransactionService(
 
         accountService.save(account)
         transactionRepository.save(transaction)
+        logger.debug { "Saved $transaction" }
 
         if (block is AttoSendBlock) {
             val receivable = AccountReceivable(

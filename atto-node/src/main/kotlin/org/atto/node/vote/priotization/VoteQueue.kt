@@ -55,4 +55,10 @@ class VoteQueue(private val maxSize: Int) {
     fun getSize(): Int {
         return size
     }
+
+    fun clear() {
+        map.clear()
+        set.clear()
+        size = 0
+    }
 }

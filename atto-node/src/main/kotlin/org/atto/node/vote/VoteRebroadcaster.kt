@@ -5,6 +5,7 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.atto.commons.AttoSignature
+import org.atto.node.CacheSupport
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
@@ -23,7 +24,7 @@ import java.util.*
  *
  */
 @Service
-class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) {
+class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var job: Job
@@ -46,30 +47,31 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) {
             holder
         }
 
-        logger.trace { "Started observing $vote to rebroadcast" }
+        logger.trace { "Started monitoring vote to rebroadcast. $vote" }
     }
 
     @EventListener
     fun process(event: VoteValidated) = runBlocking(singleDispatcher) {
-        val holder = holderMap.get(event.payload.signature)
+        val holder = holderMap[event.payload.signature]
         /**
-         * Holder will be null for votes cast by this node. They are considered valid from the start.
+         * Holder will be null for votes casted by this node. They are considered valid from the start.
          */
         if (holder != null) {
             voteQueue.add(holder)
+            logger.trace { "Vote queued for rebroadcast. ${event.payload}" }
         }
     }
 
     @EventListener
     fun process(event: VoteRejected) = runBlocking(singleDispatcher) {
         holderMap.remove(event.payload.signature)
-        logger.trace { "Stopped observing ${event.payload.hash}. Transaction was rejected" }
+        logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.payload}" }
     }
 
     @EventListener
     fun process(event: VoteDropped) = runBlocking(singleDispatcher) {
         holderMap.remove(event.payload.signature)
-        logger.trace { "Stopped observing ${event.payload.hash}. Transaction was dropped" }
+        logger.trace { "Stopped monitoring vote because event was dropped. ${event.payload}" }
     }
 
 
@@ -91,6 +93,8 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) {
                         votePush,
                     )
 
+                    logger.trace { "Vote dequeued and it will be rebroadcasted. ${voteHolder.vote}" }
+
                     messagePublisher.publish(message)
                 } else {
                     delay(100)
@@ -110,6 +114,11 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) {
         fun add(socketAddress: InetSocketAddress) {
             socketAddresses.add(socketAddress)
         }
+    }
+
+    override fun clear() {
+        holderMap.clear()
+        voteQueue.clear()
     }
 
 }

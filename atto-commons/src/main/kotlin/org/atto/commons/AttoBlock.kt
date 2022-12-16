@@ -281,13 +281,13 @@ data class AttoChangeBlock(
             }
 
             return AttoChangeBlock(
-                version = serializedBlock.getUShort(),
-                publicKey = serializedBlock.getPublicKey(),
-                height = serializedBlock.getULong(),
-                balance = serializedBlock.getAmount(),
-                timestamp = serializedBlock.getInstant(),
-                previous = serializedBlock.getHash(),
-                representative = serializedBlock.getPublicKey(),
+                version = serializedBlock.getUShort(), // 2 2
+                publicKey = serializedBlock.getPublicKey(), // 32 34
+                height = serializedBlock.getULong(), // 8 42
+                balance = serializedBlock.getAmount(), // 8 50
+                timestamp = serializedBlock.getInstant(), // 8 58
+                previous = serializedBlock.getHash(), // 32 90
+                representative = serializedBlock.getPublicKey(), // 32 122
             )
         }
     }
@@ -298,6 +298,7 @@ data class AttoChangeBlock(
             .add(type)
             .add(version)
             .add(publicKey)
+            .add(height)
             .add(balance)
             .add(timestamp)
             .add(previous)

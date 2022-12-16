@@ -11,8 +11,7 @@ repositories {
 }
 
 dependencies {
-    implementation("com.rfksystems:blake2b:1.0.0")
-    implementation("net.i2p.crypto:eddsa:0.3.0")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.72")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.1")
 }
 

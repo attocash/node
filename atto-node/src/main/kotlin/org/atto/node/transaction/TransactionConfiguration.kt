@@ -1,7 +1,6 @@
 package org.atto.node.transaction
 
 import jakarta.annotation.PostConstruct
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
@@ -81,12 +80,6 @@ class TransactionConfiguration {
                 )
 
                 transactionService.save(transaction)
-
-                val accounts = accountRepository.findAll().toList()
-                logger.info { "Accounts: $accounts" }
-
-                val transactions = transactionRepository.findAll().toList()
-                logger.info { "Transactions: $transactions" }
 
                 val network = thisNode.network
                 val hash = genesisTransaction.hash

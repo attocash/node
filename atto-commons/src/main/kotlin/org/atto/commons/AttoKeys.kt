@@ -1,7 +1,7 @@
 package org.atto.commons
 
 
-import net.i2p.crypto.eddsa.spec.EdDSAPrivateKeySpec
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 
 
 object AttoKeys {
@@ -12,8 +12,9 @@ object AttoKeys {
     }
 
     fun toPublicKey(privateKey: AttoPrivateKey): AttoPublicKey {
-        val key = EdDSAPrivateKeySpec(privateKey.value, ED25519.ED25519_BLAKE2B_CURVES_PEC)
-        return AttoPublicKey(key.a.toByteArray())
+        val parameters = Ed25519PrivateKeyParameters(privateKey.value, 0)
+        val publicKey = parameters.generatePublicKey()
+        return AttoPublicKey(publicKey.encoded)
     }
 
 }
