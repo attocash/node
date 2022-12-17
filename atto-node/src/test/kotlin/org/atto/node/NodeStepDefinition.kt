@@ -11,7 +11,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URL
 import java.net.URLClassLoader
-import java.util.concurrent.CountDownLatch
+import java.util.concurrent.FutureTask
 
 
 class NodeStepDefinition(
@@ -22,47 +22,47 @@ class NodeStepDefinition(
 
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
-        val latch = CountDownLatch(1)
-        val neighbourThread = Thread {
-            try {
-                val tcpPort = randomPort()
-                val httpPort = randomPort()
+        val starter = Runnable {
+            val tcpPort = randomPort()
+            val httpPort = randomPort()
 
-                val classLoader = Thread.currentThread().contextClassLoader
-                val applicationClass = arrayOf(classLoader.loadClass(Application::class.java.canonicalName))
-                val springApplicationBuilder = classLoader.loadClass(SpringApplicationBuilder::class.java.canonicalName)
+            val classLoader = Thread.currentThread().contextClassLoader
+            val applicationClass = arrayOf(classLoader.loadClass(Application::class.java.canonicalName))
+            val springApplicationBuilder = classLoader.loadClass(SpringApplicationBuilder::class.java.canonicalName)
 
-                val builderInstance = springApplicationBuilder.getConstructor(applicationClass::class.java)
-                    .newInstance(applicationClass)
+            val builderInstance = springApplicationBuilder.getConstructor(applicationClass::class.java)
+                .newInstance(applicationClass)
 
-                val privateKey = AttoSeeds.generateSeed().toPrivateKey(0U)
+            val privateKey = AttoSeeds.generateSeed().toPrivateKey(0U)
 
-                val args = arrayOf(
-                    "--spring.application.name=neighbour-atto-node-$shortId",
-                    "--server.port=$httpPort",
-                    "--atto.node.publicAddress=localhost:${tcpPort}",
-                    "--ATTO_DB_NAME=atto-neighbour${shortId}",
-                    "--atto.node.private-key=${privateKey.value.toHex()}",
-                    "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
-                )
-                val context = springApplicationBuilder
-                    .getMethod("run", Array<String>::class.java)
-                    .invoke(builderInstance, args) as Closeable
+            val args = arrayOf(
+                "--spring.application.name=neighbour-atto-node-$shortId",
+                "--server.port=$httpPort",
+                "--atto.node.publicAddress=localhost:${tcpPort}",
+                "--ATTO_DB_NAME=atto-neighbour${shortId}",
+                "--atto.node.private-key=${privateKey.value.toHex()}",
+                "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
+            )
+            val context = springApplicationBuilder
+                .getMethod("run", Array<String>::class.java)
+                .invoke(builderInstance, args) as Closeable
 
-                NodeHolder.add(context)
+            NodeHolder.add(context)
 
-                PropertyHolder.add(shortId, context)
-                PropertyHolder.add(shortId, privateKey)
-                PropertyHolder.add(shortId, privateKey.toPublicKey())
-                PropertyHolder.add(shortId, InetSocketAddress("localhost", tcpPort))
-            } finally {
-                latch.countDown()
-            }
+            PropertyHolder.add(shortId, context)
+            PropertyHolder.add(shortId, privateKey)
+            PropertyHolder.add(shortId, privateKey.toPublicKey())
+            PropertyHolder.add(shortId, InetSocketAddress("localhost", tcpPort))
         }
+
+        val futureTask = FutureTask(starter, null)
+        val neighbourThread = Thread(futureTask)
+
         neighbourThread.contextClassLoader = createClassLoader()
         neighbourThread.name = "Node $shortId"
         neighbourThread.start()
-        latch.await()
+
+        futureTask.get()
     }
 
     @Given("is a default node")
@@ -81,12 +81,13 @@ class NodeStepDefinition(
     private fun createClassLoader(): URLClassLoader {
         val urlList = System.getProperty("java.class.path")
             .replace("\\", "/")
-            .split(";")
+            .split(";", ":")
             .asSequence()
             .map { if (it.endsWith(".jar")) it else "$it/" }
-            .map { URL("file:/$it") }
+            .map { if (it.startsWith("/")) it else "/$it" }
+            .map { URL("file:$it") }
             .toList()
         val urlArray = Array(urlList.size) { urlList[it] }
-        return URLClassLoader(urlArray, ClassLoader.getPlatformClassLoader())
+        return URLClassLoader(urlArray, ClassLoader.getSystemClassLoader().parent)
     }
 }

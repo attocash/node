@@ -6,7 +6,7 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
 object Waiter {
-    var timeoutInSeconds = 60
+    var timeoutInSeconds = 30
 
     init {
         val isGradle = System.getenv("GRADLE")?.toBoolean() ?: false
