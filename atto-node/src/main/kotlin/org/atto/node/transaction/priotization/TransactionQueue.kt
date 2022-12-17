@@ -1,7 +1,6 @@
 package org.atto.node.transaction.priotization
 
-import org.atto.commons.AttoTransaction
-import java.time.Instant
+import org.atto.node.transaction.Transaction
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.Comparator.comparing
@@ -38,25 +37,28 @@ class TransactionQueue(private val groupMaxSize: Int) {
         }
     }
 
-    private val dateComparator: Comparator<TimedTransaction> = comparing {
-        ChronoUnit.MILLIS.between(it.receivedTimestamp, it.transaction.block.timestamp)
+    private val dateComparator: Comparator<Transaction> = comparing {
+        ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp)
     }
 
-    private val versionComparator: Comparator<TimedTransaction> = comparing {
-        it.transaction.block.version
+    private val versionComparator: Comparator<Transaction> = comparing {
+        it.block.version
     }
 
     private val comparator = versionComparator.thenComparing(dateComparator)
 
     private var currentGroup = 0
-    private val groups = Array<TreeSet<TimedTransaction>>(groupMap.size) { TreeSet(comparator) }
+    private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
     private var size = 0
 
-    internal fun add(timedTransaction: TimedTransaction): TimedTransaction? {
-        val group = getGroup(timedTransaction.transaction.block.balance.raw)
+    /**
+     * @return deleted transaction
+     */
+    fun add(transaction: Transaction): Transaction? {
+        val group = getGroup(transaction.block.balance.raw)
         val transactions = groups[group]
 
-        if (transactions.add(timedTransaction)) {
+        if (transactions.add(transaction)) {
             size++
         }
 
@@ -68,15 +70,7 @@ class TransactionQueue(private val groupMaxSize: Int) {
         return null
     }
 
-    /**
-     * @return deleted transaction
-     */
-    fun add(transaction: AttoTransaction): AttoTransaction? {
-        val timedTransaction = TimedTransaction(transaction)
-        return add(timedTransaction)?.transaction
-    }
-
-    internal fun pollTimed(): TimedTransaction? {
+    internal fun poll(): Transaction? {
         val groupAnchor = currentGroup
         var groupIndex = currentGroup
 
@@ -96,10 +90,6 @@ class TransactionQueue(private val groupMaxSize: Int) {
         return null
     }
 
-    fun poll(): AttoTransaction? {
-        return pollTimed()?.transaction
-    }
-
     fun getSize(): Int {
         return size
     }
@@ -107,9 +97,4 @@ class TransactionQueue(private val groupMaxSize: Int) {
     fun clear() {
         groups.forEach { it.clear() }
     }
-
-    internal data class TimedTransaction(
-        val transaction: AttoTransaction,
-        val receivedTimestamp: Instant = Instant.now()
-    )
 }

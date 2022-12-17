@@ -52,44 +52,28 @@ fun AttoTransaction.toTransaction(): Transaction {
     )
 }
 
-interface AttoTransactionEvent : Event<AttoTransaction>
+data class TransactionReceived(override val payload: Transaction) : Event<Transaction>
 
-data class AttoTransactionReceived(override val payload: AttoTransaction) : AttoTransactionEvent
-
-data class AttoTransactionDropped(override val payload: AttoTransaction) : AttoTransactionEvent
-
-
-interface TransactionEvent : Event<Transaction> {
-    /**
-     * Current account status before apply the transaction
-     */
-    val account: Account
-}
-
-data class TransactionStarted(
-    override val account: Account,
-    override val payload: Transaction
-) : TransactionEvent
-
+data class TransactionDropped(override val payload: Transaction) : Event<Transaction>
 data class TransactionValidated(
-    override val account: Account,
+    val account: Account,
     override val payload: Transaction
-) : TransactionEvent
+) : Event<Transaction>
 
 data class TransactionObserved(
-    override val account: Account,
+    val account: Account,
     override val payload: Transaction
-) : TransactionEvent
+) : Event<Transaction>
 
 data class TransactionConfirmed(
-    override val account: Account,
+    val account: Account,
     override val payload: Transaction
-) : TransactionEvent
+) : Event<Transaction>
 
 data class TransactionStaled(
-    override val account: Account,
+    val account: Account,
     override val payload: Transaction
-) : TransactionEvent
+) : Event<Transaction>
 
 enum class TransactionRejectionReason(val recoverable: Boolean) {
     INVALID_TRANSACTION(false),
@@ -111,6 +95,6 @@ enum class TransactionRejectionReason(val recoverable: Boolean) {
 
 data class TransactionRejected(
     val reason: TransactionRejectionReason,
-    override val account: Account,
+    val account: Account,
     override val payload: Transaction
-) : TransactionEvent
+) : Event<Transaction>

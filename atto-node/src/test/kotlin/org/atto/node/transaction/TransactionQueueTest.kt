@@ -32,10 +32,10 @@ internal class TransactionQueueTest {
 
         // then
         assertEquals(transaction50, deleted)
-        assertEquals(transaction10, queue.pollTimed())
-        assertEquals(transaction200, queue.pollTimed())
-        assertEquals(transaction15, queue.pollTimed())
-        assertNull(queue.pollTimed())
+        assertEquals(transaction10, queue.poll())
+        assertEquals(transaction200, queue.poll())
+        assertEquals(transaction15, queue.poll())
+        assertNull(queue.poll())
     }
 
     @Test
@@ -45,7 +45,7 @@ internal class TransactionQueueTest {
     }
 
 
-    private fun createTransaction(amount: ULong, receivedTimestamp: Instant): TransactionQueue.TimedTransaction {
+    private fun createTransaction(amount: ULong, receivedAt: Instant): Transaction {
         val block = AttoReceiveBlock(
             version = 0u,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
@@ -55,12 +55,11 @@ internal class TransactionQueueTest {
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHash = AttoHash(ByteArray(32)),
         )
-        val transaction = AttoTransaction(
+        return Transaction(
             block = block,
             signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             work = AttoWork(Random.nextBytes(ByteArray(8))),
+            receivedAt = receivedAt
         )
-
-        return TransactionQueue.TimedTransaction(transaction, receivedTimestamp)
     }
 }

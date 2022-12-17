@@ -5,17 +5,13 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.atto.commons.AttoHash
-import org.atto.commons.AttoTransaction
 import org.atto.commons.PreviousSupport
 import org.atto.commons.ReceiveSupportBlock
 import org.atto.node.CacheSupport
 import org.atto.node.DuplicateDetector
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
-import org.atto.node.transaction.AttoTransactionDropped
-import org.atto.node.transaction.AttoTransactionReceived
-import org.atto.node.transaction.TransactionConfirmed
-import org.atto.node.transaction.TransactionStaled
+import org.atto.node.transaction.*
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -34,7 +30,7 @@ class TransactionPrioritizer(
 
     private val queue = TransactionQueue(properties.groupMaxSize!!)
     private val activeElections = HashSet<AttoHash>()
-    private val buffer = HashMap<AttoHash, MutableSet<AttoTransaction>>()
+    private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>()
 
     @OptIn(DelicateCoroutinesApi::class)
@@ -46,7 +42,7 @@ class TransactionPrioritizer(
                     queue.poll()
                 }
                 if (transaction != null) {
-                    eventPublisher.publish(AttoTransactionReceived(transaction))
+                    eventPublisher.publish(TransactionReceived(transaction))
                 } else {
                     delay(100)
                 }
@@ -90,19 +86,19 @@ class TransactionPrioritizer(
 
     @EventListener
     fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
-        val attoTransaction = message.payload.transaction
+        val transaction = message.payload.transaction.toTransaction()
 
-        if (duplicateDetector.isDuplicate(attoTransaction.hash)) {
-            logger.trace { "Ignored duplicated $attoTransaction" }
+        if (duplicateDetector.isDuplicate(transaction.hash)) {
+            logger.trace { "Ignored duplicated $transaction" }
             return
         }
 
         runBlocking {
-            add(attoTransaction)
+            add(transaction)
         }
     }
 
-    suspend fun add(transaction: AttoTransaction) = withContext(singleDispatcher) {
+    suspend fun add(transaction: Transaction) = withContext(singleDispatcher) {
         val block = transaction.block
         if (block is PreviousSupport && activeElections.contains(block.previous)) {
             buffer(block.previous, transaction)
@@ -111,13 +107,13 @@ class TransactionPrioritizer(
         } else {
             val droppedTransaction = queue.add(transaction)
             if (droppedTransaction != null) {
-                eventPublisher.publish(AttoTransactionDropped(droppedTransaction))
+                eventPublisher.publish(TransactionDropped(droppedTransaction))
             }
             logger.trace { "Queued $transaction" }
         }
     }
 
-    private fun buffer(hash: AttoHash, transaction: AttoTransaction) {
+    private fun buffer(hash: AttoHash, transaction: Transaction) {
         buffer.compute(hash) { _, v ->
             val set = v ?: HashSet()
             set.add(transaction)

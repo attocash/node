@@ -8,23 +8,27 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.atto.node.EventPublisher
 import org.atto.node.account.Account
+import org.atto.node.account.AccountRepository
 import org.atto.node.transaction.Transaction
+import org.atto.node.transaction.TransactionReceived
 import org.atto.node.transaction.TransactionRejected
-import org.atto.node.transaction.TransactionStarted
 import org.atto.node.transaction.TransactionValidated
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 
 @Service
 class TransactionValidator(
+    private val accountRepository: AccountRepository,
     private val validators: List<TransactionValidationSupport>,
     private val eventPublisher: EventPublisher,
 ) {
 
     @EventListener
-    fun process(event: TransactionStarted) = runBlocking {
+    fun process(event: TransactionReceived) = runBlocking {
         launch {
-            validate(event.account, event.payload)
+            val transaction = event.payload
+            val account = accountRepository.getByPublicKey(transaction.block.publicKey)
+            validate(account, event.payload)
         }
     }
 

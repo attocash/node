@@ -66,7 +66,7 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     }
 
     @EventListener
-    fun process(event: AttoTransactionDropped) {
+    fun process(event: TransactionDropped) {
         holderMap.remove(event.payload.hash)
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.payload}" }
     }
