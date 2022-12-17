@@ -24,7 +24,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("org.springdoc:springdoc-openapi-ui:1.6.13")
+    implementation("org.springdoc:springdoc-openapi-ui:1.6.14")
 
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.2")
 
