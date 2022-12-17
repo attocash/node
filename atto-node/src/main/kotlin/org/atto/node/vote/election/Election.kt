@@ -176,15 +176,17 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
         return true
     }
 
-    internal fun totalWeight(): ULong {
+    internal fun totalWeight(): AttoAmount {
         return votes.values.asSequence()
-            .sumOf { it.weight.raw }
+            .map { it.weight }
+            .fold(AttoAmount.min) { a1, a2 -> a1 + a2 }
     }
 
-    internal fun totalFinalWeight(): ULong {
+    internal fun totalFinalWeight(): AttoAmount {
         return votes.values.asSequence()
             .filter { it.isFinal() }
-            .sumOf { it.weight.raw }
+            .map { it.weight }
+            .fold(AttoAmount.min) { a1, a2 -> a1 + a2 }
     }
 
     internal fun remove(vote: Vote): Vote? {
@@ -192,10 +194,10 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
     }
 
     internal fun isAgreementAbove(weight: AttoAmount): Boolean {
-        return totalWeight() >= weight.raw
+        return totalWeight().raw >= weight.raw
     }
 
     internal fun isFinalAbove(weight: AttoAmount): Boolean {
-        return totalFinalWeight() >= weight.raw
+        return totalFinalWeight().raw >= weight.raw
     }
 }

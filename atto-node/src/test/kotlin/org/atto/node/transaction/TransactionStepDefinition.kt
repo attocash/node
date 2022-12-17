@@ -3,6 +3,7 @@ package org.atto.node.transaction
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
@@ -19,6 +20,8 @@ class TransactionStepDefinition(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
 ) {
+    private val logger = KotlinLogging.logger {}
+
     private val defaultSendAmount = AttoAmount(4_500_000_000_000_000_000u)
 
     @When("^send transaction (\\w+) from (\\w+) account to (\\w+) account$")
@@ -35,6 +38,8 @@ class TransactionStepDefinition(
             signature = privateKey.sign(sendBlock.hash.value),
             work = AttoWork.Companion.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash)
         )
+
+        logger.info { "Publishing $sendTransaction" }
         messagePublisher.publish(
             InboundNetworkMessage(
                 thisNode.socketAddress,

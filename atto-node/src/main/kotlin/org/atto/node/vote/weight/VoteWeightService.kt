@@ -74,7 +74,6 @@ class VoteWeightService(
             subtract(account.representative, block.balance, AttoAmount.min)
             add(block.representative, block.balance, block.balance)
         }
-        println(weightMap)
     }
 
     private fun add(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {

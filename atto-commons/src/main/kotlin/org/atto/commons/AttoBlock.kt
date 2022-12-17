@@ -88,7 +88,7 @@ data class AttoSendBlock(
 ) : AttoBlock, PreviousSupport {
     override val type = AttoBlockType.SEND
     override val serialized = toByteBuffer()
-    override val hash = serialized.getHash()
+    override val hash = serialized.getByteArrayHash()
 
     companion object {
         internal fun fromByteBuffer(serializedBlock: AttoByteBuffer): AttoSendBlock? {
@@ -149,7 +149,7 @@ data class AttoReceiveBlock(
 
     override val type = AttoBlockType.RECEIVE
     override val serialized = toByteBuffer()
-    override val hash = serialized.getHash()
+    override val hash = serialized.getByteArrayHash()
 
     companion object {
         val size = 123
@@ -209,7 +209,7 @@ data class AttoOpenBlock(
 
     override val type = AttoBlockType.OPEN
     override val serialized = toByteBuffer()
-    override val hash = serialized.getHash()
+    override val hash = serialized.getByteArrayHash()
     override val height = 1UL
 
     companion object {
@@ -265,7 +265,7 @@ data class AttoChangeBlock(
 ) : AttoBlock, PreviousSupport, RepresentativeSupportBlock {
     override val type = AttoBlockType.CHANGE
     override val serialized = toByteBuffer()
-    override val hash = serialized.getHash()
+    override val hash = serialized.getByteArrayHash()
 
     companion object {
         val size = 123
