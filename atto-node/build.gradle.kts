@@ -69,5 +69,6 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.withType<Test> {
+    environment("GRADLE", "true")
     useJUnitPlatform()
 }
