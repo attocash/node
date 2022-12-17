@@ -5,8 +5,6 @@ import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeChallengeCode
 import org.atto.protocol.network.handshake.AttoHandshakeChallenge
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.net.InetAddress
-import java.net.InetSocketAddress
 import kotlin.random.Random
 
 internal class AttoAttoHandshakeChallengeCodecTest {
@@ -15,9 +13,6 @@ internal class AttoAttoHandshakeChallengeCodecTest {
     @Test
     fun `should serialize and deserialize`() {
         // given
-        val socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330)
-//        AttoContextHolder.put("socketAddress", socketAddress)
-
         val expectedHandshakeChallenge = AttoHandshakeChallenge(
             value = Random.nextBytes(ByteArray(16))
         )

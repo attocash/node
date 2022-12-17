@@ -12,9 +12,6 @@ internal class AttoAttoKeepAliveCodecTest {
     @Test
     fun `should serialize and deserialize`() {
         // given
-        val socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330)
-//        AttoContextHolder.put("socketAddress", socketAddress)
-
         val neighbors = arrayListOf(InetSocketAddress(InetAddress.getLocalHost(), 8330))
         val expectedKeepAlive = AttoKeepAlive(
             neighbours = neighbors
