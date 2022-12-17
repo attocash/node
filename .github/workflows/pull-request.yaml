@@ -19,4 +19,4 @@ jobs:
       - name: Build Application
         run: |
           chmod +x gradlew
-          ./gradlew test
+          ./gradlew --info test

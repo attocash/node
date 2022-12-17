@@ -21,10 +21,9 @@ jobs:
       - name: Build Application
         run: |
           chmod +x gradlew
-          ./gradlew --info --stacktrace test
+          ./gradlew --info test
 
-      - name: Upload files
-        uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: Cucumber
