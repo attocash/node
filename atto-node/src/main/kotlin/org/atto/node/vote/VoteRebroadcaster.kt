@@ -14,6 +14,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -29,16 +30,14 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
 
     private lateinit var job: Job
 
-    private val weightComparator: Comparator<VoteHolder> = Comparator.comparing { it.vote.weight }
-
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    private val holderMap = HashMap<AttoSignature, VoteHolder>()
-    private val voteQueue = PriorityQueue(weightComparator)
+    private val holderMap = ConcurrentHashMap<AttoSignature, VoteHolder>()
+    private val voteQueue = PriorityQueue<VoteHolder>()
 
     @EventListener
-    fun process(event: VoteReceived) = runBlocking(singleDispatcher) {
+    fun process(event: VoteReceived) {
         val vote = event.payload
 
         holderMap.compute(vote.signature) { _, v ->
@@ -51,25 +50,27 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     }
 
     @EventListener
-    fun process(event: VoteValidated) = runBlocking(singleDispatcher) {
+    fun process(event: VoteValidated) {
         val holder = holderMap[event.payload.signature]
         /**
          * Holder will be null for votes casted by this node. They are considered valid from the start.
          */
         if (holder != null) {
-            voteQueue.add(holder)
-            logger.trace { "Vote queued for rebroadcast. ${event.payload}" }
+            runBlocking(singleDispatcher) {
+                voteQueue.add(holder)
+                logger.trace { "Vote queued for rebroadcast. ${event.payload}" }
+            }
         }
     }
 
     @EventListener
-    fun process(event: VoteRejected) = runBlocking(singleDispatcher) {
+    fun process(event: VoteRejected) {
         holderMap.remove(event.payload.signature)
         logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.payload}" }
     }
 
     @EventListener
-    fun process(event: VoteDropped) = runBlocking(singleDispatcher) {
+    fun process(event: VoteDropped) {
         holderMap.remove(event.payload.signature)
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.payload}" }
     }
@@ -108,11 +109,15 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
         job.cancel()
     }
 
-    private class VoteHolder(val vote: Vote) {
+    private class VoteHolder(val vote: Vote) : Comparable<VoteHolder> {
         val socketAddresses = HashSet<InetSocketAddress>()
 
         fun add(socketAddress: InetSocketAddress) {
             socketAddresses.add(socketAddress)
+        }
+
+        override fun compareTo(other: VoteHolder): Int {
+            return other.vote.weight.raw.compareTo(vote.weight.raw)
         }
     }
 

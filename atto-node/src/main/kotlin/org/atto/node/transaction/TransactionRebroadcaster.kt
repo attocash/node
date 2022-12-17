@@ -15,6 +15,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -33,11 +34,11 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    private val holderMap = HashMap<AttoHash, TransactionSocketAddressHolder>()
+    private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
     @EventListener
-    fun observe(message: InboundNetworkMessage<AttoTransactionPush>) = runBlocking(singleDispatcher) {
+    fun observe(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
         holderMap.compute(transaction.hash) { _, v ->
@@ -50,20 +51,22 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     }
 
     @EventListener
-    fun process(event: TransactionValidated) = runBlocking(singleDispatcher) {
+    fun process(event: TransactionValidated) {
         val transactionHolder = holderMap.remove(event.payload.hash)!!
-        transactionQueue.add(transactionHolder)
-        logger.trace { "Transaction queued for rebroadcast. ${event.payload}" }
+        runBlocking(singleDispatcher) {
+            transactionQueue.add(transactionHolder)
+            logger.trace { "Transaction queued for rebroadcast. ${event.payload}" }
+        }
     }
 
     @EventListener
-    fun process(event: TransactionRejected) = runBlocking(singleDispatcher) {
+    fun process(event: TransactionRejected) {
         holderMap.remove(event.payload.hash)
         logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.payload}" }
     }
 
     @EventListener
-    fun process(event: AttoTransactionDropped) = runBlocking(singleDispatcher) {
+    fun process(event: AttoTransactionDropped) {
         holderMap.remove(event.payload.hash)
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.payload}" }
     }
