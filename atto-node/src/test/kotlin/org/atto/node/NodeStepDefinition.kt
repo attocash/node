@@ -80,8 +80,7 @@ class NodeStepDefinition(
 
     private fun createClassLoader(): URLClassLoader {
         val urlList = System.getProperty("java.class.path")
-            .replace("\\", "/")
-            .split(";", ":")
+            .split(System.getProperty("path.separator"))
             .asSequence()
             .map { if (it.endsWith(".jar")) it else "$it/" }
             .map { if (it.startsWith("/")) it else "/$it" }
