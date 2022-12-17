@@ -21,7 +21,7 @@ jobs:
       - name: Build Application
         run: |
           chmod +x gradlew
-          ./gradlew --info test
+          ./gradlew --info --stacktrace test
 
       - name: Upload files
         uses: actions/upload-artifact@v3
