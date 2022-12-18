@@ -13,23 +13,28 @@ Feature: Transaction
     Given the peer A
 
     When send transaction 1 from THIS account to A account
-    Then transaction 1 is confirmed
+    Then transaction 1 is confirmed for THIS peer
+    Then transaction 1 is confirmed for A peer
     And  matching open or receive transaction for transaction 1 is confirmed
 
     When send transaction 2 from THIS account to A account
-    Then transaction 2 is confirmed
+    Then transaction 2 is confirmed for THIS peer
+    Then transaction 2 is confirmed for A peer
     And  matching open or receive transaction for transaction 2 is confirmed
 
     When send transaction 3 from THIS account to A account
-    Then transaction 3 is confirmed
+    Then transaction 3 is confirmed for THIS peer
+    Then transaction 3 is confirmed for A peer
     And  matching open or receive transaction for transaction 3 is confirmed
 
     When send transaction 4 from THIS account to A account
-    Then transaction 4 is confirmed
+    Then transaction 4 is confirmed for THIS peer
+    Then transaction 4 is confirmed for A peer
     And  matching open or receive transaction for transaction 4 is confirmed
 
     When send transaction 5 from A account to THIS account
-    Then transaction 5 is confirmed
+    Then transaction 5 is confirmed for THIS peer
+    Then transaction 5 is confirmed for A peer
     And  matching open or receive transaction for transaction 5 is confirmed
 
   Scenario: Votes should still be casted after change of representative

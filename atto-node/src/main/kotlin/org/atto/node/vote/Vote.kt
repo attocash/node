@@ -70,7 +70,7 @@ data class VoteValidated(
 ) : Event
 
 enum class VoteDropReason {
-    QUEUE_FULL, NO_ELECTION
+    SUPERSEDED, NO_ELECTION
 }
 
 data class VoteDropped(

@@ -7,6 +7,7 @@ import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
+import org.atto.node.account.AccountDTO
 import org.atto.node.account.AccountRepository
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.node.Neighbour
@@ -108,13 +109,31 @@ class TransactionStepDefinition(
 
         val receiverPublicKey = sendBlock.receiverPublicKey
 
-        val transaction = waitUntilNonNull {
-            val transaction = runBlocking {
-                val account = accountRepository.getByPublicKey(receiverPublicKey)
-                transactionRepository.findById(account.lastTransactionHash)
-            }
+        val neighbour = PropertyHolder[Neighbour::class.java]
 
-            val block = transaction?.block
+        val transaction = waitUntilNonNull {
+            val account = try {
+                restTemplate.getForObject(
+                    "http://localhost:${neighbour.httpPort}/accounts/{publicKey}",
+                    AccountDTO::class.java,
+                    receiverPublicKey
+                )
+            } catch (e: HttpClientErrorException.NotFound) {
+                null
+            } ?: return@waitUntilNonNull null
+
+            val transaction = try {
+                restTemplate.getForObject(
+                    "http://localhost:${neighbour.httpPort}/transactions/{hash}",
+                    TransactionDTO::class.java,
+                    account.lastTransactionHash
+                )?.toAttoTransaction()
+            } catch (e: HttpClientErrorException.NotFound) {
+                null
+            } ?: return@waitUntilNonNull null
+
+
+            val block = transaction.block
             if (block !is ReceiveSupportBlock) {
                 return@waitUntilNonNull null
             }
@@ -127,4 +146,5 @@ class TransactionStepDefinition(
         }
         assertNotNull(transaction)
     }
+
 }

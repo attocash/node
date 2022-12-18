@@ -1,5 +1,6 @@
 package org.atto.node.account
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.atto.commons.AttoAccount
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
@@ -23,10 +24,12 @@ data class Account(
 
     ) : Persistable<AttoPublicKey> {
 
+    @JsonIgnore
     override fun getId(): AttoPublicKey {
         return publicKey
     }
 
+    @JsonIgnore
     override fun isNew(): Boolean {
         return persistedAt == null
     }

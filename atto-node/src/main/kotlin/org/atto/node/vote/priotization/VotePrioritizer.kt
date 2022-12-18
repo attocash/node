@@ -109,7 +109,7 @@ class VotePrioritizer(
 
             droppedVote?.let {
                 logger.trace { "Dropped from buffer. $droppedVote" }
-                eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.QUEUE_FULL))
+                eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.SUPERSEDED))
             }
         } else {
             logger.trace { "Buffered for prioritization $vote" }
