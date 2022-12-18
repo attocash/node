@@ -71,7 +71,7 @@ class TransactionStepDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
         restTemplate.postForObject(
             "http://localhost:${neighbour.httpPort}/transactions",
-            changeBlock,
+            changeTransaction,
             Void::class.java
         )
 

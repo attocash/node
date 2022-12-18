@@ -168,10 +168,8 @@ data class AttoReceiveBlock(
 ) : AttoBlock, PreviousSupport, ReceiveSupportBlock {
     @JsonIgnore
     override val type = AttoBlockType.RECEIVE
-
     @JsonIgnore
     override val serialized = toByteBuffer()
-
     @JsonIgnore
     override val hash = serialized.getByteArrayHash()
 
@@ -234,10 +232,8 @@ data class AttoOpenBlock(
 ) : AttoBlock, ReceiveSupportBlock, RepresentativeSupportBlock {
     @JsonIgnore
     override val type = AttoBlockType.OPEN
-
     @JsonIgnore
     override val serialized = toByteBuffer()
-
     @JsonIgnore
     override val hash = serialized.getByteArrayHash()
 
@@ -348,6 +344,7 @@ data class AttoChangeBlock(
         return previous.value
     }
 
+    @JsonIgnore
     override fun isValid(): Boolean {
         return super.isValid() && height > 1u
     }
