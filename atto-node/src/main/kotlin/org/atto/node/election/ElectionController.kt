@@ -1,4 +1,4 @@
-package org.atto.node.vote.election
+package org.atto.node.election
 
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @ExperimentalCoroutinesApi
 @RestController
-@RequestMapping("/transactions/elections")
+@RequestMapping("/elections")
 class ElectionController(val election: Election) {
 
     @PostMapping

@@ -4,7 +4,6 @@ import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
-import org.atto.node.account.AccountRepository
 import org.atto.node.network.codec.TransactionCodec
 import org.atto.protocol.AttoNode
 import org.flywaydb.core.Flyway
@@ -59,7 +58,6 @@ class TransactionConfiguration {
     class GenesisInitializer(
         val flyway: Flyway,
         val thisNode: AttoNode,
-        val accountRepository: AccountRepository,
         val genesisTransaction: Transaction,
         val transactionService: TransactionService,
         val transactionRepository: TransactionRepository,

@@ -1,4 +1,4 @@
-package org.atto.node.vote.election
+package org.atto.node.election
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking

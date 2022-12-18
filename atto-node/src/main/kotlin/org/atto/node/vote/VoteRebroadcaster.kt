@@ -38,7 +38,7 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
 
     @EventListener
     fun process(event: VoteReceived) {
-        val vote = event.payload
+        val vote = event.vote
 
         holderMap.compute(vote.signature) { _, v ->
             val holder = v ?: VoteHolder(vote)
@@ -51,28 +51,28 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
 
     @EventListener
     fun process(event: VoteValidated) {
-        val holder = holderMap[event.payload.signature]
+        val holder = holderMap[event.vote.signature]
         /**
          * Holder will be null for votes casted by this node. They are considered valid from the start.
          */
         if (holder != null) {
             runBlocking(singleDispatcher) {
                 voteQueue.add(holder)
-                logger.trace { "Vote queued for rebroadcast. ${event.payload}" }
+                logger.trace { "Vote queued for rebroadcast. ${event.vote}" }
             }
         }
     }
 
     @EventListener
     fun process(event: VoteRejected) {
-        holderMap.remove(event.payload.signature)
-        logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.payload}" }
+        holderMap.remove(event.vote.signature)
+        logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.vote}" }
     }
 
     @EventListener
     fun process(event: VoteDropped) {
-        holderMap.remove(event.payload.signature)
-        logger.trace { "Stopped monitoring vote because event was dropped. ${event.payload}" }
+        holderMap.remove(event.vote.signature)
+        logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
 

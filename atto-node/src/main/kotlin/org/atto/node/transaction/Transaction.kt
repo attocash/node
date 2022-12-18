@@ -1,5 +1,6 @@
 package org.atto.node.transaction
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.atto.commons.*
 import org.atto.node.Event
 import org.atto.node.account.Account
@@ -17,12 +18,18 @@ data class Transaction(
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
     @Id
+    @JsonIgnore
     val hash = block.hash
+
+    @JsonIgnore
     val publicKey = block.publicKey
+
+    @JsonIgnore
     override fun getId(): AttoHash {
         return hash
     }
 
+    @JsonIgnore
     override fun isNew(): Boolean {
         return persistedAt == null
     }
@@ -52,28 +59,18 @@ fun AttoTransaction.toTransaction(): Transaction {
     )
 }
 
-data class TransactionReceived(override val payload: Transaction) : Event<Transaction>
+data class TransactionReceived(val transaction: Transaction) : Event
 
-data class TransactionDropped(override val payload: Transaction) : Event<Transaction>
+data class TransactionDropped(val transaction: Transaction) : Event
 data class TransactionValidated(
     val account: Account,
-    override val payload: Transaction
-) : Event<Transaction>
+    val transaction: Transaction
+) : Event
 
-data class TransactionObserved(
+data class TransactionSaved(
     val account: Account,
-    override val payload: Transaction
-) : Event<Transaction>
-
-data class TransactionConfirmed(
-    val account: Account,
-    override val payload: Transaction
-) : Event<Transaction>
-
-data class TransactionStaled(
-    val account: Account,
-    override val payload: Transaction
-) : Event<Transaction>
+    val transaction: Transaction
+) : Event
 
 enum class TransactionRejectionReason(val recoverable: Boolean) {
     INVALID_TRANSACTION(false),
@@ -96,5 +93,5 @@ enum class TransactionRejectionReason(val recoverable: Boolean) {
 data class TransactionRejected(
     val reason: TransactionRejectionReason,
     val account: Account,
-    override val payload: Transaction
-) : Event<Transaction>
+    val transaction: Transaction
+) : Event

@@ -6,7 +6,8 @@ import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.CacheSupport
 import org.atto.node.account.AccountRepository
-import org.atto.node.transaction.TransactionConfirmed
+import org.atto.node.election.ElectionFinished
+import org.atto.node.transaction.TransactionConfiguration
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteRepository
 import org.atto.node.vote.VoteValidated
@@ -23,6 +24,7 @@ import kotlin.math.max
 
 @Component
 class VoteWeightService(
+    val genesisInitializer: TransactionConfiguration.GenesisInitializer,
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
     val accountRepository: AccountRepository,
@@ -49,7 +51,7 @@ class VoteWeightService(
 
     @EventListener
     fun listen(event: VoteValidated) {
-        val vote = event.payload
+        val vote = event.vote
         latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
             if (previousHashVote == null || vote.receivedTimestamp > previousHashVote.receivedTimestamp) {
                 vote
@@ -60,12 +62,14 @@ class VoteWeightService(
     }
 
     @EventListener
-    fun listen(changeConfirmed: TransactionConfirmed) {
-        val account = changeConfirmed.account
-        val change = changeConfirmed.payload
-        val block = change.block
+    fun listen(event: ElectionFinished) { // TODO: Maybe ElectionFinished?
+        val account = event.account
+        val transaction = event.transaction
+        val block = transaction.block
 
-        if (block is ReceiveSupportBlock) {
+        if (block is AttoOpenBlock) {
+            add(block.representative, block.balance, block.balance)
+        } else if (block is AttoReceiveBlock) {
             val amount = block.balance - account.balance
             add(account.representative, amount, block.balance)
         } else if (block is AttoSendBlock) {
@@ -74,6 +78,8 @@ class VoteWeightService(
             subtract(account.representative, block.balance, AttoAmount.min)
             add(block.representative, block.balance, block.balance)
         }
+
+        logger.debug { "Weight updated $weightMap" }
     }
 
     private fun add(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {

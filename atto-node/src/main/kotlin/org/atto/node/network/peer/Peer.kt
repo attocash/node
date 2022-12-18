@@ -31,8 +31,6 @@ data class Peer(val connectionSocketAddress: InetSocketAddress, val node: AttoNo
 
 }
 
-interface PeerEvent : Event<Peer>
+data class PeerAddedEvent(val peer: Peer) : Event
 
-data class PeerAddedEvent(override val payload: Peer) : PeerEvent
-
-data class PeerRemovedEvent(override val payload: Peer) : PeerEvent
+data class PeerRemovedEvent(val peer: Peer) : Event

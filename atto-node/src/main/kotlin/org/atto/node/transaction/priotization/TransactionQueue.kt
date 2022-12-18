@@ -7,6 +7,11 @@ import java.util.Comparator.comparing
 
 class TransactionQueue(private val groupMaxSize: Int) {
     companion object {
+        /**
+         * Smaller groups are easier to exploit during a spam attack due to low amount invested.
+         *
+         * To reduce the attack surface the groups below 0.001 USD should be removed
+         */
         private val groupMap = TreeMap(
             mapOf(
                 9UL to 0,

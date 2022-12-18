@@ -18,7 +18,7 @@ class TransactionService(
     private val accountRepository: AccountRepository,
     private val accountService: AccountService,
     private val accountReceivableService: AccountReceivableService,
-    private val transactionRepository: TransactionRepository
+    private val transactionRepository: TransactionRepository,
 ) {
     private val logger = KotlinLogging.logger {}
 

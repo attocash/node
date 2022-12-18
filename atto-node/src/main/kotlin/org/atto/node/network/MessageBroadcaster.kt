@@ -35,7 +35,7 @@ class MessageBroadcaster(
 
     @EventListener
     fun add(peerEvent: PeerAddedEvent) {
-        val peer = peerEvent.payload
+        val peer = peerEvent.peer
         peers[peer.connectionSocketAddress] = peer
         if (peer.node.isVoter()) {
             voters[peer.connectionSocketAddress] = peer
@@ -44,7 +44,7 @@ class MessageBroadcaster(
 
     @EventListener
     fun remove(peerEvent: PeerRemovedEvent) {
-        val peer = peerEvent.payload
+        val peer = peerEvent.peer
         peers.remove(peer.connectionSocketAddress)
         if (peer.node.isVoter()) {
             voters.remove(peer.connectionSocketAddress)

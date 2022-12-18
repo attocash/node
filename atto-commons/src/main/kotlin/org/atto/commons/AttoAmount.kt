@@ -51,6 +51,11 @@ value class AttoAmount(val raw: ULong) : Comparable<AttoAmount> {
         return this.raw.compareTo(other.raw)
     }
 
+    override fun toString(): String {
+        return "$raw"
+    }
+
+
 }
 
 fun ULong.toAttoAmount(): AttoAmount {

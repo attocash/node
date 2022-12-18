@@ -10,6 +10,7 @@ import org.atto.commons.ReceiveSupportBlock
 import org.atto.node.CacheSupport
 import org.atto.node.DuplicateDetector
 import org.atto.node.EventPublisher
+import org.atto.node.election.ElectionExpired
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.transaction.*
 import org.atto.protocol.transaction.AttoTransactionPush
@@ -64,8 +65,8 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    fun process(event: TransactionConfirmed) = runBlocking(singleDispatcher) {
-        val hash = event.payload.hash
+    fun process(event: TransactionSaved) = runBlocking(singleDispatcher) {
+        val hash = event.transaction.hash
 
         activeElections.remove(hash)
 
@@ -78,8 +79,8 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    fun process(event: TransactionStaled) = runBlocking(singleDispatcher) {
-        val hash = event.payload.hash
+    fun process(event: ElectionExpired) = runBlocking(singleDispatcher) {
+        val hash = event.transaction.hash
         activeElections.remove(hash)
         buffer.remove(hash)
     }

@@ -24,6 +24,7 @@ class ApplicationConfiguration {
     }
 }
 
+
 @Configuration
 @EnableScheduling
 @Profile(value = ["dev", "beta", "live"])

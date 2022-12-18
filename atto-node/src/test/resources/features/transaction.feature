@@ -1,7 +1,7 @@
 Feature: Transaction
 
 
-  Scenario: Single transaction should be confirmed
+  Scenario: Transaction should be confirmed
     Given the peer A
 
     When send transaction 1 from THIS account to A account
@@ -36,7 +36,8 @@ Feature: Transaction
     Given the peer A
 
     When change transaction 1 from THIS account to A representative
-    Then transaction 1 is confirmed
+    Then transaction 1 is confirmed for THIS peer
+    Then transaction 1 is confirmed for A peer
 
     When send transaction 2 from THIS account to A account
     Then transaction 2 is confirmed

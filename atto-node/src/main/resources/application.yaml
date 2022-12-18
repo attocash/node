@@ -3,8 +3,11 @@ spring:
     name: atto-node
   main:
     banner-mode: off
-  mvc:
-    log-resolved-exception: true
+  webflux:
+    format:
+      date: iso
+      time: iso
+      date-time: iso
   flyway:
     url: jdbc:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
     user: ${ATTO_DB_USER:atto}
@@ -53,4 +56,6 @@ logging:
 
 server:
   port:
+  error:
+    include-stacktrace: ALWAYS
 

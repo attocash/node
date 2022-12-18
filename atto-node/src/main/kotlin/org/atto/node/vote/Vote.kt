@@ -59,22 +59,24 @@ data class Vote(
     }
 }
 
-interface VoteEvent : Event<Vote>
-
 data class VoteReceived(
     val socketAddress: InetSocketAddress,
-    override val payload: Vote
-) : VoteEvent
+    val vote: Vote
+) : Event
 
 data class VoteValidated(
     val transaction: Transaction,
-    override val payload: Vote
-) : VoteEvent
+    val vote: Vote
+) : Event
+
+enum class VoteDropReason {
+    QUEUE_FULL, NO_ELECTION
+}
 
 data class VoteDropped(
-    val transaction: Transaction,
-    override val payload: Vote
-) : VoteEvent
+    val vote: Vote,
+    val reason: VoteDropReason
+) : Event
 
 enum class VoteRejectionReason {
     INVALID_VOTING_WEIGHT,
@@ -82,5 +84,5 @@ enum class VoteRejectionReason {
 
 data class VoteRejected(
     val reason: VoteRejectionReason,
-    override val payload: Vote
-) : VoteEvent
+    val vote: Vote
+) : Event

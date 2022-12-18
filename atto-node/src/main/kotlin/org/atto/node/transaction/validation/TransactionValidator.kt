@@ -26,9 +26,9 @@ class TransactionValidator(
     @EventListener
     fun process(event: TransactionReceived) = runBlocking {
         launch {
-            val transaction = event.payload
+            val transaction = event.transaction
             val account = accountRepository.getByPublicKey(transaction.block.publicKey)
-            validate(account, event.payload)
+            validate(account, event.transaction)
         }
     }
 

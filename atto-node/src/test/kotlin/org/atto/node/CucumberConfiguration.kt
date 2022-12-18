@@ -5,6 +5,7 @@ import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.runBlocking
 import org.atto.commons.AttoPrivateKey
 import org.atto.node.network.peer.PeerProperties
+import org.atto.node.node.Neighbour
 import org.atto.node.transaction.TransactionConfiguration
 import org.atto.protocol.AttoNode
 import org.springframework.boot.test.context.SpringBootTest
@@ -39,8 +40,10 @@ class CucumberConfiguration(
         PropertyHolder.add("THIS", thisNode)
         PropertyHolder.add("THIS", privateKey)
         PropertyHolder.add("THIS", privateKey.toPublicKey())
+        PropertyHolder.add("THIS", Neighbour(8313U, 8080U))
 
         NodeHolder.clear(context)
         NodeHolder.add(context)
     }
+
 }

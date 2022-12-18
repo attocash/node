@@ -39,13 +39,13 @@ class HandshakeService(
 
     @EventListener
     fun add(peerEvent: PeerAddedEvent) {
-        peers[peerEvent.payload.connectionSocketAddress] = peerEvent.payload
-        challenges.invalidate(peerEvent.payload.node.socketAddress)
+        peers[peerEvent.peer.connectionSocketAddress] = peerEvent.peer
+        challenges.invalidate(peerEvent.peer.node.socketAddress)
     }
 
     @EventListener
     fun remove(peerEvent: PeerRemovedEvent) {
-        peers.remove(peerEvent.payload.node.socketAddress)
+        peers.remove(peerEvent.peer.node.socketAddress)
     }
 
     @Scheduled(cron = "0 0/1 * * * *")

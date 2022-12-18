@@ -4,9 +4,9 @@ import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import org.atto.commons.AttoPublicKey
-import org.atto.node.NodeStepDefinition
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
+import org.atto.node.node.NodeStepDefinition
 import org.junit.jupiter.api.Assertions.assertNotNull
 
 class PeerStepDefinition(

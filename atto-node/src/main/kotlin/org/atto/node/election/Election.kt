@@ -1,4 +1,4 @@
-package org.atto.node.vote.election
+package org.atto.node.election
 
 import kotlinx.coroutines.*
 import mu.KotlinLogging
@@ -6,6 +6,8 @@ import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.node.CacheSupport
+import org.atto.node.Event
+import org.atto.node.EventPublisher
 import org.atto.node.account.Account
 import org.atto.node.transaction.PublicKeyHeight
 import org.atto.node.transaction.Transaction
@@ -13,6 +15,7 @@ import org.atto.node.transaction.TransactionValidated
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
 import org.atto.node.vote.weight.VoteWeightService
+import org.flywaydb.core.Flyway
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -22,9 +25,10 @@ import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class Election(
+    val flyway: Flyway,
     private val properties: ElectionProperties,
     private val voteWeightService: VoteWeightService,
-    private val observers: List<ElectionObserver>
+    private val eventPublisher: EventPublisher
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -46,27 +50,27 @@ class Election(
     }
 
     @EventListener
-    fun observe(event: TransactionValidated) = runBlocking {
-        val transaction = event.payload
-        observe(event.account, transaction)
+    fun start(event: TransactionValidated) = runBlocking {
+        val transaction = event.transaction
+        start(event.account, transaction)
     }
 
     @EventListener
     fun process(event: VoteValidated) = runBlocking {
-        val vote = event.payload
+        val vote = event.vote
         process(event.transaction, vote)
     }
 
-    suspend fun observe(account: Account, transaction: Transaction) {
+    suspend fun start(account: Account, transaction: Transaction) {
         transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
             val weighter = v ?: ConcurrentHashMap()
             weighter[transaction.hash] = TransactionWeighter(account, transaction)
             weighter
         }
 
-        logger.trace { "Started observing $transaction" }
+        logger.trace { "Started election for $transaction" }
 
-        observers.forEach { it.observed(account, transaction) }
+        eventPublisher.publish(ElectionStarted(account, transaction))
     }
 
     private fun isObserving(transaction: Transaction): Boolean {
@@ -96,7 +100,7 @@ class Election(
         val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
 
         if (isObserving(transaction) && weighter.isAgreementAbove(minimalConfirmationWeight)) {
-            observers.forEach { it.agreed(weighter.account, weighter.transaction) }
+            eventPublisher.publish(ElectionConsensusReached(weighter.account, weighter.transaction))
         }
 
         if (isObserving(transaction) && weighter.isFinalAbove(minimalConfirmationWeight)) {
@@ -104,13 +108,8 @@ class Election(
 
             val votes = weighter.votes.values.filter { it.isFinal() }
 
-            observers.forEach { it.confirmed(weighter.account, transaction, votes) }
+            eventPublisher.publish(ElectionFinished(weighter.account, weighter.transaction, votes))
         }
-    }
-
-    private suspend fun consensed(publicKeyHeight: PublicKeyHeight) {
-        val weighter = getConsensus(publicKeyHeight)
-        observers.forEach { it.consensed(weighter.account, weighter.transaction) }
     }
 
     private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeighter {
@@ -118,6 +117,10 @@ class Election(
             .maxByOrNull { it.totalWeight() }!!
     }
 
+    private suspend fun consensed(publicKeyHeight: PublicKeyHeight) {
+        val weighter = getConsensus(publicKeyHeight)
+        eventPublisher.publish(ElectionConsensusChanged(weighter.account, weighter.transaction))
+    }
 
     @Scheduled(cron = "0 0/1 * * * *")
     fun processStaling() {
@@ -132,9 +135,7 @@ class Election(
                 .map { getConsensus(it) }
                 .forEach { weighter ->
                     logger.trace { "Staling ${weighter.transaction}" }
-                    observers.forEach {
-                        it.staling(weighter.account, weighter.transaction)
-                    }
+                    eventPublisher.publish(ElectionExpiring(weighter.account, weighter.transaction))
                 }
         }
     }
@@ -149,9 +150,7 @@ class Election(
                 .forEach { weighter ->
                     logger.trace { "Staled ${weighter.transaction}" }
                     stopObserving(weighter.transaction)
-                    observers.forEach {
-                        it.staled(weighter.account, weighter.transaction)
-                    }
+                    eventPublisher.publish(ElectionExpired(weighter.account, weighter.transaction))
                 }
         }
     }
@@ -201,3 +200,34 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
         return totalFinalWeight().raw >= weight.raw
     }
 }
+
+data class ElectionStarted(
+    val account: Account,
+    val transaction: Transaction
+) : Event
+
+data class ElectionConsensusChanged(
+    val account: Account,
+    val transaction: Transaction
+) : Event
+
+data class ElectionConsensusReached(
+    val account: Account,
+    val transaction: Transaction
+) : Event
+
+data class ElectionFinished(
+    val account: Account,
+    val transaction: Transaction,
+    val votes: List<Vote>
+) : Event
+
+data class ElectionExpiring(
+    val account: Account,
+    val transaction: Transaction
+) : Event
+
+data class ElectionExpired(
+    val account: Account,
+    val transaction: Transaction
+) : Event

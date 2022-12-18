@@ -1,4 +1,4 @@
-package org.atto.node.vote.election
+package org.atto.node.election
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration

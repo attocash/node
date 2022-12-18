@@ -16,6 +16,7 @@ repositories {
 }
 
 extra["cucumberVersion"] = "7.8.1"
+extra["springdocVersion"] = "1.6.14"
 
 dependencies {
     implementation(project(":atto-commons"))
@@ -24,7 +25,9 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("org.springdoc:springdoc-openapi-ui:1.6.14")
+    implementation("org.springdoc:springdoc-openapi-webflux-ui:${property("springdocVersion")}")
+    implementation("org.springdoc:springdoc-openapi-kotlin:${property("springdocVersion")}")
+
 
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.2")
 

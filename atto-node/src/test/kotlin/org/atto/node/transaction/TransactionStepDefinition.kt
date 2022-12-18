@@ -8,17 +8,19 @@ import org.atto.commons.*
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter.waitUntilNonNull
 import org.atto.node.account.AccountRepository
-import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
+import org.atto.node.node.Neighbour
 import org.atto.protocol.AttoNode
-import org.atto.protocol.transaction.AttoTransactionPush
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.springframework.web.client.HttpClientErrorException
+import org.springframework.web.client.RestTemplate
 
 class TransactionStepDefinition(
     private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
+    private val restTemplate: RestTemplate,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -40,11 +42,12 @@ class TransactionStepDefinition(
         )
 
         logger.info { "Publishing $sendTransaction" }
-        messagePublisher.publish(
-            InboundNetworkMessage(
-                thisNode.socketAddress,
-                AttoTransactionPush(sendTransaction.toAttoTransaction())
-            )
+
+        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
+        restTemplate.postForObject(
+            "http://localhost:${neighbour.httpPort}/transactions",
+            sendTransaction,
+            Void::class.java
         )
 
         PropertyHolder.add(transactionShortId, sendTransaction)
@@ -64,23 +67,36 @@ class TransactionStepDefinition(
             signature = privateKey.sign(changeBlock.hash.value),
             work = AttoWork.Companion.work(thisNode.network, changeBlock.timestamp, account.lastTransactionHash),
         )
-        messagePublisher.publish(
-            InboundNetworkMessage(
-                thisNode.socketAddress,
-                AttoTransactionPush(changeTransaction.toAttoTransaction())
-            )
+
+        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
+        restTemplate.postForObject(
+            "http://localhost:${neighbour.httpPort}/transactions",
+            changeBlock,
+            Void::class.java
         )
 
         PropertyHolder.add(transactionShortId, changeTransaction)
     }
 
     @Then("^transaction (\\w+) is confirmed$")
-    fun checkConfirmed(transactionShortId: String) = runBlocking {
-        val expectedTransaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
+    fun checkConfirmed(transactionShortId: String) {
+        checkConfirmed(transactionShortId, "THIS")
+    }
+
+    @Then("^transaction (\\w+) is confirmed for (\\w+) peer$")
+    fun checkConfirmed(transactionShortId: String, shortId: String) {
+        val expectedTransaction = PropertyHolder[Transaction::class.java, transactionShortId]
+        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
 
         waitUntilNonNull {
-            runBlocking {
-                transactionRepository.findById(expectedTransaction.hash)
+            try {
+                restTemplate.getForEntity(
+                    "http://localhost:${neighbour.httpPort}/transactions/{hash}",
+                    TransactionDTO::class.java,
+                    expectedTransaction.hash
+                ).body
+            } catch (e: HttpClientErrorException.NotFound) {
+                null
             }
         }
     }

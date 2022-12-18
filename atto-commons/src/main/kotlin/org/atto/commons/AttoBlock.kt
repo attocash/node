@@ -1,5 +1,8 @@
 package org.atto.commons
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+import com.fasterxml.jackson.annotation.JsonSubTypes
+import com.fasterxml.jackson.annotation.JsonTypeInfo
 import java.time.Instant
 
 val maxVersion: UShort = 0U
@@ -20,6 +23,16 @@ enum class AttoBlockType(val code: UByte, val size: Int) {
     }
 }
 
+@JsonTypeInfo(
+    use = JsonTypeInfo.Id.NAME,
+    property = "type"
+)
+@JsonSubTypes(
+    JsonSubTypes.Type(value = AttoSendBlock::class, name = "SEND"),
+    JsonSubTypes.Type(value = AttoReceiveBlock::class, name = "RECEIVE"),
+    JsonSubTypes.Type(value = AttoOpenBlock::class, name = "OPEN"),
+    JsonSubTypes.Type(value = AttoChangeBlock::class, name = "CHANGE"),
+)
 interface AttoBlock {
     val hash: AttoHash
     val type: AttoBlockType
@@ -86,8 +99,13 @@ data class AttoSendBlock(
     val receiverPublicKey: AttoPublicKey,
     val amount: AttoAmount,
 ) : AttoBlock, PreviousSupport {
+    @JsonIgnore
     override val type = AttoBlockType.SEND
+
+    @JsonIgnore
     override val serialized = toByteBuffer()
+
+    @JsonIgnore
     override val hash = serialized.getByteArrayHash()
 
     companion object {
@@ -128,10 +146,12 @@ data class AttoSendBlock(
             .add(amount)
     }
 
+    @JsonIgnore
     override fun getWorkHash(): ByteArray {
         return previous.value
     }
 
+    @JsonIgnore
     override fun isValid(): Boolean {
         return super.isValid() && height > 1u && amount.raw > 0u && receiverPublicKey != publicKey
     }
@@ -146,9 +166,13 @@ data class AttoReceiveBlock(
     override val previous: AttoHash,
     override val sendHash: AttoHash,
 ) : AttoBlock, PreviousSupport, ReceiveSupportBlock {
-
+    @JsonIgnore
     override val type = AttoBlockType.RECEIVE
+
+    @JsonIgnore
     override val serialized = toByteBuffer()
+
+    @JsonIgnore
     override val hash = serialized.getByteArrayHash()
 
     companion object {
@@ -189,10 +213,12 @@ data class AttoReceiveBlock(
             .add(sendHash)
     }
 
+    @JsonIgnore
     override fun getWorkHash(): ByteArray {
         return previous.value
     }
 
+    @JsonIgnore
     override fun isValid(): Boolean {
         return super.isValid() && height > 1u && balance > AttoAmount.min
     }
@@ -206,10 +232,16 @@ data class AttoOpenBlock(
     override val sendHash: AttoHash,
     override val representative: AttoPublicKey,
 ) : AttoBlock, ReceiveSupportBlock, RepresentativeSupportBlock {
-
+    @JsonIgnore
     override val type = AttoBlockType.OPEN
+
+    @JsonIgnore
     override val serialized = toByteBuffer()
+
+    @JsonIgnore
     override val hash = serialized.getByteArrayHash()
+
+    @JsonIgnore
     override val height = 1UL
 
     companion object {
@@ -248,6 +280,7 @@ data class AttoOpenBlock(
             .add(representative)
     }
 
+    @JsonIgnore
     override fun getWorkHash(): ByteArray {
         return publicKey.value
     }
@@ -263,8 +296,13 @@ data class AttoChangeBlock(
     override val previous: AttoHash,
     override val representative: AttoPublicKey,
 ) : AttoBlock, PreviousSupport, RepresentativeSupportBlock {
+    @JsonIgnore
     override val type = AttoBlockType.CHANGE
+
+    @JsonIgnore
     override val serialized = toByteBuffer()
+
+    @JsonIgnore
     override val hash = serialized.getByteArrayHash()
 
     companion object {
@@ -305,6 +343,7 @@ data class AttoChangeBlock(
             .add(representative)
     }
 
+    @JsonIgnore
     override fun getWorkHash(): ByteArray {
         return previous.value
     }

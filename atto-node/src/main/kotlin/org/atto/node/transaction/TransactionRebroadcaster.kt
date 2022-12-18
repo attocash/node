@@ -38,7 +38,7 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
     @EventListener
-    fun observe(message: InboundNetworkMessage<AttoTransactionPush>) {
+    fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
         holderMap.compute(transaction.hash) { _, v ->
@@ -52,23 +52,23 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
 
     @EventListener
     fun process(event: TransactionValidated) {
-        val transactionHolder = holderMap.remove(event.payload.hash)!!
+        val transactionHolder = holderMap.remove(event.transaction.hash)!!
         runBlocking(singleDispatcher) {
             transactionQueue.add(transactionHolder)
-            logger.trace { "Transaction queued for rebroadcast. ${event.payload}" }
+            logger.trace { "Transaction queued for rebroadcast. ${event.transaction}" }
         }
     }
 
     @EventListener
     fun process(event: TransactionRejected) {
-        holderMap.remove(event.payload.hash)
-        logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.payload}" }
+        holderMap.remove(event.transaction.hash)
+        logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.transaction}" }
     }
 
     @EventListener
     fun process(event: TransactionDropped) {
-        holderMap.remove(event.payload.hash)
-        logger.trace { "Stopped monitoring transaction because event was dropped. ${event.payload}" }
+        holderMap.remove(event.transaction.hash)
+        logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }
     }
 
     @OptIn(DelicateCoroutinesApi::class)

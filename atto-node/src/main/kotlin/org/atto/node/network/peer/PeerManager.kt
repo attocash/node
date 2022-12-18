@@ -29,7 +29,7 @@ class PeerManager(
 
     @EventListener
     fun process(peerEvent: PeerAddedEvent) {
-        val peer = peerEvent.payload
+        val peer = peerEvent.peer
         peers.put(peer.connectionSocketAddress, peer)
     }
 

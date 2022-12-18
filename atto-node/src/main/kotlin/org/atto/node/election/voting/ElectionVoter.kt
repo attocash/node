@@ -1,9 +1,10 @@
-package org.atto.node.vote.election.voting
+package org.atto.node.election.voting
 
 import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.EventPublisher
 import org.atto.node.account.Account
+import org.atto.node.election.*
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
@@ -11,12 +12,12 @@ import org.atto.node.transaction.PublicKeyHeight
 import org.atto.node.transaction.Transaction
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
-import org.atto.node.vote.election.ElectionObserver
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.AttoNode
 import org.atto.protocol.vote.AttoVote
 import org.atto.protocol.vote.AttoVotePush
 import org.atto.protocol.vote.AttoVoteSignature
+import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -28,7 +29,7 @@ class ElectionVoter(
     private val voteWeightService: VoteWeightService,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher
-) : ElectionObserver {
+) {
     private val logger = KotlinLogging.logger {}
 
     private val minWeight = AttoAmount(1_000_000_000_000_000u)
@@ -36,13 +37,23 @@ class ElectionVoter(
     private val transactions = ConcurrentHashMap<PublicKeyHeight, Transaction>()
     private val agreements = ConcurrentHashMap.newKeySet<PublicKeyHeight>()
 
-    override suspend fun observed(account: Account, transaction: Transaction) {
+    @EventListener
+    fun process(event: ElectionStarted) {
+        val account = event.account
+        val transaction = event.transaction
         if (transactions[transaction.toPublicKeyHeight()] == null) {
             consensed(account, transaction)
         }
     }
 
-    override suspend fun consensed(account: Account, transaction: Transaction) {
+    @EventListener
+    fun process(event: ElectionConsensusChanged) {
+        val account = event.account
+        val transaction = event.transaction
+        consensed(account, transaction)
+    }
+
+    fun consensed(account: Account, transaction: Transaction) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         val oldTransaction = transactions[publicKeyHeight]
@@ -52,7 +63,12 @@ class ElectionVoter(
         }
     }
 
-    override suspend fun agreed(account: Account, transaction: Transaction) {
+
+    @EventListener
+    fun process(event: ElectionConsensusReached) {
+        val account = event.account
+        val transaction = event.transaction
+
         val publicKeyHeight = transaction.toPublicKeyHeight()
         if (!agreements.contains(publicKeyHeight)) {
             agreements.add(publicKeyHeight)
@@ -60,16 +76,19 @@ class ElectionVoter(
         }
     }
 
-    override suspend fun confirmed(account: Account, transaction: Transaction, votes: Collection<Vote>) {
-        remove(transaction)
+    @EventListener
+    fun process(event: ElectionFinished) {
+        remove(event.transaction)
     }
 
-    override suspend fun staling(account: Account, transaction: Transaction) {
-        vote(transaction, Instant.now())
+    @EventListener
+    fun process(event: ElectionExpiring) {
+        vote(event.transaction, Instant.now())
     }
 
-    override suspend fun staled(account: Account, transaction: Transaction) {
-        remove(transaction)
+    @EventListener
+    fun process(event: ElectionExpired) {
+        remove(event.transaction)
     }
 
     private fun vote(transaction: Transaction, timestamp: Instant) {

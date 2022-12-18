@@ -1,13 +1,15 @@
-package org.atto.node
+package org.atto.node.node
 
 import io.cucumber.java.en.Given
 import mu.KotlinLogging
 import org.atto.commons.*
+import org.atto.node.Application
+import org.atto.node.NodeHolder
+import org.atto.node.PropertyHolder
 import org.atto.node.network.peer.PeerProperties
 import org.atto.node.transaction.Transaction
 import org.springframework.boot.builder.SpringApplicationBuilder
 import java.io.Closeable
-import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.URL
 import java.net.URLClassLoader
@@ -52,7 +54,7 @@ class NodeStepDefinition(
             PropertyHolder.add(shortId, context)
             PropertyHolder.add(shortId, privateKey)
             PropertyHolder.add(shortId, privateKey.toPublicKey())
-            PropertyHolder.add(shortId, InetSocketAddress("localhost", tcpPort))
+            PropertyHolder.add(shortId, Neighbour(tcpPort, httpPort))
         }
 
         val futureTask = FutureTask(starter, null)
@@ -67,15 +69,15 @@ class NodeStepDefinition(
 
     @Given("is a default node")
     fun setAsDefaultNode() {
-        val neighbourSocketAddress = PropertyHolder[InetSocketAddress::class.java]
-        peerProperties.defaultNodes.add("localhost:${neighbourSocketAddress.port}")
+        val neighbour = PropertyHolder[Neighbour::class.java]
+        peerProperties.defaultNodes.add("localhost:${neighbour.tcpPort}")
     }
 
-    private fun randomPort(): Int {
+    private fun randomPort(): UShort {
         val socket = ServerSocket(0)
         val port = socket.localPort
         socket.close()
-        return port
+        return port.toUShort()
     }
 
     private fun createClassLoader(): URLClassLoader {

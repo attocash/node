@@ -7,7 +7,7 @@ import org.atto.commons.*
 import org.atto.node.account.AccountRepository
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
-import org.atto.node.transaction.TransactionConfirmed
+import org.atto.node.transaction.TransactionSaved
 import org.atto.protocol.AttoNode
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.annotation.Profile
@@ -25,8 +25,8 @@ class WalletService(
     private val logger = KotlinLogging.logger {}
 
     @EventListener
-    fun listen(changeConfirmed: TransactionConfirmed) {
-        val transaction = changeConfirmed.payload
+    fun listen(event: TransactionSaved) {
+        val transaction = event.transaction
         if (transaction.block.type != AttoBlockType.SEND) {
             return
         }
