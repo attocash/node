@@ -28,3 +28,12 @@ jobs:
         with:
           name: Cucumber
           path: atto-node/build/reports/Cucumber.html
+  codeql:
+    name: CodeQL
+    runs-on: ubuntu-latest
+    steps:
+      - uses: github/codeql-action/init@v2
+        with:
+          languages: java
+      - uses: github/codeql-action/autobuild@v2
+      - uses: github/codeql-action/analyze@v2
