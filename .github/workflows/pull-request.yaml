@@ -20,11 +20,9 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --info test
-  codeql:
-    name: CodeQL
-    runs-on: ubuntu-latest
-    steps:
+
       - uses: github/codeql-action/init@v2
         with:
           languages: java
+
       - uses: github/codeql-action/analyze@v2
