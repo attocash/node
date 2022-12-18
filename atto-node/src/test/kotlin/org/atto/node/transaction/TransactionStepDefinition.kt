@@ -44,7 +44,7 @@ class TransactionStepDefinition(
 
         logger.info { "Publishing $sendTransaction" }
 
-        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
+        val neighbour = PropertyHolder[Neighbour::class.java, "THIS"]
         restTemplate.postForObject(
             "http://localhost:${neighbour.httpPort}/transactions",
             sendTransaction,
@@ -109,7 +109,7 @@ class TransactionStepDefinition(
 
         val receiverPublicKey = sendBlock.receiverPublicKey
 
-        val neighbour = PropertyHolder[Neighbour::class.java]
+        val neighbour = PropertyHolder[Neighbour::class.java, "THIS"]
 
         val transaction = waitUntilNonNull {
             val account = try {
