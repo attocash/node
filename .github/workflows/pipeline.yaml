@@ -21,7 +21,7 @@ jobs:
       - name: Build Application
         run: |
           chmod +x gradlew
-          ./gradlew --info test
+          ./gradlew --info build
 
       - uses: actions/upload-artifact@v3
         if: always()
@@ -47,6 +47,6 @@ jobs:
       - name: Build Application
         run: |
           chmod +x gradlew
-          ./gradlew --info build
+          ./gradlew --info build -x test
 
       - uses: github/codeql-action/analyze@v2
