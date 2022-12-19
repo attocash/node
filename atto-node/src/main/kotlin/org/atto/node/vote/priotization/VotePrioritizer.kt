@@ -108,11 +108,11 @@ class VotePrioritizer(
             }
 
             droppedVote?.let {
-                logger.trace { "Dropped from buffer. $droppedVote" }
+                logger.trace { "Dropped from queue. $droppedVote" }
                 eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.SUPERSEDED))
             }
         } else {
-            logger.trace { "Buffered for prioritization $vote" }
+            logger.trace { "Buffered until election starts. $vote" }
             voteBuffer.compute(vote.hash) { _, m ->
                 val map = m ?: HashMap()
                 map.compute(vote.publicKey) { _, v ->

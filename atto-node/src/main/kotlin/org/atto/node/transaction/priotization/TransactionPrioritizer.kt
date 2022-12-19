@@ -56,12 +56,18 @@ class TransactionPrioritizer(
         job.cancel()
     }
 
-    fun getQueueSize(): Int {
-        return queue.getSize()
-    }
+    @EventListener
+    fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
+        val transaction = message.payload.transaction.toTransaction()
 
-    fun getBufferSize(): Int {
-        return buffer.size
+        if (duplicateDetector.isDuplicate(transaction.hash)) {
+            logger.trace { "Ignored duplicated $transaction" }
+            return
+        }
+
+        runBlocking {
+            add(transaction)
+        }
     }
 
     @EventListener
@@ -85,20 +91,6 @@ class TransactionPrioritizer(
         buffer.remove(hash)
     }
 
-    @EventListener
-    fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
-        val transaction = message.payload.transaction.toTransaction()
-
-        if (duplicateDetector.isDuplicate(transaction.hash)) {
-            logger.trace { "Ignored duplicated $transaction" }
-            return
-        }
-
-        runBlocking {
-            add(transaction)
-        }
-    }
-
     suspend fun add(transaction: Transaction) = withContext(singleDispatcher) {
         val block = transaction.block
         if (block is PreviousSupport && activeElections.contains(block.previous)) {
@@ -120,7 +112,15 @@ class TransactionPrioritizer(
             set.add(transaction)
             set
         }
-        logger.trace { "Buffered $hash" }
+        logger.trace { "Buffered until dependencies are confirmed. $transaction" }
+    }
+
+    fun getQueueSize(): Int {
+        return queue.getSize()
+    }
+
+    fun getBufferSize(): Int {
+        return buffer.size
     }
 
     override fun clear() {
