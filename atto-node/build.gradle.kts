@@ -15,18 +15,18 @@ repositories {
     mavenCentral()
 }
 
-extra["cucumberVersion"] = "7.8.1"
-extra["springdocVersion"] = "1.6.14"
-
 dependencies {
+    val cucumberVersion = "7.8.1"
+    val springdocVersion = "1.6.14"
+
     implementation(project(":atto-commons"))
     implementation(project(":atto-protocol"))
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("org.springdoc:springdoc-openapi-webflux-ui:${property("springdocVersion")}")
-    implementation("org.springdoc:springdoc-openapi-kotlin:${property("springdocVersion")}")
+    implementation("org.springdoc:springdoc-openapi-webflux-ui:${springdocVersion}")
+    implementation("org.springdoc:springdoc-openapi-kotlin:${springdocVersion}")
 
 
     implementation("com.github.ben-manes.caffeine:caffeine:3.1.2")
@@ -58,9 +58,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 
     testImplementation("org.junit.platform:junit-platform-suite") // for cucumber
-    testImplementation("io.cucumber:cucumber-java:${property("cucumberVersion")}")
-    testImplementation("io.cucumber:cucumber-spring:${property("cucumberVersion")}")
-    testImplementation("io.cucumber:cucumber-junit-platform-engine:${property("cucumberVersion")}")
+    testImplementation("io.cucumber:cucumber-java:${cucumberVersion}")
+    testImplementation("io.cucumber:cucumber-spring:${cucumberVersion}")
+    testImplementation("io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}")
     testImplementation("org.awaitility:awaitility:4.2.0")
 }
 
