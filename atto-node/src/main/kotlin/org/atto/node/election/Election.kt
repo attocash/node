@@ -1,6 +1,9 @@
 package org.atto.node.election
 
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
@@ -20,7 +23,6 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
 
 @Service
@@ -32,14 +34,10 @@ class Election(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    /**
-     * Refactoring me. Too many potential side effects. Migrate to single thread
-     */
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-    private val singleScope = CoroutineScope(singleDispatcher)
 
-    private val transactionWeighters = ConcurrentHashMap<PublicKeyHeight, MutableMap<AttoHash, TransactionWeighter>>()
+    private val transactionWeighters = HashMap<PublicKeyHeight, HashMap<AttoHash, TransactionWeighter>>()
 
     fun getSize(): Int {
         return transactionWeighters.size
@@ -62,10 +60,12 @@ class Election(
     }
 
     suspend fun start(account: Account, transaction: Transaction) {
-        transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
-            val weighter = v ?: ConcurrentHashMap()
-            weighter[transaction.hash] = TransactionWeighter(account, transaction)
-            weighter
+        withContext(singleDispatcher) {
+            transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
+                val weighter = v ?: HashMap()
+                weighter[transaction.hash] = TransactionWeighter(account, transaction)
+                weighter
+            }
         }
 
         logger.trace { "Started election for $transaction" }
@@ -81,14 +81,17 @@ class Election(
         transactionWeighters.remove(transaction.toPublicKeyHeight())
     }
 
-    private suspend fun process(transaction: Transaction, vote: Vote) {
+    private suspend fun process(transaction: Transaction, vote: Vote) = withContext(singleDispatcher) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        val transactionWeightMap = transactionWeighters[publicKeyHeight] ?: return
+        val transactionWeightMap = transactionWeighters[publicKeyHeight] ?: return@withContext
 
         logger.trace { "Processing $vote" }
+        /**
+         * Weighter should never be null because votes are just broadcasted to active election
+         */
+        val weighter = transactionWeightMap[vote.hash]!!
 
-        val weighter = transactionWeightMap[vote.hash] ?: return
         weighter.add(vote)
 
         transactionWeightMap.values.asSequence()
@@ -113,7 +116,7 @@ class Election(
     }
 
     private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeighter {
-        return transactionWeighters[publicKeyHeight]!!.values.asSequence()
+        return transactionWeighters[publicKeyHeight]!!.values
             .maxByOrNull { it.totalWeight() }!!
     }
 
@@ -125,7 +128,8 @@ class Election(
     @Scheduled(cron = "0 0/1 * * * *")
     fun processStaling() {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
-        singleScope.launch {
+
+        runBlocking(singleDispatcher) {
             transactionWeighters.values.asSequence()
                 .flatMap { it.values }
                 .map { it.transaction }
@@ -143,7 +147,8 @@ class Election(
     @Scheduled(cron = "0 0/1 * * * * *")
     fun stopObservingStaled() {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
-        singleScope.launch {
+
+        runBlocking(singleDispatcher) {
             transactionWeighters.values.asSequence()
                 .flatMap { it.values }
                 .filter { it.transaction.receivedAt < minimalTimestamp }

@@ -1,11 +1,11 @@
-package org.atto.node.election.monitoring
+package org.atto.node.election
 
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.node.EventPublisher
-import org.atto.node.election.ElectionExpiring
-import org.atto.node.election.ElectionFinished
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
@@ -25,9 +25,11 @@ class ElectionMonitor(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("ElectionMonitor"))
+
     @EventListener
-    fun process(event: ElectionFinished) = runBlocking {
-        launch {
+    fun process(event: ElectionFinished) {
+        ioScope.launch {
             val account = event.account
             val transaction = event.transaction
             val votes = event.votes

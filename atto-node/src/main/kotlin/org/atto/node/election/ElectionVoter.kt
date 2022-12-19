@@ -1,10 +1,13 @@
-package org.atto.node.election.voting
+package org.atto.node.election
 
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.EventPublisher
 import org.atto.node.account.Account
-import org.atto.node.election.*
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
@@ -31,6 +34,8 @@ class ElectionVoter(
     private val messagePublisher: NetworkMessagePublisher
 ) {
     private val logger = KotlinLogging.logger {}
+
+    val defaultScope = CoroutineScope(Dispatchers.Default + CoroutineName("ElectionVoter"))
 
     private val minWeight = AttoAmount(1_000_000_000_000_000u)
 
@@ -119,7 +124,16 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $attoVote" }
 
-        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
+        /**
+         * singleDispatcher doesn't allow recursion causing the whole processing to deadlock once the Voter
+         * cast a internal vote.
+         *
+         * To avoid the deadlock a new coroutines is used to publish the internal vote
+         */
+        defaultScope.launch {
+            eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
+        }
+
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
     }
 

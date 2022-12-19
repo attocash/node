@@ -1,6 +1,5 @@
 package org.atto.node.wallet
 
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
@@ -38,9 +37,7 @@ class WalletService(
         }
 
         runBlocking {
-            launch {
-                receive(sendBlock)
-            }
+            receive(sendBlock)
         }
     }
 

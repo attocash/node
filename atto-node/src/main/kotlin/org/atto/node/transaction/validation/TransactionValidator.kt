@@ -1,11 +1,13 @@
 package org.atto.node.transaction.validation
 
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import org.atto.node.EventPublisher
 import org.atto.node.account.Account
 import org.atto.node.account.AccountRepository
@@ -23,9 +25,11 @@ class TransactionValidator(
     private val eventPublisher: EventPublisher,
 ) {
 
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("TransactionValidator"))
+
     @EventListener
-    fun process(event: TransactionReceived) = runBlocking {
-        launch {
+    fun process(event: TransactionReceived) {
+        ioScope.launch {
             val transaction = event.transaction
             val account = accountRepository.getByPublicKey(transaction.block.publicKey)
             validate(account, event.transaction)
