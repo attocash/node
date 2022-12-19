@@ -58,4 +58,10 @@ data class AttoTransaction(
             .add(signature)
             .add(work)
     }
+
+    override fun toString(): String {
+        return "AttoTransaction(hash=$hash, block=$block, signature=$signature, work=$work, byteBuffer=$byteBuffer, hash=$hash)"
+    }
+
+
 }
