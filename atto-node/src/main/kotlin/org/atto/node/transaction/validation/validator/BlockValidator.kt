@@ -4,32 +4,45 @@ import org.atto.commons.PreviousSupport
 import org.atto.node.account.Account
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRejectionReason
-import org.atto.node.transaction.validation.TransactionValidationSupport
+import org.atto.node.transaction.validation.TransactionValidator
+import org.atto.node.transaction.validation.TransactionViolation
 import org.springframework.stereotype.Component
 
 @Component
-class BlockValidator : TransactionValidationSupport {
+class BlockValidator : TransactionValidator {
     override fun supports(change: Transaction): Boolean {
         return change.block is PreviousSupport
     }
 
-    override suspend fun validate(account: Account, change: Transaction): TransactionRejectionReason? {
-        val block = change.block
+    override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+        val block = transaction.block
 
         if (account.height < block.height - 1u) {
-            return TransactionRejectionReason.PREVIOUS_NOT_FOUND
+            return TransactionViolation(
+                TransactionRejectionReason.PREVIOUS_NOT_FOUND,
+                "The last known transaction is ${account.lastTransactionHash} with height ${account.height}. The received transaction has height ${block.height}"
+            )
         }
 
         if (account.height >= block.height) {
-            return TransactionRejectionReason.OLD_TRANSACTION
+            return TransactionViolation(
+                TransactionRejectionReason.OLD_TRANSACTION,
+                "The last known transaction is ${account.lastTransactionHash} with height ${account.height}. The received transaction has height ${block.height}"
+            )
         }
 
         if (account.version > block.version) {
-            return TransactionRejectionReason.INVALID_VERSION
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_VERSION,
+                "The last known version for the account ${account.publicKey} is ${account.version}. The received transaction has version ${block.version}"
+            )
         }
 
         if (account.lastTransactionTimestamp >= block.timestamp) {
-            return TransactionRejectionReason.INVALID_TIMESTAMP
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_TIMESTAMP,
+                "The last known timestamp for the account ${account.publicKey} is ${account.lastTransactionTimestamp}. The receive transaction has ${block.timestamp}"
+            )
         }
 
         return null

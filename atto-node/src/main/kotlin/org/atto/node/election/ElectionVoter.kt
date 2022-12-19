@@ -71,7 +71,6 @@ class ElectionVoter(
 
     @EventListener
     fun process(event: ElectionConsensusReached) {
-        val account = event.account
         val transaction = event.transaction
 
         val publicKeyHeight = transaction.toPublicKeyHeight()

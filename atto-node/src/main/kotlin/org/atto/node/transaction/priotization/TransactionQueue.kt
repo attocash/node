@@ -76,21 +76,21 @@ class TransactionQueue(private val groupMaxSize: Int) {
     }
 
     internal fun poll(): Transaction? {
-        val groupAnchor = currentGroup
+        val groupInitial = currentGroup
         var groupIndex = currentGroup
 
         do {
             val transactions = groups[groupIndex]
-            val timedTransaction = transactions.pollLast()
+            val transaction = transactions.pollLast()
 
             groupIndex = ++groupIndex % groupMap.size
 
-            if (timedTransaction != null) {
+            if (transaction != null) {
                 currentGroup = groupIndex
                 size--
-                return timedTransaction
+                return transaction
             }
-        } while (groupAnchor != groupIndex)
+        } while (groupInitial != groupIndex)
 
         return null
     }

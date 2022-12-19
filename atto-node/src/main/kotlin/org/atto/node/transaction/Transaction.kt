@@ -76,7 +76,7 @@ enum class TransactionRejectionReason(val recoverable: Boolean) {
     INVALID_TRANSACTION(false),
     INVALID_BALANCE(false),
     INVALID_AMOUNT(false),
-    INVALID_SEND(false),
+    INVALID_RECEIVER(false),
     INVALID_CHANGE(false),
     INVALID_TIMESTAMP(false),
     INVALID_VERSION(false),
@@ -92,6 +92,7 @@ enum class TransactionRejectionReason(val recoverable: Boolean) {
 
 data class TransactionRejected(
     val reason: TransactionRejectionReason,
+    val message: String,
     val account: Account,
     val transaction: Transaction
 ) : Event

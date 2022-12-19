@@ -4,24 +4,31 @@ import org.atto.commons.AttoChangeBlock
 import org.atto.node.account.Account
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRejectionReason
-import org.atto.node.transaction.validation.TransactionValidationSupport
+import org.atto.node.transaction.validation.TransactionValidator
+import org.atto.node.transaction.validation.TransactionViolation
 import org.springframework.stereotype.Component
 
 @Component
-class ChangeValidator : TransactionValidationSupport {
+class ChangeValidator : TransactionValidator {
     override fun supports(change: Transaction): Boolean {
         return change.block is AttoChangeBlock
     }
 
-    override suspend fun validate(account: Account, change: Transaction): TransactionRejectionReason? {
+    override suspend fun validate(account: Account, change: Transaction): TransactionViolation? {
         val block = change.block as AttoChangeBlock
 
         if (account.representative == block.representative) {
-            return TransactionRejectionReason.INVALID_REPRESENTATIVE
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_REPRESENTATIVE,
+                "The account ${account.lastTransactionHash} already has the representative ${account.representative}"
+            )
         }
 
         if (account.balance != block.balance) {
-            return TransactionRejectionReason.INVALID_BALANCE
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_BALANCE,
+                "The account ${account.lastTransactionHash} has the balance ${account.balance}, balance can't be modified during representative change. The received transaction has balance ${block.balance}"
+            )
         }
 
         return null

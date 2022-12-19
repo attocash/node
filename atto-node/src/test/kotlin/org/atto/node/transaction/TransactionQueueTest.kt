@@ -1,7 +1,6 @@
 package org.atto.node.transaction
 
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.test.runTest
 import org.atto.commons.*
 import org.atto.node.transaction.priotization.TransactionQueue
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -40,7 +39,7 @@ internal class TransactionQueueTest {
 
     @Test
     @Timeout(1)
-    fun `should return null when queue empty`() = runTest {
+    fun `should return null when queue empty`() = runBlocking {
         assertNull(queue.poll())
     }
 
