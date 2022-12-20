@@ -30,8 +30,7 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-webflux-ui:${springdocVersion}")
     implementation("org.springdoc:springdoc-openapi-kotlin:${springdocVersion}")
 
-
-    implementation("com.github.ben-manes.caffeine:caffeine:3.1.2")
+    implementation("com.github.ben-manes.caffeine:caffeine")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 

@@ -8,6 +8,7 @@ import org.atto.node.vote.VoteReceived
 import org.atto.node.vote.weight.VoteWeightService
 import org.atto.protocol.vote.AttoVotePush
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
 @Component
@@ -17,6 +18,7 @@ class VoteConverter(
 ) {
 
     @EventListener
+    @Async
     fun add(message: InboundNetworkMessage<AttoVotePush>) = runBlocking {
         val attoVote = message.payload.vote
 

@@ -20,6 +20,7 @@ import org.atto.node.vote.VoteValidated
 import org.atto.node.vote.weight.VoteWeightService
 import org.flywaydb.core.Flyway
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -48,12 +49,14 @@ class Election(
     }
 
     @EventListener
+    @Async
     fun start(event: TransactionValidated) = runBlocking {
         val transaction = event.transaction
         start(event.account, transaction)
     }
 
     @EventListener
+    @Async
     fun process(event: VoteValidated) = runBlocking {
         val vote = event.vote
         process(event.transaction, vote)

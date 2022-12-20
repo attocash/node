@@ -3,7 +3,6 @@ package org.atto.node.election
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.EventPublisher
@@ -21,6 +20,7 @@ import org.atto.protocol.vote.AttoVote
 import org.atto.protocol.vote.AttoVotePush
 import org.atto.protocol.vote.AttoVoteSignature
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -43,6 +43,7 @@ class ElectionVoter(
     private val agreements = ConcurrentHashMap.newKeySet<PublicKeyHeight>()
 
     @EventListener
+    @Async
     fun process(event: ElectionStarted) {
         val account = event.account
         val transaction = event.transaction
@@ -52,6 +53,7 @@ class ElectionVoter(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionConsensusChanged) {
         val account = event.account
         val transaction = event.transaction
@@ -70,6 +72,7 @@ class ElectionVoter(
 
 
     @EventListener
+    @Async
     fun process(event: ElectionConsensusReached) {
         val transaction = event.transaction
 
@@ -81,16 +84,19 @@ class ElectionVoter(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionFinished) {
         remove(event.transaction)
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpiring) {
         vote(event.transaction, Instant.now())
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpired) {
         remove(event.transaction)
     }
@@ -123,15 +129,7 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $attoVote" }
 
-        /**
-         * singleDispatcher doesn't allow recursion causing the whole processing to deadlock once the Voter
-         * cast a internal vote.
-         *
-         * To avoid the deadlock a new coroutines is used to publish the internal vote
-         */
-        defaultScope.launch {
-            eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
-        }
+        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
 
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
     }

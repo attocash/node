@@ -62,7 +62,7 @@ class VoteWeightService(
     }
 
     @EventListener
-    fun listen(event: ElectionFinished) { // TODO: Maybe ElectionFinished?
+    fun listen(event: ElectionFinished) {
         val account = event.account
         val transaction = event.transaction
         val block = transaction.block

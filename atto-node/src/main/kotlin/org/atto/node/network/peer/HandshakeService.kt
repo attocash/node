@@ -14,6 +14,7 @@ import org.atto.protocol.AttoNode
 import org.atto.protocol.network.handshake.AttoHandshakeAnswer
 import org.atto.protocol.network.handshake.AttoHandshakeChallenge
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetAddress
@@ -38,12 +39,14 @@ class HandshakeService(
         .build()
 
     @EventListener
+    @Async
     fun add(peerEvent: PeerAddedEvent) {
         peers[peerEvent.peer.connectionSocketAddress] = peerEvent.peer
         challenges.invalidate(peerEvent.peer.node.socketAddress)
     }
 
     @EventListener
+    @Async
     fun remove(peerEvent: PeerRemovedEvent) {
         peers.remove(peerEvent.peer.node.socketAddress)
     }
@@ -82,6 +85,7 @@ class HandshakeService(
 
 
     @EventListener
+    @Async
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val handshakeAnswer = AttoHandshakeAnswer(
             signature = privateKey.sign(message.payload.value),
@@ -94,6 +98,7 @@ class HandshakeService(
     }
 
     @EventListener
+    @Async
     fun processAnswer(message: InboundNetworkMessage<AttoHandshakeAnswer>) {
         val answer = message.payload
         val node = answer.node

@@ -17,6 +17,7 @@ import org.atto.node.transaction.TransactionReceived
 import org.atto.node.transaction.TransactionRejected
 import org.atto.node.transaction.TransactionValidated
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -30,6 +31,7 @@ class TransactionValidationManager(
     val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("TransactionValidator"))
 
     @EventListener
+    @Async
     fun process(event: TransactionReceived) {
         ioScope.launch {
             val transaction = event.transaction

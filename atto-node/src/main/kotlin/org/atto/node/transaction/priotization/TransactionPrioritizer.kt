@@ -15,6 +15,7 @@ import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.transaction.*
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -57,6 +58,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
+    @Async
     fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction.toTransaction()
 
@@ -71,6 +73,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: TransactionSaved) = runBlocking(singleDispatcher) {
         val hash = event.transaction.hash
 
@@ -85,6 +88,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpired) = runBlocking(singleDispatcher) {
         val hash = event.transaction.hash
         activeElections.remove(hash)

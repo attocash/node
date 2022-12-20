@@ -11,6 +11,7 @@ import org.atto.protocol.AttoNode
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.annotation.Profile
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -24,6 +25,7 @@ class WalletService(
     private val logger = KotlinLogging.logger {}
 
     @EventListener
+    @Async
     fun listen(event: TransactionSaved) {
         val transaction = event.transaction
         if (transaction.block.type != AttoBlockType.SEND) {

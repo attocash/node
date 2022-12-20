@@ -18,6 +18,7 @@ import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionSaved
 import org.atto.node.vote.*
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 
@@ -59,6 +60,7 @@ class VotePrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionStarted) {
         val transaction = event.transaction
 
@@ -75,16 +77,19 @@ class VotePrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpired) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
+    @Async
     fun processConfirmed(event: TransactionSaved) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
+    @Async
     fun add(event: VoteReceived) {
         val vote = event.vote
 
