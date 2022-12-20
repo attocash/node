@@ -47,9 +47,9 @@ class TransactionController(
         return ResponseEntity.of(Optional.ofNullable(transaction))
     }
 
-    @GetMapping("/{hash}/stream", produces = [MediaType.APPLICATION_STREAM_JSON_VALUE])
+    @GetMapping("/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(description = "Stream transaction")
-    suspend fun stream(@PathVariable hash: AttoHash): Flow<Transaction> {
+    suspend fun stream(@PathVariable hash: AttoHash): Transaction {
         val transactionDatabaseFlow: Flow<Transaction> = flow {
             val transaction = repository.findById(hash)
             if (transaction != null) {
