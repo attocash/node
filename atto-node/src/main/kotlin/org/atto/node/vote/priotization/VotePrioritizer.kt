@@ -77,19 +77,16 @@ class VotePrioritizer(
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionExpired) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
-    @Async
-    fun processConfirmed(event: TransactionSaved) {
+    fun process(event: TransactionSaved) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
-    @Async
     fun add(event: VoteReceived) {
         val vote = event.vote
 

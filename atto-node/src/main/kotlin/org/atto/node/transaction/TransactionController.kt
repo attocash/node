@@ -3,14 +3,19 @@ package org.atto.node.transaction
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.swagger.v3.oas.annotations.Operation
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.runBlocking
 import org.atto.commons.*
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.AttoNode
 import org.atto.protocol.transaction.AttoTransactionPush
+import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
 import java.math.BigDecimal
 import java.math.BigInteger
@@ -26,11 +31,33 @@ class TransactionController(
     val repository: TransactionRepository
 ) {
 
+    private val transactionPublisher = MutableSharedFlow<Transaction>()
+    private val transactionFlow = transactionPublisher.asSharedFlow()
+
+    @EventListener
+    @Async
+    fun process(transactionSaved: TransactionSaved) = runBlocking {
+        transactionPublisher.emit(transactionSaved.transaction)
+    }
+
     @GetMapping("/{hash}")
     @Operation(description = "Get transaction")
     suspend fun get(@PathVariable hash: AttoHash): ResponseEntity<Transaction> {
         val transaction = repository.findById(hash)
         return ResponseEntity.of(Optional.ofNullable(transaction))
+    }
+
+    @GetMapping("/{hash}/stream", produces = [MediaType.APPLICATION_STREAM_JSON_VALUE])
+    @Operation(description = "Stream transaction")
+    suspend fun stream(@PathVariable hash: AttoHash): Flow<Transaction> {
+        val transactionDatabaseFlow: Flow<Transaction> = flow {
+            val transaction = repository.findById(hash)
+            if (transaction != null) {
+                emit(transaction)
+            }
+        }
+        return merge(transactionFlow, transactionDatabaseFlow)
+            .first { it.hash == hash }
     }
 
     @PostMapping

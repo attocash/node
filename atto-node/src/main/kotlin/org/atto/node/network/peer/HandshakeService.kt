@@ -39,14 +39,12 @@ class HandshakeService(
         .build()
 
     @EventListener
-    @Async
     fun add(peerEvent: PeerAddedEvent) {
         peers[peerEvent.peer.connectionSocketAddress] = peerEvent.peer
         challenges.invalidate(peerEvent.peer.node.socketAddress)
     }
 
     @EventListener
-    @Async
     fun remove(peerEvent: PeerRemovedEvent) {
         peers.remove(peerEvent.peer.node.socketAddress)
     }
@@ -85,7 +83,6 @@ class HandshakeService(
 
 
     @EventListener
-    @Async
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val handshakeAnswer = AttoHandshakeAnswer(
             signature = privateKey.sign(message.payload.value),

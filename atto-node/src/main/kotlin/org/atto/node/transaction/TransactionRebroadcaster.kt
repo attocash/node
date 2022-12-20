@@ -12,7 +12,6 @@ import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
@@ -39,7 +38,6 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
     @EventListener
-    @Async
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
@@ -53,7 +51,6 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionValidated) {
         val transactionHolder = holderMap.remove(event.transaction.hash)!!
         runBlocking(singleDispatcher) {
@@ -63,14 +60,12 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionRejected) {
         holderMap.remove(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.transaction}" }
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionDropped) {
         holderMap.remove(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }

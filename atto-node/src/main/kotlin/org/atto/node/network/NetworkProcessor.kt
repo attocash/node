@@ -13,7 +13,6 @@ import org.atto.node.network.codec.MessageCodecManager
 import org.atto.protocol.AttoNode
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
@@ -66,7 +65,6 @@ class NetworkProcessor(
     }
 
     @EventListener
-    @Async
     fun startConnection(message: OutboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
         if (outboundMap.containsKey(message.socketAddress) || disconnectionCache.getIfPresent(socketAddress.address) != null) {
@@ -88,7 +86,6 @@ class NetworkProcessor(
     }
 
     @EventListener
-    @Async
     fun outbound(message: OutboundNetworkMessage<*>) {
         val sink = outboundMap[message.socketAddress] ?: return
 
