@@ -6,13 +6,13 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
 object Waiter {
-    var timeoutInSeconds = 30
+    var timeoutInSeconds = 30L
 
     init {
         val isGradle = System.getenv("GRADLE")?.toBoolean() ?: false
 
         if (!isGradle) {
-            timeoutInSeconds = 600
+            timeoutInSeconds = 600L
         }
     }
 

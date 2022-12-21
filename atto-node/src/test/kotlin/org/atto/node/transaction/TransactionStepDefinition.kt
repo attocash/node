@@ -6,15 +6,17 @@ import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.PropertyHolder
+import org.atto.node.Waiter
 import org.atto.node.Waiter.waitUntilNonNull
 import org.atto.node.account.AccountDTO
 import org.atto.node.account.AccountRepository
 import org.atto.node.node.Neighbour
 import org.atto.protocol.AttoNode
-import org.junit.jupiter.api.Assertions.assertNotNull
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
+import java.time.Duration
 
 class TransactionStepDefinition(
     private val thisNode: AttoNode,
@@ -90,25 +92,20 @@ class TransactionStepDefinition(
 
         val receiverPublicKey = sendBlock.receiverPublicKey
 
-        val transaction = waitUntilNonNull {
-            val account = getAccount("THIS", receiverPublicKey)?.toAttoAccount()
-                ?: return@waitUntilNonNull null
+        val neighbour = PropertyHolder[Neighbour::class.java, "THIS"]
 
-            val transaction = getTransaction("THIS", account.lastTransactionHash)?.toAttoTransaction()
-                ?: return@waitUntilNonNull null
-
-            val block = transaction.block
-            if (block !is ReceiveSupportBlock) {
-                return@waitUntilNonNull null
-            }
-
-            if (block.sendHash != sendBlock.hash) {
-                return@waitUntilNonNull null
-            }
-
-            return@waitUntilNonNull transaction
-        }
-        assertNotNull(transaction)
+        webClient.get()
+            .uri(
+                "http://localhost:${neighbour.httpPort}/accounts/{publicKey}/transactions/stream?fromHeight=0",
+                receiverPublicKey
+            )
+            .retrieve()
+            .bodyToFlux<TransactionDTO>()
+            .map { it.toAttoTransaction() }
+            .filter { it.block is ReceiveSupportBlock }
+            .map { it.block as ReceiveSupportBlock }
+            .filter { it.sendHash == sendBlock.hash }
+            .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
     }
 
     private fun getAccount(neighbourShortId: String, publicKey: AttoPublicKey): AccountDTO? {
