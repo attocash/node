@@ -10,11 +10,11 @@ spring:
       date-time: iso
   flyway:
     url: jdbc:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
-    user: ${ATTO_DB_USER:atto}
-    password: ${ATTO_DB_PASSWORD:''}
+    username: ${ATTO_DB_USER}
+    password: ${ATTO_DB_PASSWORD}
   r2dbc:
     url: r2dbcs:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
-    username: ${spring.flyway.user}
+    username: ${spring.flyway.username}
     password: ${spring.flyway.password}
     pool:
       initial-size: 10

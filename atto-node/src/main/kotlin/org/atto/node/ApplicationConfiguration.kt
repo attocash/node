@@ -1,9 +1,11 @@
 package org.atto.node
 
 import org.flywaydb.core.Flyway
+import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
+import org.springframework.core.annotation.Order
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
@@ -12,6 +14,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 
 @Configuration
 @EnableAsync(proxyTargetClass = true)
+@AutoConfigureOrder(0)
 class ApplicationConfiguration {
 
     @Bean
@@ -27,7 +30,7 @@ class ApplicationConfiguration {
             Flyway.configure()
                 .dataSource(
                     environment.getRequiredProperty("spring.flyway.url"),
-                    environment.getProperty("spring.flyway.user"),
+                    environment.getProperty("spring.flyway.username"),
                     environment.getProperty("spring.flyway.password")
                 )
         )

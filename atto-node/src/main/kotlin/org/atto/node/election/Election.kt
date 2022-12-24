@@ -28,7 +28,6 @@ import java.time.Instant
 
 @Service
 class Election(
-    val flyway: Flyway,
     private val properties: ElectionProperties,
     private val voteWeightService: VoteWeightService,
     private val eventPublisher: EventPublisher

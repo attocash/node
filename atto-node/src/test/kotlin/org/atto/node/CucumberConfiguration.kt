@@ -7,6 +7,7 @@ import org.atto.commons.AttoPrivateKey
 import org.atto.node.network.peer.PeerProperties
 import org.atto.node.node.Neighbour
 import org.atto.node.transaction.TransactionConfiguration
+import org.atto.node.transaction.TransactionGenesisInitializer
 import org.atto.protocol.AttoNode
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
@@ -18,7 +19,7 @@ class CucumberConfiguration(
     val thisNode: AttoNode,
     val peerProperties: PeerProperties,
     val privateKey: AttoPrivateKey,
-    val genesisInitializer: TransactionConfiguration.GenesisInitializer,
+    val genesisInitializer: TransactionGenesisInitializer,
     val caches: List<CacheSupport>,
     val repositories: List<AttoRepository>
 ) {

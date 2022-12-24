@@ -7,11 +7,11 @@ import org.atto.commons.*
 import org.atto.node.CacheSupport
 import org.atto.node.account.AccountRepository
 import org.atto.node.election.ElectionFinished
-import org.atto.node.transaction.TransactionConfiguration
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteRepository
 import org.atto.node.vote.VoteValidated
 import org.atto.protocol.AttoNode
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -23,8 +23,8 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 @Component
+@DependsOn("transactionGenesisInitializer")
 class VoteWeightService(
-    val genesisInitializer: TransactionConfiguration.GenesisInitializer,
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
     val accountRepository: AccountRepository,
