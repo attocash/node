@@ -38,7 +38,7 @@ dependencies {
     implementation("io.projectreactor.netty:reactor-netty")
 
     implementation("org.jetbrains.kotlin:kotlin-reflect")
-    implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
+    implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-reactor")
     runtimeOnly("org.jetbrains.kotlinx:kotlinx-coroutines-debug")
 

@@ -37,10 +37,10 @@ class ApplicationTestConfiguration {
                 LogLevel.DEBUG,
                 AdvancedByteBufFormat.TEXTUAL
             )
-        val conn: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
+        val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
         return WebClient.builder()
             .exchangeStrategies(exchangeStrategies)
-//            .clientConnector(conn) // uncomment it to enable debugging
+//            .clientConnector(connector) // uncomment it to enable debugging
             .build()
     }
 
