@@ -66,19 +66,26 @@ class TransactionController(
                 emit(transaction)
             }
         }
+
+        val transactionFlow = transactionFlow
+            .filter { it.hash == hash }
+
         return merge(transactionFlow, transactionDatabaseFlow)
-            .first { it.hash == hash }
+            .onStart { logger.trace { "Started stream $hash transaction" } }
+            .first()
     }
 
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
-    @Operation(description = "Stream unsorted transactions transaction. Duplicates may happen")
+    @Operation(description = "Stream unsorted transactions. Duplicates may happen")
     suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: Long): Flow<Transaction> {
         val transactionDatabaseFlow = repository.find(publicKey, fromHeight.toULong())
+
         val transactionFlow = transactionFlow
             .filter { it.publicKey == publicKey }
             .filter { it.block.height >= fromHeight.toULong() }
+
         return merge(transactionFlow, transactionDatabaseFlow)
-            .onStart { logger.trace { "Started to listen $publicKey account from $fromHeight height" } }
+            .onStart { logger.trace { "Started to stream transaction from $publicKey account and height equals or after $fromHeight" } }
     }
 
     @PostMapping("/transactions")

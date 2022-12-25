@@ -1,6 +1,8 @@
 package org.atto.node.account
 
 import io.swagger.v3.oas.annotations.Operation
+import kotlinx.coroutines.flow.*
+import mu.KotlinLogging
 import org.atto.commons.AttoAccount
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
@@ -8,11 +10,9 @@ import org.atto.commons.AttoPublicKey
 import org.atto.node.EventPublisher
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.AttoNode
+import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 import java.math.BigInteger
 import java.time.Instant
 import java.util.*
@@ -25,12 +25,39 @@ class AccountController(
     val messagePublisher: NetworkMessagePublisher,
     val repository: AccountRepository
 ) {
+    private val logger = KotlinLogging.logger {}
+
+    /**
+     * There's a small chance that during subscription a client may miss the entry in the database and in the transaction
+     * flow.
+     *
+     * The replay was added to workaround that. In any case, it's recommended to subscribe before publish transactions
+     *
+     */
+    private val accountPublisher = MutableSharedFlow<Account>(100_000)
+    private val accountFlow = accountPublisher.asSharedFlow()
 
     @GetMapping("/{publicKey}")
     @Operation(description = "Get account")
     suspend fun get(@PathVariable publicKey: AttoPublicKey): ResponseEntity<Account> {
         val transaction = repository.findById(publicKey)
         return ResponseEntity.of(Optional.ofNullable(transaction))
+    }
+
+    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(description = "Stream account unsorted. Duplicates may happen")
+    suspend fun stream(@PathVariable publicKey: AttoPublicKey): Flow<Account> {
+        val accountDatabaseFlow = flow {
+            val account = repository.findById(publicKey)
+            if (account != null) {
+                emit(account)
+            }
+        }
+        val accountFlow = accountFlow
+            .filter { it.publicKey == publicKey }
+
+        return merge(accountFlow, accountDatabaseFlow)
+            .onStart { logger.trace { "Started to stream $publicKey account" } }
     }
 }
 
