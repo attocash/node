@@ -83,7 +83,6 @@ interface PreviousSupport {
 }
 
 interface ReceiveSupportBlock {
-    val balance: AttoAmount
     val sendHash: AttoHash
 }
 

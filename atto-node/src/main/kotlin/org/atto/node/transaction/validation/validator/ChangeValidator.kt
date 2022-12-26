@@ -14,8 +14,8 @@ class ChangeValidator : TransactionValidator {
         return change.block is AttoChangeBlock
     }
 
-    override suspend fun validate(account: Account, change: Transaction): TransactionViolation? {
-        val block = change.block as AttoChangeBlock
+    override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+        val block = transaction.block as AttoChangeBlock
 
         if (account.representative == block.representative) {
             return TransactionViolation(

@@ -34,10 +34,10 @@ class ReceiveValidator(
             )
         }
 
-        if (account.balance != block.balance - receivable.amount) {
+        if (account.balance != transaction.block.balance - receivable.amount) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_BALANCE,
-                "The account ${account.publicKey} balance is ${account.balance}. The received receive transaction has the balance ${block.balance} instead of ${account.balance + receivable.amount}"
+                "The account ${account.publicKey} balance is ${account.balance}. The received receive transaction has the balance ${transaction.block.balance} instead of ${account.balance + receivable.amount}"
             )
         }
 

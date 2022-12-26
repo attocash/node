@@ -14,8 +14,8 @@ class PreviousValidator : TransactionValidator {
         return change.block is PreviousSupport
     }
 
-    override suspend fun validate(account: Account, change: Transaction): TransactionViolation? {
-        val block = change.block as PreviousSupport
+    override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+        val block = transaction.block as PreviousSupport
 
         if (account.lastTransactionHash != block.previous) {
             return TransactionViolation(
