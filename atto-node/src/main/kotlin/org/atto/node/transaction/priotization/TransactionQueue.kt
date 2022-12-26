@@ -1,5 +1,6 @@
 package org.atto.node.transaction.priotization
 
+import org.atto.commons.AttoSendBlock
 import org.atto.node.transaction.Transaction
 import java.time.temporal.ChronoUnit
 import java.util.*
@@ -37,8 +38,10 @@ class TransactionQueue(private val groupMaxSize: Int) {
             )
         )
 
-        fun getGroup(value: ULong): Int {
-            return groupMap.ceilingEntry(value).value
+        fun getGroup(transaction: Transaction): Int {
+            val block = transaction.block
+            val raw = block.balance.raw + if (block is AttoSendBlock) block.amount.raw else 0UL
+            return groupMap.ceilingEntry(raw).value
         }
     }
 
@@ -60,7 +63,7 @@ class TransactionQueue(private val groupMaxSize: Int) {
      * @return deleted transaction
      */
     fun add(transaction: Transaction): Transaction? {
-        val group = getGroup(transaction.block.balance.raw)
+        val group = getGroup(transaction)
         val transactions = groups[group]
 
         if (transactions.add(transaction)) {
