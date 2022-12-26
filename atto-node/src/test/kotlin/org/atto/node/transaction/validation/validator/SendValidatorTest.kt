@@ -9,13 +9,12 @@ import org.atto.protocol.AttoNode
 import org.atto.protocol.NodeFeature
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import kotlin.random.Random
 
-internal class BlockValidatorTest {
+internal class SendValidatorTest {
     val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
     val privateKey = seed.toPrivateKey(0u)
 
@@ -53,10 +52,9 @@ internal class BlockValidatorTest {
         AttoWorks.work(node.network, block.timestamp, block.hash)
     )
 
-    private val validator = BlockValidator(node);
+    private val validator = SendValidator()
 
     @Test
-    @Disabled // TODO: Enable it when year is 2023
     fun `should validate`() = runBlocking {
         // when
         val violation = validator.validate(account, transaction)
@@ -66,51 +64,11 @@ internal class BlockValidatorTest {
     }
 
     @Test
-    fun `should return PREVIOUS_NOT_FOUND when account height is not immediately before`() = runBlocking {
+    fun `should return INVALID_AMOUNT when account height is not immediately before`() = runBlocking {
         // when
-        val violation = validator.validate(account.copy(height = account.height - 1U), transaction)
+        val violation = validator.validate(account.copy(balance = account.balance + AttoAmount(1UL)), transaction)
 
         // then
-        assertEquals(TransactionRejectionReason.PREVIOUS_NOT_FOUND, violation?.reason)
-    }
-
-    @Test
-    fun `should return OLD_TRANSACTION when account height is after transaction height`() = runBlocking {
-        // when
-        val violation = validator.validate(account.copy(height = account.height + 1U), transaction)
-
-        // then
-        assertEquals(TransactionRejectionReason.OLD_TRANSACTION, violation?.reason)
-    }
-
-    @Test
-    fun `should return INVALID_VERSION when account height is after transaction height`() = runBlocking {
-        // when
-        val violation = validator.validate(account.copy(version = (account.version + 1U).toUShort()), transaction)
-
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_VERSION, violation?.reason)
-    }
-
-    @Test
-    fun `should return INVALID_TIMESTAMP when account timestamp is after transaction timestamp`() = runBlocking {
-        // when
-        val violation = validator.validate(
-            account.copy(
-                lastTransactionTimestamp = account.lastTransactionTimestamp.plusSeconds(60)
-            ), transaction
-        )
-
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_TIMESTAMP, violation?.reason)
-    }
-
-    @Test
-    fun `should return INVALID_TRANSACTION when transaction is invalid`() = runBlocking {
-        // when
-        val violation = validator.validate(account, transaction.copy(work = AttoWork(ByteArray(8))))
-
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_TRANSACTION, violation?.reason)
+        assertEquals(TransactionRejectionReason.INVALID_AMOUNT, violation?.reason)
     }
 }
