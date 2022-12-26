@@ -23,7 +23,7 @@ internal class BlockValidatorTest {
         publicKey = privateKey.toPublicKey(),
         version = 0u,
         height = 2u,
-        balance = AttoAmount(0u),
+        balance = AttoAmount(100u),
         lastTransactionHash = AttoHash(ByteArray(32)),
         lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT,
         representative = AttoPublicKey(ByteArray(32))
@@ -53,13 +53,13 @@ internal class BlockValidatorTest {
         AttoWorks.work(node.network, block.timestamp, block.hash)
     )
 
-    private val blockValidator = BlockValidator(node);
+    private val validator = BlockValidator(node);
 
     @Test
     @Disabled // TODO: Enable it when year is 2023
     fun `should validate`() = runBlocking {
         // when
-        val violation = blockValidator.validate(account, transaction)
+        val violation = validator.validate(account, transaction)
 
         // then
         assertNull(violation)
@@ -68,7 +68,7 @@ internal class BlockValidatorTest {
     @Test
     fun `should return PREVIOUS_NOT_FOUND when account height is not immediately before`() = runBlocking {
         // when
-        val violation = blockValidator.validate(account.copy(height = account.height - 1U), transaction)
+        val violation = validator.validate(account.copy(height = account.height - 1U), transaction)
 
         // then
         assertEquals(TransactionRejectionReason.PREVIOUS_NOT_FOUND, violation?.reason)
@@ -77,7 +77,7 @@ internal class BlockValidatorTest {
     @Test
     fun `should return OLD_TRANSACTION when account height is after transaction height`() = runBlocking {
         // when
-        val violation = blockValidator.validate(account.copy(height = account.height + 1U), transaction)
+        val violation = validator.validate(account.copy(height = account.height + 1U), transaction)
 
         // then
         assertEquals(TransactionRejectionReason.OLD_TRANSACTION, violation?.reason)
@@ -86,7 +86,7 @@ internal class BlockValidatorTest {
     @Test
     fun `should return INVALID_VERSION when account height is after transaction height`() = runBlocking {
         // when
-        val violation = blockValidator.validate(account.copy(version = (account.version + 1U).toUShort()), transaction)
+        val violation = validator.validate(account.copy(version = (account.version + 1U).toUShort()), transaction)
 
         // then
         assertEquals(TransactionRejectionReason.INVALID_VERSION, violation?.reason)
@@ -95,7 +95,7 @@ internal class BlockValidatorTest {
     @Test
     fun `should return INVALID_TIMESTAMP when account timestamp is after transaction timestamp`() = runBlocking {
         // when
-        val violation = blockValidator.validate(
+        val violation = validator.validate(
             account.copy(
                 lastTransactionTimestamp = account.lastTransactionTimestamp.plusSeconds(60)
             ), transaction
@@ -108,7 +108,7 @@ internal class BlockValidatorTest {
     @Test
     fun `should return INVALID_TRANSACTION when transaction is invalid`() = runBlocking {
         // when
-        val violation = blockValidator.validate(account, transaction.copy(work = AttoWork(ByteArray(8))))
+        val violation = validator.validate(account, transaction.copy(work = AttoWork(ByteArray(8))))
 
         // then
         assertEquals(TransactionRejectionReason.INVALID_TRANSACTION, violation?.reason)
