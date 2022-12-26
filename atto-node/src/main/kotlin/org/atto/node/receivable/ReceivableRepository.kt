@@ -5,6 +5,6 @@ import org.atto.node.AttoRepository
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
 
-interface AccountReceivableRepository : CoroutineCrudRepository<AccountReceivable, AttoHash>, AttoRepository {
+interface ReceivableRepository : CoroutineCrudRepository<Receivable, AttoHash>, AttoRepository {
 
 }

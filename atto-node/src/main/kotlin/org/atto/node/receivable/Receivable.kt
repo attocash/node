@@ -7,7 +7,7 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
 
-data class AccountReceivable(
+data class Receivable(
     @Id
     val hash: AttoHash,
     val receiverPublicKey: AttoPublicKey,

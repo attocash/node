@@ -2,7 +2,7 @@ package org.atto.node.transaction.validation.validator
 
 import org.atto.commons.ReceiveSupportBlock
 import org.atto.node.account.Account
-import org.atto.node.receivable.AccountReceivableRepository
+import org.atto.node.receivable.ReceivableRepository
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRejectionReason
 import org.atto.node.transaction.validation.TransactionValidator
@@ -11,7 +11,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class ReceiveValidator(
-    private val accountReceivableRepository: AccountReceivableRepository
+    private val receivableRepository: ReceivableRepository
 ) : TransactionValidator {
 
     override fun supports(change: Transaction): Boolean {
@@ -21,7 +21,7 @@ class ReceiveValidator(
     override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
         val block = transaction.block as ReceiveSupportBlock
 
-        val receivable = accountReceivableRepository.findById(block.sendHash)
+        val receivable = receivableRepository.findById(block.sendHash)
 
         if (receivable == null) {
             return TransactionViolation(

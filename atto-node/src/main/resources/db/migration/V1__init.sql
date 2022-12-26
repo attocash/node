@@ -31,7 +31,7 @@ CREATE TABLE transaction
     persisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
-CREATE TABLE account_receivable
+CREATE TABLE receivable
 (
     hash                VARBINARY(32) PRIMARY KEY,
     receiver_public_key VARBINARY(32)                       NOT NULL,

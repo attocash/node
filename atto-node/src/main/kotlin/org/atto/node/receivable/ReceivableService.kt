@@ -5,16 +5,16 @@ import org.atto.commons.AttoHash
 import org.springframework.stereotype.Service
 
 @Service
-class AccountReceivableService(private val accountReceivableRepository: AccountReceivableRepository) {
+class ReceivableService(private val receivableRepository: ReceivableRepository) {
     private val logger = KotlinLogging.logger {}
 
-    suspend fun save(receivable: AccountReceivable) {
-        accountReceivableRepository.save(receivable)
+    suspend fun save(receivable: Receivable) {
+        receivableRepository.save(receivable)
         logger.debug { "Saved $receivable" }
     }
 
     suspend fun delete(hash: AttoHash) {
-        accountReceivableRepository.deleteById(hash)
+        receivableRepository.deleteById(hash)
         logger.debug { "Deleted receivable $hash" }
     }
 }

@@ -8,8 +8,8 @@ import org.atto.commons.RepresentativeSupportBlock
 import org.atto.node.account.Account
 import org.atto.node.account.AccountRepository
 import org.atto.node.account.AccountService
-import org.atto.node.receivable.AccountReceivable
-import org.atto.node.receivable.AccountReceivableService
+import org.atto.node.receivable.Receivable
+import org.atto.node.receivable.ReceivableService
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 class TransactionService(
     private val accountRepository: AccountRepository,
     private val accountService: AccountService,
-    private val accountReceivableService: AccountReceivableService,
+    private val receivableService: ReceivableService,
     private val transactionRepository: TransactionRepository,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -42,14 +42,14 @@ class TransactionService(
         logger.debug { "Saved $transaction" }
 
         if (block is AttoSendBlock) {
-            val receivable = AccountReceivable(
+            val receivable = Receivable(
                 hash = block.hash,
                 receiverPublicKey = block.receiverPublicKey,
                 amount = block.amount
             )
-            accountReceivableService.save(receivable)
+            receivableService.save(receivable)
         } else if (block is ReceiveSupportBlock) {
-            accountReceivableService.delete(block.sendHash)
+            receivableService.delete(block.sendHash)
         }
     }
 
