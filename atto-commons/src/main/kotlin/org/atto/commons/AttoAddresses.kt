@@ -6,20 +6,20 @@ object AttoAddresses {
     val regex = "^$prefix[13][13456789abcdefghijkmnopqrstuwxyz]{59}$".toRegex()
 
     fun toAddress(publicKey: AttoPublicKey): AttoAddress {
-        val checksum = checksum(publicKey.value)
+        val checksum = checksum(publicKey)
 
         val encodedPublicKey = AttoAccountEncodes.encode(publicKey.value, 260)
-        val encodedChecksum = AttoAccountEncodes.encode(checksum, checksum.size * 8)
+        val encodedChecksum = AttoAccountEncodes.encode(checksum.value, checksum.size * 8)
         return AttoAddress(prefix + encodedPublicKey + encodedChecksum)
     }
 
     fun toPublicKey(account: AttoAddress): AttoPublicKey {
-        return AttoPublicKey(toPublicKey(account.value))
+        return toPublicKey(account.value)
     }
 
-    private fun toPublicKey(account: String): ByteArray {
+    private fun toPublicKey(account: String): AttoPublicKey {
         val encodedPublicKey: String = account.substring(5, 57)
-        return AttoAccountEncodes.decode(encodedPublicKey, 64)
+        return AttoPublicKey(AttoAccountEncodes.decode(encodedPublicKey, 64))
     }
 
     fun isValid(account: String): Boolean {
@@ -28,7 +28,7 @@ object AttoAddresses {
         }
         val expectedEncodedChecksum = account.substring(account.length - 8)
         val checksum = checksum(toPublicKey(account))
-        val encodedChecksum = AttoAccountEncodes.encode(checksum, checksum.size * 8)
+        val encodedChecksum = AttoAccountEncodes.encode(checksum.value, checksum.size * 8)
         return expectedEncodedChecksum == encodedChecksum
     }
 
@@ -38,9 +38,8 @@ object AttoAddresses {
         }
     }
 
-    // TODO: change to little endian
-    private fun checksum(publicKey: ByteArray): ByteArray {
-        return AttoHashes.hash(5, publicKey)
+    private fun checksum(publicKey: AttoPublicKey): AttoHash {
+        return AttoHashes.hash(5, publicKey.value)
     }
 }
 

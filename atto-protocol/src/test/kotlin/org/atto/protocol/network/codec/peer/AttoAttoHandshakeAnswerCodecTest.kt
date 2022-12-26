@@ -29,8 +29,6 @@ internal class AttoAttoHandshakeAnswerCodecTest {
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL)
         )
 
-//        AttoContextHolder.put("socketAddress", node.socketAddress)
-
         val expectedHandshakeAnswer = AttoHandshakeAnswer(
             signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             node = node

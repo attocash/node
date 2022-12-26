@@ -50,14 +50,14 @@ class WalletService(
             val openBlock = AttoAccount.open(thisNode.publicKey, thisNode.publicKey, sendBlock)
             AttoTransaction(
                 block = openBlock,
-                signature = privateKey.sign(openBlock.hash.value),
+                signature = privateKey.sign(openBlock.hash),
                 work = AttoWork.work(thisNode.network, openBlock.timestamp, openBlock.publicKey)
             )
         } else {
             val receiveBlock = receiverAccount.receive(sendBlock)
             AttoTransaction(
                 block = receiveBlock,
-                signature = privateKey.sign(receiveBlock.hash.value),
+                signature = privateKey.sign(receiveBlock.hash),
                 work = AttoWork.Companion.work(
                     thisNode.network,
                     receiveBlock.timestamp,

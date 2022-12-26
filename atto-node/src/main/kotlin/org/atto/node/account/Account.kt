@@ -15,8 +15,8 @@ data class Account(
     var version: UShort,
     var height: ULong,
     var balance: AttoAmount,
-    var lastTransactionHash: AttoHash,
     var lastTransactionTimestamp: Instant,
+    var lastTransactionHash: AttoHash,
     var representative: AttoPublicKey,
 
     var persistedAt: Instant? = null,

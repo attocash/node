@@ -6,19 +6,19 @@ import org.bouncycastle.crypto.signers.Ed25519Signer
 
 object AttoSignatures {
 
-    fun sign(privateKey: AttoPrivateKey, hash: ByteArray): AttoSignature {
+    fun sign(privateKey: AttoPrivateKey, hash: AttoHash): AttoSignature {
         val parameters = Ed25519PrivateKeyParameters(privateKey.value, 0)
         val signer = Ed25519Signer()
         signer.init(true, parameters)
-        signer.update(hash, 0, hash.size)
+        signer.update(hash.value, 0, hash.value.size)
         return AttoSignature(signer.generateSignature())
     }
 
-    fun isValid(publicKey: AttoPublicKey, signature: AttoSignature, hash: ByteArray): Boolean {
+    fun isValid(publicKey: AttoPublicKey, signature: AttoSignature, hash: AttoHash): Boolean {
         val parameters = Ed25519PublicKeyParameters(publicKey.value, 0)
         val signer = Ed25519Signer()
         signer.init(false, parameters)
-        signer.update(hash, 0, hash.size)
+        signer.update(hash.value, 0, hash.value.size)
         return signer.verifySignature(signature.value)
     }
 
@@ -37,7 +37,7 @@ data class AttoSignature(val value: ByteArray) {
         value.checkLength(size)
     }
 
-    fun isValid(publicKey: AttoPublicKey, hash: ByteArray): Boolean {
+    fun isValid(publicKey: AttoPublicKey, hash: AttoHash): Boolean {
         return AttoSignatures.isValid(publicKey, this, hash)
     }
 
@@ -62,7 +62,6 @@ data class AttoSignature(val value: ByteArray) {
     }
 }
 
-
-fun AttoPrivateKey.sign(hash: ByteArray): AttoSignature {
+fun AttoPrivateKey.sign(hash: AttoHash): AttoSignature {
     return AttoSignatures.sign(this, hash)
 }

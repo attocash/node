@@ -13,7 +13,11 @@ object AttoWorks {
         return work(network, timestamp, hash.value)
     }
 
-    internal fun work(network: AttoNetwork, timestamp: Instant, hash: ByteArray): AttoWork {
+    fun work(network: AttoNetwork, timestamp: Instant, publicKey: AttoPublicKey): AttoWork {
+        return work(network, timestamp, publicKey.value)
+    }
+
+    private fun work(network: AttoNetwork, timestamp: Instant, hash: ByteArray): AttoWork {
         val controller = WorkerController()
         return Stream.generate { Worker(controller, network, timestamp, hash) }
             .takeWhile { controller.isEmpty() }
@@ -29,8 +33,12 @@ object AttoWorks {
         return isValid(network, timestamp, hash.value, work.value)
     }
 
-    internal fun isValid(network: AttoNetwork, timestamp: Instant, hash: ByteArray, work: ByteArray): Boolean {
-        val difficult = AttoHashes.hash(8, work, hash).toULong()
+    fun isValid(network: AttoNetwork, timestamp: Instant, publicKey: AttoPublicKey, work: AttoWork): Boolean {
+        return isValid(network, timestamp, publicKey.value, work.value)
+    }
+
+    private fun isValid(network: AttoNetwork, timestamp: Instant, hash: ByteArray, work: ByteArray): Boolean {
+        val difficult = AttoHashes.hash(8, work, hash).value.toULong()
         return difficult >= network.getThreshold(timestamp)
     }
 
@@ -86,7 +94,7 @@ data class AttoWork(val value: ByteArray) {
         }
 
         fun work(network: AttoNetwork, timestamp: Instant, publicKey: AttoPublicKey): AttoWork {
-            return AttoWorks.work(network, timestamp, publicKey.value)
+            return AttoWorks.work(network, timestamp, publicKey)
         }
 
         fun parse(value: String): AttoWork {
@@ -98,12 +106,12 @@ data class AttoWork(val value: ByteArray) {
         value.checkLength(size)
     }
 
-    fun isValid(network: AttoNetwork, timestamp: Instant, byteArray: ByteArray): Boolean {
-        return AttoWorks.isValid(network, timestamp, byteArray, value)
+    fun isValid(network: AttoNetwork, timestamp: Instant, publicKey: AttoPublicKey): Boolean {
+        return AttoWorks.isValid(network, timestamp, publicKey, this)
     }
 
     fun isValid(network: AttoNetwork, timestamp: Instant, hash: AttoHash): Boolean {
-        return isValid(network, timestamp, hash.value)
+        return AttoWorks.isValid(network, timestamp, hash, this)
     }
 
     override fun equals(other: Any?): Boolean {

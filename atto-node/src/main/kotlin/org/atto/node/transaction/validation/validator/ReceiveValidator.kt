@@ -22,13 +22,10 @@ class ReceiveValidator(
         val block = transaction.block as ReceiveSupportBlock
 
         val receivable = receivableRepository.findById(block.sendHash)
-
-        if (receivable == null) {
-            return TransactionViolation(
+            ?: return TransactionViolation(
                 TransactionRejectionReason.SEND_NOT_FOUND,
                 "The account ${account.publicKey} doesn't have the receivable ${block.sendHash}"
             )
-        }
 
         if (account.publicKey != receivable.receiverPublicKey) {
             return TransactionViolation(

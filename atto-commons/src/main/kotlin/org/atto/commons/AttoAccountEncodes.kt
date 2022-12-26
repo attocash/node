@@ -20,7 +20,6 @@ internal object AttoAccountEncodes {
         }
         return sb.toString()
     }
-
     fun encode(decoded: ByteArray, size: Int): String {
         val binary = leftPad(toBinary(decoded.toHex()), size)
         return encode(binary)

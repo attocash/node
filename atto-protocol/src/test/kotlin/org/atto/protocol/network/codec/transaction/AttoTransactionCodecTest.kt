@@ -28,7 +28,7 @@ internal class AttoTransactionCodecTest {
 
         val expectedTransaction = AttoTransaction(
             block = block,
-            signature = privateKey.sign(block.hash.value),
+            signature = privateKey.sign(block.hash),
             work = AttoWork.work(AttoNetwork.LOCAL, block.timestamp, block.publicKey)
         )
 

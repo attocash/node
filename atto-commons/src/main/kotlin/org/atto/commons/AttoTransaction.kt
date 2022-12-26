@@ -40,12 +40,17 @@ data class AttoTransaction(
             return false
         }
 
-        if (!work.isValid(network, block.timestamp, block.getWorkHash())) {
+
+        if (block is PreviousSupport && !work.isValid(network, block.timestamp, block.previous)) {
+            return false
+        }
+
+        if (block is AttoOpenBlock && !work.isValid(network, block.timestamp, block.publicKey)) {
             return false
         }
 
 
-        if (!signature.isValid(block.publicKey, block.hash.value)) {
+        if (!signature.isValid(block.publicKey, block.hash)) {
             return false
         }
 

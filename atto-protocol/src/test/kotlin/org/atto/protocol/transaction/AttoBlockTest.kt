@@ -24,7 +24,7 @@ internal class AttoBlockTest {
     }
 
     companion object {
-        val seed = AttoSeed("1234567890123456789012345678901234567890123456789012345678901234".fromHexToByteArray())
+        val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
         val privateKey = seed.toPrivateKey(0u)
 
         @JvmStatic

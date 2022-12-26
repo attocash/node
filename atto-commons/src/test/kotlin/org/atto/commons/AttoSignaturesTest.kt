@@ -8,7 +8,7 @@ internal class AttoSignaturesTest {
     private val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
     private val privateKey = seed.toPrivateKey(0u)
     private val publicKey = privateKey.toPublicKey()
-    private val hash = "0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray()
+    private val hash = AttoHash("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
     private val expectedSignature =
         AttoSignature("624329512A3433895673A6A2C5179199D4DE014049E60AB19319847C626B0997A06C0DC9AF79F624925C2B1F05F42E40CDDCBC5B403CE339E2768DB953E09201".fromHexToByteArray())
 
@@ -35,7 +35,7 @@ internal class AttoSignaturesTest {
     @Test
     fun `should sign 16 bytes`() {
         // given
-        val hash16 = Random.nextBytes(ByteArray(16))
+        val hash16 = AttoHash(Random.nextBytes(ByteArray(16)), 16)
 
         // when
         val signature = privateKey.sign(hash16)

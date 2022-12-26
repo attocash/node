@@ -38,7 +38,7 @@ class TransactionStepDefinition(
         val sendBlock = account.toAttoAccount().send(receiverPublicKey, defaultSendAmount)
         val sendTransaction = Transaction(
             block = sendBlock,
-            signature = privateKey.sign(sendBlock.hash.value),
+            signature = privateKey.sign(sendBlock.hash),
             work = AttoWork.Companion.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash)
         )
 
@@ -60,7 +60,7 @@ class TransactionStepDefinition(
         val changeBlock = account.toAttoAccount().change(representative)
         val changeTransaction = Transaction(
             block = changeBlock,
-            signature = privateKey.sign(changeBlock.hash.value),
+            signature = privateKey.sign(changeBlock.hash),
             work = AttoWork.Companion.work(thisNode.network, changeBlock.timestamp, account.lastTransactionHash),
         )
 

@@ -62,8 +62,8 @@ class AttoByteBuffer {
         return byteArray
     }
 
-    fun getByteArrayHash(): AttoHash {
-        return AttoHash(AttoHashes.hash(32, toByteArray()))
+    fun toHash(): AttoHash {
+        return AttoHashes.hash(32, toByteArray())
     }
 
     fun add(attoHash: AttoHash): AttoByteBuffer {
@@ -76,7 +76,7 @@ class AttoByteBuffer {
     }
 
     fun getHash(index: Int): AttoHash {
-        val byteArray = ByteArray(AttoHash.size)
+        val byteArray = ByteArray(AttoHash.defaultSize)
         byteBuffer.get(index, byteArray)
         this.lastIndex = index + byteArray.size
         return AttoHash(byteArray)

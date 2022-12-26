@@ -6,10 +6,11 @@ import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRejectionReason
 import org.atto.node.transaction.validation.TransactionValidator
 import org.atto.node.transaction.validation.TransactionViolation
+import org.atto.protocol.AttoNode
 import org.springframework.stereotype.Component
 
 @Component
-class BlockValidator : TransactionValidator {
+class BlockValidator(val node: AttoNode) : TransactionValidator {
     override fun supports(change: Transaction): Boolean {
         return change.block is PreviousSupport
     }
@@ -42,6 +43,13 @@ class BlockValidator : TransactionValidator {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_TIMESTAMP,
                 "The last known timestamp for the account ${account.publicKey} is ${account.lastTransactionTimestamp}. The receive transaction has ${block.timestamp}"
+            )
+        }
+
+        if (!transaction.toAttoTransaction().isValid(node.network)) {
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_TRANSACTION,
+                "The transaction ${transaction.hash} is invalid for ${node.network}. $transaction"
             )
         }
 

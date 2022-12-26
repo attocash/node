@@ -3,6 +3,7 @@ package org.atto.node.network.peer
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
+import org.atto.commons.AttoHash
 import org.atto.commons.AttoPrivateKey
 import org.atto.commons.sign
 import org.atto.node.CacheSupport
@@ -85,7 +86,12 @@ class HandshakeService(
     @EventListener
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val handshakeAnswer = AttoHandshakeAnswer(
-            signature = privateKey.sign(message.payload.value),
+            signature = privateKey.sign(
+                AttoHash(
+                    message.payload.value,
+                    16
+                )
+            ), // TODO hash should be against the node as well
             node = thisNode
         )
 
@@ -109,7 +115,11 @@ class HandshakeService(
         val publicKey = node.publicKey
 
         // TODO: Signature should be against hash(challenge + node)
-        if (!answer.signature.isValid(publicKey, challenge.value)) {
+        if (!answer.signature.isValid(
+                publicKey,
+                AttoHash(challenge.value, 16)
+            )
+        ) {  // TODO hash should be against the node as well
             logger.warn { "Invalid handshake answer was received $answer" }
             return
         }

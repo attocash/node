@@ -4,7 +4,6 @@ import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.network.codec.TransactionCodec
 import org.atto.protocol.AttoNode
-import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import java.time.Instant
@@ -42,7 +41,7 @@ class TransactionConfiguration {
 
         val transaction = Transaction(
             block = block,
-            signature = privateKey.sign(block.hash.value),
+            signature = privateKey.sign(block.hash),
             work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey)
         )
 

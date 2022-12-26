@@ -11,7 +11,7 @@ internal class AttoHashesTest {
         val byteArray = "0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray()
 
         // when
-        val hash = AttoHashes.hash(32, byteArray).toHex()
+        val hash = AttoHashes.hash(32, byteArray).value.toHex()
 
         // then
         val expectedHash = "89EB0D6A8A691DAE2CD15ED0369931CE0A949ECAFA5C3F93F8121833646E15C3"

@@ -8,7 +8,7 @@ object AttoKeys {
 
     fun toPrivateKey(seed: AttoSeed, index: UInt): AttoPrivateKey {
         require(index >= 0u)
-        return AttoPrivateKey(AttoHashes.hash(32, seed.value, index.toByteArray()))
+        return AttoPrivateKey(AttoHashes.hash(32, seed.value, index.toByteArray()).value)
     }
 
     fun toPublicKey(privateKey: AttoPrivateKey): AttoPublicKey {
