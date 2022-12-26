@@ -14,8 +14,8 @@ class ReceiveValidator(
     private val receivableRepository: ReceivableRepository
 ) : TransactionValidator {
 
-    override fun supports(change: Transaction): Boolean {
-        return change.block is ReceiveSupportBlock
+    override fun supports(transaction: Transaction): Boolean {
+        return transaction.block is ReceiveSupportBlock
     }
 
     override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {

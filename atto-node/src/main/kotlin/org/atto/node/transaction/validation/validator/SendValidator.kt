@@ -10,12 +10,12 @@ import org.springframework.stereotype.Component
 
 @Component
 class SendValidator : TransactionValidator {
-    override fun supports(change: Transaction): Boolean {
-        return change.block is AttoSendBlock
+    override fun supports(transaction: Transaction): Boolean {
+        return transaction.block is AttoSendBlock
     }
 
-    override suspend fun validate(account: Account, change: Transaction): TransactionViolation? {
-        val block = change.block as AttoSendBlock
+    override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+        val block = transaction.block as AttoSendBlock
         if (account.balance != block.balance + block.amount) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_AMOUNT,

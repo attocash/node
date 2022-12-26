@@ -6,9 +6,9 @@ import org.atto.node.transaction.TransactionRejectionReason
 
 interface TransactionValidator {
 
-    fun supports(change: Transaction): Boolean
+    fun supports(transaction: Transaction): Boolean
 
-    suspend fun validate(account: Account, change: Transaction): TransactionViolation?
+    suspend fun validate(account: Account, transaction: Transaction): TransactionViolation?
 }
 
 data class TransactionViolation(val reason: TransactionRejectionReason, val message: String)

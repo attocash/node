@@ -10,8 +10,8 @@ import org.springframework.stereotype.Component
 
 @Component
 class ChangeValidator : TransactionValidator {
-    override fun supports(change: Transaction): Boolean {
-        return change.block is AttoChangeBlock
+    override fun supports(transaction: Transaction): Boolean {
+        return transaction.block is AttoChangeBlock
     }
 
     override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
