@@ -40,6 +40,7 @@ class NodeStepDefinition(
             val args = arrayOf(
                 "--spring.application.name=neighbour-atto-node-$shortId",
                 "--server.port=$httpPort",
+                "--management.server.port=",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
                 "--ATTO_DB_NAME=atto-neighbour${shortId}",
                 "--atto.node.private-key=${privateKey.value.toHex()}",
