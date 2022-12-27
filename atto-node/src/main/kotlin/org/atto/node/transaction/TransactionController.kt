@@ -18,6 +18,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
+import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.BigInteger
 import java.time.Instant
@@ -58,8 +59,8 @@ class TransactionController(
     }
 
     @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
-    @Operation(description = "Stream transaction")
-    suspend fun stream(@PathVariable hash: AttoHash): Transaction {
+    @Operation(description = "Stream a single transaction")
+    suspend fun stream(@PathVariable hash: AttoHash): Flow<Transaction> {
         val transactionDatabaseFlow: Flow<Transaction> = flow {
             val transaction = repository.findById(hash)
             if (transaction != null) {
@@ -71,8 +72,9 @@ class TransactionController(
             .filter { it.hash == hash }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .onStart { logger.trace { "Started stream $hash transaction" } }
+            .onStart { logger.trace { "Started streaming $hash transaction" } }
             .first()
+            .let { flowOf(it) }
     }
 
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
@@ -85,15 +87,15 @@ class TransactionController(
             .filter { it.block.height >= fromHeight.toULong() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .onStart { logger.trace { "Started to stream transaction from $publicKey account and height equals or after $fromHeight" } }
+            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after $fromHeight" } }
     }
 
     @PostMapping("/transactions")
     @Operation(description = "Publish transaction")
-    suspend fun publish(@RequestBody transactionDTO: TransactionDTO): ResponseEntity<Void> {
+    suspend fun publish(@RequestBody transactionDTO: TransactionDTO) {
         val attoTransaction = transactionDTO.toAttoTransaction()
         if (!attoTransaction.isValid(node.network)) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build()
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction");
         }
         messagePublisher.publish(
             InboundNetworkMessage(
@@ -101,7 +103,15 @@ class TransactionController(
                 AttoTransactionPush(attoTransaction)
             )
         )
-        return ResponseEntity.ok().build()
+    }
+
+    @PostMapping("/transactions/stream")
+    @Operation(description = "Publish transaction and stream")
+    suspend fun publishAndStream(@RequestBody transactionDTO: TransactionDTO): Transaction {
+        val attoTransaction = transactionDTO.toAttoTransaction()
+        return stream(attoTransaction.hash)
+            .onStart { publish(transactionDTO) }
+            .first()
     }
 }
 
