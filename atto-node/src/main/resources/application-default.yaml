@@ -18,12 +18,14 @@ atto:
 server:
   error:
     include-message: ALWAYS
+    include-stacktrace: ALWAYS
 
 logging:
   level:
     org.atto: TRACE
-    #    org.atto.node.network: INFO
+    org.atto.node.network: TRACE
     io.r2dbc.h2: INFO
+    org.springframework.boot.autoconfigure: DEBUG
 
 management:
   endpoints:

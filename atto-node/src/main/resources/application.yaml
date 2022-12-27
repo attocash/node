@@ -50,12 +50,17 @@ atto:
       staling-after-time-in-seconds: 120
       staled-after-time-in-seconds: 180
 
+springdoc:
+  swagger-ui:
+    path: /
+
 logging:
   level:
     org.atto: INFO
 
-server:
-  port:
-  error:
-    include-stacktrace: ALWAYS
-
+management:
+  server:
+    port: 8081
+  endpoints:
+    web:
+      base-path: /

@@ -19,7 +19,7 @@ repositories {
 
 dependencies {
     val cucumberVersion = "7.10.1"
-    val springdocVersion = "1.6.14"
+    val springdocVersion = "2.0.2"
 
     implementation(project(":atto-commons"))
     implementation(project(":atto-protocol"))
@@ -27,8 +27,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("org.springdoc:springdoc-openapi-webflux-ui:${springdocVersion}")
-    implementation("org.springdoc:springdoc-openapi-kotlin:${springdocVersion}")
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}")
 
     implementation("com.github.ben-manes.caffeine:caffeine")
 
