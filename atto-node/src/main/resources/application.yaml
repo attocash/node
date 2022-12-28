@@ -24,6 +24,7 @@ spring:
     serialization:
       write_dates_as_timestamps: false
 atto:
+  useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
     publicAddress: ${ATTO_NODE_HOST}
   network:

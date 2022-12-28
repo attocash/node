@@ -7,4 +7,5 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @ConfigurationProperties(prefix = "atto")
 class ApplicationProperties {
+    var useXForwardedFor: Boolean = false
 }

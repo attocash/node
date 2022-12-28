@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.*
+import org.atto.node.ApplicationProperties
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
@@ -16,17 +17,20 @@ import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.math.BigInteger
+import java.net.InetSocketAddress
 import java.time.Instant
 import java.util.*
 
 @RestController
 @RequestMapping
 class TransactionController(
+    val applicationProperties: ApplicationProperties,
     val node: AttoNode,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
@@ -92,14 +96,25 @@ class TransactionController(
 
     @PostMapping("/transactions")
     @Operation(description = "Publish transaction")
-    suspend fun publish(@RequestBody transactionDTO: TransactionDTO) {
+    suspend fun publish(@RequestBody transactionDTO: TransactionDTO, request: ServerHttpRequest) {
         val attoTransaction = transactionDTO.toAttoTransaction()
         if (!attoTransaction.isValid(node.network)) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction");
         }
+
+        val socketAddress = if (applicationProperties.useXForwardedFor) {
+            val ips = request.headers["X-FORWARDED-FOR"] ?: listOf()
+            if (ips.isEmpty()) {
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Forwarded-For is empty")
+            }
+            InetSocketAddress.createUnresolved(ips[0], request.remoteAddress!!.port)
+        } else {
+            request.remoteAddress!!
+        }
+
         messagePublisher.publish(
             InboundNetworkMessage(
-                node.socketAddress, //TODO: send with the user id
+                socketAddress,
                 AttoTransactionPush(attoTransaction)
             )
         )
@@ -107,10 +122,10 @@ class TransactionController(
 
     @PostMapping("/transactions/stream")
     @Operation(description = "Publish transaction and stream")
-    suspend fun publishAndStream(@RequestBody transactionDTO: TransactionDTO): Transaction {
+    suspend fun publishAndStream(@RequestBody transactionDTO: TransactionDTO, request: ServerHttpRequest): Transaction {
         val attoTransaction = transactionDTO.toAttoTransaction()
         return stream(attoTransaction.hash)
-            .onStart { publish(transactionDTO) }
+            .onStart { publish(transactionDTO, request) }
             .first()
     }
 }
