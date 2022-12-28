@@ -7,13 +7,11 @@ import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.PropertyHolder
 import org.atto.node.Waiter
-import org.atto.node.Waiter.waitUntilNonNull
 import org.atto.node.account.AccountDTO
 import org.atto.node.account.AccountRepository
 import org.atto.node.node.Neighbour
 import org.atto.protocol.AttoNode
 import org.springframework.web.reactive.function.client.WebClient
-import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
 import java.time.Duration
@@ -28,9 +26,9 @@ class TransactionStepDefinition(
     private val defaultSendAmount = AttoAmount(4_500_000_000_000_000_000u)
 
     @When("^send transaction (\\w+) from (\\w+) account to (\\w+) account$")
-    fun sendTransaction(transactionShortId: String, shortId: String, receiverShortId: String) = runBlocking {
-        val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
-        val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
+    fun sendTransaction(transactionShortId: String, senderShortId: String, receiverShortId: String) = runBlocking {
+        val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, senderShortId)
+        val publicKey = PropertyHolder.get(AttoPublicKey::class.java, senderShortId)
         val account = accountRepository.findById(publicKey)!!
 
         val receiverPublicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
@@ -39,7 +37,7 @@ class TransactionStepDefinition(
         val sendTransaction = Transaction(
             block = sendBlock,
             signature = privateKey.sign(sendBlock.hash),
-            work = AttoWork.Companion.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash)
+            work = AttoWork.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash)
         )
 
         logger.info { "Publishing $sendTransaction" }
@@ -48,6 +46,39 @@ class TransactionStepDefinition(
 
         PropertyHolder.add(transactionShortId, sendTransaction)
     }
+
+    @When("^receive transaction (\\w+) from (\\w+) send transaction to (\\w+) account$")
+    fun receiveTransaction(transactionShortId: String, sendTransactionShortId: String, receiverShortId: String) =
+        runBlocking {
+            val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, receiverShortId)
+            val publicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
+
+            val sendTransaction = PropertyHolder.get(Transaction::class.java, sendTransactionShortId)
+            val sendBlock = sendTransaction.block as AttoSendBlock
+
+            val account = accountRepository.findById(publicKey)
+            val transaction = if (account != null) {
+                val receiveBlock = account.toAttoAccount().receive(sendBlock)
+                Transaction(
+                    block = receiveBlock,
+                    signature = privateKey.sign(receiveBlock.hash),
+                    work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash)
+                )
+            } else {
+                val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
+                Transaction(
+                    block = openBlock,
+                    signature = privateKey.sign(openBlock.hash),
+                    work = AttoWork.work(thisNode.network, openBlock.timestamp, openBlock.publicKey)
+                )
+            }
+
+            logger.info { "Publishing $transaction" }
+
+            publish("THIS", transaction)
+
+            PropertyHolder.add(transactionShortId, transaction)
+        }
 
     @When("^change transaction (\\w+) from (\\w+) account to (\\w+) representative$")
     fun changeTransaction(transactionShortId: String, shortId: String, representativeShortId: String) = runBlocking {
@@ -73,39 +104,16 @@ class TransactionStepDefinition(
 
     @Then("^transaction (\\w+) is confirmed$")
     fun checkConfirmed(transactionShortId: String) {
-        checkConfirmed(transactionShortId, "THIS")
+        val expectedTransaction = PropertyHolder[Transaction::class.java, transactionShortId]
+        for (neighbour in PropertyHolder.getAll(Neighbour::class.java)) {
+            streamTransaction(neighbour, expectedTransaction.hash)
+        }
     }
 
     @Then("^transaction (\\w+) is confirmed for (\\w+) peer$")
     fun checkConfirmed(transactionShortId: String, shortId: String) {
         val expectedTransaction = PropertyHolder[Transaction::class.java, transactionShortId]
-
-        waitUntilNonNull {
-            getTransaction(shortId, expectedTransaction.hash)
-        }
-    }
-
-    @Then("^matching open or receive transaction for transaction (\\w+) is confirmed$")
-    fun checkMatchingConfirmed(transactionShortId: String) = runBlocking {
-        val sendTransaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
-        val sendBlock = sendTransaction.block as AttoSendBlock
-
-        val receiverPublicKey = sendBlock.receiverPublicKey
-
-        val neighbour = PropertyHolder[Neighbour::class.java, "THIS"]
-
-        webClient.get()
-            .uri(
-                "http://localhost:${neighbour.httpPort}/accounts/{publicKey}/transactions/stream?fromHeight=0",
-                receiverPublicKey
-            )
-            .retrieve()
-            .bodyToFlux<TransactionDTO>()
-            .map { it.toAttoTransaction() }
-            .filter { it.block is ReceiveSupportBlock }
-            .map { it.block as ReceiveSupportBlock }
-            .filter { it.sendHash == sendBlock.hash }
-            .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+        streamTransaction(PropertyHolder[Neighbour::class.java, shortId], expectedTransaction.hash)
     }
 
     private fun getAccount(neighbourShortId: String, publicKey: AttoPublicKey): AccountDTO? {
@@ -118,14 +126,13 @@ class TransactionStepDefinition(
             .block()
     }
 
-    private fun getTransaction(neighbourShortId: String, hash: AttoHash): TransactionDTO? {
-        val neighbour = PropertyHolder[Neighbour::class.java, neighbourShortId]
+    private fun streamTransaction(neighbour: Neighbour, hash: AttoHash): TransactionDTO? {
         return webClient.get()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}", hash.toString())
+            .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToMono<TransactionDTO>()
-            .block()
+            .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
     }
 
     private fun publish(neighbourShortId: String, transaction: Transaction) {

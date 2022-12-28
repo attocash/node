@@ -39,6 +39,13 @@ object PropertyHolder {
         return get(clazz, activeKey)
     }
 
+    fun getKeys(clazz: Class<*>): List<String> {
+        return properties.entries.asSequence()
+            .filter { clazz.isInstance(it.value) }
+            .map { it.key }
+            .toList()
+    }
+
     fun <T> getAll(clazz: Class<T>): List<T> {
         return properties.values.asSequence()
             .filter { clazz.isInstance(it) }
