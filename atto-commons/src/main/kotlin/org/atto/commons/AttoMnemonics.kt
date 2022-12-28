@@ -16,24 +16,16 @@ internal object AttoMnemonics {
         seedWithChecksum[byteArraySeed.size] = checksum(byteArraySeed)
         val checksumLength = seedLength / 32
         val mnemonicSentenceLength = (seedLength + checksumLength) / 11
-        return try {
-            val ret: MutableList<String> = ArrayList()
-            for (i in 0 until mnemonicSentenceLength) {
-                ret.add(language.getWord(next11Bits(seedWithChecksum, i * 11)))
-            }
-            ret
-        } finally {
-            seedWithChecksum.wipe()
+        val ret: MutableList<String> = ArrayList()
+        for (i in 0 until mnemonicSentenceLength) {
+            ret.add(language.getWord(next11Bits(seedWithChecksum, i * 11)))
         }
+        return ret
     }
 
     fun bip39ToSeed(mnemonic: List<String?>, language: AttoMnemonicLanguage): ByteArray {
         val seedWithChecksum = extractSeedWithChecksum(mnemonic, language)
-        return try {
-            extractSeed(seedWithChecksum)
-        } finally {
-            seedWithChecksum.wipe()
-        }
+        return extractSeed(seedWithChecksum)
     }
 
     fun isValid(mnemonic: List<String?>, language: AttoMnemonicLanguage): Boolean {
@@ -43,12 +35,7 @@ internal object AttoMnemonics {
         val seedWithChecksum = extractSeedWithChecksum(mnemonic, language)
         val seed = extractSeed(seedWithChecksum)
         val expectedChecksum = checksum(seed)
-        return try {
-            expectedChecksum == seedWithChecksum[seedWithChecksum.size - 1]
-        } finally {
-            seedWithChecksum.wipe()
-            seed.wipe()
-        }
+        return expectedChecksum == seedWithChecksum[seedWithChecksum.size - 1]
     }
 
     private fun extractSeedWithChecksum(mnemonic: List<String?>, language: AttoMnemonicLanguage): ByteArray {

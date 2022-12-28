@@ -22,6 +22,8 @@ class AttoByteBuffer {
         add(byteArray)
     }
 
+    constructor(hex: String) : this(hex.fromHexToByteArray())
+
     companion object {
         fun from(byteArray: ByteArray): AttoByteBuffer {
             return AttoByteBuffer(byteArray.size).add(byteArray)
@@ -53,6 +55,10 @@ class AttoByteBuffer {
         byteBuffer.get(0, byteArray)
 
         return byteArray
+    }
+
+    fun toHex(): String {
+        return toByteArray().toHex()
     }
 
     fun getByteArray(index: Int, length: Int): ByteArray {
@@ -164,6 +170,20 @@ class AttoByteBuffer {
     fun getInt(index: Int): Int {
         this.lastIndex = index + 4
         return byteBuffer.getInt(index)
+    }
+
+    fun add(uInt: UInt): AttoByteBuffer {
+        byteBuffer.putInt(uInt.toInt())
+        return this;
+    }
+
+    fun getUInt(): UInt {
+        return getUInt(lastIndex)
+    }
+
+    fun getUInt(index: Int): UInt {
+        this.lastIndex = index + 4
+        return byteBuffer.getInt(index).toUInt()
     }
 
     fun add(uLong: ULong): AttoByteBuffer {
@@ -295,16 +315,56 @@ class AttoByteBuffer {
         return InetSocketAddress(address, port)
     }
 
-    fun copy(): AttoByteBuffer {
-        return AttoByteBuffer(byteBuffer.duplicate().rewind())
-    }
-
     override fun toString(): String {
-        return "AttoByteBuffer(${toByteArray().toHex()})"
+        return "AttoByteBuffer(${this.toHex()})"
     }
 
 }
 
 fun ByteArray.toAttoByteBuffer(): AttoByteBuffer {
     return AttoByteBuffer(this)
+}
+
+fun String.fromHexToAttoByteBuffer(): AttoByteBuffer {
+    return AttoByteBuffer(this)
+}
+
+fun Instant.toByteArray(): ByteArray {
+    return AttoByteBuffer(8)
+        .add(this)
+        .toByteArray()
+}
+
+fun ByteArray.toInstant(): Instant {
+    return AttoByteBuffer(this).getInstant()
+}
+
+fun UShort.toByteArray(): ByteArray {
+    return AttoByteBuffer(2)
+        .add(this)
+        .toByteArray()
+}
+
+fun ByteArray.toUShort(): UShort {
+    return AttoByteBuffer(this).getUShort()
+}
+
+fun UInt.toByteArray(): ByteArray {
+    return AttoByteBuffer(4)
+        .add(this)
+        .toByteArray()
+}
+
+fun ByteArray.toUInt(): UInt {
+    return AttoByteBuffer(this).getUInt()
+}
+
+fun ULong.toByteArray(): ByteArray {
+    return AttoByteBuffer(8)
+        .add(this)
+        .toByteArray()
+}
+
+fun ByteArray.toULong(): ULong {
+    return AttoByteBuffer(this).getULong()
 }
