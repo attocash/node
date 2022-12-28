@@ -14,13 +14,10 @@ data class AttoAccount(
 ) {
 
     companion object {
-        fun open(publicKey: AttoPublicKey, representative: AttoPublicKey, sendBlock: AttoSendBlock): AttoOpenBlock {
-            if (sendBlock.receiverPublicKey != publicKey) {
-                throw IllegalArgumentException("You can't create an Open block for ${sendBlock.hash}")
-            }
+        fun open(representative: AttoPublicKey, sendBlock: AttoSendBlock): AttoOpenBlock {
             return AttoOpenBlock(
                 version = sendBlock.version,
-                publicKey = publicKey,
+                publicKey = sendBlock.receiverPublicKey,
                 balance = sendBlock.amount,
                 timestamp = Instant.now(),
                 sendHash = sendBlock.hash,
