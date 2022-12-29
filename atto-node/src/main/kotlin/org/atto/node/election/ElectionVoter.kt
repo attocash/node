@@ -3,6 +3,7 @@ package org.atto.node.election
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.atto.commons.*
 import org.atto.node.EventPublisher
@@ -10,8 +11,7 @@ import org.atto.node.account.Account
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
-import org.atto.node.transaction.PublicKeyHeight
-import org.atto.node.transaction.Transaction
+import org.atto.node.transaction.*
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
 import org.atto.node.vote.weight.VoteWeightService
@@ -30,12 +30,13 @@ class ElectionVoter(
     private val thisNode: AttoNode,
     private val privateKey: AttoPrivateKey,
     private val voteWeightService: VoteWeightService,
+    private val transactionRepository: TransactionRepository,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val defaultScope = CoroutineScope(Dispatchers.Default + CoroutineName("ElectionVoter"))
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("ElectionVoter"))
 
     private val minWeight = AttoAmount(1_000_000_000_000_000u)
 
@@ -99,6 +100,19 @@ class ElectionVoter(
     @Async
     fun process(event: ElectionExpired) {
         remove(event.transaction)
+    }
+
+    @EventListener
+    fun process(event: TransactionRejected) {
+        if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
+            return
+        }
+        ioScope.launch {
+            val transaction = event.transaction
+            if (transactionRepository.existsById(transaction.hash)) {
+                vote(transaction, AttoVoteSignature.finalTimestamp)
+            }
+        }
     }
 
     private fun vote(transaction: Transaction, timestamp: Instant) {

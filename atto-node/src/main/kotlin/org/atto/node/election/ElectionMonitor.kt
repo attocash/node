@@ -55,7 +55,5 @@ class ElectionMonitor(
                 transactionPush
             )
         )
-
-        //TODO: ask for votes
     }
 }

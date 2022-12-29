@@ -109,7 +109,10 @@ class TransactionController(
 
         val socketAddress = if (applicationProperties.useXForwardedFor) {
             if (ips.isEmpty()) {
-                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Forwarded-For is empty. Are you behind a tax?")
+                throw ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "X-Forwarded-For is empty. Are you behind a proxy?"
+                )
             }
             InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
         } else {
