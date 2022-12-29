@@ -38,6 +38,8 @@ class TransactionController(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    private val useXForwardedForKey = "X-FORWARDED-FOR"
+
 
     /**
      * There's a small chance that during subscription a client may miss the entry in the database and in the transaction
@@ -102,14 +104,19 @@ class TransactionController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction");
         }
 
+        val ips = request.headers[useXForwardedForKey] ?: listOf()
+        val remoteAddress = request.remoteAddress!!
+
         val socketAddress = if (applicationProperties.useXForwardedFor) {
-            val ips = request.headers["X-FORWARDED-FOR"] ?: listOf()
             if (ips.isEmpty()) {
-                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Forwarded-For is empty")
+                throw ResponseStatusException(HttpStatus.BAD_REQUEST, "X-Forwarded-For is empty. Are you behind a tax?")
             }
-            InetSocketAddress.createUnresolved(ips[0], request.remoteAddress!!.port)
+            InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
         } else {
-            request.remoteAddress!!
+            if (ips.isNotEmpty()) {
+                logger.debug { "Received a request with $useXForwardedForKey header" }
+            }
+            remoteAddress
         }
 
         messagePublisher.publish(
