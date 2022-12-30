@@ -1,9 +1,11 @@
 package org.atto.protocol
 
 import com.fasterxml.jackson.annotation.JsonIgnore
+import org.atto.commons.AttoByteBuffer
 import org.atto.commons.AttoNetwork
 import org.atto.commons.AttoPublicKey
 import java.net.InetSocketAddress
+import kotlin.math.min
 
 data class AttoNode(
     val network: AttoNetwork,
@@ -23,6 +25,29 @@ data class AttoNode(
     companion object {
         val maxFeaturesSize = 5
         val size = 56 + maxFeaturesSize
+
+        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoNode? {
+            if (byteBuffer.size < size) {
+                return null
+            }
+
+            val featuresSize = min(byteBuffer.getByte(55).toInt(), maxFeaturesSize)
+            val features = HashSet<NodeFeature>(featuresSize)
+            for (i in 0 until featuresSize) {
+                val feature = NodeFeature.from(byteBuffer.getUByte(56 + i))
+                if (feature != NodeFeature.UNKNOWN) {
+                    features.add(feature)
+                }
+            }
+
+            return AttoNode(
+                network = byteBuffer.getNetwork(0),
+                protocolVersion = byteBuffer.getUShort(),
+                publicKey = byteBuffer.getPublicKey(),
+                socketAddress = byteBuffer.getInetSocketAddress(),
+                features = features
+            )
+        }
     }
 
     @JsonIgnore
@@ -33,6 +58,24 @@ data class AttoNode(
     @JsonIgnore
     fun isHistorical(): Boolean {
         return features.contains(NodeFeature.HISTORICAL)
+    }
+
+    fun toByteBuffer(): AttoByteBuffer {
+        val byteBuffer = AttoByteBuffer(size)
+
+        byteBuffer
+            .add(network) // 3 [0..<3]
+            .add(protocolVersion) // 2 [3..<5]
+            .add(publicKey) // 32 [5..<37]
+            .add(socketAddress) // 16 ip + 2 port [37..<55]
+            .add(features.size.toByte()) // 1 [55..<56]
+
+        features.asSequence()
+            .map { it.code }
+            .sorted()
+            .forEach { byteBuffer.add(it) }
+
+        return byteBuffer
     }
 
     override fun equals(other: Any?): Boolean {

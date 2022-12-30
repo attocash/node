@@ -25,7 +25,7 @@ class AttoHandshakeAnswerCodec(val nodeCodec: AttoNodeCodec) : AttoMessageCodec<
         val node = nodeCodec.fromByteBuffer(byteBuffer.slice(64)) ?: return null
 
         return AttoHandshakeAnswer(
-            signature = byteBuffer.getSignature(0),
+            signature = byteBuffer.getSignature(0), // TODO: Move the signature to the last
             node = node
         )
     }

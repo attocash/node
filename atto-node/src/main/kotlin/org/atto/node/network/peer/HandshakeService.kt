@@ -3,7 +3,7 @@ package org.atto.node.network.peer
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
-import org.atto.commons.AttoHash
+import org.atto.commons.AttoHashes
 import org.atto.commons.AttoPrivateKey
 import org.atto.commons.sign
 import org.atto.node.CacheSupport
@@ -85,13 +85,9 @@ class HandshakeService(
 
     @EventListener
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
+        val hash = AttoHashes.hash(64, thisNode.toByteBuffer().toByteArray(), message.payload.value)
         val handshakeAnswer = AttoHandshakeAnswer(
-            signature = privateKey.sign(
-                AttoHash(
-                    message.payload.value,
-                    16
-                )
-            ), // TODO hash should be against the node as well
+            signature = privateKey.sign(hash),
             node = thisNode
         )
 
@@ -108,18 +104,20 @@ class HandshakeService(
 
         val challenge = challenges.getIfPresent(message.socketAddress)
         if (challenge == null) {
+            // TODO send event
             logger.warn { "Not requested handshake answer (or too old) was received from $node" }
             return
         }
 
         val publicKey = node.publicKey
 
-        // TODO: Signature should be against hash(challenge + node)
+        val hash = AttoHashes.hash(64, node.toByteBuffer().toByteArray(), challenge.value)
         if (!answer.signature.isValid(
                 publicKey,
-                AttoHash(challenge.value, 16)
+                hash
             )
-        ) {  // TODO hash should be against the node as well
+        ) {
+            // TODO send event
             logger.warn { "Invalid handshake answer was received $answer" }
             return
         }
