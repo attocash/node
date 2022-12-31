@@ -40,13 +40,13 @@ class HandshakeService(
         .build()
 
     @EventListener
-    fun add(peerEvent: PeerAddedEvent) {
+    fun add(peerEvent: PeerAdded) {
         peers[peerEvent.peer.connectionSocketAddress] = peerEvent.peer
         challenges.invalidate(peerEvent.peer.node.socketAddress)
     }
 
     @EventListener
-    fun remove(peerEvent: PeerRemovedEvent) {
+    fun remove(peerEvent: PeerRemoved) {
         peers.remove(peerEvent.peer.node.socketAddress)
     }
 
@@ -104,7 +104,8 @@ class HandshakeService(
 
         val challenge = challenges.getIfPresent(message.socketAddress)
         if (challenge == null) {
-            // TODO send event
+            val rejected = PeerRejected(PeerRejectionReason.UNKNOWN_HANDSHAKE, Peer(message.socketAddress, node))
+            eventPublisher.publish(rejected)
             logger.warn { "Not requested handshake answer (or too old) was received from $node" }
             return
         }
@@ -117,13 +118,13 @@ class HandshakeService(
                 hash
             )
         ) {
-            // TODO send event
+            val rejected = PeerRejected(PeerRejectionReason.INVALID_HANDSHAKE_ANSWER, Peer(message.socketAddress, node))
+            eventPublisher.publish(rejected)
             logger.warn { "Invalid handshake answer was received $answer" }
             return
         }
 
-        val peer = Peer(message.socketAddress, node)
-        eventPublisher.publish(PeerAddedEvent(peer))
+        eventPublisher.publish(PeerAdded(Peer(message.socketAddress, node)))
     }
 
     private fun isKnown(socketAddress: InetSocketAddress): Boolean {

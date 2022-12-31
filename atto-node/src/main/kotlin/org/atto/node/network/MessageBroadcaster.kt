@@ -4,8 +4,8 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.LoadingCache
 import org.atto.node.CacheSupport
 import org.atto.node.network.peer.Peer
-import org.atto.node.network.peer.PeerAddedEvent
-import org.atto.node.network.peer.PeerRemovedEvent
+import org.atto.node.network.peer.PeerAdded
+import org.atto.node.network.peer.PeerRemoved
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
@@ -34,7 +34,7 @@ class MessageBroadcaster(
         }
 
     @EventListener
-    fun add(peerEvent: PeerAddedEvent) {
+    fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers[peer.connectionSocketAddress] = peer
         if (peer.node.isVoter()) {
@@ -43,7 +43,7 @@ class MessageBroadcaster(
     }
 
     @EventListener
-    fun remove(peerEvent: PeerRemovedEvent) {
+    fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
         peers.remove(peer.connectionSocketAddress)
         if (peer.node.isVoter()) {

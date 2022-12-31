@@ -24,11 +24,11 @@ class PeerManager(
     private val peers: Cache<InetSocketAddress, Peer> = Caffeine.newBuilder()
         .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
         .removalListener { _: InetSocketAddress?, peer: Peer?, _ ->
-            peer?.let { eventPublisher.publish(PeerRemovedEvent(it)) }
+            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
         }.build()
 
     @EventListener
-    fun process(peerEvent: PeerAddedEvent) {
+    fun process(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers.put(peer.connectionSocketAddress, peer)
     }
