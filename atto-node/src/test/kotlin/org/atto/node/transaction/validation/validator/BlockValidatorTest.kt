@@ -9,7 +9,6 @@ import org.atto.protocol.AttoNode
 import org.atto.protocol.NodeFeature
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Disabled
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
 import java.net.InetSocketAddress
@@ -56,7 +55,6 @@ internal class BlockValidatorTest {
     private val validator = BlockValidator(node);
 
     @Test
-    @Disabled // TODO: Enable it when year is 2023
     fun `should validate`() = runBlocking {
         // when
         val violation = validator.validate(account, transaction)

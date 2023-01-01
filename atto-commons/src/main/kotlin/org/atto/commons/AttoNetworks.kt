@@ -26,10 +26,9 @@ enum class AttoNetwork(val environment: String, private val difficultReductionFa
      * Consider moving it AttoWorks
      */
     fun getThreshold(timestamp: Instant): ULong {
-        //TODO uncomment
-//        if (timestamp < INITIAL_INSTANT) {
-//            throw IllegalArgumentException("Timestamp($timestamp) lower than initialInstant($INITIAL_INSTANT)");
-//        }
+        if (timestamp < INITIAL_INSTANT) {
+            throw IllegalArgumentException("Timestamp($timestamp) lower than initialInstant($INITIAL_INSTANT)");
+        }
 
         val years = timestamp.atZone(ZoneOffset.UTC).year - INITIAL_DATE.year
         val increaseFactor = (2.0).pow(years / 2).toULong() + 1UL // the +1 is just until next year
