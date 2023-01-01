@@ -52,7 +52,7 @@ internal class ReceiveValidatorTest {
     val transaction = Transaction(
         block,
         privateKey.sign(block.hash),
-        AttoWorks.work(node.network, block.timestamp, block.hash)
+        AttoWorks.work(node.network, block.timestamp, block.previous)
     )
 
     @Test

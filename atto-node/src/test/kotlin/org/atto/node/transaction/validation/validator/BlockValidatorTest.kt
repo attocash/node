@@ -34,7 +34,7 @@ internal class BlockValidatorTest {
         balance = AttoAmount(0u),
         timestamp = account.lastTransactionTimestamp.plusSeconds(1),
         previous = account.lastTransactionHash,
-        receiverPublicKey = privateKey.toPublicKey(),
+        receiverPublicKey = AttoPublicKey(ByteArray(32)),
         amount = AttoAmount(100u),
     )
 
@@ -49,7 +49,7 @@ internal class BlockValidatorTest {
     val transaction = Transaction(
         block,
         privateKey.sign(block.hash),
-        AttoWorks.work(node.network, block.timestamp, block.hash)
+        AttoWorks.work(node.network, block.timestamp, block.previous)
     )
 
     private val validator = BlockValidator(node);
