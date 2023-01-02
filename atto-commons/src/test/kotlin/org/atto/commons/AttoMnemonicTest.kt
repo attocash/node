@@ -2,22 +2,38 @@ package org.atto.commons
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.assertThrows
 
 internal class AttoMnemonicTest {
-    private val expectedSeed =
-        AttoSeed("8FAB00B5EBFE073D5D8927345DEC6F397A49B73966A040148270EE97CA594341".fromHexToByteArray())
-    private val expectedMnemonic =
-        AttoMnemonic("moral fix coin subject there pact involve ceiling crowd urge bridge indicate pig swear tortoise staff divorce piano order tag lake coach artist denial")
 
     @Test
     fun `should create mnemonic`() {
+        // given
+        val expectedMnemonic =
+            AttoMnemonic("edge defense waste choose enrich upon flee junk siren film clown finish luggage leader kid quick brick print evidence swap drill paddle truly occur")
+
         // when
-        val mnemonic = expectedSeed.toMnemonic()
-        val seed = mnemonic.toSeed()
+        val entropy = expectedMnemonic.toEntropy()
+        val mnemonic = AttoMnemonic(entropy)
 
         // then
-        assertEquals(expectedMnemonic, mnemonic)
-        assertEquals(expectedSeed, seed)
+        assertEquals(expectedMnemonic.words.joinToString(" "), mnemonic.words.joinToString(" "))
+
+    }
+
+    @Test
+    fun `should throw exception when mnemonic has invalid size`() {
+        assertThrows<AttoMnemonicException> { AttoMnemonic("edge") }
+    }
+
+    @Test
+    fun `should throw exception when mnemonic has invalid word`() {
+        assertThrows<AttoMnemonicException> { AttoMnemonic("atto") }
+    }
+
+    @Test
+    fun `should throw exception when mnemonic has invalid checksum`() {
+        assertThrows<AttoMnemonicException> { AttoMnemonic("edge defense waste choose enrich upon flee junk siren film clown finish luggage leader kid quick brick print evidence swap drill paddle truly truly") }
     }
 
 }

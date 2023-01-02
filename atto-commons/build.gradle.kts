@@ -12,7 +12,6 @@ repositories {
 
 dependencies {
     implementation("org.bouncycastle:bcprov-jdk18on:1.72")
-    implementation("org.bitcoinj:bitcoinj-core:0.16.2")
     compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.14.1")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.1")
 }
