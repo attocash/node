@@ -73,6 +73,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: TransactionSaved) = runBlocking(singleDispatcher) {
         val hash = event.transaction.hash
 
@@ -87,6 +88,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpired) = runBlocking(singleDispatcher) {
         val hash = event.transaction.hash
         activeElections.remove(hash)

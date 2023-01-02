@@ -82,6 +82,7 @@ class VotePrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: TransactionSaved) {
         activeElections.remove(event.transaction.hash)
     }
