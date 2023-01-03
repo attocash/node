@@ -25,7 +25,7 @@ logging:
     org.atto: TRACE
     org.atto.node.network: TRACE
     io.r2dbc.h2: INFO
-    org.springframework.boot.autoconfigure: DEBUG
+    org.springframework.boot.autoconfigure: INFO
 
 management:
   endpoints:

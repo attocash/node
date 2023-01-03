@@ -11,6 +11,7 @@ import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
 import org.atto.protocol.vote.AttoVotePush
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
@@ -50,6 +51,7 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     }
 
     @EventListener
+    @Async
     fun process(event: VoteValidated) {
         val holder = holderMap[event.vote.signature]
         /**

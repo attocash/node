@@ -5,14 +5,13 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
 internal class AttoAddressesTest {
-    private val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
-    private val expectedAccount = AttoAddress("atto_33jppf5rfij877axrtp1q41j76wpynfccbgdowuxrh6x5hm9zezkgb9iiywf")
+    private val expectedAccount = AttoAddress("atto_3iwi45me3cgo9aza9wx5f7rder37hw11xtc1ek8psqxw5oxb8cujzue6p7nc")
 
     @Test
     fun `should create account`() {
         // given
-        val privateKey = seed.toPrivateKey(0u)
-        val publicKey = privateKey.toPublicKey()
+        val publicKey =
+            AttoPublicKey("C39010E6C0A9D53A3E83F3A36970B660257F000EE940648D6CDFBC1D7A932B71".fromHexToByteArray())
 
         // when
         val account = publicKey.toAddress()
@@ -24,8 +23,8 @@ internal class AttoAddressesTest {
     @Test
     fun `should create public key from account when hex starts with zero`() {
         // given
-        val byteArray = "094870F534550D3E468AE385BF653BAFCEA889E4AFCABF6D69E155CF99BE6764".fromHexToByteArray()
-        val expectedPublicKey = AttoPublicKey(byteArray)
+        val expectedPublicKey =
+            AttoPublicKey("094870F534550D3E468AE385BF653BAFCEA889E4AFCABF6D69E155CF99BE6764".fromHexToByteArray())
 
         // when
         val publicKey = expectedPublicKey.toAddress().toPublicKey()

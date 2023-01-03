@@ -10,7 +10,7 @@ import java.time.Instant
 import kotlin.random.Random
 
 internal class AttoVoteCodecTest {
-    val privateKey = AttoSeeds.generateSeed().toPrivateKey(0u)
+    val privateKey = AttoPrivateKey("0".repeat(64).fromHexToByteArray())
 
     val codec = AttoVoteCodec(AttoSignatureCodec())
 

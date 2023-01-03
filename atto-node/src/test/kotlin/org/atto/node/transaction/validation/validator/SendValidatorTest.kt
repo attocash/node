@@ -15,8 +15,7 @@ import java.net.InetSocketAddress
 import kotlin.random.Random
 
 internal class SendValidatorTest {
-    val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
-    val privateKey = seed.toPrivateKey(0u)
+    val privateKey = AttoPrivateKey.generate()
 
     val account = Account(
         publicKey = privateKey.toPublicKey(),

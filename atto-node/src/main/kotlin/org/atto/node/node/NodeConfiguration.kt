@@ -2,9 +2,7 @@ package org.atto.node.node
 
 import mu.KotlinLogging
 import org.atto.commons.AttoPrivateKey
-import org.atto.commons.AttoSeeds
 import org.atto.commons.toHex
-import org.atto.commons.toPrivateKey
 import org.atto.protocol.AttoNode
 import org.atto.protocol.NodeFeature
 import org.springframework.context.annotation.Bean
@@ -20,8 +18,8 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
         if (privateKey != null) {
             return privateKey
         }
-        val temporaryPrivateKey = AttoSeeds.generateSeed().toPrivateKey(0u)
-        logger.info { "No private key configured. Created temporary private key ${temporaryPrivateKey.value.toHex()}" }
+        val temporaryPrivateKey = AttoPrivateKey.generate()
+        logger.info { "No private key configured. Created TEMPORARY private key ${temporaryPrivateKey.value.toHex()}" }
         return temporaryPrivateKey
     }
 

@@ -13,5 +13,5 @@ fun String.fromHexToByteArray(): ByteArray {
 }
 
 fun ByteArray.checkLength(size: Int) {
-    require(this.size == size) { "Byte array contains just ${this.size} but should contains have $size" }
+    require(this.size == size) { "Byte array contains ${this.size} characters but should contains $size" }
 }

@@ -4,6 +4,7 @@ import org.bouncycastle.crypto.digests.SHA256Digest
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.nio.file.Paths
+import java.security.SecureRandom
 
 
 private val fileLocation = AttoMnemonic::class.java.classLoader.getResource("mnemonics/english.txt")!!
@@ -88,6 +89,15 @@ class AttoMnemonic {
             }
         }
         this.words = words.toList()
+    }
+
+    companion object {
+        fun generate(): AttoMnemonic {
+            val random = SecureRandom.getInstanceStrong()
+            val entropy = ByteArray(33)
+            random.nextBytes(entropy)
+            return AttoMnemonic(entropy)
+        }
     }
 
     fun toEntropy(): ByteArray {

@@ -22,6 +22,11 @@ internal class AttoMnemonicTest {
     }
 
     @Test
+    fun `should generate mnemonic`() {
+        AttoMnemonic.generate()
+    }
+
+    @Test
     fun `should throw exception when mnemonic has invalid size`() {
         assertThrows<AttoMnemonicException> { AttoMnemonic("edge") }
     }

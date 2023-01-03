@@ -35,7 +35,7 @@ class NodeStepDefinition(
             val builderInstance = springApplicationBuilder.getConstructor(applicationClass::class.java)
                 .newInstance(applicationClass)
 
-            val privateKey = AttoSeeds.generateSeed().toPrivateKey(0U)
+            val privateKey = AttoPrivateKey.generate()
 
             val args = arrayOf(
                 "--spring.application.name=neighbour-atto-node-$shortId",

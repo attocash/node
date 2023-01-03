@@ -5,12 +5,11 @@ import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
 internal class AttoSignaturesTest {
-    private val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
-    private val privateKey = seed.toPrivateKey(0u)
+    private val privateKey = AttoPrivateKey("00".repeat(32).fromHexToByteArray())
     private val publicKey = privateKey.toPublicKey()
     private val hash = AttoHash("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
     private val expectedSignature =
-        AttoSignature("624329512A3433895673A6A2C5179199D4DE014049E60AB19319847C626B0997A06C0DC9AF79F624925C2B1F05F42E40CDDCBC5B403CE339E2768DB953E09201".fromHexToByteArray())
+        AttoSignature("3DA1EBDFA96EDD181DBE3659D1C051C431F056A5AD6A97A60D5CCA10460438783546461E31285FC59F91C7072642745061E2451D5FF33BCCD8C3C74DABCAF60A".fromHexToByteArray())
 
 
     @Test

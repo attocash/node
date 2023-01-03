@@ -24,8 +24,7 @@ internal class AttoBlockTest {
     }
 
     companion object {
-        val seed = AttoSeed("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
-        val privateKey = seed.toPrivateKey(0u)
+        val privateKey = AttoPrivateKey("00".repeat(32).fromHexToByteArray())
 
         @JvmStatic
         fun validBlockProvider(): Stream<Arguments> {

@@ -9,8 +9,7 @@ import kotlin.random.Random
 
 
 internal class AttoTransactionCodecTest {
-    val seed = AttoSeed("1234567890123456789012345678901234567890123456789012345678901234".fromHexToByteArray())
-    val privateKey = seed.toPrivateKey(0u)
+    val privateKey = AttoPrivateKey("00".repeat(32).fromHexToByteArray())
 
     val codec = AttoTransactionCodec(AttoNetwork.LOCAL)
 

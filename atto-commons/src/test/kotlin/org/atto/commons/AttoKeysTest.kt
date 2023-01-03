@@ -8,28 +8,31 @@ internal class AttoKeysTest {
     @Test
     fun shouldCreatePrivateKey() {
         // given
-        val byteArray = "0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray()
-        val seed = AttoSeed(byteArray)
+        val mnemonic =
+            AttoMnemonic("edge defense waste choose enrich upon flee junk siren film clown finish luggage leader kid quick brick print evidence swap drill paddle truly occur")
+        val seed = mnemonic.toSeed("some password")
 
         // when
         val privateKey = AttoKeys.toPrivateKey(seed, 0u)
 
         // then
-        val expectedPrivateKey = "9F0E444C69F77A49BD0BE89DB92C38FE713E0963165CCA12FAF5712D7657120F"
+        val expectedPrivateKey = "38FDB3EBF6B34965FFEE18583B597808B56CDA98B074405A30152E2296616B3A"
         assertEquals(expectedPrivateKey, privateKey.value.toHex())
     }
 
     @Test
     fun shouldCreatePublicKey() {
         // given
-        val byteArray = "0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray()
-        val privateKey = AttoPrivateKey(byteArray)
+        val mnemonic =
+            AttoMnemonic("edge defense waste choose enrich upon flee junk siren film clown finish luggage leader kid quick brick print evidence swap drill paddle truly occur")
+        val seed = mnemonic.toSeed("some password")
+        val privateKey = seed.toPrivateKey(0U)
 
         // when
         val publicKey = privateKey.toPublicKey()
 
         // then
-        val expectedPublicKey = "3B6A27BCCEB6A42D62A3A8D02A6F0D73653215771DE243A63AC048A18B59DA29"
+        val expectedPublicKey = "9979705D9F9588F46667697329947688E5FFC4DF36F5D0C6A4E29D023E7BF2CE"
         assertEquals(expectedPublicKey, publicKey.value.toHex())
     }
 }
