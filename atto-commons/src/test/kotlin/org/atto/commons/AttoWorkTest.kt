@@ -7,7 +7,7 @@ import java.time.LocalTime
 import java.time.OffsetDateTime
 import java.time.ZoneOffset
 
-internal class AttoWorksTest {
+internal class AttoWorkTest {
     private val hash = AttoHash("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())
 
     @Test

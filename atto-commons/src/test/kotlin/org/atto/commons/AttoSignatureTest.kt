@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.*
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-internal class AttoSignaturesTest {
+internal class AttoSignatureTest {
     private val privateKey = AttoPrivateKey("00".repeat(32).fromHexToByteArray())
     private val publicKey = privateKey.toPublicKey()
     private val hash = AttoHash("0000000000000000000000000000000000000000000000000000000000000000".fromHexToByteArray())

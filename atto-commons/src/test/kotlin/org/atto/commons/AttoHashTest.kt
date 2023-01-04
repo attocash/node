@@ -3,7 +3,7 @@ package org.atto.commons
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 
-internal class AttoHashesTest {
+internal class AttoHashTest {
 
     @Test
     fun test() {

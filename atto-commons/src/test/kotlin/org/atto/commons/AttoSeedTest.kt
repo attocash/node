@@ -4,7 +4,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 
-internal class AttoSeedsTest {
+internal class AttoSeedTest {
 
     @Test
     fun `should crete seed from mnemonic`() {
