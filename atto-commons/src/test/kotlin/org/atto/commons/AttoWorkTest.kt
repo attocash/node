@@ -14,8 +14,8 @@ internal class AttoWorkTest {
     fun `should perform work`() {
         val network = AttoNetwork.LOCAL
         val timestamp = AttoNetwork.INITIAL_INSTANT
-        val work = AttoWorks.work(network, timestamp, hash)
-        assertTrue(AttoWorks.isValid(network, timestamp, hash, work))
+        val work = AttoWork.work(network, timestamp, hash)
+        assertTrue(AttoWork.isValid(network, timestamp, hash, work))
     }
 
     @Test

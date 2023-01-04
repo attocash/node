@@ -47,7 +47,7 @@ internal class ChangeValidatorTest {
     val transaction = Transaction(
         block,
         privateKey.sign(block.hash),
-        AttoWorks.work(node.network, block.timestamp, block.previous)
+        AttoWork.work(node.network, block.timestamp, block.previous)
     )
 
     private val validator = ChangeValidator();
