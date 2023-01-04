@@ -69,7 +69,7 @@ class AttoByteBuffer {
     }
 
     fun toHash(): AttoHash {
-        return AttoHashes.hash(32, toByteArray())
+        return AttoHash.hash(32, toByteArray())
     }
 
     fun add(attoHash: AttoHash): AttoByteBuffer {

@@ -121,7 +121,7 @@ class ElectionVoter(
             return
         }
 
-        val voteHash = AttoHashes.hash(32, transaction.hash.value, timestamp.toByteArray())
+        val voteHash = AttoHash.hash(32, transaction.hash.value, timestamp.toByteArray())
         val voteSignature = AttoVoteSignature(
             timestamp = timestamp,
             publicKey = thisNode.publicKey,

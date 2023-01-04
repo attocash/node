@@ -56,7 +56,7 @@ data class AttoVote(
             return false
         }
 
-        val voteHash = AttoHashes.hash(32, hash.value, signature.timestamp.toByteArray())
+        val voteHash = AttoHash.hash(32, hash.value, signature.timestamp.toByteArray())
         return signature.signature.isValid(signature.publicKey, voteHash)
     }
 }

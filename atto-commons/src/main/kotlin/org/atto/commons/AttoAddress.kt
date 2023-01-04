@@ -12,7 +12,7 @@ value class AttoAddress(val value: String) {
         private val prefix = "atto_"
         private val regex = "^${prefix}[13][13456789abcdefghijkmnopqrstuwxyz]{59}$".toRegex()
         private fun checksum(publicKey: AttoPublicKey): AttoHash {
-            return AttoHashes.hash(5, publicKey.value)
+            return AttoHash.hash(5, publicKey.value)
         }
 
         private fun toPublicKey(account: String): AttoPublicKey {

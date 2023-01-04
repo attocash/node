@@ -38,7 +38,7 @@ object AttoWorks {
     }
 
     private fun isValid(network: AttoNetwork, timestamp: Instant, hash: ByteArray, work: ByteArray): Boolean {
-        val difficult = AttoHashes.hash(8, work, hash).value.toULong()
+        val difficult = AttoHash.hash(8, work, hash).value.toULong()
         return difficult >= network.getThreshold(timestamp)
     }
 
