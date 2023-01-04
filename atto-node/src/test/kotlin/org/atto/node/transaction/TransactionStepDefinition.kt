@@ -95,8 +95,6 @@ class TransactionStepDefinition(
             work = AttoWork.Companion.work(thisNode.network, changeBlock.timestamp, account.lastTransactionHash),
         )
 
-        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
-
         publish(shortId, changeTransaction)
 
         PropertyHolder.add(transactionShortId, changeTransaction)
