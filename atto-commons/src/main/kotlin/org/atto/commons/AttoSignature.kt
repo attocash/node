@@ -4,32 +4,19 @@ import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.Ed25519PublicKeyParameters
 import org.bouncycastle.crypto.signers.Ed25519Signer
 
-object AttoSignatures {
-
-    fun sign(privateKey: AttoPrivateKey, hash: AttoHash): AttoSignature {
-        val parameters = Ed25519PrivateKeyParameters(privateKey.value, 0)
-        val signer = Ed25519Signer()
-        signer.init(true, parameters)
-        signer.update(hash.value, 0, hash.value.size)
-        return AttoSignature(signer.generateSignature())
-    }
-
-    fun isValid(publicKey: AttoPublicKey, signature: AttoSignature, hash: AttoHash): Boolean {
-        val parameters = Ed25519PublicKeyParameters(publicKey.value, 0)
-        val signer = Ed25519Signer()
-        signer.init(false, parameters)
-        signer.update(hash.value, 0, hash.value.size)
-        return signer.verifySignature(signature.value)
-    }
-
-}
-
 data class AttoSignature(val value: ByteArray) {
     companion object {
         val size = 64
-
         fun parse(value: String): AttoSignature {
             return AttoSignature(value.fromHexToByteArray())
+        }
+
+        fun sign(privateKey: AttoPrivateKey, hash: AttoHash): AttoSignature {
+            val parameters = Ed25519PrivateKeyParameters(privateKey.value, 0)
+            val signer = Ed25519Signer()
+            signer.init(true, parameters)
+            signer.update(hash.value, 0, hash.value.size)
+            return AttoSignature(signer.generateSignature())
         }
     }
 
@@ -38,7 +25,11 @@ data class AttoSignature(val value: ByteArray) {
     }
 
     fun isValid(publicKey: AttoPublicKey, hash: AttoHash): Boolean {
-        return AttoSignatures.isValid(publicKey, this, hash)
+        val parameters = Ed25519PublicKeyParameters(publicKey.value, 0)
+        val signer = Ed25519Signer()
+        signer.init(false, parameters)
+        signer.update(hash.value, 0, hash.value.size)
+        return signer.verifySignature(value)
     }
 
     override fun equals(other: Any?): Boolean {
@@ -63,5 +54,5 @@ data class AttoSignature(val value: ByteArray) {
 }
 
 fun AttoPrivateKey.sign(hash: AttoHash): AttoSignature {
-    return AttoSignatures.sign(this, hash)
+    return AttoSignature.sign(this, hash)
 }
