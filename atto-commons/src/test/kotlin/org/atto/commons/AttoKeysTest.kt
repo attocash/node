@@ -13,7 +13,7 @@ internal class AttoKeysTest {
         val seed = mnemonic.toSeed("some password")
 
         // when
-        val privateKey = AttoKeys.toPrivateKey(seed, 0u)
+        val privateKey = seed.toPrivateKey(0U)
 
         // then
         val expectedPrivateKey = "38FDB3EBF6B34965FFEE18583B597808B56CDA98B074405A30152E2296616B3A"

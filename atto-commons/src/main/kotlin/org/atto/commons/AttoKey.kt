@@ -3,6 +3,7 @@ package org.atto.commons
 
 import org.bouncycastle.crypto.digests.SHA512Digest
 import org.bouncycastle.crypto.macs.HMac
+import org.bouncycastle.crypto.params.Ed25519PrivateKeyParameters
 import org.bouncycastle.crypto.params.KeyParameter
 import org.bouncycastle.math.ec.rfc8032.Ed25519
 import java.nio.ByteBuffer
@@ -38,7 +39,7 @@ private class AttoBIP44(val key: ByteArray, val keyParameter: KeyParameter) {
 
 
     companion object {
-        fun ed25519(seed: AttoSeed, path: String): AttoPrivateKey {
+        fun ed25519(seed: AttoSeed, path: String): ByteArray {
             val hmacSha512 = HMac(SHA512Digest())
 
             hmacSha512.init(KeyParameter("ed25519 seed".toByteArray(StandardCharsets.UTF_8)))
@@ -59,24 +60,9 @@ private class AttoBIP44(val key: ByteArray, val keyParameter: KeyParameter) {
                 bip44 = bip44.derive(v)
             }
 
-            return AttoPrivateKey(bip44.key)
+            return bip44.key
         }
     }
-}
-
-object AttoKeys {
-    private val coinType = 1869902945 // "atto".toByteArray().toUInt()
-
-    fun toPrivateKey(seed: AttoSeed, index: UInt): AttoPrivateKey {
-        return AttoBIP44.ed25519(seed, "m/44'/${coinType}'/${index}'")
-    }
-
-    fun toPublicKey(privateKey: AttoPrivateKey): AttoPublicKey {
-        val value = ByteArray(Ed25519.PUBLIC_KEY_SIZE)
-        Ed25519.generatePublicKey(privateKey.value, 0, value, 0)
-        return AttoPublicKey(value)
-    }
-
 }
 
 class AttoPrivateKey(val value: ByteArray) {
@@ -84,7 +70,10 @@ class AttoPrivateKey(val value: ByteArray) {
         value.checkLength(32)
     }
 
+    constructor(seed: AttoSeed, index: UInt) : this(AttoBIP44.ed25519(seed, "m/44'/${coinType}'/${index}'"))
+
     companion object {
+        private val coinType = 1869902945 // "atto".toByteArray().toUInt()
         fun generate(): AttoPrivateKey {
             val random = SecureRandom.getInstanceStrong()
             val value = ByteArray(32)
@@ -94,7 +83,7 @@ class AttoPrivateKey(val value: ByteArray) {
     }
 
     fun toPublicKey(): AttoPublicKey {
-        return AttoKeys.toPublicKey(this)
+        return AttoPublicKey(this)
     }
 
     override fun toString(): String {
@@ -107,6 +96,13 @@ data class AttoPublicKey(val value: ByteArray) {
     init {
         value.checkLength(32)
     }
+
+    constructor(privateKey: AttoPrivateKey) : this(
+        Ed25519PrivateKeyParameters(
+            privateKey.value,
+            0
+        ).generatePublicKey().encoded
+    )
 
     companion object {
         fun parse(value: String): AttoPublicKey {
@@ -135,5 +131,5 @@ data class AttoPublicKey(val value: ByteArray) {
 }
 
 fun AttoSeed.toPrivateKey(index: UInt): AttoPrivateKey {
-    return AttoKeys.toPrivateKey(this, index)
+    return AttoPrivateKey(this, index)
 }
