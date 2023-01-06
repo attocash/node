@@ -83,6 +83,8 @@ value class AttoAddress(val value: String) {
         }
     }
 
+    constructor(publicKey: AttoPublicKey) : this(toAddress(publicKey))
+
     companion object {
         private val prefix = "atto_"
         private val regex = "^${prefix}[13][13456789abcdefghijkmnopqrstuwxyz]{59}$".toRegex()
@@ -90,8 +92,8 @@ value class AttoAddress(val value: String) {
             return AttoHash.hash(5, publicKey.value)
         }
 
-        private fun toPublicKey(account: String): AttoPublicKey {
-            val encodedPublicKey: String = account.substring(5, 57)
+        private fun toPublicKey(value: String): AttoPublicKey {
+            val encodedPublicKey: String = value.substring(5, 57)
             return AttoPublicKey(decode(encodedPublicKey, 64))
         }
 
@@ -105,12 +107,12 @@ value class AttoAddress(val value: String) {
             return expectedEncodedChecksum == encodedChecksum
         }
 
-        fun toAddress(publicKey: AttoPublicKey): AttoAddress {
+        fun toAddress(publicKey: AttoPublicKey): String {
             val checksum = checksum(publicKey)
 
             val encodedPublicKey = encode(publicKey.value, 260)
             val encodedChecksum = encode(checksum.value, checksum.size * 8)
-            return AttoAddress(prefix + encodedPublicKey + encodedChecksum)
+            return prefix + encodedPublicKey + encodedChecksum
         }
 
         fun parse(value: String): AttoAddress {
@@ -128,5 +130,5 @@ value class AttoAddress(val value: String) {
 }
 
 fun AttoPublicKey.toAddress(): AttoAddress {
-    return AttoAddress.toAddress(this)
+    return AttoAddress(this)
 }
