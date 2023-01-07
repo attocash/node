@@ -68,7 +68,8 @@ data class TransactionValidated(
 ) : Event
 
 data class TransactionSaved(
-    val account: Account,
+    val previousAccount: Account,
+    val updatedAccount: Account,
     val transaction: Transaction
 ) : Event
 

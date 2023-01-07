@@ -34,10 +34,10 @@ class ElectionMonitor(
             val transaction = event.transaction
             val votes = event.votes
 
-            transactionService.save(transaction)
+            val response = transactionService.save(transaction)
             voteService.saveAll(votes)
 
-            eventPublisher.publish(TransactionSaved(account, transaction))
+            eventPublisher.publish(TransactionSaved(account, response.account, transaction))
         }
     }
 

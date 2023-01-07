@@ -2,6 +2,7 @@ package org.atto.node.account
 
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.AttoAccount
 import org.atto.commons.AttoAmount
@@ -9,9 +10,12 @@ import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.node.EventPublisher
 import org.atto.node.network.NetworkMessagePublisher
+import org.atto.node.transaction.TransactionSaved
 import org.atto.protocol.AttoNode
+import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
+import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
 import java.math.BigInteger
 import java.time.Instant
@@ -37,6 +41,12 @@ class AccountController(
     private val accountPublisher = MutableSharedFlow<Account>(100_000)
     private val accountFlow = accountPublisher.asSharedFlow()
 
+    @EventListener
+    @Async
+    fun process(transactionSaved: TransactionSaved) = runBlocking {
+        accountPublisher.emit(transactionSaved.updatedAccount)
+    }
+
     @GetMapping("/{publicKey}")
     @Operation(description = "Get account")
     suspend fun get(@PathVariable publicKey: AttoPublicKey): ResponseEntity<Account> {
@@ -46,7 +56,10 @@ class AccountController(
 
     @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(description = "Stream account unsorted. Duplicates may happen")
-    suspend fun stream(@PathVariable publicKey: AttoPublicKey): Flow<Account> {
+    suspend fun stream(
+        @PathVariable publicKey: AttoPublicKey,
+        @RequestParam(defaultValue = "0") fromHeight: Long
+    ): Flow<Account> {
         val accountDatabaseFlow = flow {
             val account = repository.findById(publicKey)
             if (account != null) {
@@ -57,6 +70,7 @@ class AccountController(
             .filter { it.publicKey == publicKey }
 
         return merge(accountFlow, accountDatabaseFlow)
+            .filter { it.height >= fromHeight.toULong() }
             .onStart { logger.trace { "Started to stream $publicKey account" } }
     }
 }
