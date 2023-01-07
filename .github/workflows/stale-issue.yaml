@@ -1,10 +1,11 @@
-name: Stale Pull Request
+name: Stale Issue
 on:
   schedule:
     - cron: "0 0 * * *"
 
 jobs:
-  close-issues:
+  stale:
+    name: Stale
     runs-on: ubuntu-latest
     permissions:
       issues: write
