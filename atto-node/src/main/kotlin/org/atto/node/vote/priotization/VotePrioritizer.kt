@@ -163,7 +163,7 @@ class VotePrioritizer(
     }
 
     private fun validate(vote: Vote): VoteRejectionReason? {
-        if (vote.weight == AttoAmount.min) {
+        if (vote.weight == AttoAmount.MIN) {
             return VoteRejectionReason.INVALID_VOTING_WEIGHT
         }
 

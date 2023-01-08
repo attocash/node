@@ -211,7 +211,7 @@ data class AttoReceiveBlock(
 
     @JsonIgnore
     override fun isValid(): Boolean {
-        return super.isValid() && height > 1u && balance > AttoAmount.min
+        return super.isValid() && height > 1u && balance > AttoAmount.MIN
     }
 }
 

@@ -33,7 +33,7 @@ internal class AttoByteBufferTest {
         val expectedBlockType = AttoBlockType.SEND
         buffer.add(expectedBlockType)
 
-        val expectedAmount = AttoAmount.max
+        val expectedAmount = AttoAmount.MAX
         buffer.add(expectedAmount)
 
         val expectedSignature = AttoSignature(Random.Default.nextBytes(ByteArray(64)))

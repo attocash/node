@@ -18,7 +18,6 @@ import org.atto.node.transaction.TransactionValidated
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
 import org.atto.node.vote.weight.VoteWeightService
-import org.flywaydb.core.Flyway
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
@@ -104,11 +103,11 @@ class Election(
 
         val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
 
-        if (isObserving(transaction) && weighter.isAgreementAbove(minimalConfirmationWeight)) {
+        if (isObserving(transaction) && weighter.totalWeight() >= minimalConfirmationWeight) {
             eventPublisher.publish(ElectionConsensusReached(weighter.account, weighter.transaction))
         }
 
-        if (isObserving(transaction) && weighter.isFinalAbove(minimalConfirmationWeight)) {
+        if (isObserving(transaction) && weighter.totalFinalWeight() >= minimalConfirmationWeight) {
             stopObserving(transaction)
 
             val votes = weighter.votes.values.filter { it.isFinal() }
@@ -185,26 +184,18 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
     internal fun totalWeight(): AttoAmount {
         return votes.values.asSequence()
             .map { it.weight }
-            .fold(AttoAmount.min) { a1, a2 -> a1 + a2 }
+            .fold(AttoAmount.MIN) { a1, a2 -> a1 + a2 }
     }
 
     internal fun totalFinalWeight(): AttoAmount {
         return votes.values.asSequence()
             .filter { it.isFinal() }
             .map { it.weight }
-            .fold(AttoAmount.min) { a1, a2 -> a1 + a2 }
+            .fold(AttoAmount.MIN) { a1, a2 -> a1 + a2 }
     }
 
     internal fun remove(vote: Vote): Vote? {
         return votes.remove(vote.publicKey)
-    }
-
-    internal fun isAgreementAbove(weight: AttoAmount): Boolean {
-        return totalWeight().raw >= weight.raw
-    }
-
-    internal fun isFinalAbove(weight: AttoAmount): Boolean {
-        return totalFinalWeight().raw >= weight.raw
     }
 }
 

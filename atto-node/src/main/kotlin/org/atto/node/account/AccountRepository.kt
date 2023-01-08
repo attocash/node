@@ -24,7 +24,7 @@ interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, A
             version = 0u,
             height = 0u,
             representative = AttoPublicKey(ByteArray(32)),
-            balance = AttoAmount.min,
+            balance = AttoAmount.MIN,
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = Instant.MIN
         )

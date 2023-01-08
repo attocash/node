@@ -33,7 +33,7 @@ class TransactionConfiguration {
         val block = AttoOpenBlock(
             version = 0u,
             publicKey = privateKey.toPublicKey(),
-            balance = AttoAmount.max,
+            balance = AttoAmount.MAX,
             timestamp = Instant.now(),
             sendHash = AttoHash(ByteArray(32)),
             representative = privateKey.toPublicKey(),

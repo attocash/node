@@ -142,7 +142,7 @@ internal class AttoBlockTest {
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
-                        balance = AttoAmount.min,  // invalid
+                        balance = AttoAmount.MIN,  // invalid
                         timestamp = Instant.now(),
                         previous = AttoHash(ByteArray(32)),
                         sendHash = AttoHash(ByteArray(32))

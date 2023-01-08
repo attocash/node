@@ -75,7 +75,7 @@ class VoteWeightService(
         } else if (block is AttoSendBlock) {
             subtract(account.representative, block.amount, block.balance)
         } else if (block is AttoChangeBlock) {
-            subtract(account.representative, block.balance, AttoAmount.min)
+            subtract(account.representative, block.balance, AttoAmount.MIN)
             add(block.representative, block.balance, block.balance)
         }
 
@@ -107,7 +107,7 @@ class VoteWeightService(
     }
 
     fun get(publicKey: AttoPublicKey): AttoAmount {
-        return weightMap[publicKey] ?: AttoAmount.min
+        return weightMap[publicKey] ?: AttoAmount.MIN
     }
 
     fun get(): AttoAmount {

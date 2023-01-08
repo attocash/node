@@ -18,9 +18,9 @@ value class AttoAmount(val raw: ULong) : Comparable<AttoAmount> {
 
     companion object {
         private val MAX_RAW = 18_000_000_000_000_000_000UL
-        val max = AttoAmount(MAX_RAW)
+        val MAX = AttoAmount(MAX_RAW)
         private val MIN_RAW = 0UL
-        val min = AttoAmount(MIN_RAW)
+        val MIN = AttoAmount(MIN_RAW)
 
         fun from(unit: AttoUnit, bigDecimal: BigDecimal): AttoAmount {
             return bigDecimal.multiply(unit.multiplier).toAttoAmount()

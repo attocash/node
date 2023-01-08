@@ -33,7 +33,7 @@ internal class AttoAmountTest {
     @Test
     fun overflow() {
         try {
-            AttoAmount.max + AttoAmount.max
+            AttoAmount.MAX + AttoAmount.MAX
         } catch (e: IllegalStateException) {
             assertEquals("ULong overflow", e.message)
         }
@@ -42,7 +42,7 @@ internal class AttoAmountTest {
     @Test
     fun underflow() {
         try {
-            AttoAmount.min - AttoAmount.max
+            AttoAmount.MIN - AttoAmount.MAX
         } catch (e: IllegalStateException) {
             assertEquals("ULong underflow", e.message)
         }
@@ -51,7 +51,7 @@ internal class AttoAmountTest {
     @Test
     fun aboveMaxAmount() {
         try {
-            AttoAmount.max + AttoAmount(1U)
+            AttoAmount.MAX + AttoAmount(1U)
         } catch (e: IllegalStateException) {
             assertEquals("18000000000000000001 exceeds the max amount of 18000000000000000000", e.message)
         }
