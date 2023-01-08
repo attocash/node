@@ -5,6 +5,7 @@ import org.atto.commons.AttoOpenBlock
 import org.atto.commons.AttoSendBlock
 import org.atto.commons.ReceiveSupportBlock
 import org.atto.commons.RepresentativeSupportBlock
+import org.atto.node.EventPublisher
 import org.atto.node.account.Account
 import org.atto.node.account.AccountRepository
 import org.atto.node.account.AccountService
@@ -19,25 +20,25 @@ class TransactionService(
     private val accountService: AccountService,
     private val receivableService: ReceivableService,
     private val transactionRepository: TransactionRepository,
+    private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(transaction: Transaction): SaveResponse {
+    suspend fun save(transaction: Transaction) {
         val block = transaction.block
 
-        val account = getAccount(transaction)
-        account.version = block.version
-        account.height = block.height
-        account.balance = block.balance
-        account.lastTransactionHash = block.hash
-        account.lastTransactionTimestamp = block.timestamp
+        val previousAccount = getAccount(transaction)
+        val updatedAccount = previousAccount.copy(
+            version = block.version,
+            height = block.height,
+            balance = block.balance,
+            lastTransactionHash = block.hash,
+            lastTransactionTimestamp = block.timestamp,
+            representative = if (block is RepresentativeSupportBlock) block.representative else previousAccount.representative
+        )
 
-        if (block is RepresentativeSupportBlock) {
-            account.representative = block.representative
-        }
-
-        accountService.save(account)
+        accountService.save(updatedAccount)
         transactionRepository.save(transaction)
         logger.debug { "Saved $transaction" }
 
@@ -52,7 +53,8 @@ class TransactionService(
             receivableService.delete(block.sendHash)
         }
 
-        return SaveResponse(account, transaction)
+
+        eventPublisher.publish(TransactionSaved(updatedAccount, updatedAccount, transaction))
     }
 
     private suspend fun getAccount(transaction: Transaction): Account {
@@ -71,5 +73,3 @@ class TransactionService(
         return accountRepository.findById(transaction.publicKey)!!
     }
 }
-
-data class SaveResponse(val account: Account, val transaction: Transaction)

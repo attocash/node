@@ -5,11 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
-import org.atto.node.EventPublisher
 import org.atto.node.network.BroadcastNetworkMessage
 import org.atto.node.network.BroadcastStrategy
 import org.atto.node.network.NetworkMessagePublisher
-import org.atto.node.transaction.TransactionSaved
 import org.atto.node.transaction.TransactionService
 import org.atto.node.vote.VoteService
 import org.atto.protocol.transaction.AttoTransactionPush
@@ -19,7 +17,6 @@ import org.springframework.stereotype.Service
 @Service
 class ElectionMonitor(
     private val messagePublisher: NetworkMessagePublisher,
-    private val eventPublisher: EventPublisher,
     private val transactionService: TransactionService,
     private val voteService: VoteService,
 ) {
@@ -34,10 +31,8 @@ class ElectionMonitor(
             val transaction = event.transaction
             val votes = event.votes
 
-            val response = transactionService.save(transaction)
+            transactionService.save(transaction)
             voteService.saveAll(votes)
-
-            eventPublisher.publish(TransactionSaved(account, response.account, transaction))
         }
     }
 
