@@ -59,6 +59,10 @@ logging:
   level:
     org.atto: INFO
 
+server:
+  tcp:
+    port: 8315
+
 management:
   server:
     port: 8081

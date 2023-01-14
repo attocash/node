@@ -24,14 +24,15 @@ data class InboundNetworkMessage<T : AttoMessage>(
     override val payload: T
 ) : NetworkMessage<T>
 
-enum class BroadcastStrategy(val percentage: Int) {
-    EVERYONE(100),
-    VOTERS(100),
+enum class BroadcastStrategy {
+    EVERYONE,
+    VOTERS,
+//    HISTORICAL,
 }
 
 data class BroadcastNetworkMessage<T : AttoMessage>(
     val strategy: BroadcastStrategy,
-    val exceptions: Set<InetSocketAddress>,
+    val exceptions: Set<InetSocketAddress> = setOf(),
     override val payload: T,
 ) : NetworkMessage<T>
 

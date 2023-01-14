@@ -10,9 +10,9 @@ import org.atto.commons.toHex
 import org.atto.commons.toUShort
 import org.atto.node.CacheSupport
 import org.atto.node.network.codec.MessageCodecManager
-import org.atto.protocol.AttoNode
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.event.EventListener
+import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit
 
 @Service
 class NetworkProcessor(
-    val thisNode: AttoNode,
     val codecManager: MessageCodecManager,
     val publisher: NetworkMessagePublisher,
+    val environment: Environment,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -47,10 +47,12 @@ class NetworkProcessor(
         .expireAfterWrite(60, TimeUnit.SECONDS)
         .build()
 
+    val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
+
     private val server = TcpServer.create()
-        .port(thisNode.socketAddress.port)
+        .port(port)
         .doOnBind {
-            logger.info { "TCP started on ${thisNode.socketAddress.port} port" }
+            logger.info { "TCP started on ${port} port" }
         }
         .doOnConnection {
             val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
@@ -132,9 +134,6 @@ class NetworkProcessor(
         socketAddress: InetSocketAddress,
         byteArray: ByteArray
     ): AttoMessage? {
-//        AttoContextHolder.put("socketAddress", socketAddress)
-
-//        try {
         val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
 
         if (message == null) {
@@ -146,9 +145,6 @@ class NetworkProcessor(
         logger.trace { "Deserialized $message from ${byteArray.toHex()}" }
 
         return message
-//        } finally {
-//            AttoContextHolder.clear()
-//        }
     }
 
     /**

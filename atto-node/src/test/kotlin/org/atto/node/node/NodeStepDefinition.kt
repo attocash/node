@@ -42,6 +42,7 @@ class NodeStepDefinition(
                 "--server.port=$httpPort",
                 "--management.server.port=",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
+                "--server.tcp.port=${tcpPort}",
                 "--ATTO_DB_NAME=atto-neighbour${shortId}",
                 "--atto.node.private-key=${privateKey.value.toHex()}",
                 "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",

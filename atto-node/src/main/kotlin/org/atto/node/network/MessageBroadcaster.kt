@@ -9,8 +9,15 @@ import org.atto.node.network.peer.PeerRemoved
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
+import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+
+
+private val random = Random()
+private fun <T> randomSublist(list: List<T>, size: Int): List<T> {
+    return (1..size).map { list[random.nextInt(list.size)] }
+}
 
 @Component
 class MessageBroadcaster(
@@ -22,14 +29,21 @@ class MessageBroadcaster(
 
     private val peersByStrategy: LoadingCache<BroadcastStrategy, Collection<Peer>> = Caffeine.newBuilder()
         .expireAfterAccess(networkBroadcasterProperties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
-        .build {
-            when (it!!) {
+        .build { strategy ->
+            when (strategy) {
                 BroadcastStrategy.EVERYONE -> {
                     peers.values
                 }
                 BroadcastStrategy.VOTERS -> {
-                    voters.values
+                    voters.values.filter { it.node.isVoter() }
                 }
+//                BroadcastStrategy.HISTORICAL -> {
+//                    val peers = voters.values.asSequence()
+//                        .filter { it.node.isHistorical() }
+//                        .toList()
+//
+//                    randomSublist(peers, 1)
+//                }
             }
         }
 

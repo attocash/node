@@ -20,8 +20,10 @@ data class Vote(
     val timestamp: Instant,
     @Id
     val signature: AttoSignature,
-    val receivedTimestamp: Instant,
     val weight: AttoAmount,
+
+    val receivedAt: Instant = Instant.now(),
+    val persistedAt: Instant? = null,
 ) {
 
     companion object {
@@ -31,7 +33,6 @@ data class Vote(
                 publicKey = attoVote.signature.publicKey,
                 timestamp = attoVote.signature.timestamp,
                 signature = attoVote.signature.signature,
-                receivedTimestamp = Instant.now(),
                 weight = weight,
             )
         }
@@ -70,7 +71,7 @@ data class VoteValidated(
 ) : Event
 
 enum class VoteDropReason {
-    SUPERSEDED, NO_ELECTION
+    SUPERSEDED, NO_ELECTION, TRANSACTION_DROPPED
 }
 
 data class VoteDropped(

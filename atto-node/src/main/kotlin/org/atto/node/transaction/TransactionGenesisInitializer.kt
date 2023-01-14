@@ -4,9 +4,10 @@ import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.AttoOpenBlock
+import org.atto.node.receivable.Receivable
+import org.atto.node.receivable.ReceivableService
 import org.atto.protocol.AttoNode
 import org.springframework.context.annotation.DependsOn
-import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 import java.time.Instant
 
@@ -16,6 +17,7 @@ class TransactionGenesisInitializer(
     val thisNode: AttoNode,
     val genesisTransaction: Transaction,
     val transactionService: TransactionService,
+    val receivableService: ReceivableService,
     val transactionRepository: TransactionRepository,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -32,6 +34,14 @@ class TransactionGenesisInitializer(
                 work = genesisTransaction.work,
                 receivedAt = Instant.now(),
             )
+
+            val receivable = Receivable(
+                hash = block.sendHash,
+                receiverPublicKey = block.publicKey,
+                amount = block.balance
+            )
+
+            receivableService.save(receivable)
 
             transactionService.save(transaction)
 

@@ -34,21 +34,20 @@ class TransactionValidationManager(
         ioScope.launch {
             val transaction = event.transaction
             val account = accountRepository.getByPublicKey(transaction.block.publicKey)
-            validate(account, event.transaction)
+            val violation = validate(account, event.transaction)
+            if (violation != null) {
+                logger.debug { "${violation.reason} ${violation.message}: $transaction" }
+                eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
+            } else {
+                eventPublisher.publish(TransactionValidated(account, transaction))
+            }
         }
     }
 
-    private suspend fun validate(account: Account, transaction: Transaction) {
-        val violation = validators.asFlow()
+    suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+        return validators.asFlow()
             .filter { it.supports(transaction) }
             .mapNotNull { it.validate(account, transaction) }
             .firstOrNull()
-
-        if (violation != null) {
-            logger.debug { "${violation.reason} ${violation.message}: $transaction" }
-            eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
-        } else {
-            eventPublisher.publish(TransactionValidated(account, transaction))
-        }
     }
 }

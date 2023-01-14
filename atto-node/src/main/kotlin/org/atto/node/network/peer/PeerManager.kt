@@ -1,6 +1,5 @@
 package org.atto.node.network.peer
 
-import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
@@ -21,11 +20,12 @@ class PeerManager(
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
 ) : CacheSupport {
-    private val peers: Cache<InetSocketAddress, Peer> = Caffeine.newBuilder()
+    private val peers = Caffeine.newBuilder()
         .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
         .removalListener { _: InetSocketAddress?, peer: Peer?, _ ->
             peer?.let { eventPublisher.publish(PeerRemoved(it)) }
-        }.build()
+        }.build<InetSocketAddress, Peer>()
+        .asMap()
 
     @EventListener
     fun process(peerEvent: PeerAdded) {
@@ -35,7 +35,7 @@ class PeerManager(
 
     @EventListener
     fun process(message: InboundNetworkMessage<AttoKeepAlive>) {
-        peers.asMap().compute(message.socketAddress) { _, value -> value } // refresh cache
+        peers.compute(message.socketAddress) { _, value -> value } // refresh cache
 
         message.payload.neighbours.forEach { handshakeService.startHandshake(it) }
     }
@@ -44,17 +44,17 @@ class PeerManager(
     fun sendKeepAlive() {
         val peerSample = peerSample()
 
-        peers.asMap().keys.forEach {
+        peers.keys.forEach {
             messagePublisher.publish(OutboundNetworkMessage(it, AttoKeepAlive(peerSample)))
         }
     }
 
     fun getPeers(): List<Peer> {
-        return peers.asMap().values.toList()
+        return peers.values.toList()
     }
 
     private fun peerSample(): List<InetSocketAddress> {
-        return peers.asMap().values.asSequence()
+        return peers.values.asSequence()
             .map { it.node.socketAddress }
             .shuffled()
             .take(8)
@@ -62,6 +62,6 @@ class PeerManager(
     }
 
     override fun clear() {
-        peers.invalidateAll()
+        peers.clear()
     }
 }

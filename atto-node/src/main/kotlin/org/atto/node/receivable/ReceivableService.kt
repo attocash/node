@@ -14,7 +14,8 @@ class ReceivableService(private val receivableRepository: ReceivableRepository) 
     }
 
     suspend fun delete(hash: AttoHash) {
-        receivableRepository.deleteById(hash)
+        val receivable = receivableRepository.findById(hash)!!
+        receivableRepository.delete(receivable)
         logger.debug { "Deleted receivable $hash" }
     }
 }

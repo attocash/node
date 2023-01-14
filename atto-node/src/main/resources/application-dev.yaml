@@ -1,7 +1,6 @@
 atto:
   node:
     network: LOCAL
-    publicAddress: localhost:8312
   peer:
     defaultNodes:
       - peering.beta.atto.money:8312

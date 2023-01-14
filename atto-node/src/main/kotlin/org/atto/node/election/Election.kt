@@ -145,7 +145,7 @@ class Election(
         }
     }
 
-    @Scheduled(cron = "0 0/1 * * * * *")
+    @Scheduled(cron = "0 0/1 * * * *")
     fun stopObservingStaled() {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 

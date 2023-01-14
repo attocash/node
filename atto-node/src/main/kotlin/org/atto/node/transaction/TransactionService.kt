@@ -25,7 +25,7 @@ class TransactionService(
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(transaction: Transaction) {
+    suspend fun save(transaction: Transaction): SaveTransactionResponse {
         val block = transaction.block
 
         val previousAccount = getAccount(transaction)
@@ -53,8 +53,9 @@ class TransactionService(
             receivableService.delete(block.sendHash)
         }
 
-
         eventPublisher.publish(TransactionSaved(updatedAccount, updatedAccount, transaction))
+
+        return SaveTransactionResponse(updatedAccount, updatedAccount, transaction)
     }
 
     private suspend fun getAccount(transaction: Transaction): Account {
@@ -73,3 +74,9 @@ class TransactionService(
         return accountRepository.findById(transaction.publicKey)!!
     }
 }
+
+data class SaveTransactionResponse(
+    val previousAccount: Account,
+    val updatedAccount: Account,
+    val transaction: Transaction
+)
