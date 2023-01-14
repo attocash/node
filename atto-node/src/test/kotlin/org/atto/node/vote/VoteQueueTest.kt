@@ -48,7 +48,6 @@ internal class VoteQueueTest {
             hash = AttoHash(Random.nextBytes(ByteArray(32))),
             timestamp = Instant.now(),
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            receivedTimestamp = Instant.now(),
             weight = AttoAmount(weight)
         )
     }

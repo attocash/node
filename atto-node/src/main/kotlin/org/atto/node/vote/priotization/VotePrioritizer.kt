@@ -15,6 +15,7 @@ import org.atto.node.EventPublisher
 import org.atto.node.election.ElectionExpired
 import org.atto.node.election.ElectionStarted
 import org.atto.node.transaction.Transaction
+import org.atto.node.transaction.TransactionRejected
 import org.atto.node.transaction.TransactionSaved
 import org.atto.node.vote.*
 import org.springframework.context.event.EventListener
@@ -40,10 +41,15 @@ class VotePrioritizer(
 
     private val duplicateDetector = DuplicateDetector<AttoSignature>()
 
+    private val rejectedTransactionCache = Caffeine.newBuilder()
+        .maximumSize(10_000)
+        .build<AttoHash, AttoHash>()
+        .asMap()
+
     private val voteBuffer: MutableMap<AttoHash, MutableMap<AttoPublicKey, Vote>> = Caffeine.newBuilder()
-        .maximumWeight(properties.cacheMaxSize!!.toLong())
+        .maximumWeight(10_000)
         .weigher { _: AttoHash, v: MutableMap<AttoPublicKey, Vote> -> v.size }
-        .removalListener { _: AttoHash?, votes: MutableMap<AttoPublicKey, Vote>?, _ ->
+        .evictionListener { _: AttoHash?, votes: MutableMap<AttoPublicKey, Vote>?, _ ->
             votes?.values?.forEach {
                 eventPublisher.publish(VoteDropped(it, VoteDropReason.NO_ELECTION))
             }
@@ -66,9 +72,8 @@ class VotePrioritizer(
 
         activeElections[transaction.hash] = transaction
 
-        val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
-
         runBlocking(singleDispatcher) {
+            val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
             votes.forEach {
                 logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
                 add(it)
@@ -77,8 +82,14 @@ class VotePrioritizer(
     }
 
     @EventListener
-    fun process(event: ElectionExpired) {
-        activeElections.remove(event.transaction.hash)
+    @Async
+    fun process(event: TransactionRejected) {
+        val hash = event.transaction.hash
+        rejectedTransactionCache[hash] = hash // TODO: I'm here
+        val votes = voteBuffer.remove(hash)
+        votes?.values?.forEach {
+            eventPublisher.publish(VoteDropped(it, VoteDropReason.TRANSACTION_DROPPED))
+        }
     }
 
     @EventListener
@@ -88,11 +99,26 @@ class VotePrioritizer(
     }
 
     @EventListener
+    fun process(event: ElectionExpired) {
+        activeElections.remove(event.transaction.hash)
+    }
+
+    @EventListener
     fun add(event: VoteReceived) {
         val vote = event.vote
 
         if (duplicateDetector.isDuplicate(vote.signature)) {
             logger.trace { "Ignored duplicated $vote" }
+            return
+        }
+        val rejectionReason = validate(vote)
+        if (rejectionReason != null) {
+            eventPublisher.publish(VoteRejected(rejectionReason, vote))
+            return
+        }
+
+        if (rejectedTransactionCache.contains(vote.hash)) {
+            eventPublisher.publish(VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED))
             return
         }
 
@@ -143,13 +169,7 @@ class VotePrioritizer(
                     val transaction = transactionVote.transaction
                     val vote = transactionVote.vote
 
-                    val rejectionReason = validate(vote)
-
-                    if (rejectionReason != null) {
-                        eventPublisher.publish(VoteRejected(rejectionReason, vote))
-                    } else {
-                        eventPublisher.publish(VoteValidated(transaction, vote))
-                    }
+                    eventPublisher.publish(VoteValidated(transaction, vote))
                 } else {
                     delay(100)
                 }

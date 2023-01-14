@@ -53,7 +53,7 @@ class VoteWeightService(
     fun listen(event: VoteValidated) {
         val vote = event.vote
         latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
-            if (previousHashVote == null || vote.receivedTimestamp > previousHashVote.receivedTimestamp) {
+            if (previousHashVote == null || vote.timestamp > previousHashVote.timestamp) {
                 vote
             } else {
                 previousHashVote
