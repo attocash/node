@@ -10,6 +10,8 @@ import org.atto.commons.toHex
 import org.atto.commons.toUShort
 import org.atto.node.CacheSupport
 import org.atto.node.network.codec.MessageCodecManager
+import org.atto.node.network.peer.PeerAdded
+import org.atto.node.network.peer.PeerRemoved
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -21,6 +23,7 @@ import reactor.netty.tcp.TcpClient
 import reactor.netty.tcp.TcpServer
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.SocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -30,7 +33,7 @@ import java.util.concurrent.TimeUnit
 class NetworkProcessor(
     val codecManager: MessageCodecManager,
     val publisher: NetworkMessagePublisher,
-    val environment: Environment,
+    environment: Environment,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -43,11 +46,11 @@ class NetworkProcessor(
     private val outboundMap = ConcurrentHashMap<InetSocketAddress, Sinks.Many<OutboundNetworkMessage<*>>>()
 
     // Avoid event infinity loop when neighbour instantly disconnects
-    var disconnectionCache: Cache<InetAddress, InetAddress> = Caffeine.newBuilder()
+    private val disconnectionCache: Cache<InetAddress, InetAddress> = Caffeine.newBuilder()
         .expireAfterWrite(60, TimeUnit.SECONDS)
         .build()
 
-    val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
+    private val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
 
     private val server = TcpServer.create()
         .port(port)
@@ -64,6 +67,18 @@ class NetworkProcessor(
     @PreDestroy
     fun preDestroy() {
         server.disposeNow()
+    }
+
+    private val peers = ConcurrentHashMap.newKeySet<SocketAddress>()
+
+    @EventListener
+    fun add(peerEvent: PeerAdded) {
+        peers.add(peerEvent.peer.connectionSocketAddress)
+    }
+
+    @EventListener
+    fun remove(peerEvent: PeerRemoved) {
+        peers.remove(peerEvent.peer.connectionSocketAddress)
     }
 
     @EventListener
@@ -111,7 +126,7 @@ class NetworkProcessor(
 
         val outboundMessages = outbound.asFlux()
             .map { serialize(it.payload) }
-            .filter { whenBelowMaxMessageSize(it) }
+            .filter { isBelowMaxMessageSize(it) }
             .onBackpressureBuffer(maxOutboundBuffer)
             .doOnNext { logger.debug { "Sent to $socketAddress ${it.toHex()}" } }
 
@@ -136,7 +151,7 @@ class NetworkProcessor(
     ): AttoMessage? {
         val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
 
-        if (message == null) {
+        if (message == null || !message.messageType().public && !peers.contains(socketAddress)) {
             logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
             disconnect(socketAddress)
             return message
@@ -150,7 +165,7 @@ class NetworkProcessor(
     /**
      * Just sanity test to avoid produce invalid data
      */
-    private fun whenBelowMaxMessageSize(byteArray: ByteArray): Boolean {
+    private fun isBelowMaxMessageSize(byteArray: ByteArray): Boolean {
         if (byteArray.size - 8 > maxMessageSize) {
             logger.error { "Message longer than max size: ${byteArray.toHex()}" }
             return false
