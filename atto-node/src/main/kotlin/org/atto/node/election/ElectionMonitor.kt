@@ -12,6 +12,7 @@ import org.atto.node.transaction.TransactionService
 import org.atto.node.vote.VoteService
 import org.atto.protocol.transaction.AttoTransactionPush
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -25,6 +26,7 @@ class ElectionMonitor(
     val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("ElectionMonitor"))
 
     @EventListener
+    @Async
     fun process(event: ElectionFinished) {
         ioScope.launch {
             val account = event.account
@@ -37,6 +39,7 @@ class ElectionMonitor(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpiring) {
         val transaction = event.transaction
         val transactionPush = AttoTransactionPush(transaction.toAttoTransaction())

@@ -40,19 +40,21 @@ class HandshakeService(
         .build()
 
     @EventListener
+    @Async
     fun add(peerEvent: PeerAdded) {
-        peers[peerEvent.peer.connectionSocketAddress] = peerEvent.peer
+        peers[peerEvent.peer.node.socketAddress] = peerEvent.peer
         challenges.invalidate(peerEvent.peer.node.socketAddress)
     }
 
     @EventListener
+    @Async
     fun remove(peerEvent: PeerRemoved) {
         peers.remove(peerEvent.peer.node.socketAddress)
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
     fun startDefaultHandshake() {
-        if (peers.count() > properties.defaultNodes.size) {
+        if (peers.size > properties.defaultNodes.size) {
             return
         }
 
@@ -84,6 +86,7 @@ class HandshakeService(
 
 
     @EventListener
+    @Async
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val hash = AttoHash.hash(64, thisNode.toByteBuffer().toByteArray(), message.payload.value)
         val handshakeAnswer = AttoHandshakeAnswer(

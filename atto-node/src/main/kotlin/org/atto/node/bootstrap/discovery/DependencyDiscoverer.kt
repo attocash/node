@@ -7,6 +7,8 @@ import mu.KotlinLogging
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
+import org.atto.node.EventPublisher
+import org.atto.node.bootstrap.TransactionDiscovered
 import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionRejected
 import org.atto.node.transaction.TransactionRejectionReason
@@ -20,13 +22,12 @@ import org.springframework.stereotype.Component
 
 @Component
 class DependencyDiscoverer(
-    converters: List<DependencyProcessor>,
     private val voteWeightService: VoteWeightService,
+    private val eventPublisher: EventPublisher
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val converterMap = converters.associateBy { it.type() }
-    private val transactionHolderMap = FixedSizeHashMap<AttoHash, TransactionHolder>(10_000)
+    private val transactionHolderMap = FixedSizeHashMap<AttoHash, TransactionHolder>(50_000)
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
@@ -35,7 +36,7 @@ class DependencyDiscoverer(
     @Async
     fun process(event: TransactionRejected) {
         val reason = event.reason
-        if (!converterMap.contains(reason)) {
+        if (!reason.recoverable) {
             return
         }
 
@@ -50,17 +51,19 @@ class DependencyDiscoverer(
 
     @EventListener
     @Async
-    fun process(event: VoteDropped) = runBlocking(singleDispatcher) {
+    fun process(event: VoteDropped) {
         if (event.reason != VoteDropReason.TRANSACTION_DROPPED) {
-            return@runBlocking
+            return
         }
 
         val hash = event.vote.hash
-        val holder = transactionHolderMap[hash] ?: return@runBlocking
+        val holder = runBlocking(singleDispatcher) {
+            transactionHolderMap[hash]
+        } ?: return
 
         val vote = event.vote
         if (!vote.isFinal()) {
-            return@runBlocking
+            return
         }
         holder.add(vote)
 
@@ -68,8 +71,13 @@ class DependencyDiscoverer(
         val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
         if (weight >= minimalConfirmationWeight) {
             transactionHolderMap.remove(hash)
-            val processor = converterMap[holder.reason]!!
-            processor.process(holder.transaction, holder.votes.values.toList())
+            eventPublisher.publish(
+                TransactionDiscovered(
+                    holder.reason,
+                    holder.transaction,
+                    holder.votes.values.toList()
+                )
+            )
         }
     }
 }

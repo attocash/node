@@ -88,7 +88,7 @@ internal class ReceiveValidatorTest {
         val violation = validator.validate(account, transaction)
 
         // then
-        assertEquals(TransactionRejectionReason.SEND_NOT_FOUND, violation?.reason)
+        assertEquals(TransactionRejectionReason.RECEIVABLE_NOT_FOUND, violation?.reason)
     }
 
 

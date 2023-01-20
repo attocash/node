@@ -83,11 +83,8 @@ enum class TransactionRejectionReason(val recoverable: Boolean) {
     INVALID_VERSION(false),
     INVALID_PREVIOUS(false),
     INVALID_REPRESENTATIVE(false),
-    ACCOUNT_NOT_FOUND(true),
     PREVIOUS_NOT_FOUND(true),
-    SEND_NOT_FOUND(true),
-    SEND_NOT_CONFIRMED(true),
-    SEND_ALREADY_USED(false),
+    RECEIVABLE_NOT_FOUND(true),
     OLD_TRANSACTION(false),
 }
 

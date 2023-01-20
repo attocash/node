@@ -22,7 +22,14 @@ interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>
     )
     suspend fun findLastByPublicKey(publicKey: AttoPublicKey): Transaction?
 
-    @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight")
-    suspend fun find(publicKey: AttoPublicKey, fromHeight: ULong): Flow<Transaction>
+    @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight ORDER BY height ASC")
+    suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong): Flow<Transaction>
+
+    @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC")
+    suspend fun findDesc(
+        publicKey: AttoPublicKey,
+        fromHeight: ULong,
+        toHeight: ULong
+    ): Flow<Transaction>
 
 }

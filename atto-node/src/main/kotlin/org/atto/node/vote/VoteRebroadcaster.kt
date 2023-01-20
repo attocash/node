@@ -38,6 +38,7 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     private val voteQueue = PriorityQueue<VoteHolder>()
 
     @EventListener
+    @Async
     fun process(event: VoteReceived) {
         val vote = event.vote
 
@@ -66,12 +67,14 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     }
 
     @EventListener
+    @Async
     fun process(event: VoteRejected) {
         holderMap.remove(event.vote.signature)
         logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.vote}" }
     }
 
     @EventListener
+    @Async
     fun process(event: VoteDropped) {
         holderMap.remove(event.vote.signature)
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
@@ -81,7 +84,7 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct
     fun start() {
-        job = GlobalScope.launch(CoroutineName("vote-rebroadcaster")) {
+        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
             while (isActive) {
                 val voteHolder = withContext(singleDispatcher) {
                     voteQueue.poll()

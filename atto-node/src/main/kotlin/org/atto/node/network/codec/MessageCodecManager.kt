@@ -45,7 +45,7 @@ class MessageCodecManager(val thisNode: AttoNode, codecs: List<AttoMessageCodec<
             return null
         }
 
-        val size = byteBuffer.getUByte().toInt()
+        val size = byteBuffer.getUShort().toInt()
 
         if (size != byteBuffer.size - 8) {
             return null
@@ -63,7 +63,7 @@ class MessageCodecManager(val thisNode: AttoNode, codecs: List<AttoMessageCodec<
             .add(thisNode.network)
             .add(thisNode.protocolVersion)
             .add(t.messageType())
-            .add(byteBuffer.size.toShort())
+            .add(byteBuffer.size.toUShort())
             .add(byteBuffer)
     }
 }

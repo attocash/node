@@ -103,6 +103,7 @@ class ElectionVoter(
     }
 
     @EventListener
+    @Async
     fun process(event: TransactionRejected) {
         if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
             return

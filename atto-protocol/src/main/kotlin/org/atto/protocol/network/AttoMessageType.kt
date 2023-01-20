@@ -7,8 +7,10 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
     TRANSACTION_PUSH(3u, false),
     TRANSACTION_REQUEST(4u, false),
     TRANSACTION_RESPONSE(5u, false),
-    VOTE_REQUEST(7u, false),
-    VOTE_PUSH(8u, false),
+    TRANSACTION_STREAM_REQUEST(6u, false),
+    TRANSACTION_STREAM_RESPONSE(7u, false),
+    VOTE_REQUEST(8u, false),
+    VOTE_PUSH(9u, false),
 
     UNKNOWN(UByte.MAX_VALUE, false);
 

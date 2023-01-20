@@ -1,5 +1,6 @@
 package org.atto.node.network
 
+import mu.KotlinLogging
 import org.atto.protocol.network.AttoMessage
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.ResolvableType
@@ -38,8 +39,9 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
 
 @Component
 class NetworkMessagePublisher(private val publisher: ApplicationEventPublisher) {
-
+    private val logger = KotlinLogging.logger {}
     fun publish(message: NetworkMessage<*>) {
+        logger.trace { "$message" }
         publisher.publishEvent(message)
     }
 

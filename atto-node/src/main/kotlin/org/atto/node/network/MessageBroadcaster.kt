@@ -7,6 +7,7 @@ import org.atto.node.network.peer.Peer
 import org.atto.node.network.peer.PeerAdded
 import org.atto.node.network.peer.PeerRemoved
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.util.*
@@ -48,6 +49,7 @@ class MessageBroadcaster(
         }
 
     @EventListener
+    @Async
     fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers[peer.connectionSocketAddress] = peer
@@ -57,6 +59,7 @@ class MessageBroadcaster(
     }
 
     @EventListener
+    @Async
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
         peers.remove(peer.connectionSocketAddress)
@@ -66,6 +69,7 @@ class MessageBroadcaster(
     }
 
     @EventListener
+    @Async
     fun broadcast(event: BroadcastNetworkMessage<*>) {
         peersByStrategy[event.strategy]!!.asSequence()
             .map { it.connectionSocketAddress }

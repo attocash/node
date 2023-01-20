@@ -85,7 +85,7 @@ class VotePrioritizer(
     @Async
     fun process(event: TransactionRejected) {
         val hash = event.transaction.hash
-        rejectedTransactionCache[hash] = hash // TODO: I'm here
+        rejectedTransactionCache[hash] = hash
         val votes = voteBuffer.remove(hash)
         votes?.values?.forEach {
             eventPublisher.publish(VoteDropped(it, VoteDropReason.TRANSACTION_DROPPED))
@@ -99,11 +99,13 @@ class VotePrioritizer(
     }
 
     @EventListener
+    @Async
     fun process(event: ElectionExpired) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
+    @Async
     fun add(event: VoteReceived) {
         val vote = event.vote
 
@@ -159,7 +161,7 @@ class VotePrioritizer(
     @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct
     fun start() {
-        job = GlobalScope.launch(CoroutineName("vote-prioritizer")) {
+        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
             while (isActive) {
                 val transactionVote = withContext(singleDispatcher) {
                     queue.poll()

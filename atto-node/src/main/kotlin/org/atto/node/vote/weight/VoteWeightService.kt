@@ -13,6 +13,7 @@ import org.atto.node.vote.VoteValidated
 import org.atto.protocol.AttoNode
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.lang.Integer.min
@@ -50,6 +51,7 @@ class VoteWeightService(
     }
 
     @EventListener
+    @Async
     fun listen(event: VoteValidated) {
         val vote = event.vote
         latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
@@ -62,6 +64,7 @@ class VoteWeightService(
     }
 
     @EventListener
+    @Async
     fun listen(event: ElectionFinished) {
         val account = event.account
         val transaction = event.transaction
@@ -79,7 +82,7 @@ class VoteWeightService(
             add(block.representative, block.balance, block.balance)
         }
 
-        logger.debug { "Weight updated $weightMap" }
+        logger.trace { "Weight updated $weightMap" }
     }
 
     private fun add(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {

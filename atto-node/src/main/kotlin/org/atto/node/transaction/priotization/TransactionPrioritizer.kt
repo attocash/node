@@ -38,7 +38,7 @@ class TransactionPrioritizer(
     @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct
     fun start() {
-        job = GlobalScope.launch(CoroutineName("transaction-prioritizer")) {
+        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
             while (isActive) {
                 val transaction = withContext(singleDispatcher) {
                     queue.poll()

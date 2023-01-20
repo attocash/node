@@ -1,13 +1,11 @@
-package org.atto.node.bootstrap.unchecked
+package org.atto.node.bootstrap.discovery
 
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.ReceiveSupportBlock
-import org.atto.node.bootstrap.discovery.DependencyProcessor
+import org.atto.node.EventPublisher
+import org.atto.node.bootstrap.TransactionDiscovered
+import org.atto.node.bootstrap.TransactionStuck
 import org.atto.node.network.*
 import org.atto.node.network.peer.PeerAdded
 import org.atto.node.network.peer.PeerRemoved
@@ -18,41 +16,58 @@ import org.atto.node.vote.Vote
 import org.atto.protocol.transaction.AttoTransactionRequest
 import org.atto.protocol.transaction.AttoTransactionResponse
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
-class SendNotFoundFoundDependencyProcessor(
-    val uncheckedTransactionService: UncheckedTransactionService,
+class SendDiscoverer(
     private val networkMessagePublisher: NetworkMessagePublisher,
-) : DependencyProcessor {
-    private val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("SendNotFoundFoundDependencyProcessor"))
-
+    private val eventPublisher: EventPublisher,
+) {
     private val peers = ConcurrentHashMap<AttoPublicKey, InetSocketAddress>()
 
     private val unknownHash = ConcurrentHashMap.newKeySet<AttoHash>()
 
-    override fun type() = TransactionRejectionReason.SEND_NOT_FOUND
-
     @EventListener
+    @Async
     fun add(peerEvent: PeerAdded) {
         peers[peerEvent.peer.node.publicKey] = peerEvent.peer.connectionSocketAddress
     }
 
     @EventListener
+    @Async
     fun remove(peerEvent: PeerRemoved) {
         peers.remove(peerEvent.peer.node.publicKey)
     }
 
-    override fun process(transaction: Transaction, votes: List<Vote>) {
+    @EventListener
+    @Async
+    fun process(event: TransactionDiscovered) {
+        process(event.reason, event.transaction, event.votes)
+    }
+
+    @EventListener
+    @Async
+    fun process(event: TransactionStuck) {
+        process(event.reason, event.transaction, listOf())
+    }
+
+    private fun process(reason: TransactionRejectionReason?, transaction: Transaction, votes: Collection<Vote>) {
+        if (reason != TransactionRejectionReason.RECEIVABLE_NOT_FOUND) {
+            return
+        }
+
         val block = transaction.block as ReceiveSupportBlock
 
-        unknownHash.add(block.sendHash)
+        if (!unknownHash.add(block.sendHash)) {
+            return
+        }
 
-        val socketAddress = randomSocketAddress(votes)
         val request = AttoTransactionRequest(block.sendHash)
 
+        val socketAddress = randomSocketAddress(votes)
         val message = if (socketAddress != null) {
             OutboundNetworkMessage(socketAddress, request)
         } else {
@@ -60,13 +75,10 @@ class SendNotFoundFoundDependencyProcessor(
         }
 
         networkMessagePublisher.publish(message)
-
-        ioScope.launch {
-            uncheckedTransactionService.save(transaction.toUncheckedTransaction())
-        }
     }
 
     @EventListener
+    @Async
     fun process(message: InboundNetworkMessage<AttoTransactionResponse>) {
         val response = message.payload
         val transaction = response.transaction
@@ -75,13 +87,10 @@ class SendNotFoundFoundDependencyProcessor(
             return
         }
 
-        ioScope.launch {
-            uncheckedTransactionService.save(transaction.toTransaction().toUncheckedTransaction())
-        }
-
+        eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }
 
-    private fun randomSocketAddress(votes: List<Vote>): InetSocketAddress? {
+    private fun randomSocketAddress(votes: Collection<Vote>): InetSocketAddress? {
         return votes.asSequence()
             .map { v -> peers[v.publicKey] }
             .filterNotNull()

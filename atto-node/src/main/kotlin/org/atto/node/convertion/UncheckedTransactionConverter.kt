@@ -1,10 +1,7 @@
 package org.atto.node.convertion
 
 import io.r2dbc.spi.Row
-import org.atto.commons.AttoBlock
-import org.atto.commons.AttoByteBuffer
-import org.atto.commons.AttoSignature
-import org.atto.commons.AttoWork
+import org.atto.commons.*
 import org.atto.node.bootstrap.unchecked.UncheckedTransaction
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
@@ -21,6 +18,10 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put("hash", Parameter.from(uncheckedTransaction.hash))
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height))
+            put(
+                "previous",
+                Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java)
+            )
             put("block", Parameter.from(block.serialized))
             put("signature", Parameter.from(uncheckedTransaction.signature))
             put("work", Parameter.from(uncheckedTransaction.work))

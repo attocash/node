@@ -49,6 +49,11 @@ class AttoByteBuffer {
         return this
     }
 
+    fun add(byteBuffers: Collection<AttoByteBuffer>): AttoByteBuffer {
+        byteBuffers.forEach { add(it) }
+        return this
+    }
+
     fun toByteArray(): ByteArray {
         val byteArray = ByteArray(size)
 

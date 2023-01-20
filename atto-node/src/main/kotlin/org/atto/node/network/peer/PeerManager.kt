@@ -8,6 +8,7 @@ import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.network.OutboundNetworkMessage
 import org.atto.protocol.network.peer.AttoKeepAlive
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
@@ -28,12 +29,14 @@ class PeerManager(
         .asMap()
 
     @EventListener
+    @Async
     fun process(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers.put(peer.connectionSocketAddress, peer)
     }
 
     @EventListener
+    @Async
     fun process(message: InboundNetworkMessage<AttoKeepAlive>) {
         peers.compute(message.socketAddress) { _, value -> value } // refresh cache
 

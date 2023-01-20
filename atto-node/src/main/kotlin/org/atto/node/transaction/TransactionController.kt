@@ -86,7 +86,7 @@ class TransactionController(
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(description = "Stream unsorted transactions. Duplicates may happen")
     suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: Long): Flow<Transaction> {
-        val transactionDatabaseFlow = repository.find(publicKey, fromHeight.toULong())
+        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong())
 
         val transactionFlow = transactionFlow
             .filter { it.publicKey == publicKey }

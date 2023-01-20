@@ -21,6 +21,11 @@ class UncheckedTransactionDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
 
         Waiter.waitUntilTrue {
+            webClient.post()
+                .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/gap")
+                .retrieve()
+                .bodyToFlux<Void>()
+                .blockFirst()
             val uncheckedTransactions = findUncheckedTransactions(neighbour)
             uncheckedTransactions.size == count
         }

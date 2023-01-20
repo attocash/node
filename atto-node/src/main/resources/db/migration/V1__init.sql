@@ -55,6 +55,7 @@ CREATE TABLE unchecked_transaction
     hash         VARBINARY(32) PRIMARY KEY,
     height       BIGINT UNSIGNED                     NOT NULL,
     public_key   VARBINARY(32)                       NOT NULL,
+    previous     VARBINARY(32),
     block        VARBINARY(131)                      NOT NULL,
 
     signature    VARBINARY(64)                       NOT NULL,

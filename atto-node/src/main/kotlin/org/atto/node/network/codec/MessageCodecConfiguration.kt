@@ -5,10 +5,7 @@ import org.atto.protocol.network.codec.AttoNodeCodec
 import org.atto.protocol.network.codec.peer.AttoKeepAliveCodec
 import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeAnswerCodec
 import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeChallengeCodec
-import org.atto.protocol.network.codec.transaction.AttoTransactionCodec
-import org.atto.protocol.network.codec.transaction.AttoTransactionPushCodec
-import org.atto.protocol.network.codec.transaction.AttoTransactionRequestCodec
-import org.atto.protocol.network.codec.transaction.AttoTransactionResponseCodec
+import org.atto.protocol.network.codec.transaction.*
 import org.atto.protocol.network.codec.vote.AttoSignatureCodec
 import org.atto.protocol.network.codec.vote.AttoVoteCodec
 import org.atto.protocol.network.codec.vote.AttoVotePushCodec
@@ -56,6 +53,16 @@ class MessageCodecConfiguration {
     @Bean
     fun transactionResponseCodec(transactionCodec: AttoTransactionCodec): AttoTransactionResponseCodec {
         return AttoTransactionResponseCodec(transactionCodec)
+    }
+
+    @Bean
+    fun transactionStreamRequestCodec(): AttoTransactionStreamRequestCodec {
+        return AttoTransactionStreamRequestCodec()
+    }
+
+    @Bean
+    fun transactionStreamResponseCodec(thisNode: AttoNode): AttoTransactionStreamResponseCodec {
+        return AttoTransactionStreamResponseCodec(thisNode.network)
     }
 
     @Bean
