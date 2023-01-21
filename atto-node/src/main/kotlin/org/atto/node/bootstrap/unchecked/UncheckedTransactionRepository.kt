@@ -23,23 +23,6 @@ interface UncheckedTransactionRepository : CoroutineCrudRepository<UncheckedTran
         """
     )
     suspend fun findReadyToValidate(limit: Long): Flow<UncheckedTransaction>
-
-//    @Query(
-//        """
-//            SELECT public_key, account_height, transaction_height, transaction_hash FROM (
-//                    SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
-//                            ut.public_key public_key,
-//                            COALESCE(a.height, 0) account_height,
-//                            ut.height transaction_height,
-//                            ut.hash transaction_hash
-//                    FROM unchecked_transaction ut
-//                    LEFT JOIN account a on ut.public_key = a.public_key and ut.height > a.height
-//                    ORDER BY ut.public_key, ut.height ) ready
-//            WHERE transaction_height > account_height + row_num
-//            AND row_num = 1
-//        """
-//    )
-//    suspend fun findGaps(): Flow<GapView>
 }
 
 data class GapView(

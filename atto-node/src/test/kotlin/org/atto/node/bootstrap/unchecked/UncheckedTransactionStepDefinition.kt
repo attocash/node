@@ -21,11 +21,6 @@ class UncheckedTransactionDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
 
         Waiter.waitUntilTrue {
-            webClient.post()
-                .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/gap")
-                .retrieve()
-                .bodyToFlux<Void>()
-                .blockFirst()
             val uncheckedTransactions = findUncheckedTransactions(neighbour)
             uncheckedTransactions.size == count
         }
@@ -46,6 +41,15 @@ class UncheckedTransactionDefinition(
         }
     }
 
+    @When("^peer (\\w+) look for missing transactions$")
+    fun lookMissingTransactions(shortId: String) {
+        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
+        webClient.post()
+            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/gap")
+            .retrieve()
+            .bodyToFlux<Void>()
+            .blockFirst()
+    }
 
     private fun findUncheckedTransactions(neighbour: Neighbour): List<AttoTransaction> {
         return webClient.get()

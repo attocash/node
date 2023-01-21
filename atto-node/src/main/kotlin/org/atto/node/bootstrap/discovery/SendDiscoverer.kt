@@ -1,5 +1,7 @@
 package org.atto.node.bootstrap.discovery
 
+import com.github.benmanes.caffeine.cache.Caffeine
+import mu.KotlinLogging
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.ReceiveSupportBlock
@@ -19,6 +21,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
 @Component
@@ -26,9 +29,15 @@ class SendDiscoverer(
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
 ) {
+    private val logger = KotlinLogging.logger {}
+
     private val peers = ConcurrentHashMap<AttoPublicKey, InetSocketAddress>()
 
-    private val unknownHash = ConcurrentHashMap.newKeySet<AttoHash>()
+    private val unknownHashCache = Caffeine.newBuilder()
+        .maximumSize(100_000)
+        .expireAfterWrite(Duration.ofMinutes(5))
+        .build<AttoHash, AttoHash>()
+        .asMap()
 
     @EventListener
     @Async
@@ -61,9 +70,11 @@ class SendDiscoverer(
 
         val block = transaction.block as ReceiveSupportBlock
 
-        if (!unknownHash.add(block.sendHash)) {
+        logger.info { "TEMP request BEFORE ${block.sendHash} $unknownHashCache" }
+        if (unknownHashCache.putIfAbsent(block.sendHash, block.sendHash) != null) {
             return
         }
+        logger.info { "TEMP request AFTER ${block.sendHash} $unknownHashCache" }
 
         val request = AttoTransactionRequest(block.sendHash)
 
@@ -83,9 +94,11 @@ class SendDiscoverer(
         val response = message.payload
         val transaction = response.transaction
 
-        if (!unknownHash.remove(transaction.hash)) {
+        logger.info { "TEMP response BEFORE ${transaction.hash} $unknownHashCache" }
+        if (unknownHashCache.remove(transaction.hash) == null) {
             return
         }
+        logger.info { "TEMP response AFTER ${transaction.hash} $unknownHashCache" }
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }

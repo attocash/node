@@ -2,6 +2,7 @@ package org.atto.node.bootstrap.unchecked;
 
 import mu.KotlinLogging
 import org.atto.commons.AttoHash
+import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -11,9 +12,12 @@ class UncheckedTransactionService(val uncheckedTransactionRepository: UncheckedT
 
     @Transactional
     suspend fun save(uncheckedTransaction: UncheckedTransaction) {
-        uncheckedTransactionRepository.save(uncheckedTransaction)
-
-        logger.debug { "Saved $uncheckedTransaction" }
+        try {
+            uncheckedTransactionRepository.save(uncheckedTransaction)
+            logger.debug { "Saved $uncheckedTransaction" }
+        } catch (e: DuplicateKeyException) {
+            logger.debug(e) { "Already exist $uncheckedTransaction" }
+        }
     }
 
     @Transactional
