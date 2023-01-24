@@ -41,12 +41,14 @@ CREATE TABLE receivable
 
 CREATE TABLE vote
 (
-    hash        VARBINARY(32)   NOT NULL,
-    public_key  VARBINARY(32)   NOT NULL,
-    timestamp   TIMESTAMP       NOT NULL,
-    signature   VARBINARY(64) PRIMARY KEY,
-    received_at BIGINT UNSIGNED NOT NULL,
-    weight      BIGINT UNSIGNED NOT NULL
+    hash         VARBINARY(32)                       NOT NULL,
+    public_key   VARBINARY(32)                       NOT NULL,
+    timestamp    TIMESTAMP                           NOT NULL,
+    signature    VARBINARY(64) PRIMARY KEY,
+    weight       BIGINT UNSIGNED                     NOT NULL,
+
+    received_at  TIMESTAMP                           NOT NULL,
+    persisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL
 );
 
 

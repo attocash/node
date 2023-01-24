@@ -70,11 +70,9 @@ class SendDiscoverer(
 
         val block = transaction.block as ReceiveSupportBlock
 
-        logger.info { "TEMP request BEFORE ${block.sendHash} $unknownHashCache" }
         if (unknownHashCache.putIfAbsent(block.sendHash, block.sendHash) != null) {
             return
         }
-        logger.info { "TEMP request AFTER ${block.sendHash} $unknownHashCache" }
 
         val request = AttoTransactionRequest(block.sendHash)
 
@@ -94,11 +92,9 @@ class SendDiscoverer(
         val response = message.payload
         val transaction = response.transaction
 
-        logger.info { "TEMP response BEFORE ${transaction.hash} $unknownHashCache" }
         if (unknownHashCache.remove(transaction.hash) == null) {
             return
         }
-        logger.info { "TEMP response AFTER ${transaction.hash} $unknownHashCache" }
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }

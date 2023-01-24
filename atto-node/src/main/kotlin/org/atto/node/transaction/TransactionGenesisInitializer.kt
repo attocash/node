@@ -1,6 +1,7 @@
 package org.atto.node.transaction
 
 import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.atto.commons.AttoOpenBlock
@@ -24,8 +25,8 @@ class TransactionGenesisInitializer(
 
     @PostConstruct
     fun init() = runBlocking {
-        val anyAccountChange = transactionRepository.findFirstBy()
-        if (anyAccountChange == null) {
+        val anyAccountChange = transactionRepository.getLastSample(1).toList()
+        if (anyAccountChange.isEmpty()) {
             val block = genesisTransaction.block as AttoOpenBlock
 
             val transaction = Transaction(

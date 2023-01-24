@@ -10,11 +10,18 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/transactions/uncheckeds/discoveries")
 @Profile("default")
 class DiscoveryController(
-    val gapDiscoverer: GapDiscoverer
+    val gapDiscoverer: GapDiscoverer,
+    val lastDiscoverer: LastDiscoverer
 ) {
     @PostMapping("gap")
-    @Operation(description = "Start processing o gap transaction")
-    suspend fun process() {
+    @Operation(description = "Start processing of gap transaction")
+    suspend fun gap() {
         gapDiscoverer.resolve()
+    }
+
+    @PostMapping("last")
+    @Operation(description = "Start broadcast of last transactions")
+    suspend fun tail() {
+        lastDiscoverer.broadcastSample()
     }
 }

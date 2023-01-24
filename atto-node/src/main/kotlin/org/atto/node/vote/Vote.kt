@@ -9,6 +9,7 @@ import org.atto.node.transaction.Transaction
 import org.atto.protocol.vote.AttoVote
 import org.atto.protocol.vote.AttoVoteSignature
 import org.springframework.data.annotation.Id
+import org.springframework.data.domain.Persistable
 import java.net.InetSocketAddress
 import java.time.Instant
 
@@ -24,7 +25,7 @@ data class Vote(
 
     val receivedAt: Instant = Instant.now(),
     val persistedAt: Instant? = null,
-) {
+) : Persistable<AttoSignature> {
 
     companion object {
         fun from(weight: AttoAmount, attoVote: AttoVote): Vote {
@@ -36,6 +37,14 @@ data class Vote(
                 weight = weight,
             )
         }
+    }
+
+    override fun getId(): AttoSignature {
+        return signature
+    }
+
+    override fun isNew(): Boolean {
+        return persistedAt == null
     }
 
     fun isFinal(): Boolean {

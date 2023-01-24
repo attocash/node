@@ -9,8 +9,10 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
     TRANSACTION_RESPONSE(5u, false),
     TRANSACTION_STREAM_REQUEST(6u, false),
     TRANSACTION_STREAM_RESPONSE(7u, false),
-    VOTE_REQUEST(8u, false),
-    VOTE_PUSH(9u, false),
+    VOTE_PUSH(8u, false),
+    VOTE_REQUEST(9u, false),
+    VOTE_RESPONSE(10u, false),
+    BOOTSTRAP_TRANSACTION_PUSH(11u, false),
 
     UNKNOWN(UByte.MAX_VALUE, false);
 

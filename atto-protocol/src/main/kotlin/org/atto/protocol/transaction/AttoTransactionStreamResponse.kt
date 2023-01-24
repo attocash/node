@@ -9,11 +9,11 @@ import org.atto.protocol.network.AttoMessageType
 
 data class AttoTransactionStreamResponse(val transactions: List<AttoTransaction>) : AttoMessage {
     companion object {
-        const val maxTransactionCount = 1_000
+        const val maxCount = 1_000
 
         fun fromByteBuffer(network: AttoNetwork, byteBuffer: AttoByteBuffer): AttoTransactionStreamResponse? {
             val count = byteBuffer.getUShort().toInt()
-            if (count == 0 || count > maxTransactionCount) {
+            if (count == 0 || count > maxCount) {
                 return null
             }
 
@@ -30,7 +30,7 @@ data class AttoTransactionStreamResponse(val transactions: List<AttoTransaction>
     }
 
     init {
-        require(transactions.isNotEmpty() && transactions.size <= maxTransactionCount) { "Transaction stream should contains between 1 and 1000 transactions" }
+        require(transactions.isNotEmpty() && transactions.size <= maxCount) { "Transaction stream should contains between 1 and 1000 transactions" }
     }
 
     override fun messageType(): AttoMessageType {

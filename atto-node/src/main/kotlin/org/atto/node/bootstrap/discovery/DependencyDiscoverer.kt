@@ -3,6 +3,7 @@ package org.atto.node.bootstrap.discovery
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.atto.commons.AttoAmount
 import org.atto.commons.AttoHash
@@ -40,12 +41,15 @@ class DependencyDiscoverer(
             return
         }
 
-        runBlocking(singleDispatcher) {
-            val transaction = event.transaction
-            val transactionHolder = TransactionHolder(reason, transaction)
-            transactionHolderMap[transaction.hash] = transactionHolder
-            logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
+        runBlocking {
+            add(event.reason, event.transaction)
         }
+    }
+
+    suspend fun add(reason: TransactionRejectionReason?, transaction: Transaction) = withContext(singleDispatcher) {
+        val transactionHolder = TransactionHolder(reason, transaction)
+        transactionHolderMap[transaction.hash] = transactionHolder
+        logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
     }
 
 
@@ -56,15 +60,20 @@ class DependencyDiscoverer(
             return
         }
 
-        val hash = event.vote.hash
-        val holder = runBlocking(singleDispatcher) {
-            transactionHolderMap[hash]
-        } ?: return
-
-        val vote = event.vote
-        if (!vote.isFinal()) {
-            return
+        runBlocking {
+            process(event.vote)
         }
+    }
+
+    suspend fun process(vote: Vote) = withContext(singleDispatcher) {
+        if (!vote.isFinal()) {
+            return@withContext
+        }
+
+        val hash = vote.hash
+
+        val holder = transactionHolderMap[hash] ?: return@withContext
+
         holder.add(vote)
 
         val weight = holder.getWeight()
@@ -83,7 +92,7 @@ class DependencyDiscoverer(
 }
 
 private class TransactionHolder(
-    val reason: TransactionRejectionReason,
+    val reason: TransactionRejectionReason?,
     val transaction: Transaction
 ) {
     val votes = HashMap<AttoPublicKey, Vote>()

@@ -51,6 +51,17 @@ class UncheckedTransactionDefinition(
             .blockFirst()
     }
 
+
+    @When("^peer (\\w+) broadcast last sample$")
+    fun broadcastLastTransactions(shortId: String) {
+        val neighbour = PropertyHolder[Neighbour::class.java, shortId]
+        webClient.post()
+            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/last")
+            .retrieve()
+            .bodyToFlux<Void>()
+            .blockFirst()
+    }
+
     private fun findUncheckedTransactions(neighbour: Neighbour): List<AttoTransaction> {
         return webClient.get()
             .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds")

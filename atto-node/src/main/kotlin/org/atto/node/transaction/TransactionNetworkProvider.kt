@@ -22,7 +22,7 @@ class TransactionNetworkProvider(
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher
 ) {
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("TransactionFinder"))
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
     @EventListener
     @Async

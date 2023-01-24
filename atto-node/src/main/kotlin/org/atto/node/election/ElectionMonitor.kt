@@ -23,13 +23,12 @@ class ElectionMonitor(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("ElectionMonitor"))
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
     @EventListener
     @Async
     fun process(event: ElectionFinished) {
         ioScope.launch {
-            val account = event.account
             val transaction = event.transaction
             val votes = event.votes
 

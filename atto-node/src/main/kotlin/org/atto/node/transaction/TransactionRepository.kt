@@ -10,17 +10,17 @@ import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
 interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>, AttoRepository {
 
-    suspend fun findFirstBy(): Transaction?
-
     suspend fun findFirstByPublicKey(publicKey: AttoPublicKey): Transaction?
 
     @Query(
-        "SELECT * FROM Transaction t " +
-                "WHERE t.public_key = :publicKey " +
-                "ORDER BY t.height DESC " +
-                "LIMIT 1"
+        """
+            SELECT t.* from Transaction t
+            JOIN Account a on t.hash = a.last_transaction_hash
+            ORDER BY RAND()
+            LIMIT :limit
+        """
     )
-    suspend fun findLastByPublicKey(publicKey: AttoPublicKey): Transaction?
+    suspend fun getLastSample(limit: Long): Flow<Transaction>
 
     @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight ORDER BY height ASC")
     suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong): Flow<Transaction>

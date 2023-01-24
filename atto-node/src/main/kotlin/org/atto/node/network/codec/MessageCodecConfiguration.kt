@@ -2,13 +2,12 @@ package org.atto.node.network.codec
 
 import org.atto.protocol.AttoNode
 import org.atto.protocol.network.codec.AttoNodeCodec
+import org.atto.protocol.network.codec.bootstrap.AttoBootstrapTransactionPushCodec
 import org.atto.protocol.network.codec.peer.AttoKeepAliveCodec
 import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeAnswerCodec
 import org.atto.protocol.network.codec.peer.handshake.AttoHandshakeChallengeCodec
 import org.atto.protocol.network.codec.transaction.*
-import org.atto.protocol.network.codec.vote.AttoSignatureCodec
-import org.atto.protocol.network.codec.vote.AttoVoteCodec
-import org.atto.protocol.network.codec.vote.AttoVotePushCodec
+import org.atto.protocol.network.codec.vote.*
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -66,8 +65,28 @@ class MessageCodecConfiguration {
     }
 
     @Bean
-    fun votePushCodec(thisNode: AttoNode): AttoVotePushCodec {
-        return AttoVotePushCodec(AttoVoteCodec(AttoSignatureCodec()))
+    fun voteCodec(): AttoVoteCodec {
+        return AttoVoteCodec(AttoSignatureCodec())
+    }
+
+    @Bean
+    fun votePushCodec(voteCodec: AttoVoteCodec): AttoVotePushCodec {
+        return AttoVotePushCodec(voteCodec)
+    }
+
+    @Bean
+    fun voteRequestCodec(): AttoVoteRequestCodec {
+        return AttoVoteRequestCodec()
+    }
+
+    @Bean
+    fun voteResponseCodec(voteCodec: AttoVoteCodec): AttoVoteResponseCodec {
+        return AttoVoteResponseCodec(voteCodec)
+    }
+
+    @Bean
+    fun bootstrapTransactionPushCodec(transactionCodec: AttoTransactionCodec): AttoBootstrapTransactionPushCodec {
+        return AttoBootstrapTransactionPushCodec(transactionCodec)
     }
 
 }

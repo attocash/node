@@ -36,7 +36,7 @@ class ElectionVoter(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("ElectionVoter"))
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
     private val minWeight = AttoAmount(1_000_000_000_000_000u)
 

@@ -28,7 +28,7 @@ class TransactionValidationManager(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName("TransactionValidator"))
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
     @EventListener
     @Async

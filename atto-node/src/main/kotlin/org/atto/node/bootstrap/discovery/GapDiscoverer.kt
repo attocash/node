@@ -142,7 +142,7 @@ class GapDiscoverer(
 private data class TransactionPointer(val initialHeight: ULong, val currentHeight: ULong, val currentHash: AttoHash)
 
 private fun GapView.fromHeight(): ULong {
-    val maxCount = AttoTransactionStreamResponse.maxTransactionCount.toULong()
+    val maxCount = AttoTransactionStreamResponse.maxCount.toULong()
     val count = this.transactionHeight - this.accountHeight
     if (count > maxCount) {
         return this.transactionHeight - maxCount

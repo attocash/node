@@ -36,3 +36,18 @@ Feature: Bootstrap
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
     Then transaction 3 is confirmed
+
+  Scenario: Last transaction should be broadcast
+    Given the peer A
+
+    And send transaction 1 from THIS account to A account
+    And transaction 1 is confirmed
+
+    And the peer B
+
+    When peer THIS broadcast last sample
+    And peer B finds 1 unchecked transactions
+    And peer B unchecked transactions are processed
+
+    Then transaction 1 is confirmed
+
