@@ -25,6 +25,7 @@ subprojects {
         repositories {
             maven {
                 name = "GitHubPackages"
+                url = uri("https://maven.pkg.github.com/attomoney/node")
             }
         }
     }
