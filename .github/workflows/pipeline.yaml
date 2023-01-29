@@ -28,4 +28,4 @@ jobs:
       - name: publish
         run: |
           chmod +x gradlew
-          ./gradlew publish
+          ./gradlew build publish -x test
