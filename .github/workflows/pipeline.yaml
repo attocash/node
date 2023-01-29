@@ -10,7 +10,7 @@ jobs:
   codeql:
     uses: ./.github/workflows/codeql.yaml
   publish:
-    needs: build
+    needs: build, codeql
     runs-on: ubuntu-latest
     steps:
       - name: Build Application
