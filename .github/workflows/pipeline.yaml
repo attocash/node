@@ -9,3 +9,11 @@ jobs:
     uses: ./.github/workflows/build.yaml
   codeql:
     uses: ./.github/workflows/codeql.yaml
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build Application
+        run: |
+          chmod +x gradlew
+          ./gradlew publish
