@@ -1,6 +1,5 @@
 package org.atto.node.network.peer
 
-import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.atto.commons.AttoHash
@@ -10,6 +9,7 @@ import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NetworkMessagePublisher
+import org.atto.node.network.NodeBanned
 import org.atto.node.network.OutboundNetworkMessage
 import org.atto.protocol.AttoNode
 import org.atto.protocol.network.handshake.AttoHandshakeAnswer
@@ -34,22 +34,34 @@ class HandshakeService(
     private val logger = KotlinLogging.logger {}
 
     private val peers = ConcurrentHashMap<InetSocketAddress, Peer>()
+    private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val challenges: Cache<InetSocketAddress, AttoHandshakeChallenge> = Caffeine.newBuilder()
-        .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
-        .build()
+    private val challenges = Caffeine.newBuilder()
+        .expireAfterWrite(5, TimeUnit.SECONDS)
+        .build<InetSocketAddress, AttoHandshakeChallenge>()
+        .asMap()
 
     @EventListener
     @Async
     fun add(peerEvent: PeerAdded) {
-        peers[peerEvent.peer.node.socketAddress] = peerEvent.peer
-        challenges.invalidate(peerEvent.peer.node.socketAddress)
+        val peer = peerEvent.peer
+        peers[peer.node.socketAddress] = peer
+        peers[peer.connectionSocketAddress] = peer
+        challenges.remove(peer.connectionSocketAddress)
     }
 
     @EventListener
     @Async
     fun remove(peerEvent: PeerRemoved) {
-        peers.remove(peerEvent.peer.node.socketAddress)
+        val peer = peerEvent.peer
+        peers.remove(peer.node.socketAddress)
+        peers.remove(peer.connectionSocketAddress)
+    }
+
+    @EventListener
+    @Async
+    fun ban(event: NodeBanned) {
+        bannedNodes.add(event.address)
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
@@ -73,6 +85,7 @@ class HandshakeService(
 
     fun startHandshake(socketAddress: InetSocketAddress) {
         if (isKnown(socketAddress)) {
+            logger.info { "Ignoring handshake with $socketAddress. This node is already known" }
             return
         }
 
@@ -105,7 +118,7 @@ class HandshakeService(
         val answer = message.payload
         val node = answer.node
 
-        val challenge = challenges.getIfPresent(message.socketAddress)
+        val challenge = challenges[message.socketAddress]
         if (challenge == null) {
             val rejected = PeerRejected(PeerRejectionReason.UNKNOWN_HANDSHAKE, Peer(message.socketAddress, node))
             eventPublisher.publish(rejected)
@@ -134,11 +147,13 @@ class HandshakeService(
         if (socketAddress == thisNode.socketAddress) {
             return true
         }
-        return challenges.getIfPresent(socketAddress) != null || peers.containsKey(socketAddress)
+        return challenges.contains(socketAddress) ||
+                peers.containsKey(socketAddress) ||
+                bannedNodes.contains(socketAddress.address)
     }
 
     override fun clear() {
-        challenges.invalidateAll()
+        challenges.clear()
         peers.clear()
     }
 }

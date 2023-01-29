@@ -5,6 +5,7 @@ import mu.KotlinLogging
 import org.atto.commons.AttoHash
 import org.atto.commons.AttoPublicKey
 import org.atto.commons.ReceiveSupportBlock
+import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
 import org.atto.node.bootstrap.TransactionDiscovered
 import org.atto.node.bootstrap.TransactionStuck
@@ -28,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 class SendDiscoverer(
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val peers = ConcurrentHashMap<AttoPublicKey, InetSocketAddress>()
@@ -104,6 +105,11 @@ class SendDiscoverer(
             .map { v -> peers[v.publicKey] }
             .filterNotNull()
             .firstOrNull()
+    }
+
+    override fun clear() {
+        peers.clear()
+        unknownHashCache.clear()
     }
 
 }

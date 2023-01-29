@@ -24,6 +24,7 @@ class NodeStepDefinition(
 
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
+        val nodeName = "Node $shortId"
         val starter = Runnable {
             val tcpPort = randomPort()
             val httpPort = randomPort()
@@ -40,6 +41,7 @@ class NodeStepDefinition(
             val args = arrayOf(
                 "--spring.application.name=neighbour-atto-node-$shortId",
                 "--server.port=$httpPort",
+                "--NODE_NAME=$nodeName",
                 "--management.server.port=",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
                 "--server.tcp.port=${tcpPort}",
@@ -63,7 +65,7 @@ class NodeStepDefinition(
         val neighbourThread = Thread(futureTask)
 
         neighbourThread.contextClassLoader = createClassLoader()
-        neighbourThread.name = "Node $shortId"
+        neighbourThread.name = nodeName
         neighbourThread.start()
 
         futureTask.get()

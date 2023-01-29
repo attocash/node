@@ -10,8 +10,29 @@
     <!--    </springProfile>-->
 
     <!--    <springProfile name="!json">-->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-    </root>
-    <!--    </springProfile>-->
+    <springProperty name="NODE_NAME" source="NODE_NAME"/>
+
+    <appender name="LOCAL_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>
+                %clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p})
+                %clr(${PID:- }){magenta} %clr(---){faint} %clr(${NODE_NAME:-THIS}){faint} %clr([%15.15t]){faint}
+                %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}
+            </pattern>
+            <charset>${CONSOLE_LOG_CHARSET}</charset>
+        </encoder>
+    </appender>
+
+    <springProfile name="!default">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="default">
+        <root level="INFO">
+            <appender-ref ref="LOCAL_CONSOLE"/>
+        </root>
+    </springProfile>
+
 </configuration>

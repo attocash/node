@@ -43,13 +43,13 @@ class MessageBroadcaster(
                 BroadcastStrategy.EVERYONE -> {
                     peers.values
                 }
-                BroadcastStrategy.MINORITY -> {
-                    if (peers.size < 20) {
-                        peers.values
-                    } else {
-                        randomSublist(peers.values.toList(), 20)
-                    }
-                }
+//                BroadcastStrategy.MINORITY -> {
+//                    if (peers.size < 20) {
+//                        peers.values
+//                    } else {
+//                        randomSublist(peers.values.toList(), 20)
+//                    }
+//                }
                 BroadcastStrategy.VOTERS -> {
                     voters.values.filter { it.node.isVoter() }
                 }

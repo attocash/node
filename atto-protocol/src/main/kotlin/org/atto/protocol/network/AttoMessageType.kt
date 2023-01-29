@@ -16,6 +16,8 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
 
     UNKNOWN(UByte.MAX_VALUE, false);
 
+    val private = !public
+
     companion object {
         private val map = values().associateBy(AttoMessageType::code)
         fun fromCode(code: UByte): AttoMessageType {

@@ -9,6 +9,7 @@ import org.atto.commons.AttoByteBuffer
 import org.atto.commons.toHex
 import org.atto.commons.toUShort
 import org.atto.node.CacheSupport
+import org.atto.node.EventPublisher
 import org.atto.node.network.codec.MessageCodecManager
 import org.atto.node.network.peer.PeerAdded
 import org.atto.node.network.peer.PeerRemoved
@@ -24,7 +25,6 @@ import reactor.netty.tcp.TcpClient
 import reactor.netty.tcp.TcpServer
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.SocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
@@ -33,7 +33,8 @@ import java.util.concurrent.TimeUnit
 @Service
 class NetworkProcessor(
     val codecManager: MessageCodecManager,
-    val publisher: NetworkMessagePublisher,
+    val eventPublisher: EventPublisher,
+    val messagepublisher: NetworkMessagePublisher,
     environment: Environment,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
@@ -44,7 +45,8 @@ class NetworkProcessor(
         const val headerSize = 8
     }
 
-    private val peers = ConcurrentHashMap.newKeySet<SocketAddress>()
+    private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
+    private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
     private val outboundMap = ConcurrentHashMap<InetSocketAddress, Sinks.Many<OutboundNetworkMessage<*>>>()
 
@@ -74,21 +76,34 @@ class NetworkProcessor(
 
     @EventListener
     @Async
-    fun add(peerEvent: PeerAdded) {
-        peers.add(peerEvent.peer.connectionSocketAddress)
+    fun add(event: PeerAdded) {
+        peers.add(event.peer.connectionSocketAddress)
     }
 
     @EventListener
     @Async
-    fun remove(peerEvent: PeerRemoved) {
-        peers.remove(peerEvent.peer.connectionSocketAddress)
+    fun remove(event: PeerRemoved) {
+        peers.remove(event.peer.connectionSocketAddress)
     }
 
     @EventListener
     @Async
-    fun startConnection(message: OutboundNetworkMessage<*>) {
+    fun ban(event: NodeBanned) {
+        bannedNodes.add(event.address)
+        disconnect(event.address)
+    }
+
+    @EventListener
+    @Async
+    fun outbound(message: OutboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
-        if (outboundMap.containsKey(message.socketAddress) || disconnectionCache.getIfPresent(socketAddress.address) != null) {
+
+        if (disconnectionCache.getIfPresent(socketAddress.address) != null) {
+            return
+        }
+
+        if (outboundMap.containsKey(message.socketAddress)) {
+            tryEmit(message)
             return
         }
 
@@ -101,20 +116,22 @@ class NetworkProcessor(
 
                 prepareConnection(message.socketAddress, it)
 
-                // resend to outbound so outbound stream can see it
-                outbound(message)
+                tryEmit(message)
             }
     }
 
-    @EventListener
-    @Async
-    fun outbound(message: OutboundNetworkMessage<*>) {
+    fun tryEmit(message: OutboundNetworkMessage<*>) {
         val sink = outboundMap[message.socketAddress] ?: return
 
         sink.tryEmitNext(message)
     }
 
     private fun prepareConnection(socketAddress: InetSocketAddress, connection: Connection) {
+        if (bannedNodes.contains(socketAddress.address)) {
+            connection.dispose()
+            return
+        }
+
         val outbound = Sinks.many().unicast().onBackpressureBuffer<OutboundNetworkMessage<*>>()
         outboundMap[socketAddress] = outbound
 
@@ -127,7 +144,7 @@ class NetworkProcessor(
             .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
             .map { InboundNetworkMessage(socketAddress, it!!) }
             .doOnTerminate { disconnect(socketAddress) }
-            .subscribe { publisher.publish(it!!) }
+            .subscribe { messagepublisher.publish(it!!) }
 
         val outboundMessages = outbound.asFlux()
             .map { serialize(it.payload) }
@@ -156,9 +173,13 @@ class NetworkProcessor(
     ): AttoMessage? {
         val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
 
-        if (message == null || !message.messageType().public && !peers.contains(socketAddress)) {
-            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
-            disconnect(socketAddress)
+        if (message == null) {
+            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Node will be banned." }
+            eventPublisher.publish(NodeBanned(socketAddress.address))
+            return message
+        } else if (message.messageType().private && !peers.contains(socketAddress)) {
+            logger.trace { "Received private message from the unknown $socketAddress ${byteArray.toHex()}. Node will be banned." }
+            eventPublisher.publish(NodeBanned(socketAddress.address))
             return message
         }
 
@@ -184,9 +205,16 @@ class NetworkProcessor(
         logger.info { "Disconnected from $socketAddress" }
     }
 
+    private fun disconnect(address: InetAddress) {
+        outboundMap.keys().asSequence()
+            .filter { it.address == address }
+            .forEach { disconnect(it) }
+    }
+
     override fun clear() {
         disconnectionCache.invalidateAll()
         outboundMap.values.forEach { it.tryEmitComplete() }
+        bannedNodes.clear()
     }
 
     fun Flux<ByteArray>.splitByMessage(): Flux<ByteArray> {

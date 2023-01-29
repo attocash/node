@@ -16,7 +16,7 @@ class UncheckedTransactionService(val uncheckedTransactionRepository: UncheckedT
             uncheckedTransactionRepository.save(uncheckedTransaction)
             logger.debug { "Saved $uncheckedTransaction" }
         } catch (e: DuplicateKeyException) {
-            logger.debug(e) { "Already exist $uncheckedTransaction" }
+            logger.debug { "Already exist $uncheckedTransaction" }
         }
     }
 
