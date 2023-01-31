@@ -1,1 +1,1 @@
-rootProject.name = "node"
+rootProject.name = "atto-node"

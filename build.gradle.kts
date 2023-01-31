@@ -38,6 +38,7 @@ subprojects {
             register<MavenPublication>("gpr") {
                 from(components["java"])
                 groupId = "org.atto"
+                artifactId = project.name.replace("atto-", "")
             }
         }
     }
