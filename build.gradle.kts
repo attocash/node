@@ -37,6 +37,7 @@ subprojects {
         publications {
             register<MavenPublication>("gpr") {
                 from(components["java"])
+                groupId = "org.atto"
             }
         }
     }

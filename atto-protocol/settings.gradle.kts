@@ -1,1 +1,1 @@
-rootProject.name = "atto-commons"
+rootProject.name = "commons"
