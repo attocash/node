@@ -26,7 +26,7 @@ jobs:
       - name: publish
         run: |
           chmod +x gradlew
-          ./gradlew publish -Pversion=${GITHUB_SHA::7}
+          ./gradlew publish -Pversion=${GITHUB_SHA::7}-SNAPSHOT
         env:
           USERNAME: rotilho
           TOKEN: ${{ secrets.TOKEN }}
