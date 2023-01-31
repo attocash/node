@@ -19,9 +19,3 @@ jobs:
         run: |
           chmod +x gradlew
           ./gradlew --info build
-
-      - uses: actions/upload-artifact@v3
-        if: always()
-        with:
-          name: cucumber
-          path: ${{ github.workspace }}/build/reports/Cucumber.html
