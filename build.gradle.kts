@@ -20,12 +20,23 @@ tasks.withType<Test> {
 }
 
 subprojects {
-    apply(plugin = "maven-publish")
+    apply<JavaLibraryPlugin>()
+    apply<MavenPublishPlugin>()
+
     configure<PublishingExtension> {
         repositories {
             maven {
                 name = "GitHubPackages"
                 url = uri("https://maven.pkg.github.com/attomoney/node")
+                credentials {
+                    username = System.getenv("USERNAME")
+                    password = System.getenv("TOKEN")
+                }
+            }
+        }
+        publications {
+            register<MavenPublication>("gpr") {
+                from(components["java"])
             }
         }
     }

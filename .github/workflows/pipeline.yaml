@@ -11,8 +11,8 @@ jobs:
     uses: ./.github/workflows/codeql.yaml
   publish:
     needs:
-      - build
-      - codeql
+#      - build
+#      - codeql
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -28,4 +28,7 @@ jobs:
       - name: publish
         run: |
           chmod +x gradlew
-          ./gradlew build publish -x test
+          ./gradlew publish -Pversion=test
+        env:
+          USERNAME: rotilho
+          TOKEN: ${{ secrets.TOKEN }}
