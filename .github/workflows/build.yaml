@@ -21,7 +21,12 @@ jobs:
           ./gradlew --info build
 
       - uses: actions/upload-artifact@v3
+        with:
+          name: project
+          path: ${{ github.workspace }}/**
+
+      - uses: actions/upload-artifact@v3
         if: always()
         with:
-          name: Cucumber
-          path: atto-node/build/reports/Cucumber.html
+          name: cucumber
+          path: ${{ github.workspace }}/build/reports/Cucumber.html
