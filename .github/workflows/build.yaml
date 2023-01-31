@@ -21,12 +21,6 @@ jobs:
           ./gradlew --info build
 
       - uses: actions/upload-artifact@v3
-        with:
-          name: project
-          path: ${{ github.workspace }}/**
-          retention-days: 1
-
-      - uses: actions/upload-artifact@v3
         if: always()
         with:
           name: cucumber
