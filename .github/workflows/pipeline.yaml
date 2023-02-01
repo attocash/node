@@ -34,6 +34,10 @@ jobs:
 
       - name: publish docker
         run: |
+          ls
+          ls atto-node
+          ls atto-node/build
+          ls atto-node/build/libs
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           docker build -t ghcr.io/attomoney/node:dev . --pull
           docker push ghcr.io/attomoney/node:dev
