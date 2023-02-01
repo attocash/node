@@ -19,7 +19,6 @@ jobs:
 
       - name: build
         run: |
-          chmod +x gradlew
           ./gradlew --info build -x test
 
       - uses: github/codeql-action/analyze@v2
