@@ -2,8 +2,8 @@ FROM eclipse-temurin:17-alpine as jdk
 
 COPY atto-node/build/libs/atto-node.jar /app.jar
 
-RUN jdeps --ignore-missing-deps -q --print-module-deps /app.jar > /module-deps.info
-RUN jlink --add-modules $(cat /module-deps.info) --output /java
+RUN jar -xvf app.jar
+RUN jlink --add-modules $(jdeps --recursive --multi-release 17 --ignore-missing-deps --print-module-deps -cp 'BOOT-INF/lib/*' app.jar) --output /java
 
 FROM alpine
 ENV JAVA_HOME=/java
