@@ -1,6 +1,7 @@
 FROM eclipse-temurin:17-alpine as jdk
 
-COPY atto-node/build/libs/atto-node.jar /app.jar
+RUN ls
+COPY ./atto-node/build/libs/atto-node.jar /app.jar
 
 RUN jar -xvf app.jar
 RUN jlink --add-modules $(jdeps --recursive --multi-release 17 --ignore-missing-deps --print-module-deps -cp 'BOOT-INF/lib/*' app.jar) --output /java
