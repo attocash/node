@@ -27,16 +27,13 @@ jobs:
 
       - name: publish jar
         run: |
-          ./gradlew publish -Pversion=${GITHUB_SHA::7}-SNAPSHOT
+          ./gradlew build publish -x test -Pversion=${GITHUB_SHA::7}-SNAPSHOT
         env:
           USERNAME: rotilho
           TOKEN: ${{ secrets.TOKEN }}
 
       - name: publish docker
         run: |
-          ls
-          ls atto-node
-          ls atto-node/build
           ls atto-node/build/libs
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           docker build -t ghcr.io/attomoney/node:dev . --pull
