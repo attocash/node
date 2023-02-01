@@ -27,6 +27,7 @@ jobs:
 
       - name: publish jar
         run: |
+          chmod +x gradlew
           ./gradlew publish -Pversion=${GITHUB_SHA::7}-SNAPSHOT
         env:
           USERNAME: rotilho
