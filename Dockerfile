@@ -9,6 +9,9 @@ FROM alpine
 ENV JAVA_HOME=/java
 ENV PATH "${JAVA_HOME}/bin:${PATH}"
 
+RUN adduser -D atto
+USER atto
+
 COPY --from=jdk /java /java
 COPY --from=jdk /app.jar /app.jar
 
