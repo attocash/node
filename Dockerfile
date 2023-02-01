@@ -2,6 +2,8 @@ FROM eclipse-temurin:17-alpine as jdk
 
 RUN ls
 RUN ls ./atto-node/build/libs/
+RUN ls ./atto-node/build
+RUN ls ./atto-node
 COPY ./atto-node/build/libs/atto-node.jar /app.jar
 
 RUN jar -xvf app.jar
