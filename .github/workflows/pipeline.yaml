@@ -25,10 +25,17 @@ jobs:
 
       - uses: actions/download-artifact@v3
 
-      - name: publish
+      - name: publish jar
         run: |
-          chmod +x gradlew
           ./gradlew publish -Pversion=${GITHUB_SHA::7}-SNAPSHOT
         env:
           USERNAME: rotilho
+          TOKEN: ${{ secrets.TOKEN }}
+
+      - name: publish docker
+        run: |
+          echo TOKEN | docker login ghcr.io -u rotilho --password-stdin
+          docker build -t ghcr.io/attomoney/node:dev . --pull
+          docker push ghcr.io/attomoney/node:dev
+        env:
           TOKEN: ${{ secrets.TOKEN }}
