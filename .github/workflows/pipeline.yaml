@@ -35,6 +35,7 @@ jobs:
       - name: publish docker
         run: |
           ls atto-node/build/libs
+          rm atto-node/build/libs/atto-node-${GITHUB_SHA::7}-SNAPSHOT-plain.jar
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           docker build -t ghcr.io/attomoney/node:dev . --pull
           docker push ghcr.io/attomoney/node:dev
