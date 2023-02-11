@@ -17,7 +17,7 @@ import org.atto.node.transaction.Transaction
 import org.atto.node.transaction.TransactionValidated
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
-import org.atto.node.vote.weight.VoteWeightService
+import org.atto.node.vote.weight.VoteWeighter
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
@@ -28,7 +28,7 @@ import java.time.Instant
 @Service
 class Election(
     private val properties: ElectionProperties,
-    private val voteWeightService: VoteWeightService,
+    private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
@@ -101,7 +101,7 @@ class Election(
 
         consensed(publicKeyHeight)
 
-        val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
+        val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
 
         if (isObserving(transaction) && weighter.totalWeight() >= minimalConfirmationWeight) {
             eventPublisher.publish(ElectionConsensusReached(weighter.account, weighter.transaction))

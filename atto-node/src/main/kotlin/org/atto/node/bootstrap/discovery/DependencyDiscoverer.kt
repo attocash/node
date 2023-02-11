@@ -16,14 +16,14 @@ import org.atto.node.transaction.TransactionRejectionReason
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteDropReason
 import org.atto.node.vote.VoteDropped
-import org.atto.node.vote.weight.VoteWeightService
+import org.atto.node.vote.weight.VoteWeighter
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
 @Component
 class DependencyDiscoverer(
-    private val voteWeightService: VoteWeightService,
+    private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher
 ) {
     private val logger = KotlinLogging.logger {}
@@ -77,7 +77,7 @@ class DependencyDiscoverer(
         holder.add(vote)
 
         val weight = holder.getWeight()
-        val minimalConfirmationWeight = voteWeightService.getMinimalConfirmationWeight()
+        val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
         if (weight >= minimalConfirmationWeight) {
             transactionHolderMap.remove(hash)
             eventPublisher.publish(

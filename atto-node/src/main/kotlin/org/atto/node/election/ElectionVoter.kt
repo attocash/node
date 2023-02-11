@@ -14,7 +14,7 @@ import org.atto.node.network.NetworkMessagePublisher
 import org.atto.node.transaction.*
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteValidated
-import org.atto.node.vote.weight.VoteWeightService
+import org.atto.node.vote.weight.VoteWeighter
 import org.atto.protocol.AttoNode
 import org.atto.protocol.vote.AttoVote
 import org.atto.protocol.vote.AttoVotePush
@@ -29,7 +29,7 @@ import java.util.concurrent.ConcurrentHashMap
 class ElectionVoter(
     private val thisNode: AttoNode,
     private val privateKey: AttoPrivateKey,
-    private val voteWeightService: VoteWeightService,
+    private val voteWeighter: VoteWeighter,
     private val transactionRepository: TransactionRepository,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher
@@ -117,7 +117,7 @@ class ElectionVoter(
     }
 
     private fun vote(transaction: Transaction, timestamp: Instant) {
-        val weight = voteWeightService.get()
+        val weight = voteWeighter.get()
         if (!canVote(weight)) {
             return
         }

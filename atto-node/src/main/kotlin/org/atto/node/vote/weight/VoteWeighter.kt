@@ -25,7 +25,7 @@ import kotlin.math.max
 
 @Component
 @DependsOn("transactionGenesisInitializer")
-class VoteWeightService(
+class VoteWeighter(
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
     val accountRepository: AccountRepository,
@@ -119,6 +119,10 @@ class VoteWeightService(
 
     fun getMinimalConfirmationWeight(): AttoAmount {
         return minimalConfirmationWeight
+    }
+
+    fun getMinimalRebroadcastWeight() : AttoAmount {
+        return minimalRebroadcastWeight
     }
 
     fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean {

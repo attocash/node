@@ -85,7 +85,7 @@ class HandshakeService(
 
     fun startHandshake(socketAddress: InetSocketAddress) {
         if (isKnown(socketAddress)) {
-            logger.info { "Ignoring handshake with $socketAddress. This node is already known" }
+            logger.debug { "Ignoring handshake with $socketAddress. This node is already known" }
             return
         }
 

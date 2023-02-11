@@ -4,7 +4,7 @@ import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.vote.Vote
 import org.atto.node.vote.VoteReceived
-import org.atto.node.vote.weight.VoteWeightService
+import org.atto.node.vote.weight.VoteWeighter
 import org.atto.protocol.vote.AttoVote
 import org.atto.protocol.vote.AttoVotePush
 import org.springframework.context.event.EventListener
@@ -13,7 +13,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class VoteConverter(
-    private val weightService: VoteWeightService,
+    private val weightService: VoteWeighter,
     private val eventPublisher: EventPublisher
 ) {
 

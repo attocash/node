@@ -57,9 +57,6 @@ class GapDiscoverer(
     @Async
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
-        if (!peer.node.isHistorical()) {
-            return
-        }
         peers.remove(peer.connectionSocketAddress)
     }
 

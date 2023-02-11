@@ -1,9 +1,13 @@
 package org.atto.node.network.guardian
 
+import org.atto.commons.AttoPublicKey
 import org.atto.node.CacheSupport
 import org.atto.node.EventPublisher
 import org.atto.node.network.InboundNetworkMessage
 import org.atto.node.network.NodeBanned
+import org.atto.node.network.peer.PeerAdded
+import org.atto.node.network.peer.PeerRemoved
+import org.atto.node.vote.weight.VoteWeighter
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
@@ -13,19 +17,47 @@ import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 
 @Service
-class Guardian(private val eventPublisher: EventPublisher) : CacheSupport {
-    private val toleranceMultiplier = 1_000
+class Guardian(private val voteWeighter: VoteWeighter, private val eventPublisher: EventPublisher) : CacheSupport {
+    private val toleranceMultiplier = 100UL
 
 
-    private val statisticsMap = ConcurrentHashMap<InetAddress, Long>()
-    private var snapshot = HashMap<InetAddress, Long>()
+    private val statisticsMap = ConcurrentHashMap<InetAddress, ULong>()
+    private var snapshot = HashMap<InetAddress, ULong>()
+    private val voterMap = ConcurrentHashMap<InetAddress, MutableSet<AttoPublicKey>>()
 
     @EventListener
     @Async
-    fun add(message: InboundNetworkMessage<*>) {
+    fun count(message: InboundNetworkMessage<*>) {
         val address = message.socketAddress.address
         statisticsMap.compute(address) { k, v ->
-            (v ?: 0) + 1
+            (v ?: 0UL) + 1UL
+        }
+    }
+
+    @EventListener
+    @Async
+    fun add(peerEvent: PeerAdded) {
+        val peer = peerEvent.peer
+        if (!peer.node.isVoter()) {
+            return
+        }
+        voterMap.compute(peer.connectionSocketAddress.address) { k, v ->
+            val publicKeys = v ?: HashSet()
+            publicKeys.add(peer.node.publicKey)
+            publicKeys
+        }
+    }
+
+    @EventListener
+    @Async
+    fun remove(peerEvent: PeerRemoved) {
+        val peer = peerEvent.peer
+        voterMap.compute(peer.connectionSocketAddress.address) { k, v ->
+            val publicKeys = v ?: HashSet()
+            publicKeys.remove(peer.node.publicKey)
+            publicKeys.ifEmpty {
+                null
+            }
         }
     }
 
@@ -33,8 +65,8 @@ class Guardian(private val eventPublisher: EventPublisher) : CacheSupport {
     fun guard() {
         val newSnapshot = HashMap(statisticsMap)
 
-        val difference = getDifference(newSnapshot)
-        val median = median(difference.keys)
+        val difference = calculateDifference(newSnapshot)
+        val median = median(extractVoters(difference).keys)
         val maliciousActors = difference.tailMap(median * toleranceMultiplier)
 
         maliciousActors.values.forEach {
@@ -42,24 +74,40 @@ class Guardian(private val eventPublisher: EventPublisher) : CacheSupport {
         }
     }
 
-    private fun getDifference(newSnapshot: Map<InetAddress, Long>): TreeMap<Long, InetAddress> {
-        val treeMap = TreeMap<Long, InetAddress>()
+    private fun calculateDifference(newSnapshot: Map<InetAddress, ULong>): TreeMap<ULong, InetAddress> {
+        val treeMap = TreeMap<ULong, InetAddress>()
         return newSnapshot.asSequence()
             .map {
-                val hits = it.value - (snapshot[it.key] ?: 0)
+                val hits = it.value - (snapshot[it.key] ?: 0U)
                 Pair(hits, it.key)
             }
             .toMap(treeMap)
     }
 
+    private fun extractVoters(snapshot: Map<ULong, InetAddress>): Map<ULong, InetAddress> {
+        return snapshot.filter { isVoter(voterMap[it.value] ?: listOf()) }
+    }
 
-    private fun median(hits: Collection<Long>): Long {
-        val list = hits.toList()
+    private fun isVoter(attoPublicKeys: Collection<AttoPublicKey>): Boolean {
+        val voteWeight = attoPublicKeys.asSequence()
+            .map { voteWeighter.get(it) }
+            .sumOf { it.raw }
+
+        return voteWeighter.getMinimalRebroadcastWeight().raw <= voteWeight
+    }
+
+
+    private fun median(hits: Collection<ULong>): ULong {
+        val list = hits.sorted()
         val middle = hits.size / 2
         if (middle % 2 == 1) {
             return list[middle]
         }
-        return (list[middle - 1] + list[middle]) / 2
+        return (list[middle - 1] + list[middle]) / 2UL
+    }
+
+    fun getSnapshot(): Map<InetAddress, ULong> {
+        return snapshot.toMap()
     }
 
     override fun clear() {
