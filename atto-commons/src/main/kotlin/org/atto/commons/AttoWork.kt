@@ -11,24 +11,23 @@ internal val INITIAL_DATE: LocalDate = LocalDate.of(2023, 1, 1)
 internal val INITIAL_INSTANT: Instant = OffsetDateTime.of(INITIAL_DATE, LocalTime.MIN, ZoneOffset.UTC).toInstant()
 internal val DOUBLING_PERIOD = 2.0
 
-private val thresholds = ConcurrentHashMap<Int, ULong>();
+private val thresholdCache = ConcurrentHashMap<AttoNetwork, ConcurrentHashMap<Int, ULong>>();
 internal fun getThreshold(network: AttoNetwork, timestamp: Instant): ULong {
     if (timestamp < INITIAL_INSTANT) {
         throw IllegalArgumentException("Timestamp($timestamp) lower than initialInstant(${AttoNetwork.INITIAL_INSTANT})");
     }
     val years = timestamp.atZone(ZoneOffset.UTC).year - INITIAL_DATE.year
 
-    return thresholds.computeIfAbsent(years) {
-        if (years == 0) {
-            INITIAL_LIVE_THRESHOLD
-        } else {
-            val increaseFactor = (2.0).pow(years / DOUBLING_PERIOD).toULong()
+    val map = thresholdCache.computeIfAbsent(network) {
+        ConcurrentHashMap()
+    }
+    return map.computeIfAbsent(years) {
+        val increaseFactor = (2.0).pow(years / DOUBLING_PERIOD).toULong()
 
-            val initialDifficult = (ULong.MAX_VALUE - INITIAL_LIVE_THRESHOLD) * network.difficultReductionFactor
-            val difficult = initialDifficult / increaseFactor
+        val initialDifficult = (ULong.MAX_VALUE - INITIAL_LIVE_THRESHOLD) * network.difficultReductionFactor
+        val difficult = initialDifficult / increaseFactor
 
-            ULong.MAX_VALUE - difficult
-        }
+        ULong.MAX_VALUE - difficult
     }
 }
 
