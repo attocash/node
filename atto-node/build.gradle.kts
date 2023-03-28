@@ -17,7 +17,7 @@ repositories {
 }
 
 dependencies {
-    val cucumberVersion = "7.11.1"
+    val cucumberVersion = "7.11.2"
     val springdocVersion = "2.0.4"
 
     implementation(project(":atto-commons"))
