@@ -27,7 +27,7 @@ subprojects {
         repositories {
             maven {
                 name = "GitHubPackages"
-                url = uri("https://maven.pkg.github.com/attomoney/node")
+                url = uri("https://maven.pkg.github.com/attocash/node")
                 credentials {
                     username = System.getenv("USERNAME")
                     password = System.getenv("TOKEN")
