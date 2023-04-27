@@ -13,7 +13,7 @@ repositories {
 dependencies {
     implementation(project(":atto-commons"))
     compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.14.2")
-    testImplementation("org.junit.jupiter:junit-jupiter:5.9.2")
+    testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
 }
 
 tasks.withType<KotlinCompile> {
