@@ -4,7 +4,7 @@ plugins {
     kotlin("jvm") version "1.8.21"
 }
 
-group = "org.atto"
+group = "atto"
 version = "0.0.1-SNAPSHOT"
 java.sourceCompatibility = JavaVersion.VERSION_17
 
@@ -37,7 +37,7 @@ subprojects {
         publications {
             register<MavenPublication>("gpr") {
                 from(components["java"])
-                groupId = "org.atto"
+                groupId = "atto"
                 artifactId = project.name.replace("atto-", "")
             }
         }

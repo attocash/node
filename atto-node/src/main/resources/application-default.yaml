@@ -22,8 +22,8 @@ server:
 
 logging:
   level:
-    org.atto: TRACE
-    org.atto.node.network: TRACE
+    atto: TRACE
+    atto.node.network: TRACE
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 

@@ -9,7 +9,6 @@ plugins {
     kotlin("plugin.spring") version kotlinVersion
 }
 
-group = "com.atto"
 java.sourceCompatibility = JavaVersion.VERSION_17
 
 repositories {
