@@ -11,7 +11,7 @@ repositories {
 }
 
 dependencies {
-    implementation("org.bouncycastle:bcprov-jdk18on:1.73")
+    implementation("org.bouncycastle:bcprov-jdk18on:1.74")
     compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.15.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
 }
