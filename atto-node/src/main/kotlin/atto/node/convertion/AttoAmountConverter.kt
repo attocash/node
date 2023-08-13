@@ -1,6 +1,6 @@
 package atto.node.convertion
 
-import atto.commons.AttoAmount
+import cash.atto.commons.AttoAmount
 import org.springframework.stereotype.Component
 
 @Component

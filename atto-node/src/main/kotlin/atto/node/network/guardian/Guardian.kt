@@ -1,6 +1,5 @@
 package atto.node.network.guardian
 
-import atto.commons.AttoPublicKey
 import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
@@ -8,6 +7,7 @@ import atto.node.network.NodeBanned
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
+import cash.atto.commons.AttoPublicKey
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled

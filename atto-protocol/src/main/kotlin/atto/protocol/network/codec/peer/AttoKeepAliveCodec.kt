@@ -1,9 +1,9 @@
 package atto.protocol.network.codec.peer
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.network.peer.AttoKeepAlive
+import cash.atto.commons.AttoByteBuffer
 import java.util.stream.Collectors
 import java.util.stream.Stream
 

@@ -1,10 +1,10 @@
 package atto.node.account
 
+import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
 import com.fasterxml.jackson.annotation.JsonIgnore
-import atto.commons.AttoAccount
-import atto.commons.AttoAmount
-import atto.commons.AttoHash
-import atto.commons.AttoPublicKey
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -34,8 +34,8 @@ data class Account(
         return persistedAt == null
     }
 
-    fun toAttoAccount(): atto.commons.AttoAccount {
-        return atto.commons.AttoAccount(
+    fun toAttoAccount(): AttoAccount {
+        return AttoAccount(
             publicKey = publicKey,
             version = version,
             height = height,

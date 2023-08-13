@@ -1,9 +1,9 @@
 package atto.protocol.network.codec.vote
 
-import atto.commons.*
 import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVoteSignature
 import atto.protocol.vote.VoteType
+import cash.atto.commons.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Instant

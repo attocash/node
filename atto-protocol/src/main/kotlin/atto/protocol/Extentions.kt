@@ -1,7 +1,7 @@
 package atto.protocol
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.AttoByteBuffer
 
 fun AttoByteBuffer.add(messageType: AttoMessageType): AttoByteBuffer {
     add(messageType.code)

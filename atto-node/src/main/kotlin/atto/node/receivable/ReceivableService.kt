@@ -1,7 +1,7 @@
 package atto.node.receivable
 
+import cash.atto.commons.AttoHash
 import mu.KotlinLogging
-import atto.commons.AttoHash
 import org.springframework.stereotype.Service
 
 @Service

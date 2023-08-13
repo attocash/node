@@ -1,12 +1,12 @@
 package atto.node.convertion
 
+import cash.atto.commons.AttoPublicKey
 import com.fasterxml.jackson.core.JsonGenerator
 import com.fasterxml.jackson.core.JsonParser
 import com.fasterxml.jackson.databind.DeserializationContext
 import com.fasterxml.jackson.databind.SerializerProvider
 import com.fasterxml.jackson.databind.deser.std.StdDeserializer
 import com.fasterxml.jackson.databind.ser.std.StdSerializer
-import atto.commons.AttoPublicKey
 import org.springframework.boot.context.properties.ConfigurationPropertiesBinding
 import org.springframework.core.convert.converter.Converter
 import org.springframework.stereotype.Component

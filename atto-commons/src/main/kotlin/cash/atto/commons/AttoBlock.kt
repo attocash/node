@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import com.fasterxml.jackson.annotation.JsonIgnore
 import com.fasterxml.jackson.annotation.JsonSubTypes

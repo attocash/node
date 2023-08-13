@@ -1,8 +1,8 @@
 package atto.node.vote
 
-import atto.commons.AttoHash
-import atto.commons.AttoSignature
 import atto.node.AttoRepository
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoSignature
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.time.Instant

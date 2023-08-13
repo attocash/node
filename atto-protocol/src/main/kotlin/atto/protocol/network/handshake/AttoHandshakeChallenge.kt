@@ -1,9 +1,9 @@
 package atto.protocol.network.handshake
 
-import atto.commons.checkLength
-import atto.commons.toHex
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.checkLength
+import cash.atto.commons.toHex
 import kotlin.random.Random
 
 

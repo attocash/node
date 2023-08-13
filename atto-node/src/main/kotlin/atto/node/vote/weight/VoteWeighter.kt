@@ -1,16 +1,15 @@
 package atto.node.vote.weight
 
-import jakarta.annotation.PostConstruct
-import kotlinx.coroutines.runBlocking
-import mu.KotlinLogging
-import atto.commons.*
 import atto.node.CacheSupport
 import atto.node.account.AccountRepository
 import atto.node.election.ElectionFinished
 import atto.node.vote.Vote
 import atto.node.vote.VoteRepository
 import atto.node.vote.VoteValidated
-import atto.protocol.AttoNode
+import cash.atto.commons.*
+import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.runBlocking
+import mu.KotlinLogging
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async

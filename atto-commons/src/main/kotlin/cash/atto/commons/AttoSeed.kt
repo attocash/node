@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import org.bouncycastle.crypto.digests.SHA512Digest
 import org.bouncycastle.crypto.generators.PKCS5S2ParametersGenerator

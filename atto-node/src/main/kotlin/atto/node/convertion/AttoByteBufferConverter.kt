@@ -1,6 +1,6 @@
 package atto.node.convertion
 
-import atto.commons.AttoByteBuffer
+import cash.atto.commons.AttoByteBuffer
 import org.springframework.stereotype.Component
 
 @Component

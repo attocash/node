@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import org.junit.jupiter.api.Assertions
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -6,7 +6,7 @@ import org.junit.jupiter.api.Test
 
 internal class AttoAddressTest {
     private val expectedAccount =
-        atto.commons.AttoAddress("atto_3iwi45me3cgo9aza9wx5f7rder37hw11xtc1ek8psqxw5oxb8cujzue6p7nc")
+        cash.atto.commons.AttoAddress("atto_3iwi45me3cgo9aza9wx5f7rder37hw11xtc1ek8psqxw5oxb8cujzue6p7nc")
 
     @Test
     fun `should create account`() {
@@ -50,7 +50,7 @@ internal class AttoAddressTest {
 
         // when
         Assertions.assertThrows(IllegalArgumentException::class.java) {
-            atto.commons.AttoAddress(wrongAccount)
+            cash.atto.commons.AttoAddress(wrongAccount)
         }
     }
 
@@ -60,7 +60,7 @@ internal class AttoAddressTest {
         val wrongAccount = expectedAccount.value.substring(0, expectedAccount.value.length - 1) + "9"
 
         Assertions.assertThrows(IllegalArgumentException::class.java) {
-            atto.commons.AttoAddress(wrongAccount)
+            cash.atto.commons.AttoAddress(wrongAccount)
         }
     }
 }

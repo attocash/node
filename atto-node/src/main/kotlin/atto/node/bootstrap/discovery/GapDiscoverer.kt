@@ -1,13 +1,5 @@
 package atto.node.bootstrap.discovery
 
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.reactive.asFlow
-import atto.commons.AttoHash
-import atto.commons.AttoPublicKey
-import atto.commons.PreviousSupport
 import atto.node.EventPublisher
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.bootstrap.unchecked.GapView
@@ -19,6 +11,14 @@ import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.toTransaction
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.PreviousSupport
+import kotlinx.coroutines.*
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.reactive.asFlow
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Async

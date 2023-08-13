@@ -1,14 +1,12 @@
 package atto.node
 
+import atto.node.network.peer.PeerProperties
+import atto.node.node.Neighbour
+import atto.node.transaction.TransactionGenesisInitializer
+import cash.atto.commons.AttoPrivateKey
 import io.cucumber.java.Before
 import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.runBlocking
-import atto.commons.AttoPrivateKey
-import atto.node.network.peer.PeerProperties
-import atto.node.node.Neighbour
-import atto.node.transaction.TransactionConfiguration
-import atto.node.transaction.TransactionGenesisInitializer
-import atto.protocol.AttoNode
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
 

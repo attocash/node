@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import java.time.*
 import java.util.concurrent.ConcurrentHashMap

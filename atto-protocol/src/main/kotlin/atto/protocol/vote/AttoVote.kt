@@ -1,6 +1,6 @@
 package atto.protocol.vote
 
-import atto.commons.*
+import cash.atto.commons.*
 import java.time.Instant
 
 data class AttoVoteSignature(

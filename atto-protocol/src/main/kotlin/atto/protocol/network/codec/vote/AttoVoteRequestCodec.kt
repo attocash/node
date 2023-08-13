@@ -1,9 +1,9 @@
 package atto.protocol.network.codec.vote
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.vote.AttoVoteRequest
+import cash.atto.commons.AttoByteBuffer
 
 class AttoVoteRequestCodec : AttoMessageCodec<AttoVoteRequest> {
 

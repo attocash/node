@@ -1,12 +1,11 @@
 package atto.node.network.codec
 
-import atto.commons.AttoByteBuffer
-import atto.protocol.AttoNode
 import atto.protocol.add
 import atto.protocol.getMessageType
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
+import cash.atto.commons.AttoByteBuffer
 import org.springframework.stereotype.Component
 
 @Component

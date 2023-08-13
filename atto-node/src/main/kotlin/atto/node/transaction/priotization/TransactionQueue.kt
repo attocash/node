@@ -1,7 +1,7 @@
 package atto.node.transaction.priotization
 
-import atto.commons.AttoSendBlock
 import atto.node.transaction.Transaction
+import cash.atto.commons.AttoSendBlock
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.Comparator.comparing

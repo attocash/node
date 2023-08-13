@@ -3,8 +3,8 @@
 //import io.mockk.mockk
 //import kotlinx.coroutines.CoroutineScope
 //import kotlinx.coroutines.Dispatchers
-//import atto.commons.AttoHash
-//import atto.commons.AttoPublicKey
+//import cash.atto.commons.AttoHash
+//import cash.atto.commons.AttoPublicKey
 //import atto.protocol.transaction.Transaction
 //import java.util.concurrent.ConcurrentHashMap
 //

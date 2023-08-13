@@ -1,6 +1,6 @@
 package atto.protocol.network.codec.transaction
 
-import atto.commons.*
+import cash.atto.commons.*
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test

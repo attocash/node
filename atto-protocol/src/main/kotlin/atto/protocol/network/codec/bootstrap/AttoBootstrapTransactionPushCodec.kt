@@ -1,11 +1,11 @@
 package atto.protocol.network.codec.bootstrap
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.bootstrap.AttoBootstrapTransactionPush
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.network.codec.transaction.AttoTransactionCodec
 import atto.protocol.transaction.AttoTransactionPush
+import cash.atto.commons.AttoByteBuffer
 
 class AttoBootstrapTransactionPushCodec(private val transactionCodec: AttoTransactionCodec) :
     AttoMessageCodec<AttoBootstrapTransactionPush> {

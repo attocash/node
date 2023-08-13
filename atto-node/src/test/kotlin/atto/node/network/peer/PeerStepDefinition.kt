@@ -1,12 +1,12 @@
 package atto.node.network.peer
 
-import io.cucumber.java.en.Given
-import io.cucumber.java.en.Then
-import io.cucumber.java.en.When
-import atto.commons.AttoPublicKey
 import atto.node.PropertyHolder
 import atto.node.Waiter.waitUntilNonNull
 import atto.node.node.NodeStepDefinition
+import cash.atto.commons.AttoPublicKey
+import io.cucumber.java.en.Given
+import io.cucumber.java.en.Then
+import io.cucumber.java.en.When
 import org.junit.jupiter.api.Assertions.assertNotNull
 
 class PeerStepDefinition(

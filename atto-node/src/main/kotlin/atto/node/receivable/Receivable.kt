@@ -1,8 +1,8 @@
 package atto.node.receivable
 
-import atto.commons.AttoAmount
-import atto.commons.AttoHash
-import atto.commons.AttoPublicKey
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant

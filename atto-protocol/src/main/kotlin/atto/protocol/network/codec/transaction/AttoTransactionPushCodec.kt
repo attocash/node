@@ -1,9 +1,9 @@
 package atto.protocol.network.codec.transaction
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.transaction.AttoTransactionPush
+import cash.atto.commons.AttoByteBuffer
 
 class AttoTransactionPushCodec(private val transactionCodec: AttoTransactionCodec) :
     AttoMessageCodec<AttoTransactionPush> {

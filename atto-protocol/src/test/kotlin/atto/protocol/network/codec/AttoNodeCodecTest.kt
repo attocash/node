@@ -1,7 +1,6 @@
 package atto.protocol.network.codec
 
-import atto.commons.fromHexToAttoByteBuffer
-import atto.commons.toHex
+import cash.atto.commons.fromHexToAttoByteBuffer
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

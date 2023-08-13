@@ -1,11 +1,11 @@
 package atto.node.transaction.validation.validator
 
-import atto.commons.PreviousSupport
 import atto.node.account.Account
 import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionRejectionReason
 import atto.node.transaction.validation.TransactionValidator
 import atto.node.transaction.validation.TransactionViolation
+import cash.atto.commons.PreviousSupport
 import org.springframework.stereotype.Component
 
 @Component

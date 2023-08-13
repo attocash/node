@@ -1,7 +1,7 @@
 package atto.node.bootstrap.unchecked;
 
+import cash.atto.commons.AttoHash
 import mu.KotlinLogging
-import atto.commons.AttoHash
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional

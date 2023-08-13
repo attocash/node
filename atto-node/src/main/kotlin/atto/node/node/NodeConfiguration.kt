@@ -1,10 +1,8 @@
 package atto.node.node
 
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.toHex
 import mu.KotlinLogging
-import atto.commons.AttoPrivateKey
-import atto.commons.toHex
-import atto.protocol.AttoNode
-import atto.protocol.NodeFeature
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 

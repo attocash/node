@@ -1,7 +1,7 @@
 package atto.protocol.network.codec.transaction
 
-import atto.commons.AttoPublicKey
 import atto.protocol.transaction.AttoTransactionStreamRequest
+import cash.atto.commons.AttoPublicKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 

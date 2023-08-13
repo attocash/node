@@ -1,8 +1,8 @@
 package atto.protocol.transaction
 
-import atto.commons.AttoHash
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.AttoHash
 
 
 data class AttoTransactionRequest(val hash: AttoHash) : AttoMessage {

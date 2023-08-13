@@ -1,14 +1,13 @@
 package atto.node.transaction
 
-import io.cucumber.java.en.Then
-import io.cucumber.java.en.When
-import mu.KotlinLogging
-import atto.commons.*
 import atto.node.PropertyHolder
 import atto.node.Waiter
 import atto.node.account.AccountDTO
 import atto.node.node.Neighbour
-import atto.protocol.AttoNode
+import cash.atto.commons.*
+import io.cucumber.java.en.Then
+import io.cucumber.java.en.When
+import mu.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
@@ -62,7 +61,7 @@ class TransactionStepDefinition(
                 work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash)
             )
         } else {
-            val openBlock = atto.commons.AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
+            val openBlock = cash.atto.commons.AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
             Transaction(
                 block = openBlock,
                 signature = privateKey.sign(openBlock.hash),
@@ -111,7 +110,7 @@ class TransactionStepDefinition(
         streamTransaction(PropertyHolder[Neighbour::class.java, shortId], expectedTransaction.hash)
     }
 
-    private fun getAccount(neighbour: Neighbour, publicKey: AttoPublicKey): atto.commons.AttoAccount? {
+    private fun getAccount(neighbour: Neighbour, publicKey: AttoPublicKey): cash.atto.commons.AttoAccount? {
         return webClient.get()
             .uri("http://localhost:${neighbour.httpPort}/accounts/{publicKey}", publicKey.toString())
             .retrieve()

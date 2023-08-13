@@ -1,9 +1,9 @@
 package atto.protocol.network.codec.peer.handshake
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.network.handshake.AttoHandshakeChallenge
+import cash.atto.commons.AttoByteBuffer
 
 class AttoHandshakeChallengeCodec : AttoMessageCodec<AttoHandshakeChallenge> {
 

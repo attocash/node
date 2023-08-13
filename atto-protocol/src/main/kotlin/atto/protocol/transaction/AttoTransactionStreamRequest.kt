@@ -1,9 +1,9 @@
 package atto.protocol.transaction
 
-import atto.commons.AttoByteBuffer
-import atto.commons.AttoPublicKey
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.AttoByteBuffer
+import cash.atto.commons.AttoPublicKey
 
 
 /**

@@ -1,17 +1,15 @@
 package atto.node.account
 
+import atto.node.EventPublisher
+import atto.node.transaction.TransactionSaved
+import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
-import atto.commons.AttoAccount
-import atto.commons.AttoAmount
-import atto.commons.AttoHash
-import atto.commons.AttoPublicKey
-import atto.node.EventPublisher
-import atto.node.network.NetworkMessagePublisher
-import atto.node.transaction.TransactionSaved
-import atto.protocol.AttoNode
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -26,7 +24,6 @@ import java.util.*
 class AccountController(
     val node: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,
-    val messagePublisher: NetworkMessagePublisher,
     val repository: AccountRepository
 ) {
     private val logger = KotlinLogging.logger {}
@@ -87,8 +84,8 @@ data class AccountDTO(
     var lastTransactionTimestamp: Instant,
     var representative: String,
 ) {
-    fun toAttoAccount(): atto.commons.AttoAccount {
-        return atto.commons.AttoAccount(
+    fun toAttoAccount(): AttoAccount {
+        return AttoAccount(
             publicKey = AttoPublicKey.parse(publicKey),
             version = version.toUShort(),
             height = height.toLong().toULong(),

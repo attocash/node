@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 data class AttoTransaction(
     val block: AttoBlock,

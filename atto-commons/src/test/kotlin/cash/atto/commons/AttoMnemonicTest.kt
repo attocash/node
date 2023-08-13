@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test

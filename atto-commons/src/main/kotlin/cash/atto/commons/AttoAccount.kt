@@ -1,21 +1,24 @@
-package atto.commons
+package cash.atto.commons
 
 import java.time.Instant
 
 
 data class AttoAccount(
-    val publicKey: atto.commons.AttoPublicKey,
+    val publicKey: cash.atto.commons.AttoPublicKey,
     var version: UShort,
     var height: ULong,
-    var balance: atto.commons.AttoAmount,
-    var lastTransactionHash: atto.commons.AttoHash,
+    var balance: cash.atto.commons.AttoAmount,
+    var lastTransactionHash: cash.atto.commons.AttoHash,
     var lastTransactionTimestamp: Instant,
-    var representative: atto.commons.AttoPublicKey,
+    var representative: cash.atto.commons.AttoPublicKey,
 ) {
 
     companion object {
-        fun open(representative: atto.commons.AttoPublicKey, sendBlock: atto.commons.AttoSendBlock): atto.commons.AttoOpenBlock {
-            return atto.commons.AttoOpenBlock(
+        fun open(
+            representative: cash.atto.commons.AttoPublicKey,
+            sendBlock: cash.atto.commons.AttoSendBlock
+        ): cash.atto.commons.AttoOpenBlock {
+            return cash.atto.commons.AttoOpenBlock(
                 version = sendBlock.version,
                 publicKey = sendBlock.receiverPublicKey,
                 balance = sendBlock.amount,
@@ -26,11 +29,14 @@ data class AttoAccount(
         }
     }
 
-    fun send(publicKey: atto.commons.AttoPublicKey, amount: atto.commons.AttoAmount): atto.commons.AttoSendBlock {
+    fun send(
+        publicKey: cash.atto.commons.AttoPublicKey,
+        amount: cash.atto.commons.AttoAmount
+    ): cash.atto.commons.AttoSendBlock {
         if (publicKey == this.publicKey) {
             throw IllegalArgumentException("You can't send money to yourself");
         }
-        return atto.commons.AttoSendBlock(
+        return cash.atto.commons.AttoSendBlock(
             version = version,
             publicKey = this.publicKey,
             height = height + 1U,
@@ -42,8 +48,8 @@ data class AttoAccount(
         )
     }
 
-    fun receive(sendBlock: atto.commons.AttoSendBlock): atto.commons.AttoReceiveBlock {
-        return atto.commons.AttoReceiveBlock(
+    fun receive(sendBlock: cash.atto.commons.AttoSendBlock): cash.atto.commons.AttoReceiveBlock {
+        return cash.atto.commons.AttoReceiveBlock(
             version = max(version, sendBlock.version),
             publicKey = publicKey,
             height = height + 1U,
@@ -54,8 +60,8 @@ data class AttoAccount(
         )
     }
 
-    fun change(representative: atto.commons.AttoPublicKey): atto.commons.AttoChangeBlock {
-        return atto.commons.AttoChangeBlock(
+    fun change(representative: cash.atto.commons.AttoPublicKey): cash.atto.commons.AttoChangeBlock {
+        return cash.atto.commons.AttoChangeBlock(
             version = version,
             publicKey = publicKey,
             height = height + 1U,

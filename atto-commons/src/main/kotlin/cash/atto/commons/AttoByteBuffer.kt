@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import java.net.InetAddress
 import java.net.InetSocketAddress

@@ -1,12 +1,12 @@
 package atto.node.transaction.validation.validator
 
-import atto.commons.ReceiveSupportBlock
 import atto.node.account.Account
 import atto.node.receivable.ReceivableRepository
 import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionRejectionReason
 import atto.node.transaction.validation.TransactionValidator
 import atto.node.transaction.validation.TransactionViolation
+import cash.atto.commons.ReceiveSupportBlock
 import org.springframework.stereotype.Component
 
 @Component

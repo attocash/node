@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import org.bouncycastle.crypto.digests.SHA256Digest
 import java.nio.ByteBuffer

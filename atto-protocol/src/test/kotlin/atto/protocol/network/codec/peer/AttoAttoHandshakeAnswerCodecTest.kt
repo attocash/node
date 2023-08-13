@@ -1,13 +1,11 @@
 package atto.protocol.network.codec.peer
 
-import atto.commons.AttoNetwork
-import atto.commons.AttoPublicKey
-import atto.commons.AttoSignature
-import atto.protocol.AttoNode
-import atto.protocol.NodeFeature
 import atto.protocol.network.codec.AttoNodeCodec
 import atto.protocol.network.codec.peer.handshake.AttoHandshakeAnswerCodec
 import atto.protocol.network.handshake.AttoHandshakeAnswer
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSignature
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.net.InetAddress

@@ -1,8 +1,8 @@
 package atto.protocol.bootstrap
 
-import atto.commons.AttoTransaction
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.AttoTransaction
 
 
 data class AttoBootstrapTransactionPush(val transaction: AttoTransaction) : AttoMessage {

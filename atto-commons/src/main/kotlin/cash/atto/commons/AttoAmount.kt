@@ -1,4 +1,4 @@
-package atto.commons
+package cash.atto.commons
 
 import java.math.BigDecimal
 import java.math.BigInteger

@@ -1,8 +1,8 @@
 package atto.node.node
 
-import atto.commons.AttoNetwork
-import atto.commons.AttoPrivateKey
-import atto.commons.fromHexToByteArray
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.fromHexToByteArray
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 import java.net.InetAddress

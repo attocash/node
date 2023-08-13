@@ -11,8 +11,8 @@ repositories {
 }
 
 dependencies {
-    implementation(project(":atto-commons"))
-    compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.15.2")
+    implementation("cash.atto:commons:1.0.0")
+    compileOnly("com.fasterxml.jackson.core:jackson-annotations:2.15.0")
     testImplementation("org.junit.jupiter:junit-jupiter:5.9.3")
 }
 

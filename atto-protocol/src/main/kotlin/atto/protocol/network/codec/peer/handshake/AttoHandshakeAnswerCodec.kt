@@ -1,10 +1,10 @@
 package atto.protocol.network.codec.peer.handshake
 
-import atto.commons.AttoByteBuffer
 import atto.protocol.network.AttoMessageType
 import atto.protocol.network.codec.AttoMessageCodec
 import atto.protocol.network.codec.AttoNodeCodec
 import atto.protocol.network.handshake.AttoHandshakeAnswer
+import cash.atto.commons.AttoByteBuffer
 
 
 class AttoHandshakeAnswerCodec(val nodeCodec: AttoNodeCodec) : AttoMessageCodec<AttoHandshakeAnswer> {

@@ -1,9 +1,8 @@
 package atto.protocol.network.handshake
 
-import atto.commons.AttoSignature
-import atto.protocol.AttoNode
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
+import cash.atto.commons.AttoSignature
 
 data class AttoHandshakeAnswer(
     val signature: AttoSignature,

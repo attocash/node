@@ -1,7 +1,6 @@
 package atto.protocol.network.codec
 
-import atto.commons.AttoByteBuffer
-import atto.protocol.AttoNode
+import cash.atto.commons.AttoByteBuffer
 
 class AttoNodeCodec : AttoCodec<atto.protocol.AttoNode> {
 
