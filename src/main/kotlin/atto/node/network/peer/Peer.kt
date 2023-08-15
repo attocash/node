@@ -1,7 +1,6 @@
 package atto.node.network.peer
 
 import atto.node.Event
-import atto.protocol.AttoNode
 import java.net.InetSocketAddress
 
 data class Peer(val connectionSocketAddress: InetSocketAddress, val node: atto.protocol.AttoNode) {

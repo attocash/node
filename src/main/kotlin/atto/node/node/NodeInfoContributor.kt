@@ -1,7 +1,6 @@
 package atto.node.node
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import atto.protocol.AttoNode
 import org.springframework.boot.actuate.info.Info
 import org.springframework.boot.actuate.info.InfoContributor
 import org.springframework.stereotype.Component

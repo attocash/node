@@ -1,11 +1,5 @@
 package atto.node.transaction
 
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactor.asFlux
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.OutboundNetworkMessage
@@ -13,6 +7,12 @@ import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.reactor.asFlux
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component

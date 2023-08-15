@@ -1,12 +1,12 @@
 package atto.node.bootstrap.discovery
 
+import atto.node.bootstrap.TransactionDiscovered
+import atto.node.bootstrap.unchecked.UncheckedTransactionService
+import atto.node.bootstrap.unchecked.toUncheckedTransaction
 import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import atto.node.bootstrap.TransactionDiscovered
-import atto.node.bootstrap.unchecked.UncheckedTransactionService
-import atto.node.bootstrap.unchecked.toUncheckedTransaction
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component

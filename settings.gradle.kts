@@ -1,3 +1,3 @@
-rootProject.name = "atto"
+rootProject.name = "node"
 
-include("atto-node")
+//include("atto-node")

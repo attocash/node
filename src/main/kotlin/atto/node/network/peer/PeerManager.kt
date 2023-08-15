@@ -1,12 +1,12 @@
 package atto.node.network.peer
 
-import com.github.benmanes.caffeine.cache.Caffeine
 import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.OutboundNetworkMessage
 import atto.protocol.network.peer.AttoKeepAlive
+import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled

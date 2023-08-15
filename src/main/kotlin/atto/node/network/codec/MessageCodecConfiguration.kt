@@ -1,6 +1,5 @@
 package atto.node.network.codec
 
-import atto.protocol.AttoNode
 import atto.protocol.network.codec.AttoNodeCodec
 import atto.protocol.network.codec.bootstrap.AttoBootstrapTransactionPushCodec
 import atto.protocol.network.codec.peer.AttoKeepAliveCodec

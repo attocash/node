@@ -1,7 +1,7 @@
 package atto.node.network
 
-import mu.KotlinLogging
 import atto.protocol.network.AttoMessage
+import mu.KotlinLogging
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.ResolvableType
 import org.springframework.core.ResolvableTypeProvider

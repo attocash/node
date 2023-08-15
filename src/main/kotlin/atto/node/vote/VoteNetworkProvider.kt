@@ -1,14 +1,14 @@
 package atto.node.vote
 
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.OutboundNetworkMessage
 import atto.protocol.vote.AttoVoteRequest
 import atto.protocol.vote.AttoVoteResponse
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component

@@ -1,11 +1,11 @@
 package atto.node.network
 
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.LoadingCache
 import atto.node.CacheSupport
 import atto.node.network.peer.Peer
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.LoadingCache
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
