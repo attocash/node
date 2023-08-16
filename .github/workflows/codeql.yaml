@@ -11,7 +11,8 @@ jobs:
         with:
           distribution: 'temurin'
           java-version: '17'
-          cache: 'gradle'
+
+      - uses: gradle/gradle-build-action@v2
 
       - uses: github/codeql-action/init@v2
         with:
@@ -19,6 +20,6 @@ jobs:
 
       - name: build
         run: |
-          ./gradlew --info build -x test
+          gradle --info build -x test
 
       - uses: github/codeql-action/analyze@v2

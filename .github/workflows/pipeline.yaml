@@ -24,20 +24,19 @@ jobs:
           cache: 'gradle'
 
       - uses: actions/download-artifact@v3
-
-      - name: publish jar
-        run: |
-          ./gradlew build publish -x test -Pversion=${GITHUB_SHA::7}-SNAPSHOT
-        env:
-          USERNAME: rotilho
-          TOKEN: ${{ secrets.TOKEN }}
+        with:
+          name: node
+          path: ${{ github.workspace }}/build/libs
 
       - name: publish docker
         run: |
-          ls atto-node/build/libs
-          rm atto-node/build/libs/atto-node-${GITHUB_SHA::7}-SNAPSHOT-plain.jar
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
+          
+          ls ./build/libs
           docker build -t ghcr.io/attocash/node:dev . --pull
           docker push ghcr.io/attocash/node:dev
+          
+          docker build -t ghcr.io/attocash/node:${{ github.sha }} .
+          docker push ghcr.io/attocash/node:${{ github.sha }}
         env:
           TOKEN: ${{ secrets.TOKEN }}
