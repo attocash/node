@@ -32,11 +32,10 @@ jobs:
         run: |
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           
-          ls ./build/libs
-          docker build -t ghcr.io/attocash/node:dev . --pull
-          docker push ghcr.io/attocash/node:dev
-          
-          docker build -t ghcr.io/attocash/node:${{ github.sha }} .
+          docker build -t ghcr.io/attocash/node:${{ github.sha }} . --pull
           docker push ghcr.io/attocash/node:${{ github.sha }}
+          
+          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${{ github.ref_name }}
+          docker push ghcr.io/attocash/node:${{ github.ref_name }}
         env:
           TOKEN: ${{ secrets.TOKEN }}
