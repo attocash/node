@@ -38,7 +38,9 @@ jobs:
           docker build -t ghcr.io/attocash/node:${{ github.sha }} . --pull
           docker push ghcr.io/attocash/node:${{ github.sha }}
           
-          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${{ github.ref_name }}
-          docker push ghcr.io/attocash/node:${{ github.ref_name }}
+          BRANCH_NAME=${{ replace(github.sha, '/', '_') }}
+          
+          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:$BRANCH_NAME
+          docker push ghcr.io/attocash/node:$BRANCH_NAME
         env:
           TOKEN: ${{ secrets.TOKEN }}
