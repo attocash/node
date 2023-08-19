@@ -1,0 +1,38 @@
+name: Cleanup Old Docker Images
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Cleanup old images
+        run: |
+          # Fetch all package versions from the GitHub Package Registry for AttoCash/node
+          PACKAGE_VERSIONS=$(curl -X GET -u rotilho:TOKEN -H "Accept: application/vnd.github.v3+json" https://api.github.com/orgs/AttoCash/packages/container/node/versions)
+          
+          # Extract all versions and creation dates 
+          VERSIONS_TO_CHECK=$(echo $PACKAGE_VERSIONS | jq -r '.[] | select(.name != "main" and (.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+$") | not)) | .name + " " + .created_at')
+          
+          TWO_WEEKS_AGO=$(date -d "2 weeks ago" +%Y-%m-%dT%H:%M:%S)
+          
+          # Iterate over versions and delete those older than 2 weeks and don't match the criteria
+          while IFS= read -r line; do
+              VERSION=$(echo $line | cut -d ' ' -f1)
+              CREATION_DATE=$(echo $line | cut -d ' ' -f2)
+          
+              if [[ "$CREATION_DATE" < "$TWO_WEEKS_AGO" ]]; then
+                  # Delete the old version
+                  curl -X DELETE -u AttoCash:$GHCR_PAT -H "Accept: application/vnd.github.v3+json" \
+                    https://api.github.com/orgs/AttoCash/packages/container/node/versions/$VERSION
+              fi
+          done <<< "$VERSIONS_TO_CHECK"
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
