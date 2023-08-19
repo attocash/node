@@ -1,0 +1,40 @@
+name: Cleanup Old Docker Images
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Clean up
+        run: |
+          PACKAGE_VERSIONS=$(curl --request GET \
+          --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions" \
+          --header "Authorization: Bearer $TOKEN" \
+          --header "Accept: application/vnd.github.v3+json")
+          
+          echo "PACKAGE_VERSIONS: $PACKAGE_VERSIONS"
+          
+          VERSIONS_TO_CHECK=$(echo $PACKAGE_VERSIONS | jq -r '.[] | select(.name != "main" and (.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+$") | not)) | .id, .created_at')
+          
+          TWO_WEEKS_AGO=$(date -d "2 weeks ago" +%s)
+          
+          while IFS= read -r ID && IFS= read -r CREATION_DATE; do
+           CREATION_DATE_IN_SECONDS=$(date --date="$CREATION_DATE" +%s)
+          
+           if [[ $CREATION_DATE_IN_SECONDS -lt $TWO_WEEKS_AGO ]]; then
+               echo "Deleting version with ID: $ID"
+               curl --request DELETE \
+                 --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions/$ID" \
+                 --header "Authorization: Bearer $TOKEN" \
+                 --header "Accept: application/vnd.github.v3+json"
+          fi
+          done <<< "$VERSIONS_TO_CHECK"
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
