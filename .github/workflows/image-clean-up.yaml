@@ -43,5 +43,5 @@ jobs:
                   #   --header "Accept: application/vnd.github.v3+json"
               fi
           done <<< "$VERSIONS_TO_CHECK"
-      env:
-        TOKEN: ${{ secrets.TOKEN }}
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
