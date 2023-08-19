@@ -30,10 +30,10 @@ jobs:
           
            if [[ $CREATION_DATE_IN_SECONDS -lt $TWO_WEEKS_AGO ]]; then
                echo "Deleting version with ID: $ID"
-               #                  curl --request DELETE \
-               #                    --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions/$ID" \
-               #                    --header "Authorization: Bearer $TOKEN" \
-               #                    --header "Accept: application/vnd.github.v3+json"
+               curl --request DELETE \
+                 --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions/$ID" \
+                 --header "Authorization: Bearer $TOKEN" \
+                 --header "Accept: application/vnd.github.v3+json"
           fi
           done <<< "$VERSIONS_TO_CHECK"
         env:
