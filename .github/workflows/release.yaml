@@ -1,0 +1,22 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  dev:
+    uses: ./.github/workflows/release-environment.yaml
+    with:
+      environment: dev
+  beta:
+    needs: [ dev ]
+    uses: ./.github/workflows/release-environment.yaml
+    with:
+      environment: beta
+  live:
+    needs: [ beta ]
+    uses: ./.github/workflows/release-environment.yaml
+    with:
+      environment: live

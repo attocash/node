@@ -1,0 +1,32 @@
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+
+jobs:
+  codeql:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - name: release
+        run: |
+          echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
+          
+          docker pull ghcr.io/attocash/node:${{ github.sha }}
+          
+          VERSION=$(echo ${GITHUB_REF} | sed -e "s/refs\/tags\/v//")
+
+          # Fetch all tags and get the latest one using git tag and sort
+          LATEST_VERSION=$(git tag | sort -V | tail -n1 | sed 's/^v//')
+
+          for env in staging production; do
+            docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${VERSION}-${{ inputs.environment }}
+            docker push ghcr.io/attocash/node:${VERSION}-${{ inputs.environment }}
+
+            if [[ "VERSION" == "LATEST_VERSION" ]]; then
+              docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${{ inputs.environment }}
+              docker push ghcr.io/attocash/node:${{ inputs.environment }}
+            fi
+          done
