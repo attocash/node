@@ -6,7 +6,7 @@ on:
         type: string
 
 jobs:
-  codeql:
+  release:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -30,3 +30,5 @@ jobs:
               docker push ghcr.io/attocash/node:${{ inputs.environment }}
             fi
           done
+        env:
+          TOKEN: ${{ secrets.TOKEN }}
