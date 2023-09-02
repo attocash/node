@@ -18,6 +18,7 @@ jobs:
     secrets:
       token: ${{ secrets.TOKEN }}
   dev:
+    needs: [ docker ]
     uses: ./.github/workflows/release-environment.yaml
     with:
       environment: dev

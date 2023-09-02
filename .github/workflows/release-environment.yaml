@@ -20,7 +20,7 @@ jobs:
         run: |
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           
-          RELEASE_BRANCH=${{ github.ref_name#release/ }}
+          RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
           LATEST_TAG=$(git tag --list "$RELEASE_BRANCH.*" --sort=-v:refname | head -n1)
           MINOR=${LATEST_TAG##*.}
           
