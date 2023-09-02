@@ -27,7 +27,8 @@ data class InboundNetworkMessage<T : AttoMessage>(
 
 enum class BroadcastStrategy {
     EVERYONE,
-//    MINORITY,
+
+    //    MINORITY,
     VOTERS,
 //    HISTORICAL,
 }

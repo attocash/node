@@ -24,7 +24,7 @@ class PeerManager(
     private val peers = Caffeine.newBuilder()
         .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
         .removalListener { _: InetSocketAddress?, peer: Peer?, _ ->
-                peer?.let { eventPublisher.publish(PeerRemoved(it)) }
+            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
         }.build<InetSocketAddress, Peer>()
         .asMap()
 

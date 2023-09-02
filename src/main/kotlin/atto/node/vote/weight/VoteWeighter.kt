@@ -120,7 +120,7 @@ class VoteWeighter(
         return minimalConfirmationWeight
     }
 
-    fun getMinimalRebroadcastWeight() : AttoAmount {
+    fun getMinimalRebroadcastWeight(): AttoAmount {
         return minimalRebroadcastWeight
     }
 
