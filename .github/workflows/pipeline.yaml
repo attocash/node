@@ -3,7 +3,7 @@ name: Pipeline
 on:
   push:
     branches:
-      - *
+      - '*'
     branches-ignore:
       - 'release/[0-9]+.x'
 
