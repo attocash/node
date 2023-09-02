@@ -23,7 +23,8 @@ jobs:
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           
           RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
-          LATEST_TAG=$(git tag --list "$RELEASE_BRANCH.*" --sort=-v:refname | head -n1)
+          MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
+          LATEST_TAG=$(git tag --list "$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
           
           if [ -z "$LATEST_TAG" ]; then
             MINOR=0
@@ -31,7 +32,7 @@ jobs:
             MINOR=$(( ${LATEST_TAG##*.} + 1 ))
           fi
           
-          NEXT_TAG="$RELEASE_BRANCH.$MINOR"
+          NEXT_TAG="$MAJOR_VERSION.$MINOR"
           
           docker pull ghcr.io/attocash/node:${{ github.sha }}
           docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}

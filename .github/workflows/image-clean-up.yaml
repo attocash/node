@@ -21,7 +21,7 @@ jobs:
           
           echo "PACKAGE_VERSIONS: $PACKAGE_VERSIONS"
           
-          VERSIONS_TO_CHECK=$(echo $PACKAGE_VERSIONS | jq -r '.[] | select(.name != "main" and (.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+$") | not)) | .id, .created_at')
+          VERSIONS_TO_CHECK=$(echo $PACKAGE_VERSIONS | jq -r '.[] | select(.name != "main" and (.name | test("^[0-9]+\\.[0-9]+$") | not)) | .id, .created_at')
           
           TWO_WEEKS_AGO=$(date -d "2 weeks ago" +%s)
           
