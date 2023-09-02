@@ -30,7 +30,7 @@ jobs:
             NEXT_MINOR=0
           fi
           
-          if [ "${{ inputs.environment }}" == "development" ]; then
+          if [ "${{ inputs.environment }}" == "dev" ]; then
             NEXT_TAG="$RELEASE_BRANCH.$NEXT_MINOR"
           else
             NEXT_TAG=$LATEST_TAG
@@ -40,7 +40,7 @@ jobs:
           docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           
-          if [ "${{ inputs.environment }}" != "development" ]; then
+          if [ "${{ inputs.environment }}" != "dev" ]; then
             git tag v$GIT_NEXT_TAG
             git push origin v$GIT_NEXT_TAG
           fi
