@@ -24,16 +24,15 @@ jobs:
           
           RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
           LATEST_TAG=$(git tag --list "$RELEASE_BRANCH.*" --sort=-v:refname | head -n1)
-          MINOR=${LATEST_TAG##*.}
           
-          if [ -n "$MINOR" ]; then
-            NEXT_MINOR=$((MINOR + 1))
+          if [ -z "$LATEST_TAG" ]; then
+            MINOR=0
           else
-            NEXT_MINOR=0
+            MINOR=$(( ${LATEST_TAG##*.} + 1 ))
           fi
           
           if [ "${{ inputs.environment }}" == "dev" ]; then
-            NEXT_TAG="$RELEASE_BRANCH.$NEXT_MINOR"
+            NEXT_TAG="$RELEASE_BRANCH.$MINOR"
           else
             NEXT_TAG=$LATEST_TAG
           fi
@@ -43,8 +42,8 @@ jobs:
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           
           if [ "${{ inputs.environment }}" != "dev" ]; then
-            git tag v$GIT_NEXT_TAG
-            git push origin v$GIT_NEXT_TAG
+            git tag v$NEXT_TAG
+            git push origin v$NEXT_TAG
           fi
         env:
           TOKEN: ${{ secrets.token }}
