@@ -1,11 +1,11 @@
 name: Pipeline
+
 on:
   push:
     branches:
-      - main
-      - 'feature/*'
-      - 'bugfix/*'
-      - 'release/*'
+      - *
+    branches-ignore:
+      - 'release/[0-9]+.x'
 
 jobs:
   build:
@@ -16,32 +16,6 @@ jobs:
     needs:
       - build
       - codeql
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-
-      - uses: actions/setup-java@v3
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-          cache: 'gradle'
-
-      - uses: actions/download-artifact@v3
-        with:
-          name: node
-          path: ${{ github.workspace }}/build/libs
-
-      - name: publish docker
-        run: |
-          echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
-          
-          docker build -t ghcr.io/attocash/node:${{ github.sha }} . --pull
-          docker push ghcr.io/attocash/node:${{ github.sha }}
-          
-          BRANCH_NAME=${{ github.ref_name }}
-          BRANCH_NAME=${BRANCH_NAME//\//_}
-          
-          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:$BRANCH_NAME
-          docker push ghcr.io/attocash/node:$BRANCH_NAME
-        env:
-          TOKEN: ${{ secrets.TOKEN }}
+    uses: ./.github/workflows/docker.yaml
+    secrets:
+      token: ${{ secrets.TOKEN }}

@@ -13,25 +13,36 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
+      - name: tags
+        run: git fetch --tags
+
       - name: release
         run: |
           echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
           
-          docker pull ghcr.io/attocash/node:${{ github.sha }}
+          RELEASE_BRANCH=${{ github.ref_name#release/ }}
+          LATEST_TAG=$(git tag --list "$RELEASE_BRANCH.*" --sort=-v:refname | head -n1)
+          MINOR=${LATEST_TAG##*.}
           
-          VERSION=$(echo ${GITHUB_REF} | sed -e "s/refs\/tags\/v//")
-
-          # Fetch all tags and get the latest one using git tag and sort
-          LATEST_VERSION=$(git tag | sort -V | tail -n1 | sed 's/^v//')
-
-          for env in staging production; do
-            docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${VERSION}-${{ inputs.environment }}
-            docker push ghcr.io/attocash/node:${VERSION}-${{ inputs.environment }}
-
-            if [[ "VERSION" == "LATEST_VERSION" ]]; then
-              docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${{ inputs.environment }}
-              docker push ghcr.io/attocash/node:${{ inputs.environment }}
-            fi
-          done
+          if [ -n "$MINOR" ]; then
+            NEXT_MINOR=$((MINOR + 1))
+          else
+            NEXT_MINOR=0
+          fi
+          
+          if [ "${{ inputs.environment }}" == "development" ]; then
+            NEXT_TAG="$RELEASE_BRANCH.$NEXT_MINOR"
+          else
+            NEXT_TAG=$LATEST_TAG
+          fi
+          
+          docker pull ghcr.io/attocash/node:${{ github.sha }}
+          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
+          docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
+          
+          if [ "${{ inputs.environment }}" != "development" ]; then
+            git tag v$GIT_NEXT_TAG
+            git push origin v$GIT_NEXT_TAG
+          fi
         env:
           TOKEN: ${{ secrets.token }}

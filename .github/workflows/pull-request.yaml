@@ -6,6 +6,8 @@ on:
 
 jobs:
   build:
+    if: github.event.pull_request.head.repo.fork == true
     uses: ./.github/workflows/build.yaml
   codeql:
+    if: github.event.pull_request.head.repo.fork == true
     uses: ./.github/workflows/codeql.yaml

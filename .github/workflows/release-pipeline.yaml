@@ -1,11 +1,22 @@
-name: Release
+name: Release Pipeline
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches:
+      - 'release/[0-9]+.x'
 
 jobs:
+  build:
+    uses: ./.github/workflows/build.yaml
+  codeql:
+    uses: ./.github/workflows/codeql.yaml
+  docker:
+    needs:
+      - build
+      - codeql
+    uses: ./.github/workflows/docker.yaml
+    secrets:
+      token: ${{ secrets.TOKEN }}
   dev:
     uses: ./.github/workflows/release-environment.yaml
     with:
@@ -26,3 +37,4 @@ jobs:
       environment: live
     secrets:
       token: ${{ secrets.TOKEN }}
+
