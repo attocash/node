@@ -4,6 +4,9 @@ on:
       environment:
         required: true
         type: string
+    secrets:
+      token:
+        required: true
 
 jobs:
   release:
@@ -31,4 +34,4 @@ jobs:
             fi
           done
         env:
-          TOKEN: ${{ secrets.TOKEN }}
+          TOKEN: ${{ secrets.token }}

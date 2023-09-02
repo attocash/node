@@ -10,13 +10,19 @@ jobs:
     uses: ./.github/workflows/release-environment.yaml
     with:
       environment: dev
+    secrets:
+      token: ${{ secrets.TOKEN }}
   beta:
     needs: [ dev ]
     uses: ./.github/workflows/release-environment.yaml
     with:
       environment: beta
+    secrets:
+      token: ${{ secrets.TOKEN }}
   live:
     needs: [ beta ]
     uses: ./.github/workflows/release-environment.yaml
     with:
       environment: live
+    secrets:
+      token: ${{ secrets.TOKEN }}
