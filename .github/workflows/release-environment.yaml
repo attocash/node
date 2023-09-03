@@ -37,8 +37,12 @@ jobs:
           NEXT_TAG="$MAJOR_VERSION.$MINOR"
           
           docker pull ghcr.io/attocash/node:${{ github.sha }}
+          
           docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
+          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
+          
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
+          docker push ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
           
           if [ "${{ inputs.environment }}" == "dev" ]; then
             git tag v$NEXT_TAG
