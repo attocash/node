@@ -38,7 +38,9 @@ jobs:
           docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           
-          git tag v$NEXT_TAG
-          git push origin v$NEXT_TAG
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            git tag v$NEXT_TAG
+            git push origin v$NEXT_TAG
+          fi
         env:
           TOKEN: ${{ secrets.token }}
