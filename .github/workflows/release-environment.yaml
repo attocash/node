@@ -24,10 +24,7 @@ jobs:
           
           RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
           MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
-          LATEST_TAG=$(git tag --list "$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
-          
-          git tag --list
-          echo "Latest Tag: $LATEST_TAG"
+          LATEST_TAG=$(git tag --list "v$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
           
           if [ -z "$LATEST_TAG" ]; then
             MINOR=0
