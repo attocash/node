@@ -26,6 +26,9 @@ jobs:
           MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
           LATEST_TAG=$(git tag --list "$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
           
+          git tag --list
+          echo "Latest Tag: $LATEST_TAG"
+          
           if [ -z "$LATEST_TAG" ]; then
             MINOR=0
           else
@@ -38,9 +41,7 @@ jobs:
           docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           
-          if [ "${{ inputs.environment }}" == "dev" ]; then
-            git tag v$NEXT_TAG
-            git push origin v$NEXT_TAG
-          fi
+          git tag v$NEXT_TAG
+          git push origin v$NEXT_TAG
         env:
           TOKEN: ${{ secrets.token }}
