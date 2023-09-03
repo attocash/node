@@ -36,11 +36,11 @@ jobs:
           
           NEXT_TAG="$MAJOR_VERSION.$MINOR"
           
-          docker pull ghcr.io/attocash/node:${{ github.sha }}
+          echo "FROM ghcr.io/attocash/node:${{ github.sha }}" > EnvDockerfile
+          echo "ENV SPRING_PROFILES_ACTIVE=${{ inputs.environment }}" >> EnvDockerfile
           
-          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
-          docker tag ghcr.io/attocash/node:${{ github.sha }} ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
-          
+          docker build -t ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }} -f EnvDockerfile .
+          docker tag ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }} ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
           docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
           docker push ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
           
