@@ -1,0 +1,59 @@
+on:
+  workflow_call:
+    inputs:
+      environment:
+        required: true
+        type: string
+    secrets:
+      token:
+        required: true
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: tags
+        run: git fetch --tags
+
+      - name: release
+        run: |
+          echo $TOKEN | docker login ghcr.io -u rotilho --password-stdin
+          
+          RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
+          MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
+          LATEST_TAG=$(git tag --list "v$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
+          
+          if [ -z "$LATEST_TAG" ]; then
+            MINOR=0
+          elif [ "${{ inputs.environment }}" == "dev" ]; then
+            MINOR=$(( ${LATEST_TAG##*.} + 1 ))
+          else
+            MINOR=${LATEST_TAG##*.}
+          fi
+          
+          NEXT_TAG="$MAJOR_VERSION.$MINOR"
+          
+          echo "FROM ghcr.io/attocash/node:${{ github.sha }}" > EnvDockerfile
+          echo "LABEL org.opencontainers.image.source https://github.com/attocash/node" >> EnvDockerfile
+          echo "ENV SPRING_PROFILES_ACTIVE=${{ inputs.environment }}" >> EnvDockerfile
+          
+          docker build -t ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }} -f EnvDockerfile .
+          docker tag ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }} ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
+          docker push ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }}
+          docker push ghcr.io/attocash/node:${MAJOR_VERSION}-${{ inputs.environment }}
+          
+          HIGHER_MAJOR_EXISTS=$(git tag --list 'v*' --sort=-v:refname | awk -F. '{print $1}' | sed 's/v//' | uniq | awk -v curr="$MAJOR_VERSION" '$1>curr {print "yes"; exit}')
+          if [ "$HIGHER_MAJOR_EXISTS" != "yes" ]; then
+            docker tag ghcr.io/attocash/node:${NEXT_TAG}-${{ inputs.environment }} ghcr.io/attocash/node:${{ inputs.environment }}
+            docker push ghcr.io/attocash/node:${{ inputs.environment }}
+          fi
+          
+          if [ "${{ inputs.environment }}" == "dev" ]; then
+            git tag v$NEXT_TAG
+            git push origin v$NEXT_TAG
+          fi
+        env:
+          TOKEN: ${{ secrets.token }}
