@@ -28,8 +28,10 @@ jobs:
           
           if [ -z "$LATEST_TAG" ]; then
             MINOR=0
-          else
+          elif [ "${{ inputs.environment }}" == "dev" ]; then
             MINOR=$(( ${LATEST_TAG##*.} + 1 ))
+          else
+            MINOR=${LATEST_TAG##*.}
           fi
           
           NEXT_TAG="$MAJOR_VERSION.$MINOR"
