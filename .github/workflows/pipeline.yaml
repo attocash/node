@@ -2,8 +2,8 @@ name: Pipeline
 
 on:
   push:
-    branches-ignore:
-      - 'release/[0-9]+.x'
+    branches:
+      - main
 
 jobs:
   build:
