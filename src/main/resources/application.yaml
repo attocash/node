@@ -26,7 +26,7 @@ spring:
 atto:
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
-    publicAddress: ${ATTO_NODE_HOST}
+    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 10
