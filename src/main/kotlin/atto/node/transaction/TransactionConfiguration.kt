@@ -1,6 +1,7 @@
 package atto.node.transaction
 
 import atto.node.network.codec.TransactionCodec
+import atto.protocol.AttoNode
 import cash.atto.commons.*
 import mu.KotlinLogging
 import org.springframework.context.annotation.Bean
@@ -12,15 +13,15 @@ class TransactionConfiguration {
     private val logger = KotlinLogging.logger {}
 
     @Bean
-    fun genesisAttoTransaction(
+    fun genesisTransaction(
         properties: TransactionProperties,
         transactionCodec: TransactionCodec,
         privateKey: AttoPrivateKey,
-        thisNode: atto.protocol.AttoNode
+        thisNode: AttoNode
     ): Transaction {
         val genesis = properties.genesis
 
-        if (genesis != null) {
+        if (!genesis.isNullOrBlank()) {
             val byteArray = genesis.fromHexToByteArray()
 
             return transactionCodec.fromByteBuffer(AttoByteBuffer.from(byteArray))
@@ -44,7 +45,11 @@ class TransactionConfiguration {
             work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey)
         )
 
-        logger.info { "Created genesis transaction ${transactionCodec.toByteBuffer(transaction).toHex()}" }
+        logger.info {
+            "Created ${thisNode.network} genesis transaction ${
+                transactionCodec.toByteBuffer(transaction).toHex()
+            }"
+        }
 
         return transaction
     }
