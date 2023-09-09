@@ -98,6 +98,9 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
 
 
     private fun median(hits: Collection<ULong>): ULong {
+        if (hits.isEmpty()) {
+            return ULong.MAX_VALUE
+        }
         val list = hits.sorted()
         val middle = hits.size / 2
         if (middle % 2 == 1) {
