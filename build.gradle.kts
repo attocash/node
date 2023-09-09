@@ -41,8 +41,11 @@ dependencies {
 
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("org.flywaydb:flyway-core")
-    implementation("org.mariadb:r2dbc-mariadb:1.1.4")
+
+    implementation("io.asyncer:r2dbc-mysql:1.0.2")
     implementation("com.mysql:mysql-connector-j")
+    implementation("org.flywaydb:flyway-mysql")
+
     runtimeOnly("com.h2database:h2")
     runtimeOnly("io.r2dbc:r2dbc-h2")
 
