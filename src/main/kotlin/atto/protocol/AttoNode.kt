@@ -12,7 +12,7 @@ data class AttoNode(
     val protocolVersion: UShort,
     val publicKey: AttoPublicKey,
     val socketAddress: InetSocketAddress,
-    val features: Set<atto.protocol.NodeFeature>
+    val features: Set<NodeFeature>
 ) {
     val minProtocolVersion: UShort = when (protocolVersion) {
         0.toUShort() -> 0u
@@ -24,23 +24,23 @@ data class AttoNode(
 
     companion object {
         val maxFeaturesSize = 5
-        val size = 56 + atto.protocol.AttoNode.Companion.maxFeaturesSize
+        val size = 56 + AttoNode.Companion.maxFeaturesSize
 
-        fun fromByteBuffer(byteBuffer: AttoByteBuffer): atto.protocol.AttoNode? {
-            if (byteBuffer.size < atto.protocol.AttoNode.Companion.size) {
+        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoNode? {
+            if (byteBuffer.size < size) {
                 return null
             }
 
-            val featuresSize = min(byteBuffer.getByte(55).toInt(), atto.protocol.AttoNode.Companion.maxFeaturesSize)
-            val features = HashSet<atto.protocol.NodeFeature>(featuresSize)
+            val featuresSize = min(byteBuffer.getByte(55).toInt(), maxFeaturesSize)
+            val features = HashSet<NodeFeature>(featuresSize)
             for (i in 0 until featuresSize) {
-                val feature = atto.protocol.NodeFeature.Companion.from(byteBuffer.getUByte(56 + i))
-                if (feature != atto.protocol.NodeFeature.UNKNOWN) {
+                val feature = NodeFeature.from(byteBuffer.getUByte(56 + i))
+                if (feature != NodeFeature.UNKNOWN) {
                     features.add(feature)
                 }
             }
 
-            return atto.protocol.AttoNode(
+            return AttoNode(
                 network = byteBuffer.getNetwork(0),
                 protocolVersion = byteBuffer.getUShort(),
                 publicKey = byteBuffer.getPublicKey(),
@@ -52,16 +52,16 @@ data class AttoNode(
 
     @JsonIgnore
     fun isVoter(): Boolean {
-        return features.contains(atto.protocol.NodeFeature.VOTING)
+        return features.contains(NodeFeature.VOTING)
     }
 
     @JsonIgnore
     fun isHistorical(): Boolean {
-        return features.contains(atto.protocol.NodeFeature.HISTORICAL)
+        return features.contains(NodeFeature.HISTORICAL)
     }
 
     fun toByteBuffer(): AttoByteBuffer {
-        val byteBuffer = AttoByteBuffer(atto.protocol.AttoNode.Companion.size)
+        val byteBuffer = AttoByteBuffer(size)
 
         byteBuffer
             .add(network) // 3 [0..<3]
@@ -82,7 +82,7 @@ data class AttoNode(
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
 
-        other as atto.protocol.AttoNode
+        other as AttoNode
 
         if (network != other.network) return false
         if (protocolVersion != other.protocolVersion) return false
@@ -110,9 +110,9 @@ enum class NodeFeature(val code: UByte) {
     UNKNOWN(UByte.MAX_VALUE);
 
     companion object {
-        private val map = values().associateBy(atto.protocol.NodeFeature::code)
-        fun from(code: UByte): atto.protocol.NodeFeature {
-            return atto.protocol.NodeFeature.Companion.map.getOrDefault(code, atto.protocol.NodeFeature.UNKNOWN)
+        private val map = entries.associateBy(NodeFeature::code)
+        fun from(code: UByte): NodeFeature {
+            return NodeFeature.map.getOrDefault(code, UNKNOWN)
         }
     }
 }
