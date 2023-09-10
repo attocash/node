@@ -14,7 +14,7 @@ interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRep
         """
         SELECT * FROM (
             SELECT *, ROW_NUMBER() OVER(PARTITION BY hash, public_key ORDER BY timestamp DESC) as num
-            FROM Vote v 
+            FROM vote v 
             WHERE timestamp > :timestamp
         ) TEMP
         WHERE num = 1
@@ -25,7 +25,7 @@ interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRep
     @Query(
         """
         SELECT * 
-        FROM Vote v 
+        FROM vote v 
         WHERE v.hash = :hash
         ORDER BY v.weight DESC
         LIMIT :limit

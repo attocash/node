@@ -7,6 +7,7 @@ spring:
     url: r2dbc:h2:mem:///${ATTO_DB_NAME:atto}
 
 atto:
+  db: H2
   node:
     voterStrategy: FORCE_ENABLED
     network: LOCAL

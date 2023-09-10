@@ -42,6 +42,7 @@ class NodeStepDefinition(
                 "--server.port=$httpPort",
                 "--NODE_NAME=$nodeName",
                 "--management.server.port=",
+                "--atto.db=H2",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
                 "--server.tcp.port=${tcpPort}",
                 "--ATTO_DB_NAME=atto-neighbour${shortId}",

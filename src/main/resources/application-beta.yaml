@@ -1,8 +1,9 @@
 atto:
+  db: H2
   node:
-    network: LOCAL
+    network: BETA
   peer:
     defaultNodes:
-      - peering.beta.atto.money:8311
+      - node.beta.core.atto.cash:8315
   transaction:
     genesis:

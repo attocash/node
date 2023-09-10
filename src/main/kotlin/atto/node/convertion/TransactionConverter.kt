@@ -1,5 +1,6 @@
 package atto.node.convertion
 
+import atto.node.ApplicationProperties
 import atto.node.transaction.Transaction
 import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoByteBuffer
@@ -12,7 +13,7 @@ import org.springframework.stereotype.Component
 import java.time.LocalDateTime
 
 @Component
-class TransactionSerializerDBConverter : DBConverter<Transaction, OutboundRow> {
+class TransactionSerializerDBConverter(val properties: ApplicationProperties) : DBConverter<Transaction, OutboundRow> {
 
     override fun convert(transaction: Transaction): OutboundRow {
         val block = transaction.block
@@ -23,8 +24,8 @@ class TransactionSerializerDBConverter : DBConverter<Transaction, OutboundRow> {
             put("type", Parameter.from(block.type))
             put("version", Parameter.from(block.version))
             put("public_key", Parameter.from(block.publicKey))
-            put("height", Parameter.from(block.height))
-            put("balance", Parameter.from(block.balance))
+            put("height", Parameter.from(block.height.toDB(properties.db)))
+            put("balance", Parameter.from(block.balance.raw.toDB(properties.db)))
             put("timestamp", Parameter.from(block.timestamp.toLocalDateTime()))
             put("block", Parameter.from(block.serialized))
             put("signature", Parameter.from(transaction.signature))

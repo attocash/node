@@ -1,5 +1,6 @@
 package atto.node.convertion
 
+import atto.node.ApplicationProperties
 import atto.node.account.Account
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -12,15 +13,15 @@ import java.time.Instant
 import java.time.LocalDateTime
 
 @Component
-class AccountSerializerDBConverter : DBConverter<Account, OutboundRow> {
+class AccountSerializerDBConverterer(val properties: ApplicationProperties) : DBConverter<Account, OutboundRow> {
 
     override fun convert(account: Account): OutboundRow {
         val row = OutboundRow()
         with(row) {
             put("public_key", Parameter.from(account.publicKey))
             put("version", Parameter.from(account.version))
-            put("height", Parameter.from(account.height))
-            put("balance", Parameter.from(account.balance))
+            put("height", Parameter.from(account.height.toDB(properties.db)))
+            put("balance", Parameter.from(account.balance.raw.toDB(properties.db)))
             put("last_transaction_hash", Parameter.from(account.lastTransactionHash))
             put("last_transaction_timestamp", Parameter.from(account.lastTransactionTimestamp.toLocalDateTime()))
             put("representative", Parameter.from(account.representative))
@@ -33,13 +34,13 @@ class AccountSerializerDBConverter : DBConverter<Account, OutboundRow> {
 }
 
 @Component
-class AccountDeserializerDBConverter : DBConverter<Row, Account> {
+class AccountDeserializerDBConverterer(val properties: ApplicationProperties) : DBConverter<Row, Account> {
     override fun convert(row: Row): Account {
         return Account(
             publicKey = AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
             version = row.get("version", Short::class.javaObjectType)!!.toUShort(),
-            height = row.get("height", Long::class.javaObjectType)!!.toULong(),
-            balance = AttoAmount(row.get("balance", Long::class.javaObjectType)!!.toULong()),
+            height = row.toULong(properties.db, "height"),
+            balance = AttoAmount(row.toULong(properties.db, "balance")),
             lastTransactionHash = AttoHash(row.get("last_transaction_hash", ByteArray::class.java)!!),
             lastTransactionTimestamp = row.get("last_transaction_timestamp", LocalDateTime::class.java)!!.toInstant(),
             representative = AttoPublicKey(row.get("representative", ByteArray::class.java)!!),

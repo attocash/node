@@ -14,18 +14,18 @@ interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>
 
     @Query(
         """
-            SELECT t.* from Transaction t
-            JOIN Account a on t.hash = a.last_transaction_hash
+            SELECT t.* from transaction t
+            JOIN account a on t.hash = a.last_transaction_hash
             ORDER BY RAND()
             LIMIT :limit
         """
     )
     suspend fun getLastSample(limit: Long): Flow<Transaction>
 
-    @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight ORDER BY height ASC")
+    @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight ORDER BY height ASC")
     suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong): Flow<Transaction>
 
-    @Query("SELECT * FROM Transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC")
+    @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC")
     suspend fun findDesc(
         publicKey: AttoPublicKey,
         fromHeight: ULong,
