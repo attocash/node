@@ -60,7 +60,7 @@ class NetworkProcessor(
     private val server = TcpServer.create()
         .port(port)
         .doOnBind {
-            logger.info { "TCP started on ${port} port" }
+            logger.info { "TCP started on port $port" }
         }
         .doOnConnection {
             val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
