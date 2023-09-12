@@ -1,9 +1,10 @@
 atto:
-  db: H2
   node:
     network: BETA
   peer:
     defaultNodes:
-      - node.beta.core.atto.cash:8315
+      - node-adventurous.beta.core.atto.cash:8315
+      - node-cautious.beta.core.atto.cash:8315
+      - node-conservative.beta.core.atto.cash:8315
   transaction:
     genesis:
