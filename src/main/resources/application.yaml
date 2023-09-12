@@ -27,7 +27,7 @@ atto:
   db: MYSQL
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
-    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT}
+    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT:8315}
     publicKey: ${ATTO_PRIVATE_KEY}
   network:
     broadcaster:
