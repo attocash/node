@@ -2,18 +2,44 @@ name: Pipeline
 
 on:
   push:
-    branches-ignore:
-      - 'release/[0-9]+.x'
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
 
 jobs:
   build:
     uses: ./.github/workflows/build.yaml
   codeql:
     uses: ./.github/workflows/codeql.yaml
-  publish:
+  docker:
+    if: "startsWith(github.ref, 'refs/heads/')"
     needs:
       - build
       - codeql
     uses: ./.github/workflows/docker.yaml
+    secrets:
+      token: ${{ secrets.TOKEN }}
+  dev:
+    if: "startsWith(github.ref, 'refs/heads/release/') && endsWith(github.ref, '.x')"
+    needs: [ docker ]
+    uses: ./.github/workflows/release.yaml
+    with:
+      environment: dev
+    secrets:
+      token: ${{ secrets.TOKEN }}
+  beta:
+    needs: [ dev ]
+    uses: ./.github/workflows/release.yaml
+    with:
+      environment: beta
+    secrets:
+      token: ${{ secrets.TOKEN }}
+  live:
+    needs: [ beta ]
+    uses: ./.github/workflows/release.yaml
+    with:
+      environment: live
     secrets:
       token: ${{ secrets.TOKEN }}
