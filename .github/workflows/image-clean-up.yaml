@@ -21,20 +21,36 @@ jobs:
           
           echo "PACKAGE_VERSIONS: $PACKAGE_VERSIONS"
           
-          VERSIONS_TO_CHECK=$(echo $PACKAGE_VERSIONS | jq -r '.[] | select(.name != "main" and (.name | test("^[0-9]+\\.[0-9]+-(dev|beta|live)$|^[0-9]+-(dev|beta|live)$|^(dev|beta|live)$") | not)) | .id, .created_at')
-          
           TWO_WEEKS_AGO=$(date -d "2 weeks ago" +%s)
           
-          while IFS= read -r ID && IFS= read -r CREATION_DATE; do
-           CREATION_DATE_IN_SECONDS=$(date --date="$CREATION_DATE" +%s)
+          VERSION_IDS_TO_DELETE=()
           
-           if [[ $CREATION_DATE_IN_SECONDS -lt $TWO_WEEKS_AGO ]]; then
-               echo "Deleting version with ID: $ID"
-               curl --request DELETE \
-                 --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions/$ID" \
-                 --header "Authorization: Bearer $TOKEN" \
-                 --header "Accept: application/vnd.github.v3+json"
-          fi
-          done <<< "$VERSIONS_TO_CHECK"
+          for VERSION in $(echo "$PACKAGE_VERSIONS" | jq -r '.[] | @base64'); do
+            VERSION_JSON=$(echo "$VERSION" | base64 --decode)
+            ID=$(echo "$VERSION_JSON" | jq -r '.id')
+            CREATED_AT=$(echo "$VERSION_JSON" | jq -r '.created_at')
+            TAGS=$(echo "$VERSION_JSON" | jq -r '.metadata.container.tags[]?')
+          
+            DELETE=true
+            for TAG in $TAGS; do
+              if [[ $TAG =~ ^[0-9]+\.[0-9]+-(dev|beta|live)$|^[0-9]+-(dev|beta|live)$|^(dev|beta|live)$ ]]; then
+                DELETE=false
+                break
+              fi
+            done
+          
+            CREATED_AT_IN_SECONDS=$(date --date="$CREATED_AT" +%s)
+            if [[ $DELETE == true && $CREATED_AT_IN_SECONDS -lt $TWO_WEEKS_AGO ]]; then
+              VERSION_IDS_TO_DELETE+=($ID)
+            fi
+          done
+          
+          for ID in "${VERSION_IDS_TO_DELETE[@]}"; do
+            echo "Deleting version with ID: $ID"
+            curl --request DELETE \
+              --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions/$ID" \
+              --header "Authorization: Bearer $TOKEN" \
+              --header "Accept: application/vnd.github.v3+json"
+          done
         env:
           TOKEN: ${{ secrets.TOKEN }}
