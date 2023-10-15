@@ -2,6 +2,7 @@ package atto.node.transaction
 
 import atto.node.ApplicationProperties
 import atto.node.EventPublisher
+import atto.node.NotVoterCondition
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.protocol.transaction.AttoTransactionPush
@@ -12,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -28,6 +30,7 @@ import java.util.*
 
 @RestController
 @RequestMapping
+@Conditional(NotVoterCondition::class)
 class TransactionController(
     val applicationProperties: ApplicationProperties,
     val node: atto.protocol.AttoNode,
@@ -110,13 +113,13 @@ class TransactionController(
             if (ips.isEmpty()) {
                 throw ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "X-Forwarded-For is empty. Are you behind a proxy?"
+                    "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?"
                 )
             }
             InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
         } else {
             if (ips.isNotEmpty()) {
-                logger.debug { "Received a request with $useXForwardedForKey header" }
+                logger.debug { "Received a request with $useXForwardedForKey header but atto.use-x-forwarded-for is not set to true." }
             }
             remoteAddress
         }

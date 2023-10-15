@@ -25,10 +25,10 @@ spring:
       write_dates_as_timestamps: false
 atto:
   db: MYSQL
-  useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
+  use-x-forwarded-for: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
     publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT:8315}
-    publicKey: ${ATTO_PRIVATE_KEY}
+    privateKey: ${ATTO_PRIVATE_KEY:}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 10
@@ -39,11 +39,9 @@ atto:
   transaction:
     prioritization:
       group-max-size: 1_000
-      cache-max-size: 20_000
   vote:
     prioritization:
       group-max-size: 1_000
-      cache-max-size: 20_000
     weight:
       minimal-rebroadcast-weight: 180_000_000_000_000_000 #180m
       minimal-confirmation-weight: 9_000_000_000_000_000_000 #9b
@@ -62,6 +60,7 @@ logging:
     atto: INFO
 
 server:
+  port: 8080
   tcp:
     port: 8315
 

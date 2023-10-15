@@ -1,6 +1,7 @@
 package atto.node.account
 
 import atto.node.EventPublisher
+import atto.node.NotVoterCondition
 import atto.node.transaction.TransactionSaved
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAmount
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -21,6 +23,7 @@ import java.util.*
 
 @RestController
 @RequestMapping("/accounts")
+@Conditional(NotVoterCondition::class)
 class AccountController(
     val node: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,
