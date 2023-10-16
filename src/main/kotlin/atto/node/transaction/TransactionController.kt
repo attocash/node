@@ -10,6 +10,8 @@ import cash.atto.commons.*
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.swagger.v3.oas.annotations.Operation
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
@@ -27,6 +29,7 @@ import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.time.Instant
 import java.util.*
+import java.util.Comparator.comparing
 
 @RestController
 @RequestMapping
@@ -38,6 +41,9 @@ class TransactionController(
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository
 ) {
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val singleDispatcher = Dispatchers.IO.limitedParallelism(1)
+
     private val logger = KotlinLogging.logger {}
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
@@ -86,7 +92,10 @@ class TransactionController(
     }
 
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
-    @Operation(description = "Stream unsorted transactions. Duplicates may happen")
+    @Operation(
+        description = "Stream transactions" +
+                ""
+    )
     suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: Long): Flow<Transaction> {
         val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong())
 
@@ -94,8 +103,9 @@ class TransactionController(
             .filter { it.publicKey == publicKey }
             .filter { it.block.height >= fromHeight.toULong() }
 
-        return merge(transactionFlow, transactionDatabaseFlow)
+        val mergedTransactionFlow = merge(transactionFlow, transactionDatabaseFlow)
             .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after $fromHeight" } }
+        return sort(fromHeight.toULong(), mergedTransactionFlow)
     }
 
     @PostMapping("/transactions")
@@ -139,6 +149,26 @@ class TransactionController(
         return stream(attoTransaction.hash)
             .onStart { publish(transactionDTO, request) }
             .first()
+    }
+
+    private fun sort(initialHeight: ULong, transactions: Flow<Transaction>): Flow<Transaction> {
+        return flow {
+            val queue = PriorityQueue(comparing<Transaction, ULong> { it.block.height })
+            var maxSeen = initialHeight - 1U
+
+            transactions.collect { transaction ->
+                queue.add(transaction)
+
+                while (queue.peek()?.block?.height?.let { it <= maxSeen + 1U } == true) {
+                    val nextTransaction = queue.poll()
+
+                    if (nextTransaction.block.height == maxSeen + 1U) {
+                        emit(nextTransaction)
+                        maxSeen = nextTransaction.block.height
+                    }
+                }
+            }
+        }.flowOn(singleDispatcher)
     }
 }
 
