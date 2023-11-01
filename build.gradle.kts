@@ -20,7 +20,7 @@ dependencies {
     val cucumberVersion = "7.14.0"
     val springdocVersion = "2.2.0"
 
-    implementation("cash.atto:commons:1.0.1")
+    implementation("cash.atto:commons:1.2.0")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
