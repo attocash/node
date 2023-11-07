@@ -19,7 +19,6 @@ jobs:
           languages: java
 
       - name: build
-        run: |
-          gradle --info build -x test
+        run: ./gradlew --info build -x test
 
       - uses: github/codeql-action/analyze@v2
