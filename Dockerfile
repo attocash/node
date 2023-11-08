@@ -1,8 +1,10 @@
-FROM eclipse-temurin:17-alpine as jdk
+ARG JAVA_VERSION=21
+
+FROM eclipse-temurin:${JAVA_VERSION}-alpine as jdk
 
 COPY ./build/libs/node.jar /node.jar
 
-RUN jar -xvf node.jar && jlink --add-modules $(jdeps --recursive --multi-release 17 --ignore-missing-deps --print-module-deps -cp 'BOOT-INF/lib/*' node.jar) --output /java
+RUN jar -xvf node.jar && jlink --add-modules $(jdeps --recursive --multi-release ${JAVA_VERSION} --ignore-missing-deps --print-module-deps -cp 'BOOT-INF/lib/*' node.jar) --output /java
 
 FROM alpine
 
