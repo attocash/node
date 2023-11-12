@@ -1,6 +1,6 @@
 spring:
   application:
-    name: atto-node
+    name: node
   main:
     banner-mode: off
   webflux:
