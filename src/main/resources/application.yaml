@@ -3,6 +3,9 @@ spring:
     name: node
   main:
     banner-mode: off
+  threads:
+    virtual:
+      enabled: true
   webflux:
     format:
       date: iso
@@ -23,6 +26,7 @@ spring:
   jackson:
     serialization:
       write_dates_as_timestamps: false
+
 atto:
   db: MYSQL
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
