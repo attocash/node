@@ -18,7 +18,7 @@ repositories {
 
 dependencies {
     val cucumberVersion = "7.14.1"
-    val springdocVersion = "2.2.0"
+    val springdocVersion = "2.3.0"
 
     implementation("cash.atto:commons:1.2.0")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
