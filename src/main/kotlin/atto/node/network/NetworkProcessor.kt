@@ -72,6 +72,7 @@ class NetworkProcessor(
     @PreDestroy
     fun preDestroy() {
         server.disposeNow()
+        outboundMap.values.forEach { it.tryEmitComplete() }
     }
 
     @EventListener

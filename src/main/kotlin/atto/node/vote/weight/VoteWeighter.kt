@@ -3,6 +3,7 @@ package atto.node.vote.weight
 import atto.node.CacheSupport
 import atto.node.account.AccountRepository
 import atto.node.election.ElectionFinished
+import atto.node.toULong
 import atto.node.vote.Vote
 import atto.node.vote.VoteRepository
 import atto.node.vote.VoteValidated
@@ -17,8 +18,8 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.lang.Integer.min
 import java.time.Instant
-import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.time.ZonedDateTime
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
@@ -39,7 +40,9 @@ class VoteWeighter(
 
     @PostConstruct
     override fun init() = runBlocking {
-        weightMap.putAll(accountRepository.findAllWeights().associateBy({ it.publicKey }, { it.weight }))
+        weightMap.putAll(
+            accountRepository.findAllWeights().associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
+        )
 
         val minTimestamp = getMinTimestamp()
         val voteMap = voteRepository.findLatestAfter(minTimestamp).asSequence()
@@ -120,7 +123,7 @@ class VoteWeighter(
         return minimalConfirmationWeight
     }
 
-    fun getMinimalRebroadcastWeight() : AttoAmount {
+    fun getMinimalRebroadcastWeight(): AttoAmount {
         return minimalRebroadcastWeight
     }
 
@@ -160,7 +163,7 @@ class VoteWeighter(
     }
 
     fun getMinTimestamp(): Instant {
-        return LocalDateTime.now().minusDays(properties.samplePeriodInDays!!).toInstant(ZoneOffset.UTC)
+        return ZonedDateTime.now(ZoneOffset.UTC).minusDays(properties.samplePeriodInDays!!).toInstant()
     }
 
     override fun clear() {

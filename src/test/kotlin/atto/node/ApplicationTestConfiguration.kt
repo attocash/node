@@ -2,6 +2,8 @@ package atto.node
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import io.netty.handler.logging.LogLevel
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
+import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ClientHttpConnector
@@ -11,6 +13,7 @@ import org.springframework.http.codec.json.Jackson2JsonDecoder
 import org.springframework.http.codec.json.Jackson2JsonEncoder
 import org.springframework.web.reactive.function.client.ExchangeStrategies
 import org.springframework.web.reactive.function.client.WebClient
+import org.testcontainers.containers.MySQLContainer
 import reactor.netty.http.client.HttpClient
 import reactor.netty.transport.logging.AdvancedByteBufFormat
 
@@ -42,6 +45,15 @@ class ApplicationTestConfiguration {
             .exchangeStrategies(exchangeStrategies)
 //            .clientConnector(connector) // uncomment it to enable debugging
             .build()
+    }
+
+    @Bean
+    @ServiceConnection
+    @ConditionalOnProperty("atto.test.mysql-container.enabled", havingValue = "true", matchIfMissing = true)
+    fun mysqlContainer(): MySQLContainer<*> {
+        val container = MySQLContainer("mysql:8")
+        container.withUsername("root")
+        return container
     }
 
 }

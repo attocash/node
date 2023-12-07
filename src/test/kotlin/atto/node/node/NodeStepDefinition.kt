@@ -6,20 +6,24 @@ import atto.node.network.peer.PeerProperties
 import atto.node.transaction.Transaction
 import cash.atto.commons.*
 import io.cucumber.java.en.Given
-import mu.KotlinLogging
+import io.r2dbc.spi.Option
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcConnectionDetails
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.r2dbc.core.DatabaseClient
 import java.io.Closeable
 import java.net.ServerSocket
 import java.net.URL
 import java.net.URLClassLoader
+import java.util.*
 import java.util.concurrent.FutureTask
 
 
 class NodeStepDefinition(
     private val peerProperties: PeerProperties,
-    private val transaction: Transaction
+    private val transaction: Transaction,
+    private val connectionDetails: R2dbcConnectionDetails,
+    private val databaseClient: DatabaseClient
 ) {
-    private val logger = KotlinLogging.logger {}
 
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
@@ -35,6 +39,19 @@ class NodeStepDefinition(
             val builderInstance = springApplicationBuilder.getConstructor(applicationClass::class.java)
                 .newInstance(applicationClass)
 
+            val sql = "DROP DATABASE IF EXISTS $shortId; CREATE DATABASE $shortId"
+            databaseClient.sql(sql)
+                .fetch()
+                .rowsUpdated()
+                .block()
+
+            val options = connectionDetails.connectionFactoryOptions
+            val driver = options.getRequiredValue(Option.valueOf<String>("driver")) as String
+            val host = options.getRequiredValue(Option.valueOf<String>("host")) as String
+            val port = options.getRequiredValue(Option.valueOf<Int>("port")) as Int
+            val user = options.getRequiredValue(Option.valueOf<String>("user")) as String
+            val password = options.getRequiredValue(Option.valueOf<String>("password")) as String
+
             val privateKey = AttoPrivateKey.generate()
 
             val args = arrayOf(
@@ -42,10 +59,12 @@ class NodeStepDefinition(
                 "--server.port=$httpPort",
                 "--NODE_NAME=$nodeName",
                 "--management.server.port=",
-                "--atto.db=H2",
+                "--atto.test.mysql-container.enabled=false",
+                "--spring.r2dbc.url=r2dbc:${driver}://${host}:${port}/${shortId}",
+                "--spring.r2dbc.username=${user}",
+                "--spring.r2dbc.password=${password}",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
                 "--server.tcp.port=${tcpPort}",
-                "--ATTO_DB_NAME=atto-neighbour${shortId}",
                 "--atto.node.private-key=${privateKey.value.toHex()}",
                 "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
             )

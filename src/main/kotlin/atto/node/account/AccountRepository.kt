@@ -6,6 +6,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
+import java.math.BigInteger
 import java.time.Instant
 
 interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AttoRepository {
@@ -27,11 +28,11 @@ interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, A
         )
     }
 
-    @Query("select representative AS public_key, SUM(balance) AS weight from account group by representative")
+    @Query("SELECT representative AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight FROM account GROUP BY representative")
     suspend fun findAllWeights(): List<WeightView>
 }
 
 data class WeightView(
     val publicKey: AttoPublicKey,
-    val weight: AttoAmount
+    val weight: BigInteger // r2dbc doesn't seem to respect the DBConverter
 )

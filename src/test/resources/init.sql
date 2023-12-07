@@ -1,0 +1,2 @@
+GRANT CREATE ON *.* TO 'test'@'%';
+FLUSH PRIVILEGES;

@@ -1,6 +1,7 @@
 package atto.node.convertion
 
 import atto.node.ApplicationProperties
+import atto.node.toBigInteger
 import atto.node.transaction.Transaction
 import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoByteBuffer
@@ -10,7 +11,7 @@ import io.r2dbc.spi.Row
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Component
 class TransactionSerializerDBConverter(val properties: ApplicationProperties) : DBConverter<Transaction, OutboundRow> {
@@ -24,16 +25,16 @@ class TransactionSerializerDBConverter(val properties: ApplicationProperties) : 
             put("type", Parameter.from(block.type))
             put("version", Parameter.from(block.version))
             put("public_key", Parameter.from(block.publicKey))
-            put("height", Parameter.from(block.height.toDB(properties.db)))
-            put("balance", Parameter.from(block.balance.raw.toDB(properties.db)))
-            put("timestamp", Parameter.from(block.timestamp.toLocalDateTime()))
+            put("height", Parameter.from(block.height.toBigInteger()))
+            put("balance", Parameter.from(block.balance.raw.toBigInteger()))
+            put("timestamp", Parameter.from(block.timestamp))
             put("block", Parameter.from(block.serialized))
             put("signature", Parameter.from(transaction.signature))
             put("work", Parameter.from(transaction.work))
-            put("received_at", Parameter.from(transaction.receivedAt.toLocalDateTime()))
+            put("received_at", Parameter.from(transaction.receivedAt))
             put(
                 "persisted_at",
-                Parameter.fromOrEmpty(transaction.persistedAt?.toLocalDateTime(), LocalDateTime::class.java)
+                Parameter.fromOrEmpty(transaction.persistedAt, Instant::class.java)
             )
         }
 
@@ -52,8 +53,8 @@ class TransactionDeserializerDBConverter : DBConverter<Row, Transaction> {
             block = block,
             signature = AttoSignature(row.get("signature", ByteArray::class.java)!!),
             work = AttoWork(row.get("work", ByteArray::class.java)!!),
-            receivedAt = row.get("received_at", LocalDateTime::class.java)!!.toInstant(),
-            persistedAt = row.get("persisted_at", LocalDateTime::class.java)!!.toInstant(),
+            receivedAt = row.get("received_at", Instant::class.java)!!,
+            persistedAt = row.get("persisted_at", Instant::class.java)!!,
         )
     }
 

@@ -46,9 +46,6 @@ dependencies {
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
-    runtimeOnly("com.h2database:h2")
-    runtimeOnly("io.r2dbc:r2dbc-h2")
-
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
     implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
@@ -64,6 +61,12 @@ dependencies {
     testImplementation("io.cucumber:cucumber-spring:${cucumberVersion}")
     testImplementation("io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}")
     testImplementation("org.awaitility:awaitility:4.2.0")
+
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.springframework.boot:spring-boot-testcontainers")
+    testImplementation("org.testcontainers:mysql")
+    testImplementation("org.testcontainers:r2dbc")
+    testImplementation("org.testcontainers:testcontainers")
 }
 
 tasks.withType<KotlinCompile> {
@@ -76,4 +79,5 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
+    maxHeapSize = "1g"
 }

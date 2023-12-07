@@ -1,3 +1,9 @@
+spring:
+  r2dbc:
+    url:
+    username:
+    password:
+
 atto:
   node:
     voterStrategy: FORCE_ENABLED

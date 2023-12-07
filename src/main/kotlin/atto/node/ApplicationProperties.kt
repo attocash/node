@@ -11,6 +11,5 @@ enum class DB {
 @Configuration
 @ConfigurationProperties(prefix = "atto")
 class ApplicationProperties {
-    var db: DB = DB.MYSQL
     var useXForwardedFor: Boolean = false
 }

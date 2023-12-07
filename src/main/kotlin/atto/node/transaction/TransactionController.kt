@@ -4,6 +4,7 @@ import atto.node.ApplicationProperties
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
+import atto.node.toULong
 import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.*
 import com.fasterxml.jackson.annotation.JsonSubTypes
@@ -20,7 +21,6 @@ import org.springframework.http.server.reactive.ServerHttpRequest
 import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
-import java.math.BigDecimal
 import java.math.BigInteger
 import java.net.InetSocketAddress
 import java.time.Instant
@@ -181,18 +181,18 @@ data class AttoSendBlockDTO(
     override val timestamp: Instant,
     val previous: String,
     val receiverPublicKey: String,
-    val amount: BigDecimal,
+    val amount: BigInteger,
 ) : AttoBlockDTO {
     override fun toAttoBlock(): AttoBlock {
         return AttoSendBlock(
             version = version.toUShort(),
             publicKey = AttoPublicKey.parse(publicKey),
             height = height.toLong().toULong(),
-            balance = AttoAmount(balance.toLong().toULong()),
+            balance = AttoAmount(balance.toULong()),
             timestamp = timestamp,
             previous = AttoHash.parse(previous),
             receiverPublicKey = AttoPublicKey.parse(receiverPublicKey),
-            amount = AttoAmount(amount.toLong().toULong())
+            amount = AttoAmount(amount.toULong())
         )
     }
 
