@@ -1,11 +1,14 @@
 package atto.node
 
+import io.r2dbc.spi.Option
 import org.flywaydb.core.Flyway
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
+import org.springframework.boot.autoconfigure.flyway.FlywayProperties
+import org.springframework.boot.autoconfigure.r2dbc.R2dbcConnectionDetails
+import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
-import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableAsync
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
@@ -14,6 +17,7 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor
 @Configuration
 @EnableAsync(proxyTargetClass = true)
 @AutoConfigureOrder(0)
+@EnableConfigurationProperties(FlywayProperties::class)
 class ApplicationConfiguration {
 
     @Bean
@@ -25,13 +29,20 @@ class ApplicationConfiguration {
     }
 
     @Bean(initMethod = "migrate")
-    fun flyway(environment: Environment): Flyway {
+    fun flyway(connectionDetails: R2dbcConnectionDetails): Flyway {
+        val options = connectionDetails.connectionFactoryOptions
+        val driver = options.getRequiredValue(Option.valueOf<String>("driver")) as String
+        val host = options.getRequiredValue(Option.valueOf<String>("host")) as String
+        val port = options.getRequiredValue(Option.valueOf<Int>("port")) as Int
+        val database = options.getRequiredValue(Option.valueOf<String>("database")) as String
+        val user = options.getRequiredValue(Option.valueOf<String>("user")) as String
+        val password = options.getRequiredValue(Option.valueOf<String>("password")) as String
         return Flyway(
             Flyway.configure()
                 .dataSource(
-                    environment.getRequiredProperty("spring.flyway.url"),
-                    environment.getProperty("spring.flyway.username"),
-                    environment.getProperty("spring.flyway.password")
+                    "jdbc:${driver}://${host}:${port}/${database}",
+                    user,
+                    password
                 )
         )
     }

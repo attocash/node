@@ -31,11 +31,7 @@ class UncheckedTransactionDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
 
         Waiter.waitUntilTrue {
-            webClient.post()
-                .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds")
-                .retrieve()
-                .bodyToFlux<Void>()
-                .blockFirst()
+            processUnchecked(neighbour)
             val uncheckedTransactions = findUncheckedTransactions(neighbour)
             uncheckedTransactions.isEmpty()
         }
@@ -57,6 +53,14 @@ class UncheckedTransactionDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
         webClient.post()
             .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/last")
+            .retrieve()
+            .bodyToFlux<Void>()
+            .blockFirst()
+    }
+
+    private fun processUnchecked(neighbour: Neighbour) {
+        webClient.post()
+            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds")
             .retrieve()
             .bodyToFlux<Void>()
             .blockFirst()

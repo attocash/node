@@ -43,7 +43,7 @@ CREATE TABLE vote
 (
     hash         VARBINARY(32)                       NOT NULL,
     public_key   VARBINARY(32)                       NOT NULL,
-    timestamp    TIMESTAMP                           NOT NULL,
+    timestamp BIGINT NOT NULL,
     signature    VARBINARY(64) PRIMARY KEY,
     weight       BIGINT UNSIGNED                     NOT NULL,
 

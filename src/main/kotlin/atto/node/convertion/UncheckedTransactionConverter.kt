@@ -6,7 +6,7 @@ import io.r2dbc.spi.Row
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
 import org.springframework.stereotype.Component
-import java.time.LocalDateTime
+import java.time.Instant
 
 @Component
 class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransaction, OutboundRow> {
@@ -25,10 +25,10 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put("block", Parameter.from(block.serialized))
             put("signature", Parameter.from(uncheckedTransaction.signature))
             put("work", Parameter.from(uncheckedTransaction.work))
-            put("received_at", Parameter.from(uncheckedTransaction.receivedAt.toLocalDateTime()))
+            put("received_at", Parameter.from(uncheckedTransaction.receivedAt))
             put(
                 "persisted_at",
-                Parameter.fromOrEmpty(uncheckedTransaction.persistedAt?.toLocalDateTime(), LocalDateTime::class.java)
+                Parameter.fromOrEmpty(uncheckedTransaction.persistedAt, Instant::class.java)
             )
         }
 
@@ -47,8 +47,8 @@ class UncheckedTransactionDeserializerDBConverter : DBConverter<Row, UncheckedTr
             block = block,
             signature = AttoSignature(row.get("signature", ByteArray::class.java)!!),
             work = AttoWork(row.get("work", ByteArray::class.java)!!),
-            receivedAt = row.get("received_at", LocalDateTime::class.java)!!.toInstant(),
-            persistedAt = row.get("persisted_at", LocalDateTime::class.java)!!.toInstant(),
+            receivedAt = row.get("received_at", Instant::class.java)!!,
+            persistedAt = row.get("persisted_at", Instant::class.java)!!,
         )
     }
 
