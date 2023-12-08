@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.reactive.asFlow
+import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Async
@@ -34,6 +35,8 @@ class GapDiscoverer(
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher
 ) {
+    private val logger = KotlinLogging.logger {}
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleScope =
         CoroutineScope(Dispatchers.IO.limitedParallelism(1) + CoroutineName(this.javaClass.simpleName))
@@ -129,6 +132,7 @@ class GapDiscoverer(
                         block.previous
                     )
                 }
+                logger.debug { "Discovered gap transaction ${transaction.hash}" }
                 eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
             }
         }

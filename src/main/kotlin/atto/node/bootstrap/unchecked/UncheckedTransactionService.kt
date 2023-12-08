@@ -23,7 +23,6 @@ class UncheckedTransactionService(val uncheckedTransactionRepository: UncheckedT
     @Transactional
     suspend fun delete(hash: AttoHash) {
         uncheckedTransactionRepository.deleteById(hash)
-
-        logger.debug { "Deleted $hash" }
+        logger.debug { "Deleted unchecked $hash" }
     }
 }

@@ -80,6 +80,7 @@ class DependencyDiscoverer(
         val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
         if (weight >= minimalConfirmationWeight) {
             transactionHolderMap.remove(hash)
+            logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
             eventPublisher.publish(
                 TransactionDiscovered(
                     holder.reason,

@@ -16,3 +16,7 @@ data class TransactionStuck(
     val reason: TransactionRejectionReason,
     val transaction: Transaction,
 ) : Event
+
+data class TransactionResolved(
+    val transaction: Transaction,
+) : Event

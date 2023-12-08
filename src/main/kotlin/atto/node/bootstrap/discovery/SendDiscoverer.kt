@@ -1,6 +1,7 @@
 package atto.node.bootstrap.discovery
 
 import atto.node.CacheSupport
+import atto.node.DuplicateDetector
 import atto.node.EventPublisher
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.bootstrap.TransactionStuck
@@ -40,6 +41,8 @@ class SendDiscoverer(
         .build<AttoHash, AttoHash>()
         .asMap()
 
+    private val duplicateDetector = DuplicateDetector<AttoHash>()
+
     @EventListener
     @Async
     fun add(peerEvent: PeerAdded) {
@@ -75,6 +78,10 @@ class SendDiscoverer(
             return
         }
 
+        if (duplicateDetector.isDuplicate(transaction.hash)) {
+            return
+        }
+
         val request = AttoTransactionRequest(block.sendHash)
 
         val socketAddress = randomSocketAddress(votes)
@@ -96,6 +103,8 @@ class SendDiscoverer(
         if (unknownHashCache.remove(transaction.hash) == null) {
             return
         }
+
+        logger.debug { "Discovered missing send transaction ${transaction.hash}" }
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }

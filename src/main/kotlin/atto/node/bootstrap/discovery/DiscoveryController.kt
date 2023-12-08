@@ -7,7 +7,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/transactions/uncheckeds/discoveries")
+@RequestMapping("/unchecked-transactions/discoveries/")
 @Profile("default")
 class DiscoveryController(
     val gapDiscoverer: GapDiscoverer,

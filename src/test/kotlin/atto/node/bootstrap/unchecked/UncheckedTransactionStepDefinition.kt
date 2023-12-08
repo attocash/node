@@ -41,7 +41,7 @@ class UncheckedTransactionDefinition(
     fun lookMissingTransactions(shortId: String) {
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
         webClient.post()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/gap")
+            .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions/discoveries/gap")
             .retrieve()
             .bodyToFlux<Void>()
             .blockFirst()
@@ -52,7 +52,7 @@ class UncheckedTransactionDefinition(
     fun broadcastLastTransactions(shortId: String) {
         val neighbour = PropertyHolder[Neighbour::class.java, shortId]
         webClient.post()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds/discoveries/last")
+            .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions/discoveries/last")
             .retrieve()
             .bodyToFlux<Void>()
             .blockFirst()
@@ -60,7 +60,7 @@ class UncheckedTransactionDefinition(
 
     private fun processUnchecked(neighbour: Neighbour) {
         webClient.post()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds")
+            .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions")
             .retrieve()
             .bodyToFlux<Void>()
             .blockFirst()
@@ -68,7 +68,7 @@ class UncheckedTransactionDefinition(
 
     private fun findUncheckedTransactions(neighbour: Neighbour): List<AttoTransaction> {
         return webClient.get()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/uncheckeds")
+            .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions")
             .retrieve()
             .bodyToFlux<TransactionDTO>()
             .map { it.toAttoTransaction() }
