@@ -20,7 +20,6 @@ import cash.atto.commons.ReceiveSupportBlock
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.time.Duration
@@ -44,25 +43,21 @@ class SendDiscoverer(
     private val duplicateDetector = DuplicateDetector<AttoHash>()
 
     @EventListener
-    @Async
     fun add(peerEvent: PeerAdded) {
         peers[peerEvent.peer.node.publicKey] = peerEvent.peer.connectionSocketAddress
     }
 
     @EventListener
-    @Async
     fun remove(peerEvent: PeerRemoved) {
         peers.remove(peerEvent.peer.node.publicKey)
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionDiscovered) {
         process(event.reason, event.transaction, event.votes)
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionStuck) {
         process(event.reason, event.transaction, listOf())
     }
@@ -95,7 +90,6 @@ class SendDiscoverer(
     }
 
     @EventListener
-    @Async
     fun process(message: InboundNetworkMessage<AttoTransactionResponse>) {
         val response = message.payload
         val transaction = response.transaction

@@ -9,7 +9,6 @@ import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
 import cash.atto.commons.AttoPublicKey
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetAddress
@@ -26,7 +25,6 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
     private val voterMap = ConcurrentHashMap<InetAddress, MutableSet<AttoPublicKey>>()
 
     @EventListener
-    @Async
     fun count(message: InboundNetworkMessage<*>) {
         val address = message.socketAddress.address
         statisticsMap.compute(address) { k, v ->
@@ -35,7 +33,6 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
     }
 
     @EventListener
-    @Async
     fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         if (!peer.node.isVoter()) {
@@ -49,7 +46,6 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
     }
 
     @EventListener
-    @Async
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
         voterMap.compute(peer.connectionSocketAddress.address) { k, v ->

@@ -10,15 +10,17 @@ import cash.atto.commons.*
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.swagger.v3.oas.annotations.Operation
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.http.server.reactive.ServerHttpRequest
-import org.springframework.scheduling.annotation.Async
 import org.springframework.web.bind.annotation.*
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigInteger
@@ -50,10 +52,13 @@ class TransactionController(
     private val transactionPublisher = MutableSharedFlow<Transaction>(100_000)
     private val transactionFlow = transactionPublisher.asSharedFlow()
 
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
+
     @EventListener
-    @Async
-    fun process(transactionSaved: TransactionSaved) = runBlocking {
-        transactionPublisher.emit(transactionSaved.transaction)
+    fun process(transactionSaved: TransactionSaved) {
+        ioScope.launch {
+            transactionPublisher.emit(transactionSaved.transaction)
+        }
     }
 
     @GetMapping("/transactions/{hash}")

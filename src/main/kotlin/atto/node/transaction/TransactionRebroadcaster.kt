@@ -12,7 +12,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
@@ -38,8 +37,12 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
+
     @EventListener
-    @Async
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
@@ -53,24 +56,21 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     }
 
     @EventListener
-    @Async
-    fun process(event: TransactionValidated) {
+    suspend fun process(event: TransactionValidated) {
         val transactionHolder = holderMap.remove(event.transaction.hash)!!
-        runBlocking(singleDispatcher) {
+        withContext(singleDispatcher) {
             transactionQueue.add(transactionHolder)
             logger.trace { "Transaction queued for rebroadcast. ${event.transaction}" }
         }
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionRejected) {
         holderMap.remove(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.transaction}" }
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionDropped) {
         holderMap.remove(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }

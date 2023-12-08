@@ -14,7 +14,6 @@ import cash.atto.commons.sign
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetAddress
@@ -41,7 +40,6 @@ class HandshakeService(
         .asMap()
 
     @EventListener
-    @Async
     fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers[peer.node.socketAddress] = peer
@@ -50,7 +48,6 @@ class HandshakeService(
     }
 
     @EventListener
-    @Async
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
         peers.remove(peer.node.socketAddress)
@@ -58,7 +55,6 @@ class HandshakeService(
     }
 
     @EventListener
-    @Async
     fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
     }
@@ -98,7 +94,6 @@ class HandshakeService(
 
 
     @EventListener
-    @Async
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val hash = AttoHash.hash(64, thisNode.toByteBuffer().toByteArray(), message.payload.value)
         val handshakeAnswer = AttoHandshakeAnswer(
@@ -112,7 +107,6 @@ class HandshakeService(
     }
 
     @EventListener
-    @Async
     fun processAnswer(message: InboundNetworkMessage<AttoHandshakeAnswer>) {
         val answer = message.payload
         val node = answer.node

@@ -13,13 +13,10 @@ import atto.node.vote.weight.VoteWeighter
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -38,6 +35,11 @@ class Election(
 
     private val transactionWeighters = HashMap<PublicKeyHeight, HashMap<AttoHash, TransactionWeighter>>()
 
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
+
     fun getSize(): Int {
         return transactionWeighters.size
     }
@@ -47,20 +49,18 @@ class Election(
     }
 
     @EventListener
-    @Async
-    fun start(event: TransactionValidated) = runBlocking {
+    suspend fun start(event: TransactionValidated) {
         val transaction = event.transaction
         start(event.account, transaction)
     }
 
     @EventListener
-    @Async
-    fun process(event: VoteValidated) = runBlocking {
+    suspend fun process(event: VoteValidated) {
         val vote = event.vote
         process(event.transaction, vote)
     }
 
-    suspend fun start(account: Account, transaction: Transaction) {
+    private suspend fun start(account: Account, transaction: Transaction) {
         withContext(singleDispatcher) {
             transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
                 val weighter = v ?: HashMap()

@@ -13,7 +13,6 @@ import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.lang.Integer.min
@@ -53,7 +52,6 @@ class VoteWeighter(
     }
 
     @EventListener
-    @Async
     fun listen(event: VoteValidated) {
         val vote = event.vote
         latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
@@ -66,7 +64,6 @@ class VoteWeighter(
     }
 
     @EventListener
-    @Async
     fun listen(event: ElectionFinished) {
         val account = event.account
         val transaction = event.transaction

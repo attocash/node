@@ -7,14 +7,11 @@ import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.*
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.asFlux
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
 @Component
@@ -24,8 +21,11 @@ class TransactionNetworkProvider(
 ) {
     val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
+    @PreDestroy
+    fun preDestroy() {
+        ioScope.cancel()
+    }
     @EventListener
-    @Async
     fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
         ioScope.launch {
             val request = message.payload
@@ -39,7 +39,6 @@ class TransactionNetworkProvider(
 
 
     @EventListener
-    @Async
     fun stream(message: InboundNetworkMessage<AttoTransactionStreamRequest>) {
         ioScope.launch {
             val request = message.payload

@@ -12,13 +12,13 @@ import atto.node.vote.weight.VoteWeighter
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Component
 
 @Component
@@ -33,17 +33,19 @@ class DependencyDiscoverer(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
+
     @EventListener
-    @Async
-    fun process(event: TransactionRejected) {
+    suspend fun process(event: TransactionRejected) {
         val reason = event.reason
         if (!reason.recoverable) {
             return
         }
 
-        runBlocking {
-            add(event.reason, event.transaction)
-        }
+        add(event.reason, event.transaction)
     }
 
     suspend fun add(reason: TransactionRejectionReason?, transaction: Transaction) = withContext(singleDispatcher) {
@@ -54,15 +56,12 @@ class DependencyDiscoverer(
 
 
     @EventListener
-    @Async
-    fun process(event: VoteDropped) {
+    suspend fun process(event: VoteDropped) {
         if (event.reason != VoteDropReason.TRANSACTION_DROPPED) {
             return
         }
 
-        runBlocking {
-            process(event.vote)
-        }
+        process(event.vote)
     }
 
     suspend fun process(vote: Vote) = withContext(singleDispatcher) {

@@ -13,10 +13,13 @@ import cash.atto.commons.toUShort
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CoroutineName
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Sinks
@@ -55,6 +58,9 @@ class NetworkProcessor(
         .expireAfterWrite(60, TimeUnit.SECONDS)
         .build()
 
+
+    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
+
     private val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
 
     private val server = TcpServer.create()
@@ -76,26 +82,22 @@ class NetworkProcessor(
     }
 
     @EventListener
-    @Async
     fun add(event: PeerAdded) {
         peers.add(event.peer.connectionSocketAddress)
     }
 
     @EventListener
-    @Async
     fun remove(event: PeerRemoved) {
         peers.remove(event.peer.connectionSocketAddress)
     }
 
     @EventListener
-    @Async
     fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
         disconnect(event.address)
     }
 
     @EventListener
-    @Async
     fun outbound(message: OutboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
 
@@ -108,17 +110,19 @@ class NetworkProcessor(
             return
         }
 
-        TcpClient.create()
-            .host(message.socketAddress.hostName)
-            .port(message.socketAddress.port)
-            .connect()
-            .subscribe {
-                logger.info { "Connected as a client to ${message.socketAddress}" }
+        ioScope.launch {
+            TcpClient.create()
+                .host(message.socketAddress.hostName)
+                .port(message.socketAddress.port)
+                .connect()
+                .subscribe {
+                    logger.info { "Connected as a client to ${message.socketAddress}" }
 
-                prepareConnection(message.socketAddress, it)
+                    prepareConnection(message.socketAddress, it)
 
-                tryEmit(message)
-            }
+                    tryEmit(message)
+                }
+        }
     }
 
     fun tryEmit(message: OutboundNetworkMessage<*>) {

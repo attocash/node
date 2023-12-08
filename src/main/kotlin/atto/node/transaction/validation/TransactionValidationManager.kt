@@ -7,17 +7,14 @@ import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionReceived
 import atto.node.transaction.TransactionRejected
 import atto.node.transaction.TransactionValidated
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -30,8 +27,11 @@ class TransactionValidationManager(
 
     val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
+    @PreDestroy
+    fun preDestroy() {
+        ioScope.cancel()
+    }
     @EventListener
-    @Async
     fun process(event: TransactionReceived) {
         ioScope.launch {
             val transaction = event.transaction

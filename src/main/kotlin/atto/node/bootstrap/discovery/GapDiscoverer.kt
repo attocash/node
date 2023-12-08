@@ -14,6 +14,7 @@ import atto.protocol.transaction.AttoTransactionStreamResponse
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.PreviousSupport
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
@@ -22,7 +23,6 @@ import kotlinx.coroutines.reactive.asFlow
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
@@ -46,8 +46,13 @@ class GapDiscoverer(
     private val currentHashMap = HashMap<AttoPublicKey, TransactionPointer>()
 
 
+    @PreDestroy
+    fun preDestroy() {
+        singleScope.cancel()
+    }
+
+
     @EventListener
-    @Async
     fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         if (!peer.node.isHistorical()) {
@@ -57,7 +62,6 @@ class GapDiscoverer(
     }
 
     @EventListener
-    @Async
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
         peers.remove(peer.connectionSocketAddress)
@@ -106,7 +110,6 @@ class GapDiscoverer(
     }
 
     @EventListener
-    @Async
     fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
         val response = message.payload
         val transactions = response.transactions

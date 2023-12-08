@@ -8,10 +8,10 @@ import atto.node.vote.convertion.VoteConverter
 import atto.protocol.bootstrap.AttoBootstrapTransactionPush
 import atto.protocol.vote.AttoVoteRequest
 import atto.protocol.vote.AttoVoteResponse
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.map
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
@@ -26,6 +26,11 @@ class LastDiscoverer(
 ) {
     private val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
+    @PreDestroy
+    fun preDestroy() {
+        ioScope.cancel()
+    }
+
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     fun broadcastSample() {
         ioScope.launch {
@@ -38,7 +43,6 @@ class LastDiscoverer(
     }
 
     @EventListener
-    @Async
     fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
         val response = message.payload
         val transaction = response.transaction
@@ -64,8 +68,7 @@ class LastDiscoverer(
     }
 
     @EventListener
-    @Async
-    fun processVoteResponse(message: InboundNetworkMessage<AttoVoteResponse>) = runBlocking {
+    suspend fun processVoteResponse(message: InboundNetworkMessage<AttoVoteResponse>) {
         val attoVotes = message.payload.votes
         attoVotes.asSequence()
             .map { voteConverter.convert(it) }

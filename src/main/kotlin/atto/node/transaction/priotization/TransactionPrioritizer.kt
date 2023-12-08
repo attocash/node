@@ -15,7 +15,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 
 @Service
@@ -34,6 +33,11 @@ class TransactionPrioritizer(
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>()
+
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
 
     @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct
@@ -58,8 +62,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    @Async
-    fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
+    suspend fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction.toTransaction()
 
         if (duplicateDetector.isDuplicate(transaction.hash)) {
@@ -67,14 +70,11 @@ class TransactionPrioritizer(
             return
         }
 
-        runBlocking {
-            add(transaction)
-        }
+        add(transaction)
     }
 
     @EventListener
-    @Async
-    fun process(event: TransactionSaved) = runBlocking(singleDispatcher) {
+    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
         val hash = event.transaction.hash
 
         activeElections.remove(hash)
@@ -88,8 +88,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    @Async
-    fun process(event: ElectionExpired) = runBlocking(singleDispatcher) {
+    suspend fun process(event: ElectionExpired) = withContext(singleDispatcher) {
         val hash = event.transaction.hash
         activeElections.remove(hash)
         buffer.remove(hash)

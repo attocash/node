@@ -13,13 +13,10 @@ import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVotePush
 import atto.protocol.vote.AttoVoteSignature
 import cash.atto.commons.*
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -35,6 +32,7 @@ class ElectionVoter(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    val defaultScope = CoroutineScope(Dispatchers.Default + CoroutineName(this.javaClass.simpleName))
     val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
     private val minWeight = AttoAmount(1_000_000_000_000_000u)
@@ -42,8 +40,12 @@ class ElectionVoter(
     private val transactions = ConcurrentHashMap<PublicKeyHeight, Transaction>()
     private val agreements = ConcurrentHashMap.newKeySet<PublicKeyHeight>()
 
+    @PreDestroy
+    fun preDestroy() {
+        ioScope.cancel()
+    }
+
     @EventListener
-    @Async
     fun process(event: ElectionStarted) {
         val account = event.account
         val transaction = event.transaction
@@ -53,7 +55,6 @@ class ElectionVoter(
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionConsensusChanged) {
         val account = event.account
         val transaction = event.transaction
@@ -72,7 +73,6 @@ class ElectionVoter(
 
 
     @EventListener
-    @Async
     fun process(event: ElectionConsensusReached) {
         val transaction = event.transaction
 
@@ -84,25 +84,21 @@ class ElectionVoter(
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionFinished) {
         remove(event.transaction)
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionExpiring) {
         vote(event.transaction, Instant.now())
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionExpired) {
         remove(event.transaction)
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionRejected) {
         if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
             return
@@ -143,9 +139,10 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $attoVote" }
 
-        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
-
-        messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
+        defaultScope.launch {
+            eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
+            messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
+        }
     }
 
     private fun canVote(weight: AttoAmount): Boolean {

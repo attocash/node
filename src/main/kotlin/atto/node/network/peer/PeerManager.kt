@@ -8,7 +8,6 @@ import atto.node.network.OutboundNetworkMessage
 import atto.protocol.network.peer.AttoKeepAlive
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
@@ -24,19 +23,17 @@ class PeerManager(
     private val peers = Caffeine.newBuilder()
         .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
         .removalListener { _: InetSocketAddress?, peer: Peer?, _ ->
-                peer?.let { eventPublisher.publish(PeerRemoved(it)) }
+            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
         }.build<InetSocketAddress, Peer>()
         .asMap()
 
     @EventListener
-    @Async
     fun process(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
-        peers.put(peer.connectionSocketAddress, peer)
+        peers[peer.connectionSocketAddress] = peer
     }
 
     @EventListener
-    @Async
     fun process(message: InboundNetworkMessage<AttoKeepAlive>) {
         peers.compute(message.socketAddress) { _, value -> value } // refresh cache
 

@@ -11,7 +11,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
@@ -37,8 +36,12 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     private val holderMap = ConcurrentHashMap<AttoSignature, VoteHolder>()
     private val voteQueue = PriorityQueue<VoteHolder>()
 
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
+
     @EventListener
-    @Async
     fun process(event: VoteReceived) {
         val vote = event.vote
 
@@ -52,14 +55,13 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     }
 
     @EventListener
-    @Async
-    fun process(event: VoteValidated) {
+    suspend fun process(event: VoteValidated) {
         val holder = holderMap[event.vote.signature]
         /**
          * Holder will be null for votes casted by this node. They are considered valid from the start.
          */
         if (holder != null) {
-            runBlocking(singleDispatcher) {
+            withContext(singleDispatcher) {
                 voteQueue.add(holder)
                 logger.trace { "Vote queued for rebroadcast. ${event.vote}" }
             }
@@ -67,14 +69,12 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     }
 
     @EventListener
-    @Async
     fun process(event: VoteRejected) {
         holderMap.remove(event.vote.signature)
         logger.trace { "Stopped monitoring vote because it was rejected due to ${event.reason}. ${event.vote}" }
     }
 
     @EventListener
-    @Async
     fun process(event: VoteDropped) {
         holderMap.remove(event.vote.signature)
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }

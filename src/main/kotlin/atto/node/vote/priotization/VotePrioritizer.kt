@@ -19,7 +19,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Async
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 
@@ -57,6 +56,11 @@ class VotePrioritizer(
         .build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
         .asMap()
 
+    @PreDestroy
+    fun preDestroy() {
+        singleDispatcher.cancel()
+    }
+
     fun getQueueSize(): Int {
         return queue.getSize()
     }
@@ -66,13 +70,12 @@ class VotePrioritizer(
     }
 
     @EventListener
-    @Async
-    fun process(event: ElectionStarted) {
+    suspend fun process(event: ElectionStarted) {
         val transaction = event.transaction
 
         activeElections[transaction.hash] = transaction
 
-        runBlocking(singleDispatcher) {
+        withContext(singleDispatcher) {
             val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
             votes.forEach {
                 logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
@@ -82,7 +85,6 @@ class VotePrioritizer(
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionRejected) {
         val hash = event.transaction.hash
         rejectedTransactionCache[hash] = hash
@@ -93,19 +95,16 @@ class VotePrioritizer(
     }
 
     @EventListener
-    @Async
     fun process(event: TransactionSaved) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
-    @Async
     fun process(event: ElectionExpired) {
         activeElections.remove(event.transaction.hash)
     }
 
     @EventListener
-    @Async
     fun add(event: VoteReceived) {
         val vote = event.vote
 
