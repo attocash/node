@@ -1,6 +1,7 @@
 package atto.node.network
 
 
+import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.codec.MessageCodecManager
@@ -14,13 +15,17 @@ import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.reactor.asFlux
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
-import reactor.core.publisher.Sinks
 import reactor.netty.Connection
 import reactor.netty.tcp.TcpClient
 import reactor.netty.tcp.TcpServer
@@ -28,28 +33,32 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import kotlin.system.exitProcess
+import kotlin.time.Duration.Companion.milliseconds
 
 
 @Service
 class NetworkProcessor(
     val codecManager: MessageCodecManager,
     val eventPublisher: EventPublisher,
-    val messagepublisher: NetworkMessagePublisher,
+    val messagePublisher: NetworkMessagePublisher,
     environment: Environment,
-) : CacheSupport {
+) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val maxMessageSize = 1600
-        const val maxOutboundBuffer = 10_000
-        const val headerSize = 8
+        const val MAX_MESSAGE_SIZE = 1600
+        const val HEADER_SIZE = 8
     }
 
     private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val outboundMap = ConcurrentHashMap<InetSocketAddress, Sinks.Many<OutboundNetworkMessage<*>>>()
+    private val outboundMap = ConcurrentHashMap<InetSocketAddress, NodeConnection>()
+    private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
 
     // Avoid event infinity loop when neighbour instantly disconnects
     private val disconnectionCache: Cache<InetAddress, InetAddress> = Caffeine.newBuilder()
@@ -73,7 +82,7 @@ class NetworkProcessor(
     @PreDestroy
     fun stop() {
         server.disposeNow()
-        outboundMap.values.forEach { it.tryEmitComplete() }
+        outboundMap.clear()
     }
 
     @EventListener
@@ -101,7 +110,7 @@ class NetworkProcessor(
         }
 
         if (outboundMap.containsKey(message.socketAddress)) {
-            tryEmit(message)
+            messageQueue.add(message)
             return
         }
 
@@ -112,59 +121,86 @@ class NetworkProcessor(
                 .connect()
                 .subscribe {
                     logger.info { "Connected as a client to ${message.socketAddress}" }
-
                     prepareConnection(message.socketAddress, it)
-
-                    tryEmit(message)
+                    messageQueue.add(message)
                 }
         }
     }
 
-    fun tryEmit(message: OutboundNetworkMessage<*>) {
-        val sink = outboundMap[message.socketAddress] ?: return
-
-        sink.tryEmitNext(message)
+    override suspend fun poll(): OutboundNetworkMessage<*>? {
+        return messageQueue.poll()
     }
 
-    private fun prepareConnection(socketAddress: InetSocketAddress, connection: Connection) {
+    override suspend fun process(value: OutboundNetworkMessage<*>) {
+        logger.trace { "Sending to ${value.socketAddress} ${value.payload}" }
+        outboundMap[value.socketAddress]?.emit(value)
+    }
+
+    private fun prepareConnection(
+        socketAddress: InetSocketAddress,
+        connection: Connection,
+    ) {
         if (bannedNodes.contains(socketAddress.address)) {
             connection.dispose()
             return
         }
 
-        val outbound = Sinks.many().unicast().onBackpressureBuffer<OutboundNetworkMessage<*>>()
-        outboundMap[socketAddress] = outbound
+        outboundMap.compute(socketAddress) { _, currentNodeConnection ->
+            if (currentNodeConnection != null) {
+                currentNodeConnection
+            } else {
+                val latch = CountDownLatch(2)
 
-        connection.inbound()
-            .receive()
-            .asByteArray()
-            .doOnNext { logger.debug { "Received from $socketAddress ${it.toHex()}" } }
-            .splitByMessage()
-            .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
-            .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
-            .map { InboundNetworkMessage(socketAddress, it!!) }
-            .doOnTerminate { disconnect(socketAddress) }
-            .subscribe { messagepublisher.publish(it!!) }
+                val outbound = MutableSharedFlow<OutboundNetworkMessage<*>>(10)
+                connection.inbound()
+                    .receive()
+                    .asByteArray()
+                    .doOnNext { logger.debug { "Received from $socketAddress ${it.toHex()}" } }
+                    .splitByMessage()
+                    .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
+                    .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
+                    .map { InboundNetworkMessage(socketAddress, it!!) }
+                    .doOnError { t -> logger.info(t) { "Failed to process inbound message from $socketAddress" } }
+                    .doOnSubscribe { latch.countDown() }
+                    .doOnTerminate {
+                        disconnect(socketAddress)
+                    }
+                    .subscribe { messagePublisher.publish(it!!) }
 
-        val outboundMessages = outbound.asFlux()
-            .map { serialize(it.payload) }
-            .filter { isBelowMaxMessageSize(it) }
-            .onBackpressureBuffer(maxOutboundBuffer)
-            .doOnNext { logger.debug { "Sent to $socketAddress ${it.toHex()}" } }
+                val outboundMessages = outbound.asSharedFlow()
+                    .map { serialize(it.payload) }
+                    .onEach { checkBelowMaxMessageSize(it.serialized) }
+                    .onEach { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }
+                    .map { it.serialized }
 
-        connection.outbound()
-            .sendByteArray(outboundMessages)
-            .then()
-            .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
-            .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
-            .doOnTerminate { disconnect(socketAddress) }
-            .subscribe()
+                val nodeConnection = NodeConnection(connection, outbound)
+
+                connection.outbound()
+                    .sendByteArray(outboundMessages.asFlux(Dispatchers.IO))
+                    .then()
+                    .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
+                    .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
+                    .doOnSubscribe { latch.countDown() }
+                    .doOnTerminate {
+                        disconnect(socketAddress)
+                    }
+                    .subscribe()
+
+                if (!latch.await(1, TimeUnit.SECONDS)) {
+                    logger.warn { "Connection to $socketAddress took longer than 1 second. Disconnecting..." }
+                    disconnect(socketAddress)
+                    null
+                } else {
+                    nodeConnection
+                }
+            }
+        }
     }
 
-    private fun serialize(message: AttoMessage): ByteArray {
+    private fun serialize(message: AttoMessage): SerializedAttoMessage {
         val byteBuffer = codecManager.toByteBuffer(message)
         logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
-        return byteBuffer.toByteArray()
+        return SerializedAttoMessage(message, byteBuffer.toByteArray())
     }
 
     private fun deserializeOrDisconnect(
@@ -191,17 +227,15 @@ class NetworkProcessor(
     /**
      * Just sanity test to avoid produce invalid data
      */
-    private fun isBelowMaxMessageSize(byteArray: ByteArray): Boolean {
-        if (byteArray.size - 8 > maxMessageSize) {
+    private fun checkBelowMaxMessageSize(byteArray: ByteArray) {
+        if (byteArray.size - 8 > MAX_MESSAGE_SIZE) {
             logger.error { "Message longer than max size: ${byteArray.toHex()}" }
-            return false
+            exitProcess(-1)
         }
-        return true
     }
 
     private fun disconnect(socketAddress: InetSocketAddress) {
-        val outbound = outboundMap.remove(socketAddress)
-        outbound?.tryEmitComplete()
+        outboundMap.remove(socketAddress)?.disconnect()
         logger.info { "Disconnected from $socketAddress" }
     }
 
@@ -213,7 +247,7 @@ class NetworkProcessor(
 
     override fun clear() {
         disconnectionCache.invalidateAll()
-        outboundMap.values.forEach { it.tryEmitComplete() }
+        outboundMap.clear()
         bannedNodes.clear()
     }
 
@@ -235,9 +269,9 @@ class NetworkProcessor(
             if (byteArrayStartIndex < byteArray.size) {
                 var currentByteArray: ByteArray? = byteArray.sliceArray(byteArrayStartIndex until byteArray.size)
                 while (currentByteArray != null) {
-                    val size = currentByteArray.sliceArray(6 until 8).toUShort().toInt() + headerSize
-                    if (size > maxMessageSize) {
-                        return@flatMap Flux.error(IllegalArgumentException("Message has $size bytes and it is longer than the $maxMessageSize limit"))
+                    val size = currentByteArray.sliceArray(6 until 8).toUShort().toInt() + HEADER_SIZE
+                    if (size > MAX_MESSAGE_SIZE) {
+                        return@flatMap Flux.error(IllegalArgumentException("Message has $size bytes and it is longer than the $MAX_MESSAGE_SIZE limit"))
                     } else if (size > currentByteArray.size) {
                         previousByteArray = currentByteArray
                         readableBytesLeft = size - currentByteArray.size
@@ -255,4 +289,20 @@ class NetworkProcessor(
             return@flatMap Flux.fromIterable(messages)
         }
     }
+
+    private data class NodeConnection(
+        val connection: Connection,
+        val outbound: MutableSharedFlow<OutboundNetworkMessage<*>>
+    ) {
+        suspend fun emit(message: OutboundNetworkMessage<*>) {
+            outbound.emit(message)
+        }
+
+        fun disconnect() {
+            connection.dispose()
+        }
+    }
+
+    private data class SerializedAttoMessage(val message: AttoMessage, val serialized: ByteArray)
+
 }
