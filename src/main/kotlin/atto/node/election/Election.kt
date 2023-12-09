@@ -14,7 +14,10 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -36,7 +39,7 @@ class Election(
     private val transactionWeighters = HashMap<PublicKeyHeight, HashMap<AttoHash, TransactionWeighter>>()
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         singleDispatcher.cancel()
     }
 
@@ -93,7 +96,10 @@ class Election(
          */
         val weighter = transactionWeightMap[vote.hash]!!
 
-        weighter.add(vote)
+        if (!weighter.add(vote)) {
+            logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
+            return@withContext
+        }
 
         transactionWeightMap.values.asSequence()
             .filter { it != weighter }
@@ -127,38 +133,34 @@ class Election(
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
-    fun processStaling() {
+    suspend fun processStaling() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
-        runBlocking(singleDispatcher) {
-            transactionWeighters.values.asSequence()
-                .flatMap { it.values }
-                .map { it.transaction }
-                .filter { it.receivedAt < minimalTimestamp }
-                .map { it.toPublicKeyHeight() }
-                .distinct()
-                .map { getConsensus(it) }
-                .forEach { weighter ->
-                    logger.trace { "Staling ${weighter.transaction}" }
-                    eventPublisher.publish(ElectionExpiring(weighter.account, weighter.transaction))
-                }
-        }
+        transactionWeighters.values.asSequence()
+            .flatMap { it.values }
+            .map { it.transaction }
+            .filter { it.receivedAt < minimalTimestamp }
+            .map { it.toPublicKeyHeight() }
+            .distinct()
+            .map { getConsensus(it) }
+            .forEach { weighter ->
+                logger.trace { "Staling ${weighter.transaction}" }
+                eventPublisher.publish(ElectionExpiring(weighter.account, weighter.transaction))
+            }
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
-    fun stopObservingStaled() {
+    suspend fun stopObservingStaled() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 
-        runBlocking(singleDispatcher) {
-            transactionWeighters.values.asSequence()
-                .flatMap { it.values }
-                .filter { it.transaction.receivedAt < minimalTimestamp }
-                .forEach { weighter ->
-                    logger.trace { "Staled ${weighter.transaction}" }
-                    stopObserving(weighter.transaction)
-                    eventPublisher.publish(ElectionExpired(weighter.account, weighter.transaction))
-                }
-        }
+        transactionWeighters.values.asSequence()
+            .flatMap { it.values }
+            .filter { it.transaction.receivedAt < minimalTimestamp }
+            .forEach { weighter ->
+                logger.trace { "Staled ${weighter.transaction}" }
+                stopObserving(weighter.transaction)
+                eventPublisher.publish(ElectionExpired(weighter.account, weighter.transaction))
+            }
     }
 
     override fun clear() {

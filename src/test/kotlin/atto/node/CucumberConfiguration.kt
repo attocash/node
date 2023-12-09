@@ -4,12 +4,16 @@ import atto.node.network.peer.PeerProperties
 import atto.node.node.Neighbour
 import atto.node.transaction.TransactionGenesisInitializer
 import cash.atto.commons.AttoPrivateKey
+import io.cucumber.java.After
 import io.cucumber.java.Before
 import io.cucumber.spring.CucumberContextConfiguration
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
 
+@OptIn(ExperimentalCoroutinesApi::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @CucumberContextConfiguration
 class CucumberConfiguration(
@@ -21,8 +25,13 @@ class CucumberConfiguration(
     val caches: List<CacheSupport>,
     val repositories: List<AttoRepository>
 ) {
+
+    init {
+        DebugProbes.install()
+    }
+
     @Before
-    fun setUp() = runBlocking {
+    fun before() = runBlocking {
         repositories.forEach { it.deleteAll() }
 
         genesisInitializer.init()
@@ -43,6 +52,12 @@ class CucumberConfiguration(
 
         NodeHolder.clear(context)
         NodeHolder.add(context)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @After
+    fun after() {
+        DebugProbes.dumpCoroutines()
     }
 
 }

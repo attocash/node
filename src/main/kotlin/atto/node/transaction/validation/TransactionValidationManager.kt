@@ -7,12 +7,12 @@ import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionReceived
 import atto.node.transaction.TransactionRejected
 import atto.node.transaction.TransactionValidated
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -25,24 +25,16 @@ class TransactionValidationManager(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
-
-    @PreDestroy
-    fun preDestroy() {
-        ioScope.cancel()
-    }
     @EventListener
-    fun process(event: TransactionReceived) {
-        ioScope.launch {
-            val transaction = event.transaction
-            val account = accountRepository.getByPublicKey(transaction.block.publicKey)
-            val violation = validate(account, event.transaction)
-            if (violation != null) {
-                logger.debug { "${violation.reason} ${violation.message}: $transaction" }
-                eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
-            } else {
-                eventPublisher.publish(TransactionValidated(account, transaction))
-            }
+    suspend fun process(event: TransactionReceived) = withContext(Dispatchers.IO) {
+        val transaction = event.transaction
+        val account = accountRepository.getByPublicKey(transaction.block.publicKey)
+        val violation = validate(account, event.transaction)
+        if (violation != null) {
+            logger.debug { "${violation.reason} ${violation.message}: $transaction" }
+            eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
+        } else {
+            eventPublisher.publish(TransactionValidated(account, transaction))
         }
     }
 

@@ -7,9 +7,9 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import io.swagger.v3.oas.annotations.Operation
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
@@ -37,15 +37,10 @@ class AccountController(
      */
     private val accountPublisher = MutableSharedFlow<Account>(100_000)
     private val accountFlow = accountPublisher.asSharedFlow()
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
 
-    @PreDestroy
-    fun preDestroy() {
-        ioScope.cancel()
-    }
     @EventListener
-    fun process(transactionSaved: TransactionSaved) {
-        ioScope.launch {
+    suspend fun process(transactionSaved: TransactionSaved) {
+        withContext(Dispatchers.IO) {
             accountPublisher.emit(transactionSaved.updatedAccount)
         }
     }

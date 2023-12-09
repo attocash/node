@@ -1,5 +1,6 @@
 package atto.node.vote.priotization
 
+import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.DuplicateDetector
 import atto.node.EventPublisher
@@ -9,24 +10,25 @@ import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionRejected
 import atto.node.transaction.TransactionSaved
 import atto.node.vote.*
+import atto.node.vote.priotization.VoteQueue.TransactionVote
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
 import com.github.benmanes.caffeine.cache.Caffeine
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 
 @Service
 class VotePrioritizer(
     properties: VotePrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : CacheSupport {
+) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var job: Job
@@ -59,6 +61,7 @@ class VotePrioritizer(
     @PreDestroy
     fun preDestroy() {
         singleDispatcher.cancel()
+        job.cancel()
     }
 
     fun getQueueSize(): Int {
@@ -105,7 +108,7 @@ class VotePrioritizer(
     }
 
     @EventListener
-    fun add(event: VoteReceived) {
+    suspend fun add(event: VoteReceived) {
         val vote = event.vote
 
         if (duplicateDetector.isDuplicate(vote.signature)) {
@@ -123,9 +126,7 @@ class VotePrioritizer(
             return
         }
 
-        runBlocking {
-            add(vote)
-        }
+        add(vote)
     }
 
     private suspend fun add(vote: Vote) {
@@ -134,7 +135,7 @@ class VotePrioritizer(
             logger.trace { "Queued for prioritization. $vote" }
 
             val droppedVote = withContext(singleDispatcher) {
-                queue.add(VoteQueue.TransactionVote(transaction, vote))
+                queue.add(TransactionVote(transaction, vote))
             }
 
             droppedVote?.let {
@@ -157,30 +158,15 @@ class VotePrioritizer(
         }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
-            while (isActive) {
-                val transactionVote = withContext(singleDispatcher) {
-                    queue.poll()
-                }
-
-                if (transactionVote != null) {
-                    val transaction = transactionVote.transaction
-                    val vote = transactionVote.vote
-
-                    eventPublisher.publish(VoteValidated(transaction, vote))
-                } else {
-                    delay(100)
-                }
-            }
-        }
+    override suspend fun poll(): TransactionVote? = withContext(singleDispatcher) {
+        queue.poll()
     }
 
-    @PreDestroy
-    fun stop() {
-        job.cancel()
+    override suspend fun process(value: TransactionVote) {
+        val transaction = value.transaction
+        val vote = value.vote
+
+        eventPublisher.publish(VoteValidated(transaction, vote))
     }
 
     private fun validate(vote: Vote): VoteRejectionReason? {

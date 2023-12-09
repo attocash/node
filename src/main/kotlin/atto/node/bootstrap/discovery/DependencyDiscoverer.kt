@@ -34,7 +34,7 @@ class DependencyDiscoverer(
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         singleDispatcher.cancel()
     }
 

@@ -7,9 +7,12 @@ import atto.node.bootstrap.TransactionStuck
 import atto.node.transaction.TransactionService
 import atto.node.transaction.validation.TransactionValidationManager
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -30,7 +33,7 @@ class UncheckedTransactionProcessor(
     private val singleDispatcher = Dispatchers.IO.limitedParallelism(1)
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         singleDispatcher.cancel()
     }
 
@@ -65,9 +68,7 @@ class UncheckedTransactionProcessor(
 @Component
 class UncheckedTransactionProcessorStarter(val processor: UncheckedTransactionProcessor) {
     @Scheduled(cron = "0/10 * * * * *")
-    fun process() {
-        runBlocking {
-            processor.process()
-        }
+    suspend fun process() {
+        processor.process()
     }
 }

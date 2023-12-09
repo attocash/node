@@ -1,12 +1,13 @@
 package atto.node.vote
 
+import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
 import atto.node.network.NetworkMessagePublisher
+import atto.node.vote.VoteRebroadcaster.VoteHolder
 import atto.protocol.vote.AttoVotePush
 import cash.atto.commons.AttoSignature
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.*
 import mu.KotlinLogging
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -25,7 +27,8 @@ import java.util.concurrent.ConcurrentHashMap
  *
  */
 @Service
-class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) : CacheSupport {
+class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
+    AsynchronousQueueProcessor<VoteHolder>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private lateinit var job: Job
@@ -37,8 +40,9 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     private val voteQueue = PriorityQueue<VoteHolder>()
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         singleDispatcher.cancel()
+        job.cancel()
     }
 
     @EventListener
@@ -80,41 +84,26 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
-
-    @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
-            while (isActive) {
-                val voteHolder = withContext(singleDispatcher) {
-                    voteQueue.poll()
-                }
-                if (voteHolder != null) {
-                    val votePush = AttoVotePush(voteHolder.vote.toAttoVote())
-                    val exceptions = voteHolder.socketAddresses
-
-                    val message = BroadcastNetworkMessage(
-                        BroadcastStrategy.EVERYONE,
-                        exceptions,
-                        votePush,
-                    )
-
-                    logger.trace { "Vote dequeued and it will be rebroadcasted. ${voteHolder.vote}" }
-
-                    messagePublisher.publish(message)
-                } else {
-                    delay(100)
-                }
-            }
-        }
+    override suspend fun poll(): VoteHolder? = withContext(singleDispatcher) {
+        voteQueue.poll()
     }
 
-    @PreDestroy
-    fun stop() {
-        job.cancel()
+    override suspend fun process(value: VoteHolder) {
+        val vote = value.vote
+        val votePush = AttoVotePush(vote.toAttoVote())
+        val exceptions = value.socketAddresses
+
+        val message = BroadcastNetworkMessage(
+            BroadcastStrategy.EVERYONE,
+            exceptions,
+            votePush,
+        )
+
+        logger.trace { "Vote dequeued and it will be rebroadcasted. $vote" }
+        messagePublisher.publish(message)
     }
 
-    private class VoteHolder(val vote: Vote) : Comparable<VoteHolder> {
+    class VoteHolder(val vote: Vote) : Comparable<VoteHolder> {
         val socketAddresses = HashSet<InetSocketAddress>()
 
         fun add(socketAddress: InetSocketAddress) {

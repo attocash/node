@@ -14,12 +14,12 @@ import atto.protocol.transaction.AttoTransactionStreamResponse
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.PreviousSupport
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
@@ -37,19 +37,9 @@ class GapDiscoverer(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleScope =
-        CoroutineScope(Dispatchers.IO.limitedParallelism(1) + CoroutineName(this.javaClass.simpleName))
-
     private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
 
     private val currentHashMap = HashMap<AttoPublicKey, TransactionPointer>()
-
-
-    @PreDestroy
-    fun preDestroy() {
-        singleScope.cancel()
-    }
 
 
     @EventListener
@@ -68,12 +58,12 @@ class GapDiscoverer(
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
-    fun resolve() {
-        val peers = this.peers.toList()
+    suspend fun resolve() = withContext(Dispatchers.IO) {
+        val peers = peers.toList()
 
-        singleScope.launch {
-            val gaps = databaseClient.sql(
-                """
+
+        val gaps = databaseClient.sql(
+            """
                                 SELECT public_key, account_height, transaction_height, previous_transaction_hash FROM (
                                         SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
                                                 ut.public_key public_key,
@@ -86,27 +76,26 @@ class GapDiscoverer(
                                 WHERE transaction_height > account_height + row_num
                                 AND row_num = 1
                 """
-            ).map { row, metadata ->
-                GapView(
-                    AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                    row.get("account_height", Long::class.javaObjectType)!!.toULong(),
-                    row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),
-                    AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!)
-                )
-            }.all().asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
+        ).map { row, metadata ->
+            GapView(
+                AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
+                row.get("account_height", Long::class.javaObjectType)!!.toULong(),
+                row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),
+                AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!)
+            )
+        }.all().asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
 
-            gaps.filter { currentHashMap[it.publicKey] == null }
-                .onEach {
-                    currentHashMap[it.publicKey] = TransactionPointer(
-                        it.fromHeight(),
-                        it.toHeight(),
-                        it.previousTransactionHash
-                    )
-                }
-                .map { AttoTransactionStreamRequest(it.publicKey, it.fromHeight(), it.toHeight()) }
-                .map { OutboundNetworkMessage(peers[Random.nextInt(peers.size)], it) }
-                .collect { networkMessagePublisher.publish(it) }
-        }
+        gaps.filter { currentHashMap[it.publicKey] == null }
+            .onEach {
+                currentHashMap[it.publicKey] = TransactionPointer(
+                    it.fromHeight(),
+                    it.toHeight(),
+                    it.previousTransactionHash
+                )
+            }
+            .map { AttoTransactionStreamRequest(it.publicKey, it.fromHeight(), it.toHeight()) }
+            .map { OutboundNetworkMessage(peers[Random.nextInt(peers.size)], it) }
+            .collect { networkMessagePublisher.publish(it) }
     }
 
     @EventListener
@@ -119,25 +108,23 @@ class GapDiscoverer(
             return
         }
 
-        singleScope.launch {
-            for (transaction in transactions) {
-                val block = transaction.block
-                val pointer = currentHashMap[block.publicKey]
-                if (transaction.hash != pointer?.currentHash) {
-                    return@launch
-                }
-                if (pointer.initialHeight == block.height) {
-                    currentHashMap.remove(block.publicKey)
-                } else if (block is PreviousSupport) {
-                    currentHashMap[block.publicKey] = TransactionPointer(
-                        pointer.initialHeight,
-                        pointer.currentHeight - 1UL,
-                        block.previous
-                    )
-                }
-                logger.debug { "Discovered gap transaction ${transaction.hash}" }
-                eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
+        for (transaction in transactions) {
+            val block = transaction.block
+            val pointer = currentHashMap[block.publicKey]
+            if (transaction.hash != pointer?.currentHash) {
+                return
             }
+            if (pointer.initialHeight == block.height) {
+                currentHashMap.remove(block.publicKey)
+            } else if (block is PreviousSupport) {
+                currentHashMap[block.publicKey] = TransactionPointer(
+                    pointer.initialHeight,
+                    pointer.currentHeight - 1UL,
+                    block.previous
+                )
+            }
+            logger.debug { "Discovered gap transaction ${transaction.hash}" }
+            eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
         }
     }
 

@@ -1,21 +1,27 @@
 package atto.node.transaction
 
+import atto.node.AsynchronousQueueProcessor
+import atto.node.CacheSupport
 import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
+import atto.node.transaction.TransactionRebroadcaster.TransactionSocketAddressHolder
 import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoTransaction
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -26,10 +32,9 @@ import java.util.concurrent.ConcurrentHashMap
  *
  */
 @Service
-class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePublisher) {
+class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
+    AsynchronousQueueProcessor<TransactionSocketAddressHolder>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
-
-    private lateinit var job: Job
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
@@ -38,8 +43,9 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         singleDispatcher.cancel()
+        super.cancel()
     }
 
     @EventListener
@@ -76,46 +82,37 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }
     }
 
-    @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
-            while (isActive) {
-                val transactionHolder = withContext(singleDispatcher) {
-                    transactionQueue.poll()
-                }
-                if (transactionHolder != null) {
-                    val transaction = transactionHolder.transaction
-                    logger.trace { "Transaction dequeued. $transaction" }
-                    val transactionPush = AttoTransactionPush(transaction)
-                    val exceptions = transactionHolder.socketAddresses
-
-                    val message = BroadcastNetworkMessage(
-                        BroadcastStrategy.EVERYONE,
-                        exceptions,
-                        transactionPush,
-                    )
-
-                    messagePublisher.publish(message)
-                } else {
-                    delay(100)
-                }
-            }
-        }
+    override suspend fun poll(): TransactionSocketAddressHolder? = withContext(singleDispatcher) {
+        transactionQueue.poll()
     }
 
-    @PreDestroy
-    fun stop() {
-        job.cancel()
+    override suspend fun process(value: TransactionSocketAddressHolder) {
+        val transaction = value.transaction
+        logger.trace { "Transaction dequeued. $transaction" }
+        val transactionPush = AttoTransactionPush(transaction)
+        val exceptions = value.socketAddresses
+
+        val message = BroadcastNetworkMessage(
+            BroadcastStrategy.EVERYONE,
+            exceptions,
+            transactionPush,
+        )
+
+        messagePublisher.publish(message)
     }
 
 
-    private class TransactionSocketAddressHolder(val transaction: AttoTransaction) {
+    class TransactionSocketAddressHolder(val transaction: AttoTransaction) {
         val socketAddresses = HashSet<InetSocketAddress>()
 
         fun add(socketAddress: InetSocketAddress) {
             socketAddresses.add(socketAddress)
         }
+    }
+
+    override fun clear() {
+        holderMap.clear()
+        transactionQueue.clear()
     }
 
 }

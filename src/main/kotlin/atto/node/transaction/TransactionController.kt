@@ -10,11 +10,9 @@ import cash.atto.commons.*
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.swagger.v3.oas.annotations.Operation
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -52,13 +50,9 @@ class TransactionController(
     private val transactionPublisher = MutableSharedFlow<Transaction>(100_000)
     private val transactionFlow = transactionPublisher.asSharedFlow()
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
-
     @EventListener
-    fun process(transactionSaved: TransactionSaved) {
-        ioScope.launch {
-            transactionPublisher.emit(transactionSaved.transaction)
-        }
+    suspend fun process(transactionSaved: TransactionSaved) = withContext(Dispatchers.IO) {
+        transactionPublisher.emit(transactionSaved.transaction)
     }
 
     @GetMapping("/transactions/{hash}")
@@ -111,19 +105,15 @@ class TransactionController(
         val ips = request.headers[useXForwardedForKey] ?: listOf()
         val remoteAddress = request.remoteAddress!!
 
-        val socketAddress = if (applicationProperties.useXForwardedFor) {
-            if (ips.isEmpty()) {
-                throw ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "X-Forwarded-For is empty. Are you behind a proxy?"
-                )
-            }
+        val socketAddress = if (!applicationProperties.useXForwardedFor) {
+            remoteAddress
+        } else if (ips.isNotEmpty()) {
             InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
         } else {
-            if (ips.isNotEmpty()) {
-                logger.debug { "Received a request with $useXForwardedForKey header" }
-            }
-            remoteAddress
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "X-Forwarded-For is empty. Are you behind a proxy?"
+            )
         }
 
         messagePublisher.publish(

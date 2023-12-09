@@ -1,7 +1,6 @@
 package atto.node.election
 
 import atto.node.EventPublisher
-import atto.node.account.Account
 import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
 import atto.node.network.NetworkMessagePublisher
@@ -13,13 +12,14 @@ import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVotePush
 import atto.protocol.vote.AttoVoteSignature
 import cash.atto.commons.*
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import java.math.BigDecimal
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 
 @Service
 class ElectionVoter(
@@ -32,36 +32,28 @@ class ElectionVoter(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val defaultScope = CoroutineScope(Dispatchers.Default + CoroutineName(this.javaClass.simpleName))
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    private val minWeight = AttoAmount(1_000_000_000_000_000u)
+    private val minWeight = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000_000)) // 1M
 
-    private val transactions = ConcurrentHashMap<PublicKeyHeight, Transaction>()
-    private val agreements = ConcurrentHashMap.newKeySet<PublicKeyHeight>()
-
-    @PreDestroy
-    fun preDestroy() {
-        ioScope.cancel()
-    }
+    private val transactions = HashMap<PublicKeyHeight, Transaction>()
+    private val agreements = HashSet<PublicKeyHeight>()
 
     @EventListener
-    fun process(event: ElectionStarted) {
-        val account = event.account
+    suspend fun process(event: ElectionStarted) = withContext(singleDispatcher) {
         val transaction = event.transaction
         if (transactions[transaction.toPublicKeyHeight()] == null) {
-            consensed(account, transaction)
+            consensed(transaction)
         }
     }
 
     @EventListener
-    fun process(event: ElectionConsensusChanged) {
-        val account = event.account
-        val transaction = event.transaction
-        consensed(account, transaction)
+    suspend fun process(event: ElectionConsensusChanged) = withContext(singleDispatcher) {
+        consensed(event.transaction)
     }
 
-    fun consensed(account: Account, transaction: Transaction) {
+    private suspend fun consensed(transaction: Transaction) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         val oldTransaction = transactions[publicKeyHeight]
@@ -73,7 +65,7 @@ class ElectionVoter(
 
 
     @EventListener
-    fun process(event: ElectionConsensusReached) {
+    suspend fun process(event: ElectionConsensusReached) = withContext(singleDispatcher) {
         val transaction = event.transaction
 
         val publicKeyHeight = transaction.toPublicKeyHeight()
@@ -84,29 +76,31 @@ class ElectionVoter(
     }
 
     @EventListener
-    fun process(event: ElectionFinished) {
+    suspend fun process(event: ElectionFinished) = withContext(singleDispatcher) {
         remove(event.transaction)
     }
 
     @EventListener
-    fun process(event: ElectionExpiring) {
+    suspend fun process(event: ElectionExpiring) = withContext(singleDispatcher) {
         vote(event.transaction, Instant.now())
     }
 
     @EventListener
-    fun process(event: ElectionExpired) {
+    suspend fun process(event: ElectionExpired) = withContext(singleDispatcher) {
         remove(event.transaction)
     }
 
     @EventListener
-    fun process(event: TransactionRejected) {
+    suspend fun process(event: TransactionRejected) {
         if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
             return
         }
-        ioScope.launch {
+        withContext(Dispatchers.IO) {
             val transaction = event.transaction
             if (transactionRepository.existsById(transaction.hash)) {
-                vote(transaction, AttoVoteSignature.finalTimestamp)
+                withContext(singleDispatcher) {
+                    vote(transaction, AttoVoteSignature.finalTimestamp)
+                }
             }
         }
     }
@@ -139,17 +133,15 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $attoVote" }
 
-        defaultScope.launch {
-            eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
-            messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
-        }
+        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
+        messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
     }
 
     private fun canVote(weight: AttoAmount): Boolean {
         return thisNode.isVoter() && weight >= minWeight
     }
 
-    private fun remove(transaction: Transaction) {
+    private suspend fun remove(transaction: Transaction) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
         transactions.remove(publicKeyHeight)
         agreements.remove(publicKeyHeight)

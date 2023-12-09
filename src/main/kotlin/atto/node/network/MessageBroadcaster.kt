@@ -8,7 +8,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.LoadingCache
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
-import java.lang.Integer.min
 import java.net.InetSocketAddress
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
@@ -16,16 +15,6 @@ import java.util.concurrent.TimeUnit
 
 
 private val random = Random()
-private fun <T> randomSublist(list: List<T>, size: Int): List<T> {
-    val randomSequence = generateSequence {
-        random.nextInt(list.size)
-    }
-    return randomSequence
-        .distinct()
-        .take(min(list.size, size))
-        .map { list[it] }
-        .toList()
-}
 
 @Component
 class MessageBroadcaster(
@@ -42,23 +31,10 @@ class MessageBroadcaster(
                 BroadcastStrategy.EVERYONE -> {
                     peers.values
                 }
-//                BroadcastStrategy.MINORITY -> {
-//                    if (peers.size < 20) {
-//                        peers.values
-//                    } else {
-//                        randomSublist(peers.values.toList(), 20)
-//                    }
-//                }
+
                 BroadcastStrategy.VOTERS -> {
                     voters.values.filter { it.node.isVoter() }
                 }
-//                BroadcastStrategy.HISTORICAL -> {
-//                    val peers = voters.values.asSequence()
-//                        .filter { it.node.isHistorical() }
-//                        .toList()
-//
-//                    randomSublist(peers, 1)
-//                }
             }
         }
 

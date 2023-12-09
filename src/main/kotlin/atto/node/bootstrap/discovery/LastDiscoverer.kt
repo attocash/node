@@ -8,9 +8,9 @@ import atto.node.vote.convertion.VoteConverter
 import atto.protocol.bootstrap.AttoBootstrapTransactionPush
 import atto.protocol.vote.AttoVoteRequest
 import atto.protocol.vote.AttoVoteResponse
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -24,16 +24,10 @@ class LastDiscoverer(
     private val dependencyDiscoverer: DependencyDiscoverer,
     private val voteConverter: VoteConverter,
 ) {
-    private val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
-
-    @PreDestroy
-    fun preDestroy() {
-        ioScope.cancel()
-    }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
-    fun broadcastSample() {
-        ioScope.launch {
+    suspend fun broadcastSample() {
+        withContext(Dispatchers.IO) {
             val transactions = transactionRepository.getLastSample(1_000)
             transactions
                 .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
@@ -43,16 +37,16 @@ class LastDiscoverer(
     }
 
     @EventListener
-    fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
+    suspend fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
         val response = message.payload
         val transaction = response.transaction
         val block = transaction.block
 
-        ioScope.launch {
+        withContext(Dispatchers.IO) {
             val account = accountRepository.getByPublicKey(block.publicKey)
 
             if (account.height >= block.height) {
-                return@launch
+                return@withContext
             }
 
             dependencyDiscoverer.add(null, transaction.toTransaction())

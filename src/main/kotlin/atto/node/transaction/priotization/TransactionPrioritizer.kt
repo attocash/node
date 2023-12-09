@@ -1,5 +1,6 @@
 package atto.node.transaction.priotization
 
+import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.DuplicateDetector
 import atto.node.EventPublisher
@@ -10,21 +11,22 @@ import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.PreviousSupport
 import cash.atto.commons.ReceiveSupportBlock
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import kotlin.time.Duration.Companion.milliseconds
 
 @Service
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : CacheSupport {
+) : AsynchronousQueueProcessor<Transaction>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
-
-    private lateinit var job: Job
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
@@ -35,30 +37,17 @@ class TransactionPrioritizer(
     private val duplicateDetector = DuplicateDetector<AttoHash>()
 
     @PreDestroy
-    fun preDestroy() {
-        singleDispatcher.cancel()
-    }
-
-    @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
-            while (isActive) {
-                val transaction = withContext(singleDispatcher) {
-                    queue.poll()
-                }
-                if (transaction != null) {
-                    eventPublisher.publish(TransactionReceived(transaction))
-                } else {
-                    delay(100)
-                }
-            }
-        }
-    }
-
-    @PreDestroy
     fun stop() {
-        job.cancel()
+        singleDispatcher.cancel()
+        super.cancel()
+    }
+
+    override suspend fun poll(): Transaction? = withContext(singleDispatcher) {
+        queue.poll()
+    }
+
+    override suspend fun process(value: Transaction) {
+        eventPublisher.publish(TransactionReceived(value))
     }
 
     @EventListener

@@ -13,10 +13,8 @@ import cash.atto.commons.toUShort
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.CoroutineName
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -58,9 +56,6 @@ class NetworkProcessor(
         .expireAfterWrite(60, TimeUnit.SECONDS)
         .build()
 
-
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
-
     private val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
 
     private val server = TcpServer.create()
@@ -76,7 +71,7 @@ class NetworkProcessor(
         .bindNow()
 
     @PreDestroy
-    fun preDestroy() {
+    fun stop() {
         server.disposeNow()
         outboundMap.values.forEach { it.tryEmitComplete() }
     }
@@ -98,7 +93,7 @@ class NetworkProcessor(
     }
 
     @EventListener
-    fun outbound(message: OutboundNetworkMessage<*>) {
+    suspend fun outbound(message: OutboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
 
         if (disconnectionCache.getIfPresent(socketAddress.address) != null) {
@@ -110,7 +105,7 @@ class NetworkProcessor(
             return
         }
 
-        ioScope.launch {
+        withContext(Dispatchers.IO) {
             TcpClient.create()
                 .host(message.socketAddress.hostName)
                 .port(message.socketAddress.port)

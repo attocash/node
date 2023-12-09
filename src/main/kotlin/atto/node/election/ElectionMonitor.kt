@@ -6,8 +6,8 @@ import atto.node.network.NetworkMessagePublisher
 import atto.node.transaction.TransactionService
 import atto.node.vote.VoteService
 import atto.protocol.transaction.AttoTransactionPush
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -20,15 +20,9 @@ class ElectionMonitor(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val ioScope = CoroutineScope(Dispatchers.IO + CoroutineName(this.javaClass.simpleName))
-
-    @PreDestroy
-    fun preDestroy() {
-        ioScope.cancel()
-    }
     @EventListener
-    fun process(event: ElectionFinished) {
-        ioScope.launch {
+    suspend fun process(event: ElectionFinished) {
+        withContext(Dispatchers.IO) {
             val transaction = event.transaction
             val votes = event.votes
 
