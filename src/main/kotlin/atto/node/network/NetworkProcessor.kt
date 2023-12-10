@@ -13,6 +13,8 @@ import cash.atto.commons.toHex
 import cash.atto.commons.toUShort
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.netty.channel.EventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -65,8 +67,11 @@ class NetworkProcessor(
 
     private val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
 
+    private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(Thread.ofVirtual().factory())
+
     private val server = TcpServer.create()
         .port(port)
+        .runOn(eventLoopGroup)
         .doOnBind {
             logger.info { "TCP started on port $port" }
         }
@@ -81,6 +86,7 @@ class NetworkProcessor(
     fun stop() {
         clear()
         server.disposeNow()
+        eventLoopGroup.shutdownGracefully().await().get()
     }
 
     @EventListener
@@ -116,6 +122,7 @@ class NetworkProcessor(
             TcpClient.create()
                 .host(message.socketAddress.hostName)
                 .port(message.socketAddress.port)
+                .runOn(eventLoopGroup)
                 .connect()
                 .subscribe {
                     logger.info { "Connected as a client to ${message.socketAddress}" }
