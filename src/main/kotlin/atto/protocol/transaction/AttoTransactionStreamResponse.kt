@@ -22,7 +22,7 @@ data class AttoTransactionStreamResponse(val transactions: List<AttoTransaction>
             for (j in 0 until count) {
                 val transaction = AttoTransaction.fromByteBuffer(network, byteBuffer.slice(i)) ?: return null
                 transactions.add(transaction)
-                i += transaction.byteBuffer.size
+                i += transaction.getTotalSize()
 
             }
             return AttoTransactionStreamResponse(transactions)

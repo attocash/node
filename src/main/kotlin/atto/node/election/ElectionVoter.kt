@@ -1,5 +1,6 @@
 package atto.node.election
 
+import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
@@ -29,7 +30,7 @@ class ElectionVoter(
     private val transactionRepository: TransactionRepository,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -72,6 +73,8 @@ class ElectionVoter(
         if (!agreements.contains(publicKeyHeight)) {
             agreements.add(publicKeyHeight)
             vote(transaction, AttoVoteSignature.finalTimestamp)
+        } else {
+            logger.trace { "Consensus about already reached ${event.transaction}" }
         }
     }
 
@@ -108,6 +111,7 @@ class ElectionVoter(
     private fun vote(transaction: Transaction, timestamp: Instant) {
         val weight = voteWeighter.get()
         if (!canVote(weight)) {
+            logger.trace { "This $thisNode can't vote" }
             return
         }
 
@@ -145,6 +149,11 @@ class ElectionVoter(
         val publicKeyHeight = transaction.toPublicKeyHeight()
         transactions.remove(publicKeyHeight)
         agreements.remove(publicKeyHeight)
+    }
+
+    override fun clear() {
+        transactions.clear()
+        agreements.clear()
     }
 
 }

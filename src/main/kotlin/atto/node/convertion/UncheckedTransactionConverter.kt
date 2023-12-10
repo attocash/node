@@ -22,7 +22,7 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
                 "previous",
                 Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java)
             )
-            put("block", Parameter.from(block.serialized))
+            put("block", Parameter.from(block.toByteBuffer()))
             put("signature", Parameter.from(uncheckedTransaction.signature))
             put("work", Parameter.from(uncheckedTransaction.work))
             put("received_at", Parameter.from(uncheckedTransaction.receivedAt))

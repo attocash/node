@@ -13,6 +13,7 @@ group = "cash.atto"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 repositories {
+    mavenLocal()
     mavenCentral()
 }
 
@@ -20,7 +21,7 @@ dependencies {
     val cucumberVersion = "7.14.1"
     val springdocVersion = "2.3.0"
 
-    implementation("cash.atto:commons:1.2.0")
+    implementation("cash.atto:commons:1.3.2")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")

@@ -17,8 +17,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.reactor.asFlux
 import kotlinx.coroutines.withContext
 import mu.KotlinLogging
@@ -81,8 +79,8 @@ class NetworkProcessor(
 
     @PreDestroy
     fun stop() {
+        clear()
         server.disposeNow()
-        outboundMap.clear()
     }
 
     @EventListener
@@ -132,8 +130,14 @@ class NetworkProcessor(
     }
 
     override suspend fun process(value: OutboundNetworkMessage<*>) {
-        logger.trace { "Sending to ${value.socketAddress} ${value.payload}" }
-        outboundMap[value.socketAddress]?.emit(value)
+        val nodeConnection = outboundMap[value.socketAddress]
+
+        if (nodeConnection == null) {
+            logger.trace { "Node ${value.socketAddress} connection wasn't found. Message will be ignored ${value.payload}" }
+            return
+        }
+
+        nodeConnection.emit(value)
     }
 
     private fun prepareConnection(
@@ -162,28 +166,27 @@ class NetworkProcessor(
                     .map { InboundNetworkMessage(socketAddress, it!!) }
                     .doOnError { t -> logger.info(t) { "Failed to process inbound message from $socketAddress" } }
                     .doOnSubscribe { latch.countDown() }
-                    .doOnTerminate {
-                        disconnect(socketAddress)
-                    }
+                    .doOnTerminate { disconnect(socketAddress) }
                     .subscribe { messagePublisher.publish(it!!) }
 
                 val outboundMessages = outbound.asSharedFlow()
+                    .asFlux(Dispatchers.IO)
                     .map { serialize(it.payload) }
-                    .onEach { checkBelowMaxMessageSize(it.serialized) }
-                    .onEach { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }
+                    .doOnNext { checkBelowMaxMessageSize(it.serialized) }
+                    .doOnNext { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }
                     .map { it.serialized }
+                    .doOnError { t -> logger.info(t) { "Failed to send message to $socketAddress" } }
+                    .doOnTerminate { disconnect(socketAddress) }
 
                 val nodeConnection = NodeConnection(connection, outbound)
 
                 connection.outbound()
-                    .sendByteArray(outboundMessages.asFlux(Dispatchers.IO))
+                    .sendByteArray(outboundMessages)
                     .then()
                     .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
                     .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
                     .doOnSubscribe { latch.countDown() }
-                    .doOnTerminate {
-                        disconnect(socketAddress)
-                    }
+                    .doOnTerminate { disconnect(socketAddress) }
                     .subscribe()
 
                 if (!latch.await(1, TimeUnit.SECONDS)) {
@@ -247,6 +250,7 @@ class NetworkProcessor(
 
     override fun clear() {
         disconnectionCache.invalidateAll()
+        outboundMap.forEach { disconnect(it.key) }
         outboundMap.clear()
         bannedNodes.clear()
     }

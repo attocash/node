@@ -11,6 +11,6 @@ class AttoTransactionCodec(val network: AttoNetwork) : AttoCodec<AttoTransaction
     }
 
     override fun toByteBuffer(t: AttoTransaction): AttoByteBuffer {
-        return t.byteBuffer
+        return t.toByteBuffer()
     }
 }

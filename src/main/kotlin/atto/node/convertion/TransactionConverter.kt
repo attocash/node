@@ -28,7 +28,7 @@ class TransactionSerializerDBConverter(val properties: ApplicationProperties) : 
             put("height", Parameter.from(block.height.toBigInteger()))
             put("balance", Parameter.from(block.balance.raw.toBigInteger()))
             put("timestamp", Parameter.from(block.timestamp))
-            put("block", Parameter.from(block.serialized))
+            put("block", Parameter.from(block.toByteBuffer()))
             put("signature", Parameter.from(transaction.signature))
             put("work", Parameter.from(transaction.work))
             put("received_at", Parameter.from(transaction.receivedAt))

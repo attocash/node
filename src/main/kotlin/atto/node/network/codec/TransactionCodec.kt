@@ -12,6 +12,6 @@ class TransactionCodec(private val attoTransactionCodec: AttoTransactionCodec) :
     }
 
     override fun toByteBuffer(t: Transaction): AttoByteBuffer {
-        return t.toAttoTransaction().byteBuffer
+        return t.toAttoTransaction().toByteBuffer()
     }
 }
