@@ -8,6 +8,7 @@ import io.cucumber.java.After
 import io.cucumber.java.Before
 import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
@@ -26,8 +27,7 @@ class CucumberConfiguration(
 ) {
 
     init {
-// When using DebugProbes.install() there's a high chance of getting java.lang.ClassCastException: class kotlin.coroutines.jvm.internal.CompletedContinuation cannot be cast to class kotlinx.coroutines.internal.DispatchedContinuation
-//        DebugProbes.install()
+        DebugProbes.install()
     }
 
     @Before
@@ -56,7 +56,7 @@ class CucumberConfiguration(
 
     @After
     fun after() {
-//        DebugProbes.dumpCoroutines()
+        DebugProbes.dumpCoroutines()
     }
 
 }
