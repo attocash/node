@@ -9,7 +9,10 @@ import atto.node.vote.VoteRebroadcaster.VoteHolder
 import atto.protocol.vote.AttoVotePush
 import cash.atto.commons.AttoSignature
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -31,8 +34,6 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     AsynchronousQueueProcessor<VoteHolder>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private lateinit var job: Job
-
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
@@ -42,7 +43,6 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     @PreDestroy
     fun stop() {
         singleDispatcher.cancel()
-        job.cancel()
     }
 
     @EventListener

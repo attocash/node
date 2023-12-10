@@ -8,7 +8,6 @@ import io.cucumber.java.After
 import io.cucumber.java.Before
 import io.cucumber.spring.CucumberContextConfiguration
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.debug.DebugProbes
 import kotlinx.coroutines.runBlocking
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
@@ -27,7 +26,7 @@ class CucumberConfiguration(
 ) {
 
     init {
-        DebugProbes.install()
+//        DebugProbes.install()
     }
 
     @Before
@@ -56,7 +55,7 @@ class CucumberConfiguration(
 
     @After
     fun after() {
-        DebugProbes.dumpCoroutines()
+//        DebugProbes.dumpCoroutines()
     }
 
 }

@@ -17,7 +17,10 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
 import com.github.benmanes.caffeine.cache.Caffeine
 import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.*
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -30,8 +33,6 @@ class VotePrioritizer(
     private val eventPublisher: EventPublisher,
 ) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
-
-    private lateinit var job: Job
 
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
@@ -61,7 +62,6 @@ class VotePrioritizer(
     @PreDestroy
     fun preDestroy() {
         singleDispatcher.cancel()
-        job.cancel()
     }
 
     fun getQueueSize(): Int {
