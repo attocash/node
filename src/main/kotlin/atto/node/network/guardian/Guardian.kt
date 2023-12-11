@@ -27,7 +27,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
         val address = message.socketAddress.address
-        statisticsMap.compute(address) { k, v ->
+        statisticsMap.compute(address) { _, v ->
             (v ?: 0UL) + 1UL
         }
     }
@@ -38,7 +38,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
         if (!peer.node.isVoter()) {
             return
         }
-        voterMap.compute(peer.connectionSocketAddress.address) { k, v ->
+        voterMap.compute(peer.connectionSocketAddress.address) { _, v ->
             val publicKeys = v ?: HashSet()
             publicKeys.add(peer.node.publicKey)
             publicKeys
@@ -48,7 +48,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
     @EventListener
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
-        voterMap.compute(peer.connectionSocketAddress.address) { k, v ->
+        voterMap.compute(peer.connectionSocketAddress.address) { _, v ->
             val publicKeys = v ?: HashSet()
             publicKeys.remove(peer.node.publicKey)
             publicKeys.ifEmpty {

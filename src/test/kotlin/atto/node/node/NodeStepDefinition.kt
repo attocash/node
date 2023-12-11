@@ -11,8 +11,8 @@ import org.springframework.boot.autoconfigure.r2dbc.R2dbcConnectionDetails
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.r2dbc.core.DatabaseClient
 import java.io.Closeable
+import java.io.File
 import java.net.ServerSocket
-import java.net.URL
 import java.net.URLClassLoader
 import java.util.*
 import java.util.concurrent.FutureTask
@@ -105,11 +105,11 @@ class NodeStepDefinition(
 
     private fun createClassLoader(): URLClassLoader {
         val urlList = System.getProperty("java.class.path")
-            .split(System.getProperty("path.separator"))
+            .split(File.pathSeparator)
             .asSequence()
             .map { if (it.endsWith(".jar")) it else "$it/" }
             .map { if (it.startsWith("/")) it else "/$it" }
-            .map { URL("file:$it") }
+            .map { File(it).toURI().toURL() }
             .toList()
         val urlArray = Array(urlList.size) { urlList[it] }
         return URLClassLoader(urlArray, ClassLoader.getSystemClassLoader().parent)

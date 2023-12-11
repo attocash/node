@@ -76,7 +76,7 @@ class GapDiscoverer(
                                 WHERE transaction_height > account_height + row_num
                                 AND row_num = 1
                 """
-        ).map { row, metadata ->
+        ).map { row, _ ->
             GapView(
                 AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
                 row.get("account_height", Long::class.javaObjectType)!!.toULong(),

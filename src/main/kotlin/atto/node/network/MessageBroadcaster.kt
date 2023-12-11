@@ -27,7 +27,7 @@ class MessageBroadcaster(
     private val peersByStrategy: LoadingCache<BroadcastStrategy, Collection<Peer>> = Caffeine.newBuilder()
         .expireAfterAccess(networkBroadcasterProperties.cacheExpirationTimeInSeconds!!, TimeUnit.SECONDS)
         .build { strategy ->
-            when (strategy) {
+            when (strategy!!) {
                 BroadcastStrategy.EVERYONE -> {
                     peers.values
                 }

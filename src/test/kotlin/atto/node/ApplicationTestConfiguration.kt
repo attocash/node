@@ -6,8 +6,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.http.client.reactive.ClientHttpConnector
-import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import org.springframework.http.codec.ClientCodecConfigurer
 import org.springframework.http.codec.json.Jackson2JsonDecoder
 import org.springframework.http.codec.json.Jackson2JsonEncoder
@@ -40,7 +38,7 @@ class ApplicationTestConfiguration {
                 LogLevel.DEBUG,
                 AdvancedByteBufFormat.TEXTUAL
             )
-        val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
+//        val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
         return WebClient.builder()
             .exchangeStrategies(exchangeStrategies)
 //            .clientConnector(connector) // uncomment it to enable debugging
