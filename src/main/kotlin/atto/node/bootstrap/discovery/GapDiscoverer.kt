@@ -14,12 +14,10 @@ import atto.protocol.transaction.AttoTransactionStreamResponse
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.PreviousSupport
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
@@ -58,7 +56,7 @@ class GapDiscoverer(
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
-    suspend fun resolve() = withContext(Dispatchers.IO) {
+    suspend fun resolve() {
         val peers = peers.toList()
 
 

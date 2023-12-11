@@ -5,8 +5,6 @@ import atto.node.network.NetworkMessagePublisher
 import atto.node.network.OutboundNetworkMessage
 import atto.protocol.vote.AttoVoteRequest
 import atto.protocol.vote.AttoVoteResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -17,7 +15,7 @@ class VoteNetworkProvider(
 ) {
 
     @EventListener
-    suspend fun process(message: InboundNetworkMessage<AttoVoteRequest>) = withContext(Dispatchers.IO) {
+    suspend fun process(message: InboundNetworkMessage<AttoVoteRequest>) {
         val request = message.payload
         val votes = voteRepository.findByHash(request.hash, AttoVoteResponse.maxCount)
         if (votes.isNotEmpty()) {

@@ -2,6 +2,7 @@ package atto.node.bootstrap.discovery
 
 import atto.node.EventPublisher
 import atto.node.account.AccountRepository
+import atto.node.account.getByPublicKey
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.election.TransactionWeighter
 import atto.node.network.*
@@ -14,9 +15,7 @@ import atto.protocol.vote.AttoVoteRequest
 import atto.protocol.vote.AttoVoteResponse
 import cash.atto.commons.AttoHash
 import com.github.benmanes.caffeine.cache.Caffeine
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -41,44 +40,41 @@ class LastDiscoverer(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     suspend fun broadcastSample() {
-        withContext(Dispatchers.IO) {
-            val transactions = transactionRepository.getLastSample(1_000)
-            transactions
-                .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
-                .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
-                .collect { networkMessagePublisher.publish(it) }
-        }
+        val transactions = transactionRepository.getLastSample(1_000)
+        transactions
+            .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
+            .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
+            .collect { networkMessagePublisher.publish(it) }
     }
 
     @EventListener
-    suspend fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) =
-        withContext(Dispatchers.IO) {
-            val response = message.payload
-            val transaction = response.transaction.toTransaction()
-            val block = transaction.block
+    suspend fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
+        val response = message.payload
+        val transaction = response.transaction.toTransaction()
+        val block = transaction.block
 
-            val account = accountRepository.getByPublicKey(block.publicKey)
+        val account = accountRepository.getByPublicKey(block.publicKey)
 
-            if (account.height >= block.height) {
-                return@withContext
-            }
-
-            if (transactionWeighterMap.putIfAbsent(
-                    transaction.hash,
-                    TransactionWeighter(account, transaction)
-                ) != null
-            ) {
-                return@withContext
-            }
-
-            val request = AttoVoteRequest(transaction.hash)
-            networkMessagePublisher.publish(
-                OutboundNetworkMessage(
-                    message.socketAddress,
-                    request
-                )
-            )
+        if (account.height >= block.height) {
+            return
         }
+
+        if (transactionWeighterMap.putIfAbsent(
+                transaction.hash,
+                TransactionWeighter(account, transaction)
+            ) != null
+        ) {
+            return
+        }
+
+        val request = AttoVoteRequest(transaction.hash)
+        networkMessagePublisher.publish(
+            OutboundNetworkMessage(
+                message.socketAddress,
+                request
+            )
+        )
+    }
 
     @EventListener
     suspend fun processVoteResponse(message: InboundNetworkMessage<AttoVoteResponse>) {

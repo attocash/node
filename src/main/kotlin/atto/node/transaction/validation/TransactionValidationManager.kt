@@ -3,16 +3,15 @@ package atto.node.transaction.validation
 import atto.node.EventPublisher
 import atto.node.account.Account
 import atto.node.account.AccountRepository
+import atto.node.account.getByPublicKey
 import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionReceived
 import atto.node.transaction.TransactionRejected
 import atto.node.transaction.TransactionValidated
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -26,7 +25,7 @@ class TransactionValidationManager(
     private val logger = KotlinLogging.logger {}
 
     @EventListener
-    suspend fun process(event: TransactionReceived) = withContext(Dispatchers.IO) {
+    suspend fun process(event: TransactionReceived) {
         val transaction = event.transaction
         val account = accountRepository.getByPublicKey(transaction.block.publicKey)
         val violation = validate(account, event.transaction)

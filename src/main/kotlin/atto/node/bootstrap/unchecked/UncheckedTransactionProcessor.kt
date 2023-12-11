@@ -2,6 +2,7 @@ package atto.node.bootstrap.unchecked
 
 import atto.node.EventPublisher
 import atto.node.account.AccountRepository
+import atto.node.account.getByPublicKey
 import atto.node.bootstrap.TransactionResolved
 import atto.node.bootstrap.TransactionStuck
 import atto.node.transaction.TransactionService
@@ -30,7 +31,7 @@ class UncheckedTransactionProcessor(
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.IO.limitedParallelism(1)
+    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     @PreDestroy
     fun stop() {

@@ -20,7 +20,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.reactor.asFlux
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -118,18 +117,16 @@ class NetworkProcessor(
             return
         }
 
-        withContext(Dispatchers.IO) {
-            TcpClient.create()
-                .host(message.socketAddress.hostName)
-                .port(message.socketAddress.port)
-                .runOn(eventLoopGroup)
-                .connect()
-                .subscribe {
-                    logger.info { "Connected as a client to ${message.socketAddress}" }
-                    prepareConnection(message.socketAddress, it)
-                    messageQueue.add(message)
-                }
-        }
+        TcpClient.create()
+            .host(message.socketAddress.hostName)
+            .port(message.socketAddress.port)
+            .runOn(eventLoopGroup)
+            .connect()
+            .subscribe {
+                logger.info { "Connected as a client to ${message.socketAddress}" }
+                prepareConnection(message.socketAddress, it)
+                messageQueue.add(message)
+            }
     }
 
     override suspend fun poll(): OutboundNetworkMessage<*>? {
@@ -177,7 +174,7 @@ class NetworkProcessor(
                     .subscribe { messagePublisher.publish(it!!) }
 
                 val outboundMessages = outbound.asSharedFlow()
-                    .asFlux(Dispatchers.IO)
+                    .asFlux(Dispatchers.Default)
                     .map { serialize(it.payload) }
                     .doOnNext { checkBelowMaxMessageSize(it.serialized) }
                     .doOnNext { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }

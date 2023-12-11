@@ -10,7 +10,6 @@ import atto.protocol.transaction.AttoTransactionStreamResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.reactor.asFlux
-import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -20,7 +19,7 @@ class TransactionNetworkProvider(
     private val networkMessagePublisher: NetworkMessagePublisher
 ) {
     @EventListener
-    suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) = withContext(Dispatchers.IO) {
+    suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
         val request = message.payload
         val transaction = transactionRepository.findById(request.hash)
         if (transaction != null) {
@@ -31,7 +30,7 @@ class TransactionNetworkProvider(
 
 
     @EventListener
-    suspend fun stream(message: InboundNetworkMessage<AttoTransactionStreamRequest>) = withContext(Dispatchers.IO) {
+    suspend fun stream(message: InboundNetworkMessage<AttoTransactionStreamRequest>) {
         val request = message.payload
         val transactions = transactionRepository.findDesc(
             request.publicKey,
@@ -40,7 +39,7 @@ class TransactionNetworkProvider(
         )
 
         // no support to chunked https://github.com/Kotlin/kotlinx.coroutines/issues/1290
-        transactions.asFlux(this.coroutineContext)
+        transactions.asFlux(Dispatchers.Default)
             .map { it.toAttoTransaction() }
             .buffer(50)
             .asFlow()

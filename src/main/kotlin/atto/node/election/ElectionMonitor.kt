@@ -6,8 +6,6 @@ import atto.node.network.NetworkMessagePublisher
 import atto.node.transaction.TransactionService
 import atto.node.vote.VoteService
 import atto.protocol.transaction.AttoTransactionPush
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -22,13 +20,11 @@ class ElectionMonitor(
 
     @EventListener
     suspend fun process(event: ElectionFinished) {
-        withContext(Dispatchers.IO) {
-            val transaction = event.transaction
-            val votes = event.votes
+        val transaction = event.transaction
+        val votes = event.votes
 
-            transactionService.save(transaction)
-            voteService.saveAll(votes)
-        }
+        transactionService.save(transaction)
+        voteService.saveAll(votes)
     }
 
     @EventListener

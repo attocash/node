@@ -7,9 +7,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import io.swagger.v3.oas.annotations.Operation
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
@@ -40,9 +38,7 @@ class AccountController(
 
     @EventListener
     suspend fun process(transactionSaved: TransactionSaved) {
-        withContext(Dispatchers.IO) {
-            accountPublisher.emit(transactionSaved.updatedAccount)
-        }
+        accountPublisher.emit(transactionSaved.updatedAccount)
     }
 
     @GetMapping("/{publicKey}")

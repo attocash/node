@@ -10,9 +10,7 @@ import cash.atto.commons.*
 import com.fasterxml.jackson.annotation.JsonSubTypes
 import com.fasterxml.jackson.annotation.JsonTypeInfo
 import io.swagger.v3.oas.annotations.Operation
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.*
-import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -51,7 +49,7 @@ class TransactionController(
     private val transactionFlow = transactionPublisher.asSharedFlow()
 
     @EventListener
-    suspend fun process(transactionSaved: TransactionSaved) = withContext(Dispatchers.IO) {
+    suspend fun process(transactionSaved: TransactionSaved) {
         transactionPublisher.emit(transactionSaved.transaction)
     }
 

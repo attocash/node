@@ -98,12 +98,10 @@ class ElectionVoter(
         if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
             return
         }
-        withContext(Dispatchers.IO) {
-            val transaction = event.transaction
-            if (transactionRepository.existsById(transaction.hash)) {
-                withContext(singleDispatcher) {
-                    vote(transaction, AttoVoteSignature.finalTimestamp)
-                }
+        val transaction = event.transaction
+        if (transactionRepository.existsById(transaction.hash)) {
+            withContext(singleDispatcher) {
+                vote(transaction, AttoVoteSignature.finalTimestamp)
             }
         }
     }
