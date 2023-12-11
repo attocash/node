@@ -242,8 +242,10 @@ class NetworkProcessor(
     }
 
     private fun disconnect(socketAddress: InetSocketAddress) {
-        outboundMap.remove(socketAddress)?.disconnect()
-        logger.info { "Disconnected from $socketAddress" }
+        outboundMap.remove(socketAddress)?.let {
+            it.disconnect()
+            logger.info { "Disconnected from $socketAddress" }
+        }
     }
 
     private fun disconnect(address: InetAddress) {
