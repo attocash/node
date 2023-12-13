@@ -1,6 +1,5 @@
 package atto.node
 
-import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -15,16 +14,12 @@ interface Event {
 class EventPublisher(private val publisher: ApplicationEventPublisher) {
     private val logger = KotlinLogging.logger {}
 
-    val defaultScope = CoroutineScope(Dispatchers.Default + CoroutineName(this.javaClass.simpleName))
+    val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
 
     fun publish(event: Event) {
         defaultScope.launch {
-            try {
-                logger.trace { "$event" }
-                publisher.publishEvent(event)
-            } catch (e: Exception) {
-                logger.error(e) { "$event failed" }
-            }
+            logger.trace { "$event" }
+            publisher.publishEvent(event)
         }
     }
 

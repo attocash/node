@@ -3,7 +3,6 @@ package atto.node
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.*
 import mu.KotlinLogging
-import kotlin.system.exitProcess
 import kotlin.time.Duration
 
 
@@ -12,17 +11,11 @@ abstract class AsynchronousQueueProcessor<T>(private val duration: Duration) {
 
     private lateinit var job: Job
 
-    @OptIn(DelicateCoroutinesApi::class)
     @PostConstruct
     fun start() {
-        job = GlobalScope.launch(CoroutineName(this.javaClass.simpleName)) {
+        job = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler).launch {
             while (isActive) {
-                try {
-                    process()
-                } catch (e: Exception) {
-                    logger.error(e) { "Error occurred while processing queue. Application will exit" }
-                    exitProcess(-1)
-                }
+                process()
                 delay(duration.inWholeMilliseconds)
             }
         }

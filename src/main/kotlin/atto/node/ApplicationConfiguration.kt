@@ -1,6 +1,8 @@
 package atto.node
 
 import io.r2dbc.spi.Option
+import kotlinx.coroutines.CoroutineExceptionHandler
+import mu.KotlinLogging
 import org.flywaydb.core.Flyway
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.boot.autoconfigure.flyway.FlywayProperties
@@ -10,6 +12,7 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
 import org.springframework.scheduling.annotation.EnableScheduling
+import kotlin.system.exitProcess
 
 
 @Configuration
@@ -42,4 +45,11 @@ class ApplicationConfiguration {
 @EnableScheduling
 @Profile(value = ["dev", "beta", "live"])
 class ScheduleConfiguration {
+}
+
+
+val attoCoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->
+    val logger = KotlinLogging.logger {}
+    logger.error(e) { "Unexpected internal error. Application will exit..." }
+    exitProcess(-1)
 }
