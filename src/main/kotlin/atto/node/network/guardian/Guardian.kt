@@ -21,7 +21,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
 
 
     private val statisticsMap = ConcurrentHashMap<InetAddress, ULong>()
-    private var snapshot = HashMap<InetAddress, ULong>()
+    private var snapshot: Map<InetAddress, ULong> = mapOf()
     private val voterMap = ConcurrentHashMap<InetAddress, MutableSet<AttoPublicKey>>()
 
     @EventListener
@@ -59,22 +59,27 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
 
     @Scheduled(cron = "0/5 * * * * *")
     fun guard() {
-        val newSnapshot = HashMap(statisticsMap)
+        val newSnapshot = statisticsMap.toMap()
 
-        val difference = calculateDifference(newSnapshot)
+        val difference = calculateDifference(newSnapshot, snapshot)
         val median = median(extractVoters(difference).keys)
         val maliciousActors = difference.tailMap(median * toleranceMultiplier)
 
         maliciousActors.values.forEach {
             eventPublisher.publish(NodeBanned(it))
         }
+
+        snapshot = newSnapshot
     }
 
-    private fun calculateDifference(newSnapshot: Map<InetAddress, ULong>): TreeMap<ULong, InetAddress> {
+    private fun calculateDifference(
+        newSnapshot: Map<InetAddress, ULong>,
+        oldSnapshot: Map<InetAddress, ULong>
+    ): TreeMap<ULong, InetAddress> {
         val treeMap = TreeMap<ULong, InetAddress>()
         return newSnapshot.asSequence()
             .map {
-                val hits = it.value - (snapshot[it.key] ?: 0U)
+                val hits = it.value - (oldSnapshot[it.key] ?: 0U)
                 Pair(hits, it.key)
             }
             .toMap(treeMap)
