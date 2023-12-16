@@ -19,9 +19,6 @@ spring:
       initial-size: 10
       max-size: 10
       max-life-time: 8h
-  jackson:
-    serialization:
-      write_dates_as_timestamps: false
 
 atto:
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}

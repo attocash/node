@@ -1,6 +1,7 @@
 package atto.protocol.transaction
 
 import cash.atto.commons.*
+import kotlinx.datetime.Clock
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.params.ParameterizedTest
@@ -35,7 +36,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         receiverPublicKey = AttoPublicKey(ByteArray(32)),
                         amount = AttoAmount(100u),
@@ -47,7 +48,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         sendHash = AttoHash(ByteArray(32)),
                     ),
@@ -57,7 +58,7 @@ internal class AttoBlockTest {
                         version = 0u,
                         publicKey = privateKey.toPublicKey(),
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         sendHash = AttoHash(ByteArray(32)),
                         representative = privateKey.toPublicKey(),
                     ),
@@ -68,7 +69,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         representative = privateKey.toPublicKey(),
                     ),
@@ -85,7 +86,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 1u, // invalid
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         receiverPublicKey = privateKey.toPublicKey(),
                         amount = AttoAmount(100u),
@@ -97,7 +98,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 1u, // invalid
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         sendHash = AttoHash(ByteArray(32))
                     ),
@@ -108,7 +109,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 1u, // invalid
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         representative = privateKey.toPublicKey(),
                     ),
@@ -119,7 +120,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         receiverPublicKey = AttoPublicKey(ByteArray(32)),
                         amount = AttoAmount(0u),  // invalid
@@ -131,7 +132,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount(100u),
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         receiverPublicKey = privateKey.toPublicKey(), // invalid
                         amount = AttoAmount(100u),
@@ -143,7 +144,7 @@ internal class AttoBlockTest {
                         publicKey = privateKey.toPublicKey(),
                         height = 2u,
                         balance = AttoAmount.MIN,  // invalid
-                        timestamp = Instant.now(),
+                        timestamp = Clock.System.now(),
                         previous = AttoHash(ByteArray(32)),
                         sendHash = AttoHash(ByteArray(32))
                     ),

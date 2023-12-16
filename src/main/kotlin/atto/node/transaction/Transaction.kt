@@ -3,7 +3,6 @@ package atto.node.transaction
 import atto.node.Event
 import atto.node.account.Account
 import cash.atto.commons.*
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -18,18 +17,14 @@ data class Transaction(
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
     @Id
-    @JsonIgnore
     val hash = block.hash
 
-    @JsonIgnore
     val publicKey = block.publicKey
 
-    @JsonIgnore
     override fun getId(): AttoHash {
         return hash
     }
 
-    @JsonIgnore
     override fun isNew(): Boolean {
         return persistedAt == null
     }

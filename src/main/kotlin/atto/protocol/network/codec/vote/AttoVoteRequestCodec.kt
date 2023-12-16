@@ -21,7 +21,7 @@ class AttoVoteRequestCodec : AttoMessageCodec<AttoVoteRequest> {
         }
 
         return AttoVoteRequest(
-            hash = byteBuffer.getHash()
+            hash = byteBuffer.getBlockHash()
         )
     }
 

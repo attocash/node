@@ -3,12 +3,13 @@ package atto.node.bootstrap.unchecked
 import atto.node.PropertyHolder
 import atto.node.Waiter
 import atto.node.node.Neighbour
-import atto.node.transaction.TransactionDTO
 import cash.atto.commons.AttoTransaction
 import io.cucumber.java.en.When
+import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToFlux
+import org.springframework.web.reactive.function.client.bodyToMono
 
 
 class UncheckedTransactionDefinition(
@@ -70,11 +71,9 @@ class UncheckedTransactionDefinition(
         return webClient.get()
             .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions")
             .retrieve()
-            .bodyToFlux<TransactionDTO>()
-            .map { it.toAttoTransaction() }
-            .collectList()
+            .bodyToMono<String>()
+            .map { Json.decodeFromString<List<AttoTransaction>>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
             .block()!!
     }
-
 
 }

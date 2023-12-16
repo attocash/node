@@ -3,6 +3,7 @@ package atto.node.transaction
 import atto.node.transaction.priotization.TransactionQueue
 import cash.atto.commons.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.Clock
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -50,7 +51,7 @@ internal class TransactionQueueTest {
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             height = 2u,
             balance = AttoAmount(amount),
-            timestamp = Instant.now(),
+            timestamp = Clock.System.now(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHash = AttoHash(ByteArray(32)),
         )

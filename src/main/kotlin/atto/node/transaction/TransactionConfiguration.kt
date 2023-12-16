@@ -3,6 +3,7 @@ package atto.node.transaction
 import atto.node.network.codec.TransactionCodec
 import atto.protocol.AttoNode
 import cash.atto.commons.*
+import kotlinx.datetime.Clock
 import mu.KotlinLogging
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
@@ -34,7 +35,7 @@ class TransactionConfiguration {
             version = 0u,
             publicKey = privateKey.toPublicKey(),
             balance = AttoAmount.MAX,
-            timestamp = Instant.now(),
+            timestamp = Clock.System.now(),
             sendHash = AttoHash(ByteArray(32)),
             representative = privateKey.toPublicKey(),
         )

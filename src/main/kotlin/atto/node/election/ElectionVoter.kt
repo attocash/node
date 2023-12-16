@@ -16,6 +16,7 @@ import cash.atto.commons.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.toKotlinInstant
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
@@ -113,7 +114,7 @@ class ElectionVoter(
             return
         }
 
-        val voteHash = AttoHash.hash(32, transaction.hash.value, timestamp.toByteArray())
+        val voteHash = AttoHash.hash(32, transaction.hash.value, timestamp.toKotlinInstant().toByteArray())
         val voteSignature = AttoVoteSignature(
             timestamp = timestamp,
             publicKey = thisNode.publicKey,

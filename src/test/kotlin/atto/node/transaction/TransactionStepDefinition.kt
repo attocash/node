@@ -2,11 +2,11 @@ package atto.node.transaction
 
 import atto.node.PropertyHolder
 import atto.node.Waiter
-import atto.node.account.AccountDTO
 import atto.node.node.Neighbour
 import cash.atto.commons.*
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
+import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -61,7 +61,7 @@ class TransactionStepDefinition(
                 work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash)
             )
         } else {
-            val openBlock = cash.atto.commons.AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
+            val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
             Transaction(
                 block = openBlock,
                 signature = privateKey.sign(openBlock.hash),
@@ -110,13 +110,12 @@ class TransactionStepDefinition(
         streamTransaction(PropertyHolder[Neighbour::class.java, shortId], expectedTransaction.hash)
     }
 
-    private fun getAccount(neighbour: Neighbour, publicKey: AttoPublicKey): cash.atto.commons.AttoAccount? {
+    private fun getAccount(neighbour: Neighbour, publicKey: AttoPublicKey): AttoAccount? {
         return webClient.get()
             .uri("http://localhost:${neighbour.httpPort}/accounts/{publicKey}", publicKey.toString())
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<AccountDTO>()
-            .map { it.toAttoAccount() }
+            .bodyToMono<AttoAccount>()
             .blockOptional()
             .orElse(null)
     }
@@ -126,8 +125,8 @@ class TransactionStepDefinition(
             .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<TransactionDTO>()
-            .map { it.toAttoTransaction() }
+            .bodyToMono<String>()
+            .map { Json.decodeFromString<AttoTransaction>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
     }
 
@@ -136,7 +135,7 @@ class TransactionStepDefinition(
         webClient
             .post()
             .uri("http://localhost:${neighbour.httpPort}/transactions")
-            .bodyValue(transaction)
+            .bodyValue(transaction.toAttoTransaction())
             .retrieve()
             .bodyToMono<Void>()
             .block()

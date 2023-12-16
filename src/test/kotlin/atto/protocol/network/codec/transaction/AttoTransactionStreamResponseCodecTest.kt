@@ -2,9 +2,10 @@ package atto.protocol.network.codec.transaction
 
 import atto.protocol.transaction.AttoTransactionStreamResponse
 import cash.atto.commons.*
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import kotlin.random.Random
 
 internal class AttoTransactionStreamResponseCodecTest {
@@ -19,7 +20,7 @@ internal class AttoTransactionStreamResponseCodecTest {
             version = 0u,
             publicKey = privateKey.toPublicKey(),
             balance = AttoAmount(100u),
-            timestamp = Instant.now().toByteArray().toInstant(),
+            timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
             sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
             representative = privateKey.toPublicKey(),
         )

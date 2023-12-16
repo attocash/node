@@ -5,7 +5,6 @@ import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
-import com.fasterxml.jackson.annotation.JsonIgnore
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import org.springframework.data.relational.core.mapping.Table
@@ -21,13 +20,10 @@ data class UncheckedTransaction(
 ) : Persistable<AttoHash> {
 
     @Id
-    @JsonIgnore
     val hash = block.hash
 
-    @JsonIgnore
     val publicKey = block.publicKey
 
-    @JsonIgnore
     val height = block.height
 
 

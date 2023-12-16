@@ -4,7 +4,7 @@ import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
-import com.fasterxml.jackson.annotation.JsonIgnore
+import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -24,12 +24,10 @@ data class Account(
 
     ) : Persistable<AttoPublicKey> {
 
-    @JsonIgnore
     override fun getId(): AttoPublicKey {
         return publicKey
     }
 
-    @JsonIgnore
     override fun isNew(): Boolean {
         return persistedAt == null
     }
@@ -41,7 +39,7 @@ data class Account(
             height = height,
             balance = balance,
             lastTransactionHash = lastTransactionHash,
-            lastTransactionTimestamp = lastTransactionTimestamp,
+            lastTransactionTimestamp = lastTransactionTimestamp.toKotlinInstant(),
             representative = representative,
         )
     }

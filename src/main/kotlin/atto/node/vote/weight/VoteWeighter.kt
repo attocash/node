@@ -77,8 +77,8 @@ class VoteWeighter(
         } else if (block is AttoSendBlock) {
             subtract(account.representative, block.amount, block.balance)
         } else if (block is AttoChangeBlock) {
-            subtract(account.representative, block.balance, AttoAmount.MIN)
-            add(block.representative, block.balance, block.balance)
+            subtract(account.representative, account.balance, AttoAmount.MIN)
+            add(block.representative, account.balance, account.balance)
         }
 
         logger.trace { "Weight updated $weightMap" }

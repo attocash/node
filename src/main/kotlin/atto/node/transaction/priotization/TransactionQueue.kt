@@ -2,6 +2,7 @@ package atto.node.transaction.priotization
 
 import atto.node.transaction.Transaction
 import cash.atto.commons.AttoSendBlock
+import kotlinx.datetime.toJavaInstant
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.Comparator.comparing
@@ -46,7 +47,7 @@ class TransactionQueue(private val groupMaxSize: Int) {
     }
 
     private val dateComparator: Comparator<Transaction> = comparing {
-        ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp)
+        ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp.toJavaInstant())
     }
 
     private val versionComparator: Comparator<Transaction> = comparing {

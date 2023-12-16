@@ -21,7 +21,7 @@ class AttoTransactionRequestCodec : AttoMessageCodec<AttoTransactionRequest> {
         }
 
         return AttoTransactionRequest(
-            hash = byteBuffer.getHash()
+            hash = byteBuffer.getBlockHash()
         )
     }
 

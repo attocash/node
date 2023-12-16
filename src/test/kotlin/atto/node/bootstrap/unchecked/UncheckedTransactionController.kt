@@ -1,7 +1,9 @@
 package atto.node.bootstrap.unchecked
 
+import cash.atto.commons.AttoTransaction
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import org.springframework.context.annotation.Profile
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PostMapping
@@ -24,7 +26,8 @@ class UncheckedTransactionController(
     }
 
     @GetMapping
-    suspend fun get(): Flow<UncheckedTransaction> {
+    suspend fun get(): Flow<AttoTransaction> {
         return uncheckedTransactionRepository.findAll()
+            .map { it.toTransaction().toAttoTransaction() }
     }
 }

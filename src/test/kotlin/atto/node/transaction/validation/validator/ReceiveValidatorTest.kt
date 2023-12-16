@@ -9,6 +9,8 @@ import cash.atto.commons.*
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.toKotlinInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -25,7 +27,7 @@ internal class ReceiveValidatorTest {
         height = 2u,
         balance = AttoAmount(0u),
         lastTransactionHash = AttoHash(ByteArray(32)),
-        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT,
+        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
         representative = AttoPublicKey(ByteArray(32))
     )
     val block = AttoReceiveBlock(
@@ -33,7 +35,7 @@ internal class ReceiveValidatorTest {
         publicKey = privateKey.toPublicKey(),
         height = account.height + 1U,
         balance = AttoAmount(10U),
-        timestamp = account.lastTransactionTimestamp.plusSeconds(1),
+        timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
         previous = account.lastTransactionHash,
         sendHash = AttoHash(ByteArray(32))
     )

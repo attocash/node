@@ -8,8 +8,9 @@ import atto.node.receivable.Receivable
 import atto.node.receivable.ReceivableService
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoSendBlock
-import cash.atto.commons.ReceiveSupportBlock
-import cash.atto.commons.RepresentativeSupportBlock
+import cash.atto.commons.ReceiveSupport
+import cash.atto.commons.RepresentativeSupport
+import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
@@ -34,8 +35,8 @@ class TransactionService(
             height = block.height,
             balance = block.balance,
             lastTransactionHash = block.hash,
-            lastTransactionTimestamp = block.timestamp,
-            representative = if (block is RepresentativeSupportBlock) block.representative else previousAccount.representative
+            lastTransactionTimestamp = block.timestamp.toJavaInstant(),
+            representative = if (block is RepresentativeSupport) block.representative else previousAccount.representative
         )
 
         accountService.save(updatedAccount)
@@ -49,7 +50,7 @@ class TransactionService(
                 amount = block.amount
             )
             receivableService.save(receivable)
-        } else if (block is ReceiveSupportBlock) {
+        } else if (block is ReceiveSupport) {
             receivableService.delete(block.sendHash)
         }
 
@@ -67,7 +68,7 @@ class TransactionService(
                 height = block.height,
                 balance = block.balance,
                 lastTransactionHash = block.hash,
-                lastTransactionTimestamp = block.timestamp,
+                lastTransactionTimestamp = block.timestamp.toJavaInstant(),
                 representative = block.representative
             )
         }

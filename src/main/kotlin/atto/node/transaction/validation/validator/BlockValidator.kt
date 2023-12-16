@@ -6,6 +6,7 @@ import atto.node.transaction.TransactionRejectionReason
 import atto.node.transaction.validation.TransactionValidator
 import atto.node.transaction.validation.TransactionViolation
 import cash.atto.commons.PreviousSupport
+import kotlinx.datetime.toJavaInstant
 import org.springframework.stereotype.Component
 
 @Component
@@ -38,7 +39,7 @@ class BlockValidator(val node: atto.protocol.AttoNode) : TransactionValidator {
             )
         }
 
-        if (account.lastTransactionTimestamp >= block.timestamp) {
+        if (account.lastTransactionTimestamp >= block.timestamp.toJavaInstant()) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_TIMESTAMP,
                 "The last known timestamp for the account ${account.publicKey} is ${account.lastTransactionTimestamp}. The receive transaction has ${block.timestamp}"

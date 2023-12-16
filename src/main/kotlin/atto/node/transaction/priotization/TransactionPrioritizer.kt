@@ -10,7 +10,7 @@ import atto.node.transaction.*
 import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.PreviousSupport
-import cash.atto.commons.ReceiveSupportBlock
+import cash.atto.commons.ReceiveSupport
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -87,7 +87,7 @@ class TransactionPrioritizer(
         val block = transaction.block
         if (block is PreviousSupport && activeElections.contains(block.previous)) {
             buffer(block.previous, transaction)
-        } else if (block is ReceiveSupportBlock && activeElections.contains(block.sendHash)) {
+        } else if (block is ReceiveSupport && activeElections.contains(block.sendHash)) {
             buffer(block.sendHash, transaction)
         } else {
             val droppedTransaction = queue.add(transaction)

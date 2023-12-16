@@ -4,6 +4,8 @@ import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVoteSignature
 import atto.protocol.vote.VoteType
 import cash.atto.commons.*
+import kotlinx.datetime.Clock
+import kotlinx.datetime.toJavaInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Instant
@@ -19,11 +21,11 @@ internal class AttoVoteCodecTest {
         // given
         val hash = AttoHash(Random.nextBytes(ByteArray(32)))
 
-        val timestamp = Instant.now().toByteArray()
+        val timestamp = Clock.System.now().toByteArray()
         val voteHash = AttoHash.hash(32, hash.value, timestamp)
 
         val expectedVoteSignature = AttoVoteSignature(
-            timestamp = timestamp.toInstant(),
+            timestamp = timestamp.toInstant().toJavaInstant(),
             publicKey = privateKey.toPublicKey(),
             signature = privateKey.sign(voteHash)
         )

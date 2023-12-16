@@ -10,7 +10,7 @@ data class AttoHandshakeAnswer(
 ) :
     AttoMessage {
     companion object {
-        val size = atto.protocol.AttoNode.size + AttoSignature.size
+        val size = atto.protocol.AttoNode.size + AttoSignature.SIZE
     }
 
     override fun messageType(): AttoMessageType {

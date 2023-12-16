@@ -16,7 +16,7 @@ import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.ReceiveSupportBlock
+import cash.atto.commons.ReceiveSupport
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
@@ -67,7 +67,7 @@ class SendDiscoverer(
             return
         }
 
-        val block = transaction.block as ReceiveSupportBlock
+        val block = transaction.block as ReceiveSupport
 
         if (unknownHashCache.putIfAbsent(block.sendHash, block.sendHash) != null) {
             return

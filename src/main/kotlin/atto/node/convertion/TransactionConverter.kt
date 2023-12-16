@@ -8,6 +8,7 @@ import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
 import io.r2dbc.spi.Row
+import kotlinx.datetime.toJavaInstant
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
 import org.springframework.stereotype.Component
@@ -27,7 +28,7 @@ class TransactionSerializerDBConverter(val properties: ApplicationProperties) : 
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height.toBigInteger()))
             put("balance", Parameter.from(block.balance.raw.toBigInteger()))
-            put("timestamp", Parameter.from(block.timestamp))
+            put("timestamp", Parameter.from(block.timestamp.toJavaInstant()))
             put("block", Parameter.from(block.toByteBuffer()))
             put("signature", Parameter.from(transaction.signature))
             put("work", Parameter.from(transaction.work))

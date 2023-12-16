@@ -5,6 +5,8 @@ import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionRejectionReason
 import cash.atto.commons.*
 import kotlinx.coroutines.runBlocking
+import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.toKotlinInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -21,7 +23,7 @@ internal class BlockValidatorTest {
         height = 2u,
         balance = AttoAmount(100u),
         lastTransactionHash = AttoHash(ByteArray(32)),
-        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT,
+        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
         representative = AttoPublicKey(ByteArray(32))
     )
     val block = AttoSendBlock(
@@ -29,7 +31,7 @@ internal class BlockValidatorTest {
         publicKey = privateKey.toPublicKey(),
         height = account.height + 1U,
         balance = AttoAmount(0u),
-        timestamp = account.lastTransactionTimestamp.plusSeconds(1),
+        timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
         previous = account.lastTransactionHash,
         receiverPublicKey = AttoPublicKey(ByteArray(32)),
         amount = AttoAmount(100u),

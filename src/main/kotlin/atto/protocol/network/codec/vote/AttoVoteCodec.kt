@@ -18,7 +18,7 @@ class AttoVoteCodec(private val voteCodec: AttoSignatureCodec) : AttoCodec<AttoV
             return null
         }
 
-        val hash = byteBuffer.getHash()
+        val hash = byteBuffer.getBlockHash()
         val vote = voteCodec.fromByteBuffer(byteBuffer.slice(33))!!
 
         val hashVote = AttoVote(

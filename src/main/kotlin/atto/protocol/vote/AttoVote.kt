@@ -1,6 +1,8 @@
 package atto.protocol.vote
 
 import cash.atto.commons.*
+import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.toKotlinInstant
 import java.time.Instant
 
 data class AttoVoteSignature(
@@ -19,7 +21,7 @@ data class AttoVoteSignature(
             }
 
             return AttoVoteSignature(
-                timestamp = byteBuffer.getInstant(),
+                timestamp = byteBuffer.getInstant().toJavaInstant(),
                 publicKey = byteBuffer.getPublicKey(),
                 signature = byteBuffer.getSignature()
             )
@@ -28,7 +30,7 @@ data class AttoVoteSignature(
 
     fun toByteBuffer(): AttoByteBuffer {
         return AttoByteBuffer(size)
-            .add(timestamp)
+            .add(timestamp.toKotlinInstant())
             .add(publicKey)
             .add(signature)
     }
@@ -56,7 +58,7 @@ data class AttoVote(
             return false
         }
 
-        val voteHash = AttoHash.hash(32, hash.value, signature.timestamp.toByteArray())
+        val voteHash = AttoHash.hash(32, hash.value, signature.timestamp.toKotlinInstant().toByteArray())
         return signature.signature.isValid(signature.publicKey, voteHash)
     }
 }
@@ -70,7 +72,7 @@ enum class VoteType(val code: UByte) {
     UNKNOWN(UByte.MAX_VALUE);
 
     companion object {
-        private val map = values().associateBy(VoteType::code)
+        private val map = entries.associateBy(VoteType::code)
         fun from(code: UByte): VoteType {
             return map.getOrDefault(code, UNKNOWN)
         }

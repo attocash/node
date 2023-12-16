@@ -7,7 +7,7 @@ import cash.atto.commons.AttoHash
 
 data class AttoTransactionRequest(val hash: AttoHash) : AttoMessage {
     companion object {
-        val size = AttoHash.defaultSize
+        val size = 32
     }
 
     override fun messageType(): AttoMessageType {
