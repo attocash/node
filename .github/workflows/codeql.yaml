@@ -14,11 +14,11 @@ jobs:
 
       - uses: gradle/gradle-build-action@v2
 
-      - uses: github/codeql-action/init@v2
+      - uses: github/codeql-action/init@v3
         with:
           languages: java
 
       - name: build
         run: ./gradlew --info build -x test
 
-      - uses: github/codeql-action/analyze@v2
+      - uses: github/codeql-action/analyze@v3
