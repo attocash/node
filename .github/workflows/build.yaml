@@ -19,7 +19,7 @@ jobs:
       - name: build
         run: ./gradlew --info build
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: node
           path: ${{ github.workspace }}/build/libs/node.jar
