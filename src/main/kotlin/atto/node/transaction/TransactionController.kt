@@ -4,6 +4,7 @@ import atto.node.ApplicationProperties
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
+import atto.node.sortByHeight
 import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
@@ -82,16 +83,16 @@ class TransactionController(
     }
 
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
-    @Operation(description = "Stream unsorted transactions. Duplicates may happen")
-    suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: Long): Flow<String> {
-        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong())
+    @Operation(description = "Stream transactions")
+    suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: ULong): Flow<String> {
+        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight)
             .map { it.toAttoTransaction() }
 
         val transactionFlow = transactionFlow
             .filter { it.block.publicKey == publicKey }
-            .filter { it.block.height >= fromHeight.toULong() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
+            .sortByHeight(fromHeight)
             .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after $fromHeight" } }
             .map {
                 Json.encodeToString(

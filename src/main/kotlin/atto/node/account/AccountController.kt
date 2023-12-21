@@ -1,6 +1,7 @@
 package atto.node.account
 
 import atto.node.EventPublisher
+import atto.node.sortByHeight
 import atto.node.transaction.TransactionSaved
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoPublicKey
@@ -12,6 +13,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.*
+
 
 @RestController
 @RequestMapping("/accounts")
@@ -45,10 +47,10 @@ class AccountController(
     }
 
     @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
-    @Operation(description = "Stream account unsorted. Duplicates may happen")
+    @Operation(description = "Stream account")
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "0") fromHeight: Long
+        @RequestParam(defaultValue = "0") fromHeight: ULong
     ): Flow<String> {
         val accountDatabaseFlow = flow {
             val account = repository.findById(publicKey)
@@ -60,7 +62,7 @@ class AccountController(
             .filter { it.publicKey == publicKey }
 
         return merge(accountFlow, accountDatabaseFlow)
-            .filter { it.height >= fromHeight.toULong() }
+            .sortByHeight(fromHeight)
             .onStart { logger.trace { "Started to stream $publicKey account" } }
             .map {
                 Json.encodeToString(
@@ -70,4 +72,5 @@ class AccountController(
             } //https://github.com/spring-projects/spring-framework/issues/30398
 
     }
+
 }
