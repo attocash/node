@@ -10,6 +10,9 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
@@ -51,6 +54,31 @@ class TransactionController(
         transactionPublisher.emit(transactionSaved.transaction.toAttoTransaction())
     }
 
+    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @Operation(
+        summary = "Stream all latest transactions",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(
+                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                    schema = Schema(implementation = AttoTransaction::class)
+                )]
+            )
+        ]
+    )
+    suspend fun stream(): Flow<String> {
+        return transactionFlow
+            .onStart { logger.trace { "Started streaming latest transactions" } }
+            .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
+            .map {
+                Json.encodeToString(
+                    AttoTransaction.serializer(),
+                    it
+                )
+            } //https://github.com/spring-projects/spring-framework/issues/30398
+    }
+
     @GetMapping("/transactions/{hash}")
     @Operation(description = "Get transaction")
     suspend fun get(@PathVariable hash: AttoHash): ResponseEntity<AttoTransaction> {
@@ -59,7 +87,18 @@ class TransactionController(
     }
 
     @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
-    @Operation(description = "Stream a single transaction")
+    @Operation(
+        summary = "Stream a single transaction",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(
+                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                    schema = Schema(implementation = AttoTransaction::class)
+                )]
+            )
+        ]
+    )
     suspend fun stream(@PathVariable hash: AttoHash): Flow<String> {
         val transactionDatabaseFlow: Flow<AttoTransaction> = flow {
             val transaction = repository.findById(hash)
@@ -73,6 +112,7 @@ class TransactionController(
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .onStart { logger.trace { "Started streaming $hash transaction" } }
+            .onCompletion { logger.trace { "Stopped streaming $hash transaction" } }
             .take(1)
             .map {
                 Json.encodeToString(
@@ -83,17 +123,36 @@ class TransactionController(
     }
 
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
-    @Operation(description = "Stream transactions")
-    suspend fun stream(@PathVariable publicKey: AttoPublicKey, @RequestParam fromHeight: ULong): Flow<String> {
-        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight)
+    @Operation(
+        summary = "Stream transactions by height",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(
+                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                    schema = Schema(implementation = AttoTransaction::class)
+                )]
+            )
+        ]
+    )
+    suspend fun stream(
+        @PathVariable publicKey: AttoPublicKey,
+        @RequestParam(defaultValue = "1") fromHeight: Long
+    ): Flow<String> {
+        if (fromHeight.toULong() == 0UL) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
+        }
+
+        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong())
             .map { it.toAttoTransaction() }
 
         val transactionFlow = transactionFlow
             .filter { it.block.publicKey == publicKey }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .sortByHeight(fromHeight)
-            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after $fromHeight" } }
+            .sortByHeight(fromHeight.toULong())
+            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
+            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
             .map {
                 Json.encodeToString(
                     AttoTransaction.serializer(),

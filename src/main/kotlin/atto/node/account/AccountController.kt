@@ -1,18 +1,24 @@
 package atto.node.account
 
 import atto.node.EventPublisher
-import atto.node.sortByHeight
+import atto.node.forwardHeight
 import atto.node.transaction.TransactionSaved
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoPublicKey
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.Content
+import io.swagger.v3.oas.annotations.media.Schema
+import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
 import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
-import org.springframework.web.bind.annotation.*
+import org.springframework.web.bind.annotation.GetMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RequestMapping
+import org.springframework.web.bind.annotation.RestController
 
 
 @RestController
@@ -39,6 +45,32 @@ class AccountController(
         accountPublisher.emit(transactionSaved.updatedAccount.toAttoAccount())
     }
 
+
+    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @Operation(
+        summary = "Stream all latest accounts",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(
+                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                    schema = Schema(implementation = AttoAccount::class)
+                )]
+            )
+        ]
+    )
+    suspend fun stream(): Flow<String> {
+        return accountFlow
+            .onStart { logger.trace { "Started streaming latest transactions" } }
+            .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
+            .map {
+                Json.encodeToString(
+                    AttoAccount.serializer(),
+                    it
+                )
+            } //https://github.com/spring-projects/spring-framework/issues/30398
+    }
+
     @GetMapping("/{publicKey}")
     @Operation(description = "Get account")
     suspend fun get(@PathVariable publicKey: AttoPublicKey): ResponseEntity<AttoAccount> {
@@ -47,23 +79,33 @@ class AccountController(
     }
 
     @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
-    @Operation(description = "Stream account")
+    @Operation(
+        summary = "Stream account",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(
+                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                    schema = Schema(implementation = AttoAccount::class)
+                )]
+            )
+        ]
+    )
     suspend fun stream(
-        @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "0") fromHeight: ULong
+        @PathVariable publicKey: AttoPublicKey
     ): Flow<String> {
         val accountDatabaseFlow = flow {
-            val account = repository.findById(publicKey)
-            if (account != null) {
-                emit(account.toAttoAccount())
+            repository.findById(publicKey)?.let {
+                emit(it.toAttoAccount())
             }
         }
         val accountFlow = accountFlow
             .filter { it.publicKey == publicKey }
 
         return merge(accountFlow, accountDatabaseFlow)
-            .sortByHeight(fromHeight)
-            .onStart { logger.trace { "Started to stream $publicKey account" } }
+            .forwardHeight()
+            .onStart { logger.trace { "Started streaming $publicKey account" } }
+            .onCompletion { logger.trace { "Stopped streaming $publicKey account" } }
             .map {
                 Json.encodeToString(
                     AttoAccount.serializer(),

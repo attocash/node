@@ -15,18 +15,36 @@ fun BigInteger.toULong(): ULong {
     return this.toString().toULong()
 }
 
+/**
+ * Sort by height while avoid duplications. No height should be skipped otherwise this function will accumulate indefinitely.
+ */
 fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: ULong): Flow<T> {
     return flow {
         var currentHeight = initialHeight
-        val queue = PriorityQueue<T>(1, Comparator.comparing { it.height })
+        val sortedSet = TreeSet<T>(Comparator.comparing { it.height })
         collect {
-            if (currentHeight >= it.height) {
-                queue.add(it)
+            if (currentHeight <= it.height) {
+                sortedSet.add(it)
             }
-            while (queue.isNotEmpty() && queue.peek().height == currentHeight.toLong().toULong()) {
-                val currentAccount = queue.poll()
+            while (sortedSet.isNotEmpty() && sortedSet.first().height == currentHeight) {
+                val currentAccount = sortedSet.pollFirst()!!
                 currentHeight = currentAccount.height + 1U
                 emit(currentAccount)
+            }
+        }
+    }
+}
+
+/**
+ * Just emits when previous height was before the current height
+ */
+fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> {
+    return flow {
+        var lastHeight = 0UL
+        collect {
+            if (lastHeight < it.height) {
+                emit(it)
+                lastHeight = it.height
             }
         }
     }
