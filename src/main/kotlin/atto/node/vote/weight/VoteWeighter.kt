@@ -39,9 +39,9 @@ class VoteWeighter(
 
     @PostConstruct
     override fun init() = runBlocking {
-        weightMap.putAll(
-            accountRepository.findAllWeights().associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
-        )
+        val weights = accountRepository.findAllWeights()
+            .associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
+        weightMap.putAll(weights)
 
         val minTimestamp = getMinTimestamp()
         val voteMap = voteRepository.findLatestAfter(minTimestamp).asSequence()

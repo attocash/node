@@ -1,10 +1,7 @@
 package atto.node.bootstrap.unchecked
 
 import atto.node.transaction.Transaction
-import cash.atto.commons.AttoBlock
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoSignature
-import cash.atto.commons.AttoWork
+import cash.atto.commons.*
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import org.springframework.data.relational.core.mapping.Table
@@ -26,6 +23,7 @@ data class UncheckedTransaction(
 
     val height = block.height
 
+    val previous = if (block is PreviousSupport) block.previous else null
 
     override fun getId(): AttoHash {
         return hash

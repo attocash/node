@@ -1,7 +1,6 @@
 package atto.node.convertion
 
 import atto.node.ApplicationProperties
-import atto.node.toBigInteger
 import atto.node.toULong
 import atto.node.vote.Vote
 import cash.atto.commons.AttoAmount
@@ -25,7 +24,7 @@ class VoteSerializerDBConverter(val properties: ApplicationProperties) : DBConve
             put("public_key", Parameter.from(vote.publicKey))
             put("timestamp", Parameter.from(vote.timestamp.toEpochMilli()))
             put("signature", Parameter.from(vote.signature))
-            put("weight", Parameter.from(vote.weight.raw.toBigInteger()))
+            put("weight", Parameter.from(vote.weight))
             put("received_at", Parameter.from(vote.receivedAt))
             put(
                 "persisted_at",
