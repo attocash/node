@@ -6,6 +6,8 @@ import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
 import atto.node.network.NetworkMessagePublisher
 import atto.node.vote.VoteRebroadcaster.VoteHolder
+import atto.node.vote.weight.VoteWeighter
+import atto.protocol.AttoNode
 import atto.protocol.vote.AttoVotePush
 import cash.atto.commons.AttoSignature
 import jakarta.annotation.PreDestroy
@@ -30,7 +32,11 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  */
 @Service
-class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
+class VoteRebroadcaster(
+    private val thisNode: AttoNode,
+    private val voteWeighter: VoteWeighter,
+    private val messagePublisher: NetworkMessagePublisher,
+) :
     AsynchronousQueueProcessor<VoteHolder>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -62,14 +68,22 @@ class VoteRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
     suspend fun process(event: VoteValidated) {
         val holder = holderMap[event.vote.signature]
         /**
-         * Holder will be null for votes casted by this node. They are considered valid from the start.
+         * Holder will be null for votes casted by this node.
+         * They are considered valid from the start and broadcasted directly
          */
-        if (holder != null) {
+        if (holder != null && isRebroadcaster()) {
             withContext(singleDispatcher) {
                 voteQueue.add(holder)
                 logger.trace { "Vote queued for rebroadcast. ${event.vote}" }
             }
         }
+    }
+
+    private fun isRebroadcaster(): Boolean {
+        if (thisNode.isNotVoter()) {
+            return false
+        }
+        return voteWeighter.isAboveMinimalRebroadcastWeight(thisNode.publicKey)
     }
 
     @EventListener

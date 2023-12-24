@@ -7,6 +7,7 @@ import atto.node.toULong
 import atto.node.vote.Vote
 import atto.node.vote.VoteRepository
 import atto.node.vote.VoteValidated
+import atto.protocol.AttoNode
 import cash.atto.commons.*
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
@@ -25,7 +26,7 @@ import kotlin.math.max
 @Component
 @DependsOn("transactionGenesisInitializer")
 class VoteWeighter(
-    val thisNode: atto.protocol.AttoNode,
+    val thisNode: AttoNode,
     val properties: VoteWeightProperties,
     val accountRepository: AccountRepository,
     val voteRepository: VoteRepository,
@@ -118,6 +119,10 @@ class VoteWeighter(
 
     fun getMinimalConfirmationWeight(): AttoAmount {
         return minimalConfirmationWeight
+    }
+
+    fun isAboveMinimalConfirmationWeight(publicKey: AttoPublicKey): Boolean {
+        return minimalConfirmationWeight <= get(publicKey)
     }
 
     fun getMinimalRebroadcastWeight(): AttoAmount {

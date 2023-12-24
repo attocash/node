@@ -56,6 +56,11 @@ data class AttoNode(
     }
 
     @JsonIgnore
+    fun isNotVoter(): Boolean {
+        return !isVoter()
+    }
+
+    @JsonIgnore
     fun isHistorical(): Boolean {
         return features.contains(NodeFeature.HISTORICAL)
     }
