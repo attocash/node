@@ -121,14 +121,6 @@ class VoteWeighter(
         return minimalConfirmationWeight
     }
 
-    fun isAboveMinimalConfirmationWeight(publicKey: AttoPublicKey): Boolean {
-        return minimalConfirmationWeight <= get(publicKey)
-    }
-
-    fun getMinimalRebroadcastWeight(): AttoAmount {
-        return minimalRebroadcastWeight
-    }
-
     fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean {
         return minimalRebroadcastWeight <= get(publicKey)
     }
