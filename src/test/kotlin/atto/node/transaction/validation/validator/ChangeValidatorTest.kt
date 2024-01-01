@@ -20,6 +20,7 @@ internal class ChangeValidatorTest {
     val account = Account(
         publicKey = privateKey.toPublicKey(),
         version = 0u,
+        algorithm = AttoAlgorithm.V1,
         height = 2u,
         balance = AttoAmount(0u),
         lastTransactionHash = AttoHash(ByteArray(32)),
@@ -28,6 +29,7 @@ internal class ChangeValidatorTest {
     )
     val block = AttoChangeBlock(
         version = account.version,
+        algorithm = AttoAlgorithm.V1,
         publicKey = privateKey.toPublicKey(),
         height = account.height + 1U,
         balance = AttoAmount(0U),
@@ -39,6 +41,7 @@ internal class ChangeValidatorTest {
     val node = atto.protocol.AttoNode(
         network = AttoNetwork.LOCAL,
         protocolVersion = 0u,
+        algorithm = AttoAlgorithm.V1,
         publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
         socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330),
         features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)

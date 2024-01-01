@@ -3,6 +3,7 @@ package atto.node.transaction
 import atto.node.network.codec.TransactionCodec
 import atto.protocol.AttoNode
 import atto.protocol.network.codec.transaction.AttoTransactionCodec
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -21,6 +22,7 @@ class TransactionConfigurationTest {
         val node = AttoNode(
             network = network,
             protocolVersion = 0U,
+            algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             socketAddress = InetSocketAddress(8080),
             features = setOf()

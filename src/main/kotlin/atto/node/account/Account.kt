@@ -1,9 +1,6 @@
 package atto.node.account
 
-import cash.atto.commons.AttoAccount
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.*
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
@@ -13,6 +10,7 @@ data class Account(
     @Id
     val publicKey: AttoPublicKey,
     var version: UShort,
+    var algorithm: AttoAlgorithm,
     var height: ULong,
     var balance: AttoAmount,
     var lastTransactionTimestamp: Instant,
@@ -36,6 +34,7 @@ data class Account(
         return AttoAccount(
             publicKey = publicKey,
             version = version,
+            algorithm = algorithm,
             height = height,
             balance = balance,
             lastTransactionHash = lastTransactionHash,

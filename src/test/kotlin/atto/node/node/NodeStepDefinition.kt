@@ -77,6 +77,7 @@ class NodeStepDefinition(
             PropertyHolder.add(shortId, context)
             PropertyHolder.add(shortId, privateKey)
             PropertyHolder.add(shortId, privateKey.toPublicKey())
+            PropertyHolder.add(shortId, AttoAlgorithm.V1)
             PropertyHolder.add(shortId, Neighbour(tcpPort, httpPort))
         }
 

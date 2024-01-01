@@ -4,10 +4,7 @@ import atto.node.Event
 import atto.node.transaction.Transaction
 import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVoteSignature
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.AttoSignature
+import cash.atto.commons.*
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.net.InetSocketAddress
@@ -17,6 +14,7 @@ data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
 
 data class Vote(
     val hash: AttoHash,
+    val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val timestamp: Instant,
     @Id
@@ -31,6 +29,7 @@ data class Vote(
         fun from(weight: AttoAmount, attoVote: AttoVote): Vote {
             return Vote(
                 hash = attoVote.hash,
+                algorithm = attoVote.signature.algorithm,
                 publicKey = attoVote.signature.publicKey,
                 timestamp = attoVote.signature.timestamp,
                 signature = attoVote.signature.signature,
@@ -58,6 +57,7 @@ data class Vote(
     fun toAttoVote(): AttoVote {
         val voteSignature = AttoVoteSignature(
             timestamp = timestamp,
+            algorithm = algorithm,
             publicKey = publicKey,
             signature = signature
         )

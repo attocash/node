@@ -7,7 +7,6 @@ import kotlinx.datetime.Clock
 import mu.KotlinLogging
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import java.time.Instant
 
 @Configuration
 class TransactionConfiguration {
@@ -33,9 +32,11 @@ class TransactionConfiguration {
 
         val block = AttoOpenBlock(
             version = 0u,
+            algorithm = thisNode.algorithm,
             publicKey = privateKey.toPublicKey(),
             balance = AttoAmount.MAX,
             timestamp = Clock.System.now(),
+            sendHashAlgorithm = thisNode.algorithm,
             sendHash = AttoHash(ByteArray(32)),
             representative = privateKey.toPublicKey(),
         )

@@ -20,9 +20,11 @@ internal class AttoTransactionCodecTest {
         // given
         val block = AttoOpenBlock(
             version = 0u,
+            algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             balance = AttoAmount(100u),
             timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+            sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(Random.Default.nextBytes(ByteArray(32))),
             representative = privateKey.toPublicKey(),
         )

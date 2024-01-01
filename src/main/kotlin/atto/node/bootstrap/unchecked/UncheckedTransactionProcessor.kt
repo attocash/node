@@ -2,11 +2,12 @@ package atto.node.bootstrap.unchecked
 
 import atto.node.EventPublisher
 import atto.node.account.AccountRepository
-import atto.node.account.getByPublicKey
+import atto.node.account.getByAlgorithmAndPublicKey
 import atto.node.bootstrap.TransactionResolved
 import atto.node.bootstrap.TransactionStuck
 import atto.node.transaction.TransactionService
 import atto.node.transaction.validation.TransactionValidationManager
+import cash.atto.commons.AttoAlgorithmPublicKey
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,11 +44,12 @@ class UncheckedTransactionProcessor(
         val transactionMap = uncheckedTransactionRepository.findReadyToValidate(10_000L)
             .map { it.toTransaction() }
             .toList()
-            .groupBy { it.publicKey }
+            .groupBy { AttoAlgorithmPublicKey(it.block.algorithm, it.publicKey) }
 
-        transactionMap.forEach { (publicKey, transactions) ->
-            logger.info { "Unchecked solving $publicKey, ${transactions.map { it.hash }}" }
-            var account = accountRepository.getByPublicKey(publicKey)
+        transactionMap.forEach { (algorithmPublicKey, transactions) ->
+            logger.info { "Unchecked solving $algorithmPublicKey, ${transactions.map { it.hash }}" }
+            var account =
+                accountRepository.getByAlgorithmAndPublicKey(algorithmPublicKey.algorithm, algorithmPublicKey.publicKey)
             for (transaction in transactions) {
                 val violation = transactionValidationManager.validate(account, transaction)
                 if (violation != null) {

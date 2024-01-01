@@ -7,11 +7,10 @@ import atto.node.network.peer.Peer
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
+import atto.protocol.AttoNode
+import atto.protocol.NodeFeature
 import atto.protocol.vote.AttoVoteRequest
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoNetwork
-import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.*
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.RelaxedMockK
@@ -131,13 +130,14 @@ class GuardianTest {
         return peer
     }
 
-    private fun createNode(socketAddress: InetSocketAddress): atto.protocol.AttoNode {
-        return atto.protocol.AttoNode(
+    private fun createNode(socketAddress: InetSocketAddress): AttoNode {
+        return AttoNode(
             network = AttoNetwork.LOCAL,
             protocolVersion = 0u,
+            algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             socketAddress = socketAddress,
-            features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)
+            features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL)
         )
     }
 

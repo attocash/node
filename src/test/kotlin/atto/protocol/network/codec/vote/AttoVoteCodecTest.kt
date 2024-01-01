@@ -8,7 +8,6 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.toJavaInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.time.Instant
 import kotlin.random.Random
 
 internal class AttoVoteCodecTest {
@@ -26,6 +25,7 @@ internal class AttoVoteCodecTest {
 
         val expectedVoteSignature = AttoVoteSignature(
             timestamp = timestamp.toInstant().toJavaInstant(),
+            algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             signature = privateKey.sign(voteHash)
         )

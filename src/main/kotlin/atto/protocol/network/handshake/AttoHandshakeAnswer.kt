@@ -1,16 +1,17 @@
 package atto.protocol.network.handshake
 
+import atto.protocol.AttoNode
 import atto.protocol.network.AttoMessage
 import atto.protocol.network.AttoMessageType
 import cash.atto.commons.AttoSignature
 
 data class AttoHandshakeAnswer(
+    val node: AttoNode,
     val signature: AttoSignature,
-    val node: atto.protocol.AttoNode
 ) :
     AttoMessage {
     companion object {
-        val size = atto.protocol.AttoNode.size + AttoSignature.SIZE
+        val size = AttoNode.size + AttoSignature.SIZE
     }
 
     override fun messageType(): AttoMessageType {
@@ -36,7 +37,7 @@ data class AttoHandshakeAnswer(
     }
 
     override fun toString(): String {
-        return "HandshakeAnswer(signature=$signature, node=$node)"
+        return "HandshakeAnswer(node=$node, signature=$signature)"
     }
 
 }

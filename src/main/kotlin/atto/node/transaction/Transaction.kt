@@ -19,6 +19,7 @@ data class Transaction(
     @Id
     val hash = block.hash
 
+    val algorithm = block.algorithm
     val publicKey = block.publicKey
 
     override fun getId(): AttoHash {

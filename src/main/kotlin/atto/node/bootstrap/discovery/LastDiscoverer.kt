@@ -2,7 +2,7 @@ package atto.node.bootstrap.discovery
 
 import atto.node.EventPublisher
 import atto.node.account.AccountRepository
-import atto.node.account.getByPublicKey
+import atto.node.account.getByAlgorithmAndPublicKey
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.election.TransactionWeighter
 import atto.node.network.*
@@ -53,7 +53,7 @@ class LastDiscoverer(
         val transaction = response.transaction.toTransaction()
         val block = transaction.block
 
-        val account = accountRepository.getByPublicKey(block.publicKey)
+        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey)
 
         if (account.height >= block.height) {
             return

@@ -16,6 +16,7 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
         val row = OutboundRow()
         with(row) {
             put("hash", Parameter.from(uncheckedTransaction.hash))
+            put("algorithm", Parameter.from(block.algorithm))
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height))
             put(

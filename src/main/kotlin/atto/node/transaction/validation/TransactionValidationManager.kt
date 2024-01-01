@@ -3,7 +3,7 @@ package atto.node.transaction.validation
 import atto.node.EventPublisher
 import atto.node.account.Account
 import atto.node.account.AccountRepository
-import atto.node.account.getByPublicKey
+import atto.node.account.getByAlgorithmAndPublicKey
 import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionReceived
 import atto.node.transaction.TransactionRejected
@@ -27,7 +27,8 @@ class TransactionValidationManager(
     @EventListener
     suspend fun process(event: TransactionReceived) {
         val transaction = event.transaction
-        val account = accountRepository.getByPublicKey(transaction.block.publicKey)
+        val block = transaction.block
+        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey)
         val violation = validate(account, event.transaction)
         if (violation != null) {
             logger.debug { "${violation.reason} ${violation.message}: $transaction" }

@@ -22,17 +22,17 @@ class AttoHandshakeAnswerCodec(val nodeCodec: AttoNodeCodec) : AttoMessageCodec<
             return null
         }
 
-        val node = nodeCodec.fromByteBuffer(byteBuffer.slice(64)) ?: return null
+        val node = nodeCodec.fromByteBuffer(byteBuffer) ?: return null
 
         return AttoHandshakeAnswer(
-            signature = byteBuffer.getSignature(0),
-            node = node
+            node = node,
+            signature = byteBuffer.getSignature(),
         )
     }
 
     override fun toByteBuffer(t: AttoHandshakeAnswer): AttoByteBuffer {
-        return AttoByteBuffer(AttoHandshakeAnswer.size)
-            .add(t.signature)
+        return AttoByteBuffer(AttoHandshakeAnswer.size + t.node.features.size)
             .add(nodeCodec.toByteBuffer(t.node))
+            .add(t.signature)
     }
 }

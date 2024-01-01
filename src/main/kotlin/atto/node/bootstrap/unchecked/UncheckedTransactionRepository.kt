@@ -1,6 +1,7 @@
 package atto.node.bootstrap.unchecked
 
 import atto.node.AttoRepository
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,7 @@ interface UncheckedTransactionRepository : CoroutineCrudRepository<UncheckedTran
 }
 
 data class GapView(
+    val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val accountHeight: ULong,
     val transactionHeight: ULong,

@@ -19,6 +19,7 @@ internal class SendValidatorTest {
 
     val account = Account(
         publicKey = privateKey.toPublicKey(),
+        algorithm = AttoAlgorithm.V1,
         version = 0u,
         height = 2u,
         balance = AttoAmount(100u),
@@ -28,11 +29,13 @@ internal class SendValidatorTest {
     )
     val block = AttoSendBlock(
         version = account.version,
+        algorithm = AttoAlgorithm.V1,
         publicKey = privateKey.toPublicKey(),
         height = account.height + 1U,
         balance = AttoAmount(0u),
         timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
         previous = account.lastTransactionHash,
+        receiverPublicKeyAlgorithm = AttoAlgorithm.V1,
         receiverPublicKey = privateKey.toPublicKey(),
         amount = AttoAmount(100u),
     )
@@ -40,6 +43,7 @@ internal class SendValidatorTest {
     val node = atto.protocol.AttoNode(
         network = AttoNetwork.LOCAL,
         protocolVersion = 0u,
+        algorithm = AttoAlgorithm.V1,
         publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
         socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330),
         features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)

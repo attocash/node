@@ -117,6 +117,7 @@ class ElectionVoter(
         val voteHash = AttoHash.hash(32, transaction.hash.value, timestamp.toKotlinInstant().toByteArray())
         val voteSignature = AttoVoteSignature(
             timestamp = timestamp,
+            algorithm = thisNode.algorithm,
             publicKey = thisNode.publicKey,
             signature = privateKey.sign(voteHash)
         )

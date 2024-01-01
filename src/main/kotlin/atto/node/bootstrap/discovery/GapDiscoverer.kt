@@ -11,6 +11,7 @@ import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.toTransaction
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.PreviousSupport
@@ -62,8 +63,9 @@ class GapDiscoverer(
 
         val gaps = databaseClient.sql(
             """
-                                SELECT public_key, account_height, transaction_height, previous_transaction_hash FROM (
+                                SELECT algorithm, public_key, account_height, transaction_height, previous_transaction_hash FROM (
                                         SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
+                                                ut.algorithm algorithm,
                                                 ut.public_key public_key,
                                                 COALESCE(a.height, 0) account_height,
                                                 ut.height transaction_height,
@@ -76,6 +78,7 @@ class GapDiscoverer(
                 """
         ).map { row, _ ->
             GapView(
+                AttoAlgorithm.valueOf(row.get("algorithm", String::class.javaObjectType)!!),
                 AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
                 row.get("account_height", Long::class.javaObjectType)!!.toULong(),
                 row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),

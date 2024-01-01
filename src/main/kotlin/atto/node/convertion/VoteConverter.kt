@@ -3,10 +3,7 @@ package atto.node.convertion
 import atto.node.ApplicationProperties
 import atto.node.toULong
 import atto.node.vote.Vote
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.AttoSignature
+import cash.atto.commons.*
 import io.r2dbc.spi.Row
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
@@ -21,6 +18,7 @@ class VoteSerializerDBConverter(val properties: ApplicationProperties) : DBConve
         val row = OutboundRow()
         with(row) {
             put("hash", Parameter.from(vote.hash))
+            put("algorithm", Parameter.from(vote.algorithm))
             put("public_key", Parameter.from(vote.publicKey))
             put("timestamp", Parameter.from(vote.timestamp.toEpochMilli()))
             put("signature", Parameter.from(vote.signature))
@@ -42,6 +40,7 @@ class VoteDeserializerDBConverter(val properties: ApplicationProperties) : DBCon
     override fun convert(row: Row): Vote {
         return Vote(
             hash = AttoHash(row.get("hash", ByteArray::class.java)!!),
+            algorithm = AttoAlgorithm.valueOf(row.get("algorithm", String::class.java)!!),
             publicKey = AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
             timestamp = Instant.ofEpochMilli(row.get("timestamp", Long::class.java)!!),
             signature = AttoSignature(row.get("signature", ByteArray::class.java)!!),

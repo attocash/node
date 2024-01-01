@@ -48,11 +48,13 @@ internal class TransactionQueueTest {
     private fun createTransaction(amount: ULong, receivedAt: Instant): Transaction {
         val block = AttoReceiveBlock(
             version = 0u,
+            algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             height = 2u,
             balance = AttoAmount(amount),
             timestamp = Clock.System.now(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
+            sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(ByteArray(32)),
         )
         return Transaction(

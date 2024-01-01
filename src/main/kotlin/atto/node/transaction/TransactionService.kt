@@ -65,6 +65,7 @@ class TransactionService(
             return Account(
                 publicKey = block.publicKey,
                 version = block.version,
+                algorithm = block.algorithm,
                 height = block.height,
                 balance = block.balance,
                 lastTransactionHash = block.hash,

@@ -1,9 +1,6 @@
 package atto.node
 
-import cash.atto.commons.AttoAccount
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.*
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -100,6 +97,7 @@ class ExtensionsTest {
         return AttoAccount(
             publicKey = publicKey,
             version = 0U,
+            algorithm = AttoAlgorithm.V1,
             height = height,
             balance = AttoAmount.MAX,
             lastTransactionHash = AttoHash(Random.Default.nextBytes(32)),

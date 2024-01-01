@@ -25,6 +25,7 @@ class TransactionSerializerDBConverter(val properties: ApplicationProperties) : 
             put("hash", Parameter.from(block.hash))
             put("type", Parameter.from(block.type))
             put("version", Parameter.from(block.version))
+            put("algorithm", Parameter.from(block.algorithm))
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height.toBigInteger()))
             put("balance", Parameter.from(block.balance.raw.toBigInteger()))

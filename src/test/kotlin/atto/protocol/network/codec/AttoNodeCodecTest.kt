@@ -1,8 +1,14 @@
 package atto.protocol.network.codec
 
-import cash.atto.commons.fromHexToAttoByteBuffer
+import atto.protocol.AttoNode
+import atto.protocol.NodeFeature
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPublicKey
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.net.InetSocketAddress
+import kotlin.random.Random
 
 internal class AttoNodeCodecTest {
 
@@ -11,14 +17,20 @@ internal class AttoNodeCodecTest {
     @Test
     fun `should serialize and deserialize`() {
         // given
-        val expectedByteBuffer =
-            "5854300000F9336EB9DB2D851D0AF6AF09B7EEAB24D839C040F2270B2BF622FA9CEA0DA80800000000000000000000FFFFAC1F10018A20020102000000".fromHexToAttoByteBuffer()
+        val expectedNode = AttoNode(
+            network = AttoNetwork.LOCAL,
+            protocolVersion = 0u,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+            socketAddress = InetSocketAddress(8080),
+            features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL)
+        )
 
         // when
-        val node = codec.fromByteBuffer(expectedByteBuffer)!!
-        val byteBuffer = codec.toByteBuffer(node)
+        val byteBuffer = codec.toByteBuffer(expectedNode)
+        val node = codec.fromByteBuffer(byteBuffer)!!
 
         // then
-        assertEquals(expectedByteBuffer.toHex(), byteBuffer.toHex())
+        assertEquals(expectedNode, node)
     }
 }

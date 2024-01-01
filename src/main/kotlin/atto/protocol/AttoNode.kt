@@ -1,5 +1,6 @@
 package atto.protocol
 
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
@@ -10,6 +11,7 @@ import kotlin.math.min
 data class AttoNode(
     val network: AttoNetwork,
     val protocolVersion: UShort,
+    val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val socketAddress: InetSocketAddress,
     val features: Set<NodeFeature>
@@ -23,30 +25,36 @@ data class AttoNode(
     val maxProtocolVersion = (protocolVersion + 2u).toUShort()
 
     companion object {
-        val maxFeaturesSize = 5
-        val size = 56 + AttoNode.Companion.maxFeaturesSize
+        val maxFeaturesSize = 10
+        val size = 57
 
         fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoNode? {
             if (byteBuffer.size < size) {
                 return null
             }
 
-            val featuresSize = min(byteBuffer.getByte(55).toInt(), maxFeaturesSize)
+
+
+            return AttoNode(
+                network = byteBuffer.getNetwork(),
+                protocolVersion = byteBuffer.getUShort(),
+                algorithm = byteBuffer.getAlgorithm(),
+                publicKey = byteBuffer.getPublicKey(),
+                socketAddress = byteBuffer.getInetSocketAddress(),
+                features = byteBuffer.getFeatures()
+            )
+        }
+
+        private fun AttoByteBuffer.getFeatures(): Set<NodeFeature> {
+            val featuresSize = min(this.getByte(56).toInt(), maxFeaturesSize)
             val features = HashSet<NodeFeature>(featuresSize)
             for (i in 0 until featuresSize) {
-                val feature = NodeFeature.from(byteBuffer.getUByte(56 + i))
+                val feature = NodeFeature.from(this.getUByte(57 + i))
                 if (feature != NodeFeature.UNKNOWN) {
                     features.add(feature)
                 }
             }
-
-            return AttoNode(
-                network = byteBuffer.getNetwork(0),
-                protocolVersion = byteBuffer.getUShort(),
-                publicKey = byteBuffer.getPublicKey(),
-                socketAddress = byteBuffer.getInetSocketAddress(),
-                features = features
-            )
+            return features.toSet()
         }
     }
 
@@ -66,14 +74,15 @@ data class AttoNode(
     }
 
     fun toByteBuffer(): AttoByteBuffer {
-        val byteBuffer = AttoByteBuffer(size)
+        val byteBuffer = AttoByteBuffer(size + features.size)
 
         byteBuffer
-            .add(network) // 3 [0..<3]
-            .add(protocolVersion) // 2 [3..<5]
-            .add(publicKey) // 32 [5..<37]
-            .add(socketAddress) // 16 ip + 2 port [37..<55]
-            .add(features.size.toByte()) // 1 [55..<56]
+            .add(network)
+            .add(protocolVersion)
+            .add(algorithm)
+            .add(publicKey)
+            .add(socketAddress)
+            .add(features.size.toByte())
 
         features.asSequence()
             .map { it.code }
@@ -91,6 +100,7 @@ data class AttoNode(
 
         if (network != other.network) return false
         if (protocolVersion != other.protocolVersion) return false
+        if (algorithm != other.algorithm) return false
         if (!publicKey.value.contentEquals(other.publicKey.value)) return false
         if (socketAddress != other.socketAddress) return false
         if (features != other.features) return false

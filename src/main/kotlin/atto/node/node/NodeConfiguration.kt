@@ -1,5 +1,6 @@
 package atto.node.node
 
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
 import mu.KotlinLogging
@@ -35,6 +36,7 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
         return atto.protocol.AttoNode(
             network = nodeProperties.network!!,
             protocolVersion = 0u,
+            algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             socketAddress = nodeProperties.getPublicAddress(),
             features = features

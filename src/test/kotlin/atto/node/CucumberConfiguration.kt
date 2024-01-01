@@ -3,6 +3,7 @@ package atto.node
 import atto.node.network.peer.PeerProperties
 import atto.node.node.Neighbour
 import atto.node.transaction.TransactionGenesisInitializer
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import io.cucumber.java.After
 import io.cucumber.java.Before
@@ -46,6 +47,7 @@ class CucumberConfiguration(
         PropertyHolder.add("THIS", context)
         PropertyHolder.add("THIS", thisNode)
         PropertyHolder.add("THIS", privateKey)
+        PropertyHolder.add("THIS", AttoAlgorithm.V1)
         PropertyHolder.add("THIS", privateKey.toPublicKey())
         PropertyHolder.add("THIS", Neighbour(8313U, 8080U))
 

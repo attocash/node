@@ -7,12 +7,13 @@ import java.time.Instant
 
 data class AttoVoteSignature(
     val timestamp: Instant,
+    val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val signature: AttoSignature
 ) {
 
     companion object {
-        val size = 104
+        val size = 105
         val finalTimestamp = Instant.ofEpochMilli(Long.MAX_VALUE)
 
         fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoVoteSignature? {
@@ -22,6 +23,7 @@ data class AttoVoteSignature(
 
             return AttoVoteSignature(
                 timestamp = byteBuffer.getInstant().toJavaInstant(),
+                algorithm = byteBuffer.getAlgorithm(),
                 publicKey = byteBuffer.getPublicKey(),
                 signature = byteBuffer.getSignature()
             )
@@ -31,6 +33,7 @@ data class AttoVoteSignature(
     fun toByteBuffer(): AttoByteBuffer {
         return AttoByteBuffer(size)
             .add(timestamp.toKotlinInstant())
+            .add(algorithm)
             .add(publicKey)
             .add(signature)
     }

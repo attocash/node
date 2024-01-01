@@ -27,9 +27,10 @@ class TransactionStepDefinition(
         val publicKey = PropertyHolder[AttoPublicKey::class.java, senderShortId]
         val account = getAccount(PropertyHolder[Neighbour::class.java, senderShortId], publicKey)!!
 
+        val receiverPublicKeyAlgorithm = PropertyHolder[AttoAlgorithm::class.java, receiverShortId]
         val receiverPublicKey = PropertyHolder[AttoPublicKey::class.java, receiverShortId]
 
-        val sendBlock = account.send(receiverPublicKey, defaultSendAmount)
+        val sendBlock = account.send(receiverPublicKeyAlgorithm, receiverPublicKey, defaultSendAmount)
         val sendTransaction = Transaction(
             block = sendBlock,
             signature = privateKey.sign(sendBlock.hash),

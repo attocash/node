@@ -2,10 +2,7 @@ package atto.node.vote
 
 import atto.node.transaction.Transaction
 import atto.node.vote.priotization.VoteQueue
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.AttoSignature
+import cash.atto.commons.*
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -44,10 +41,11 @@ internal class VoteQueueTest {
 
     private fun createVote(weight: ULong): Vote {
         return Vote(
-            signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             hash = AttoHash(Random.nextBytes(ByteArray(32))),
-            timestamp = Instant.now(),
+            algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+            timestamp = Instant.now(),
+            signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             weight = AttoAmount(weight)
         )
     }

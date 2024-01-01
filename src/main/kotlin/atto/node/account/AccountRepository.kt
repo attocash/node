@@ -1,6 +1,7 @@
 package atto.node.account
 
 import atto.node.AttoRepository
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
@@ -10,6 +11,8 @@ import java.math.BigInteger
 import java.time.Instant
 
 interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AttoRepository {
+
+    suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account?
 
     @Query("SELECT representative AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight FROM account GROUP BY representative")
     suspend fun findAllWeights(): List<WeightView>
@@ -42,8 +45,8 @@ interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, A
  * 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:697)
  * 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:684)
  */
-suspend fun AccountRepository.getByPublicKey(publicKey: AttoPublicKey): Account {
-    val account = findById(publicKey)
+suspend fun AccountRepository.getByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account {
+    val account = findByAlgorithmAndPublicKey(algorithm, publicKey)
     if (account != null) {
         return account
     }
@@ -51,6 +54,7 @@ suspend fun AccountRepository.getByPublicKey(publicKey: AttoPublicKey): Account 
     return Account(
         publicKey = publicKey,
         version = 0u,
+        algorithm = algorithm,
         height = 0u,
         representative = AttoPublicKey(ByteArray(32)),
         balance = AttoAmount.MIN,
