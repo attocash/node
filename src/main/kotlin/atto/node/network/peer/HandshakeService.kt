@@ -87,9 +87,9 @@ class HandshakeService(
         val handshakeChallenge = AttoHandshakeChallenge.create()
         challenges.put(socketAddress, handshakeChallenge)
 
+        logger.info { "Starting handshake with $socketAddress" }
         messagePublisher.publish(OutboundNetworkMessage(socketAddress, handshakeChallenge))
 
-        logger.info { "Started handshake with $socketAddress" }
     }
 
 

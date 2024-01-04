@@ -46,12 +46,11 @@ class TransactionController(
      * The replay was added to workaround that. In any case, it's recommended to subscribe before publish transactions
      *
      */
-    private val transactionPublisher = MutableSharedFlow<AttoTransaction>(100_000)
-    private val transactionFlow = transactionPublisher.asSharedFlow()
+    private val transactionFlow = MutableSharedFlow<AttoTransaction>(100_000)
 
     @EventListener
     suspend fun process(transactionSaved: TransactionSaved) {
-        transactionPublisher.emit(transactionSaved.transaction.toAttoTransaction())
+        transactionFlow.emit(transactionSaved.transaction.toAttoTransaction())
     }
 
     @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])

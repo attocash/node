@@ -2,13 +2,10 @@ package atto.node
 
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.*
-import mu.KotlinLogging
 import kotlin.time.Duration
 
 
 abstract class AsynchronousQueueProcessor<T>(private val duration: Duration) {
-    private val logger = KotlinLogging.logger {}
-
     private lateinit var job: Job
 
     @PostConstruct

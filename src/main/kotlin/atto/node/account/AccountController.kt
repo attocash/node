@@ -37,12 +37,11 @@ class AccountController(
      * The replay was added to workaround that. In any case, it's recommended to subscribe before publish transactions
      *
      */
-    private val accountPublisher = MutableSharedFlow<AttoAccount>(100_000)
-    private val accountFlow = accountPublisher.asSharedFlow()
+    private val accountFlow = MutableSharedFlow<AttoAccount>(100_000)
 
     @EventListener
     suspend fun process(transactionSaved: TransactionSaved) {
-        accountPublisher.emit(transactionSaved.updatedAccount.toAttoAccount())
+        accountFlow.emit(transactionSaved.updatedAccount.toAttoAccount())
     }
 
 

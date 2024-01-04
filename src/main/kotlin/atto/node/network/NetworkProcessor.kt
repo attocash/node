@@ -10,7 +10,6 @@ import atto.node.network.peer.PeerRemoved
 import atto.protocol.network.AttoMessage
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
-import cash.atto.commons.toUShort
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.netty.channel.EventLoopGroup
@@ -18,22 +17,26 @@ import io.netty.channel.nio.NioEventLoopGroup
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactor.asFlux
+import kotlinx.coroutines.runBlocking
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service
 import reactor.core.publisher.Flux
-import reactor.netty.Connection
-import reactor.netty.tcp.TcpClient
-import reactor.netty.tcp.TcpServer
+import reactor.core.publisher.Mono
+import reactor.netty.channel.AbortedException
+import reactor.netty.http.client.HttpClient
+import reactor.netty.http.client.WebsocketClientSpec
+import reactor.netty.http.server.HttpServer
+import reactor.netty.http.server.WebsocketServerSpec
+import reactor.netty.http.websocket.WebsocketInbound
+import reactor.netty.http.websocket.WebsocketOutbound
 import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
@@ -51,13 +54,19 @@ class NetworkProcessor(
     companion object {
         const val MAX_MESSAGE_SIZE = 1600
         const val HEADER_SIZE = 8
+
+        val serverSpec = WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
+        val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
     }
 
     private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val outboundMap = ConcurrentHashMap<InetSocketAddress, NodeConnection>()
     private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
+    private val connections = ConcurrentHashMap<InetSocketAddress, InetSocketAddress>()
+    private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>()
+    private val disconnectFlow = MutableSharedFlow<InetSocketAddress>()
+
 
     // Avoid event infinity loop when neighbour instantly disconnects
     private val disconnectionCache: Cache<InetAddress, InetAddress> = Caffeine.newBuilder()
@@ -68,16 +77,18 @@ class NetworkProcessor(
 
     private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(Thread.ofVirtual().factory())
 
-    private val server = TcpServer.create()
+    private val server = HttpServer.create()
         .port(port)
         .runOn(eventLoopGroup)
         .doOnBind {
-            logger.info { "TCP started on port $port" }
+            logger.info { "WebSocket started on port $port" }
         }
         .doOnConnection {
             val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
             logger.info { "Connected as a server to $socketAddress" }
-            prepareConnection(socketAddress, it)
+        }
+        .route { routes ->
+            routes.ws("/", ::prepareConnection, serverSpec)
         }
         .bindNow()
 
@@ -99,9 +110,11 @@ class NetworkProcessor(
     }
 
     @EventListener
-    fun ban(event: NodeBanned) {
+    suspend fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
-        disconnect(event.address)
+        connections.keys().asSequence()
+            .filter { c -> c.address == event.address }
+            .forEach { disconnectFlow.emit(it) }
     }
 
     @EventListener
@@ -112,21 +125,26 @@ class NetworkProcessor(
             return
         }
 
-        if (outboundMap.containsKey(message.socketAddress)) {
-            messageQueue.add(message)
-            return
+        connections.compute(socketAddress) { _, v ->
+            if (v != null) {
+                messageQueue.add(message)
+            } else {
+                HttpClient.create()
+                    .runOn(eventLoopGroup)
+                    .websocket(clientSpec)
+                    .uri("ws://${message.socketAddress.hostName}:${message.socketAddress.port}")
+                    .handle { inbound, outbound ->
+                        prepareConnection(socketAddress, inbound, outbound, message)
+                    }
+                    .doOnSubscribe {
+                        logger.info { "Connected as a client to ${message.socketAddress}" }
+                    }
+                    .subscribe()
+            }
+            socketAddress
         }
 
-        TcpClient.create()
-            .host(message.socketAddress.hostName)
-            .port(message.socketAddress.port)
-            .runOn(eventLoopGroup)
-            .connect()
-            .subscribe {
-                logger.info { "Connected as a client to ${message.socketAddress}" }
-                prepareConnection(message.socketAddress, it)
-                messageQueue.add(message)
-            }
+
     }
 
     override suspend fun poll(): OutboundNetworkMessage<*>? {
@@ -134,87 +152,118 @@ class NetworkProcessor(
     }
 
     override suspend fun process(value: OutboundNetworkMessage<*>) {
-        val nodeConnection = outboundMap[value.socketAddress]
+        outboundFlow.emit(value)
+    }
 
-        if (nodeConnection == null) {
-            logger.trace { "Node ${value.socketAddress} connection wasn't found. Message will be ignored ${value.payload}" }
-            return
+    private fun getConnection(wsInbound: WebsocketInbound): InetSocketAddress? {
+        var socketAddress: InetSocketAddress? = null
+
+        wsInbound.withConnection {
+            socketAddress = it.channel().remoteAddress() as InetSocketAddress
         }
 
-        nodeConnection.emit(value)
+        return socketAddress
+    }
+
+    private fun prepareConnection(
+        wsInbound: WebsocketInbound,
+        wsOutbound: WebsocketOutbound,
+    ): Mono<Void> {
+        val socketAddress = getConnection(wsInbound) ?: return wsOutbound.sendClose()
+        return prepareConnection(socketAddress, wsInbound, wsOutbound)
+            .doOnSubscribe { connections[socketAddress] = socketAddress }
     }
 
     private fun prepareConnection(
         socketAddress: InetSocketAddress,
-        connection: Connection,
-    ) {
+        wsInbound: WebsocketInbound,
+        wsOutbound: WebsocketOutbound,
+        initialMessage: OutboundNetworkMessage<*>? = null,
+    ): Mono<Void> {
         if (bannedNodes.contains(socketAddress.address)) {
-            connection.dispose()
-            return
+            return wsOutbound.sendClose()
         }
 
-        outboundMap.compute(socketAddress) { _, currentNodeConnection ->
-            if (currentNodeConnection != null) {
-                currentNodeConnection
-            } else {
-                val latch = CountDownLatch(2)
-
-                val outbound = MutableSharedFlow<OutboundNetworkMessage<*>>(10)
-                connection.inbound()
-                    .receive()
-                    .asByteArray()
-                    .doOnNext { logger.debug { "Received from $socketAddress ${it.toHex()}" } }
-                    .splitByMessage()
-                    .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
-                    .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
-                    .map { InboundNetworkMessage(socketAddress, it!!) }
-                    .doOnError { t -> logger.info(t) { "Failed to process inbound message from $socketAddress" } }
-                    .doOnSubscribe { latch.countDown() }
-                    .doOnTerminate { disconnect(socketAddress) }
-                    .subscribe { messagePublisher.publish(it!!) }
-
-                val outboundMessages = outbound.asSharedFlow()
-                    .asFlux(Dispatchers.Default)
-                    .map { serialize(it.payload) }
-                    .doOnNext { checkBelowMaxMessageSize(it.serialized) }
-                    .doOnNext { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }
-                    .map { it.serialized }
-                    .doOnError { t -> logger.info(t) { "Failed to send message to $socketAddress" } }
-                    .doOnTerminate { disconnect(socketAddress) }
-
-                val nodeConnection = NodeConnection(connection, outbound)
-
-                connection.outbound()
-                    .sendByteArray(outboundMessages)
-                    .then()
-                    .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
-                    .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
-                    .doOnSubscribe { latch.countDown() }
-                    .doOnTerminate { disconnect(socketAddress) }
-                    .subscribe()
-
-                if (!latch.await(1, TimeUnit.SECONDS)) {
-                    logger.warn { "Connection to $socketAddress took longer than 1 second. Disconnecting..." }
-                    disconnect(socketAddress)
-                    null
+        val inboundThen = wsInbound
+            .receiveFrames()
+            .flatMap {
+                val content = it.content()
+                if (!it.isFinalFragment) {
+                    wsOutbound.sendClose().cast(AttoByteBuffer::class.java)
+                } else if (content.hasArray()) {
+                    Mono.just(AttoByteBuffer(content.array()))
                 } else {
-                    nodeConnection
+                    ByteArray(content.readableBytes()).also { byteArray ->
+                        content.getBytes(content.readerIndex(), byteArray)
+                    }.let { byteArray ->
+                        Mono.just(AttoByteBuffer(byteArray))
+                    }
                 }
             }
-        }
+            .doOnNext { logger.debug { "Received from $socketAddress ${it.toHex()}" } }
+            .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
+            .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
+            .map { InboundNetworkMessage(socketAddress, it!!) }
+            .doOnNext { messagePublisher.publish(it!!) }
+            .onErrorResume(AbortedException::class.java) { Mono.empty() }
+            .doOnError { t -> logger.info(t) { "Failed to process inbound message from $socketAddress" } }
+            .then()
+
+        val outboundMessages = outboundFlow
+            .asFlux(Dispatchers.Default)
+            .filter { it.socketAddress == socketAddress }
+            .replay(1)
+            .refCount()
+            .let {
+                val dummySubscription = it.subscribe()
+                it.doOnTerminate { dummySubscription.dispose() }
+            }
+            .map { serialize(it.payload) }
+            .doOnNext { checkBelowMaxMessageSize(it.serialized) }
+            .doOnNext { logger.debug { "Sending to $socketAddress ${it.message} ${it.serialized.toHex()}" } }
+            .map { it.serialized }
+            .doOnSubscribe {
+                if (initialMessage != null) {
+                    messageQueue.add(initialMessage)
+                }
+            }
+
+        val outboundThen = wsOutbound
+            .sendByteArray(outboundMessages)
+            .then()
+            .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
+            .doOnTerminate { connections.remove(socketAddress) }
+            .onErrorResume(AbortedException::class.java) { Mono.empty() }
+            .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
+            .then()
+
+        val disconnectionThen = disconnectFlow
+            .filter { it == socketAddress }
+            .asFlux(Dispatchers.Default)
+            .next()
+            .flatMap { wsOutbound.sendClose() }
+            .onErrorComplete()
+
+        return Flux.merge(inboundThen, outboundThen, disconnectionThen)
+            .then()
     }
 
     private fun serialize(message: AttoMessage): SerializedAttoMessage {
-        val byteBuffer = codecManager.toByteBuffer(message)
-        logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
-        return SerializedAttoMessage(message, byteBuffer.toByteArray())
+        try {
+            val byteBuffer = codecManager.toByteBuffer(message)
+            logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
+            return SerializedAttoMessage(message, byteBuffer.toByteArray())
+        } catch (e: Exception) {
+            logger.error(e) { "Message couldn't be serialized. $message" }
+            exitProcess(-1)
+        }
     }
 
     private fun deserializeOrDisconnect(
         socketAddress: InetSocketAddress,
-        byteArray: ByteArray
+        byteArray: AttoByteBuffer
     ): AttoMessage? {
-        val message = codecManager.fromByteArray(AttoByteBuffer.from(byteArray))
+        val message = codecManager.fromByteArray(byteArray)
 
         if (message == null) {
             logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Node will be banned." }
@@ -241,76 +290,17 @@ class NetworkProcessor(
         }
     }
 
-    private fun disconnect(socketAddress: InetSocketAddress) {
-        outboundMap.remove(socketAddress)?.let {
-            it.disconnect()
-            logger.info { "Disconnected from $socketAddress" }
-        }
-    }
-
-    private fun disconnect(address: InetAddress) {
-        outboundMap.keys().asSequence()
-            .filter { it.address == address }
-            .forEach { disconnect(it) }
-    }
-
     override fun clear() {
-        disconnectionCache.invalidateAll()
-        outboundMap.forEach { disconnect(it.key) }
-        outboundMap.clear()
+        peers.clear()
         bannedNodes.clear()
-    }
+        messageQueue.clear()
 
-    fun Flux<ByteArray>.splitByMessage(): Flux<ByteArray> {
-        var previousByteArray: ByteArray? = null
-        var readableBytesLeft = 0
-
-        return flatMap { byteArray ->
-            val messages = LinkedList<ByteArray>()
-
-            if (readableBytesLeft > 0) {
-                messages.add(previousByteArray!! + byteArray.sliceArray(0 until readableBytesLeft))
-            }
-
-            val byteArrayStartIndex = readableBytesLeft
-            previousByteArray = null
-            readableBytesLeft = 0
-
-            if (byteArrayStartIndex < byteArray.size) {
-                var currentByteArray: ByteArray? = byteArray.sliceArray(byteArrayStartIndex until byteArray.size)
-                while (currentByteArray != null) {
-                    val size = currentByteArray.sliceArray(6 until 8).toUShort().toInt() + HEADER_SIZE
-                    if (size > MAX_MESSAGE_SIZE) {
-                        return@flatMap Flux.error(IllegalArgumentException("Message has $size bytes and it is longer than the $MAX_MESSAGE_SIZE limit"))
-                    } else if (size > currentByteArray.size) {
-                        previousByteArray = currentByteArray
-                        readableBytesLeft = size - currentByteArray.size
-                        currentByteArray = null
-                    } else {
-                        messages.add(currentByteArray.sliceArray(0 until size))
-                        if (size < currentByteArray.size) {
-                            currentByteArray = currentByteArray.sliceArray(size until currentByteArray.size)
-                        } else {
-                            currentByteArray = null
-                        }
-                    }
-                }
-            }
-            return@flatMap Flux.fromIterable(messages)
+        connections.forEach {
+            runBlocking { disconnectFlow.emit(it.key) }
         }
-    }
+        connections.clear()
 
-    private data class NodeConnection(
-        val connection: Connection,
-        val outbound: MutableSharedFlow<OutboundNetworkMessage<*>>
-    ) {
-        suspend fun emit(message: OutboundNetworkMessage<*>) {
-            outbound.emit(message)
-        }
-
-        fun disconnect() {
-            connection.dispose()
-        }
+        disconnectionCache.invalidateAll()
     }
 
     private data class SerializedAttoMessage(val message: AttoMessage, val serialized: ByteArray)

@@ -29,11 +29,7 @@ data class AttoNode(
         val size = 57
 
         fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoNode? {
-            if (byteBuffer.size < size) {
-                return null
-            }
-
-
+            if (byteBuffer.size < size) return null
 
             return AttoNode(
                 network = byteBuffer.getNetwork(),
