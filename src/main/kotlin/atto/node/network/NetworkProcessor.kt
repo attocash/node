@@ -10,8 +10,6 @@ import atto.node.network.peer.PeerRemoved
 import atto.protocol.network.AttoMessage
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
-import com.github.benmanes.caffeine.cache.Cache
-import com.github.benmanes.caffeine.cache.Caffeine
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import jakarta.annotation.PreDestroy
@@ -37,7 +35,6 @@ import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.TimeUnit
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -53,7 +50,6 @@ class NetworkProcessor(
 
     companion object {
         const val MAX_MESSAGE_SIZE = 1600
-        const val HEADER_SIZE = 8
 
         val serverSpec = WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
         val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
@@ -66,12 +62,6 @@ class NetworkProcessor(
     private val connections = ConcurrentHashMap<InetSocketAddress, InetSocketAddress>()
     private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>()
     private val disconnectFlow = MutableSharedFlow<InetSocketAddress>()
-
-
-    // Avoid event infinity loop when neighbour instantly disconnects
-    private val disconnectionCache: Cache<InetAddress, InetAddress> = Caffeine.newBuilder()
-        .expireAfterWrite(60, TimeUnit.SECONDS)
-        .build()
 
     private val port = environment.getRequiredProperty("server.tcp.port", Int::class.java)
 
@@ -120,10 +110,6 @@ class NetworkProcessor(
     @EventListener
     suspend fun outbound(message: OutboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
-
-        if (disconnectionCache.getIfPresent(socketAddress.address) != null) {
-            return
-        }
 
         connections.compute(socketAddress) { _, v ->
             if (v != null) {
@@ -202,7 +188,7 @@ class NetworkProcessor(
             }
             .doOnNext { logger.debug { "Received from $socketAddress ${it.toHex()}" } }
             .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $socketAddress" } }
-            .mapNotNull { deserializeOrDisconnect(socketAddress, it) }
+            .mapNotNull { deserializeOrDisconnect(socketAddress, it) { wsOutbound.sendClose().subscribe() } }
             .map { InboundNetworkMessage(socketAddress, it!!) }
             .doOnNext { messagePublisher.publish(it!!) }
             .onErrorResume(AbortedException::class.java) { Mono.empty() }
@@ -261,17 +247,18 @@ class NetworkProcessor(
 
     private fun deserializeOrDisconnect(
         socketAddress: InetSocketAddress,
-        byteArray: AttoByteBuffer
+        byteArray: AttoByteBuffer,
+        disconnect: () -> Any
     ): AttoMessage? {
         val message = codecManager.fromByteArray(byteArray)
 
         if (message == null) {
-            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Node will be banned." }
-            eventPublisher.publish(NodeBanned(socketAddress.address))
+            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
+            disconnect.invoke()
             return message
         } else if (message.messageType().private && !peers.contains(socketAddress)) {
-            logger.trace { "Received private message from the unknown $socketAddress ${byteArray.toHex()}. Node will be banned." }
-            eventPublisher.publish(NodeBanned(socketAddress.address))
+            logger.trace { "Received private message from the unknown $socketAddress ${byteArray.toHex()}. Disconnecting..." }
+            disconnect.invoke()
             return message
         }
 
@@ -299,8 +286,6 @@ class NetworkProcessor(
             runBlocking { disconnectFlow.emit(it.key) }
         }
         connections.clear()
-
-        disconnectionCache.invalidateAll()
     }
 
     private data class SerializedAttoMessage(val message: AttoMessage, val serialized: ByteArray)

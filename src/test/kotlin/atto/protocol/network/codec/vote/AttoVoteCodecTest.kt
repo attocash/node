@@ -21,7 +21,7 @@ internal class AttoVoteCodecTest {
         val hash = AttoHash(Random.nextBytes(ByteArray(32)))
 
         val timestamp = Clock.System.now().toByteArray()
-        val voteHash = AttoHash.hash(32, hash.value, timestamp)
+        val voteHash = AttoHash.hash(32, hash.value, byteArrayOf(AttoAlgorithm.V1.code.toByte()), timestamp)
 
         val expectedVoteSignature = AttoVoteSignature(
             timestamp = timestamp.toInstant().toJavaInstant(),

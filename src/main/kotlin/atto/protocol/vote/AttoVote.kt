@@ -6,8 +6,8 @@ import kotlinx.datetime.toKotlinInstant
 import java.time.Instant
 
 data class AttoVoteSignature(
-    val timestamp: Instant,
     val algorithm: AttoAlgorithm,
+    val timestamp: Instant,
     val publicKey: AttoPublicKey,
     val signature: AttoSignature
 ) {
@@ -22,8 +22,8 @@ data class AttoVoteSignature(
             }
 
             return AttoVoteSignature(
-                timestamp = byteBuffer.getInstant().toJavaInstant(),
                 algorithm = byteBuffer.getAlgorithm(),
+                timestamp = byteBuffer.getInstant().toJavaInstant(),
                 publicKey = byteBuffer.getPublicKey(),
                 signature = byteBuffer.getSignature()
             )
@@ -32,8 +32,8 @@ data class AttoVoteSignature(
 
     fun toByteBuffer(): AttoByteBuffer {
         return AttoByteBuffer(size)
-            .add(timestamp.toKotlinInstant())
             .add(algorithm)
+            .add(timestamp.toKotlinInstant())
             .add(publicKey)
             .add(signature)
     }
@@ -61,7 +61,12 @@ data class AttoVote(
             return false
         }
 
-        val voteHash = AttoHash.hash(32, hash.value, signature.timestamp.toKotlinInstant().toByteArray())
+        val voteHash = AttoHash.hash(
+            32,
+            hash.value,
+            byteArrayOf(AttoAlgorithm.V1.code.toByte()),
+            signature.timestamp.toKotlinInstant().toByteArray()
+        )
         return signature.signature.isValid(signature.publicKey, voteHash)
     }
 }
