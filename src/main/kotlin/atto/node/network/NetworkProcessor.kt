@@ -7,6 +7,7 @@ import atto.node.EventPublisher
 import atto.node.network.codec.MessageCodecManager
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
+import atto.node.transaction.Transaction
 import atto.protocol.network.AttoMessage
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
@@ -44,12 +45,14 @@ class NetworkProcessor(
     val codecManager: MessageCodecManager,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
+    val genesisTransaction: Transaction,
     environment: Environment,
 ) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
         const val MAX_MESSAGE_SIZE = 1600
+        const val GENESIS_HEADER = "Atto-Genesis"
 
         val serverSpec = WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
         val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
@@ -78,7 +81,17 @@ class NetworkProcessor(
             logger.info { "Connected as a server to $socketAddress" }
         }
         .route { routes ->
-            routes.ws("/", ::prepareConnection, serverSpec)
+            routes.ws(
+                "/",
+                { wsInbound, wsOutbound ->
+                    if (wsInbound.headers().get(GENESIS_HEADER) == genesisTransaction.hash.toString()) {
+                        prepareConnection(wsInbound, wsOutbound)
+                    } else {
+                        wsOutbound.sendClose()
+                    }
+                },
+                serverSpec
+            )
         }
         .bindNow()
 
@@ -117,6 +130,7 @@ class NetworkProcessor(
             } else {
                 HttpClient.create()
                     .runOn(eventLoopGroup)
+                    .headers { it.add(GENESIS_HEADER, genesisTransaction.hash.toString()) }
                     .websocket(clientSpec)
                     .uri("ws://${message.socketAddress.hostName}:${message.socketAddress.port}")
                     .handle { inbound, outbound ->
