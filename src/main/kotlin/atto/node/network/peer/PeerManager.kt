@@ -4,6 +4,7 @@ import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
+import atto.node.network.NodeDisconnected
 import atto.node.network.OutboundNetworkMessage
 import atto.protocol.network.peer.AttoKeepAlive
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -31,6 +32,11 @@ class PeerManager(
     fun process(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
         peers[peer.connectionSocketAddress] = peer
+    }
+
+    @EventListener
+    fun process(nodeEvent: NodeDisconnected) {
+        peers.remove(nodeEvent.connectionSocketAddress)
     }
 
     @EventListener
