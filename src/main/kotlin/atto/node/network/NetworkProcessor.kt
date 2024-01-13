@@ -8,6 +8,7 @@ import atto.node.network.codec.MessageCodecManager
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.Transaction
+import atto.protocol.AttoNode
 import atto.protocol.network.AttoMessage
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
@@ -58,7 +59,7 @@ class NetworkProcessor(
         val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
     }
 
-    private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
+    private val peers = ConcurrentHashMap<InetSocketAddress, AttoNode>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
     private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
@@ -104,7 +105,7 @@ class NetworkProcessor(
 
     @EventListener
     fun add(event: PeerAdded) {
-        peers.add(event.peer.connectionSocketAddress)
+        peers[event.peer.connectionSocketAddress] = event.peer.node
     }
 
     @EventListener
@@ -121,7 +122,7 @@ class NetworkProcessor(
     }
 
     @EventListener
-    suspend fun outbound(message: OutboundNetworkMessage<*>) {
+    suspend fun outbound(message: DirectNetworkMessage<*>) {
         val socketAddress = message.socketAddress
 
         connections.compute(socketAddress) { _, v ->
@@ -143,8 +144,11 @@ class NetworkProcessor(
             }
             socketAddress
         }
+    }
 
-
+    @EventListener
+    suspend fun outbound(message: BroadcastNetworkMessage<*>) {
+        messageQueue.add(message)
     }
 
     override suspend fun poll(): OutboundNetworkMessage<*>? {
@@ -211,7 +215,7 @@ class NetworkProcessor(
 
         val outboundMessages = outboundFlow
             .asFlux(Dispatchers.Default)
-            .filter { it.socketAddress == socketAddress }
+            .filter { it.accepts(socketAddress, peers[socketAddress]) }
             .replay(1)
             .refCount()
             .let {
@@ -274,7 +278,7 @@ class NetworkProcessor(
             logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message
-        } else if (message.messageType().private && !peers.contains(socketAddress)) {
+        } else if (message.messageType().private && !peers.containsKey(socketAddress)) {
             logger.trace { "Received private message from the unknown $socketAddress ${byteArray.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message

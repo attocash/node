@@ -81,7 +81,7 @@ class SendDiscoverer(
 
         val socketAddress = randomSocketAddress(votes)
         val message = if (socketAddress != null) {
-            OutboundNetworkMessage(socketAddress, request)
+            DirectNetworkMessage(socketAddress, request)
         } else {
             BroadcastNetworkMessage(BroadcastStrategy.VOTERS, setOf(), request)
         }

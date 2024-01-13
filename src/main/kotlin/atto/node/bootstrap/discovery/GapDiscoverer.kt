@@ -3,9 +3,9 @@ package atto.node.bootstrap.discovery
 import atto.node.EventPublisher
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.bootstrap.unchecked.GapView
+import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
-import atto.node.network.OutboundNetworkMessage
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.toTransaction
@@ -95,7 +95,7 @@ class GapDiscoverer(
                 )
             }
             .map { AttoTransactionStreamRequest(it.publicKey, it.fromHeight(), it.toHeight()) }
-            .map { OutboundNetworkMessage(peers[Random.nextInt(peers.size)], it) }
+            .map { DirectNetworkMessage(peers[Random.nextInt(peers.size)], it) }
             .collect { networkMessagePublisher.publish(it) }
     }
 

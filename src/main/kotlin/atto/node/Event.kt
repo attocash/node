@@ -1,7 +1,9 @@
 package atto.node
 
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import org.springframework.context.ApplicationEventPublisher
@@ -15,6 +17,11 @@ class EventPublisher(private val publisher: ApplicationEventPublisher) {
     private val logger = KotlinLogging.logger {}
 
     val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
+
+    @PreDestroy
+    fun destroy() {
+        defaultScope.cancel()
+    }
 
     fun publish(event: Event) {
         defaultScope.launch {

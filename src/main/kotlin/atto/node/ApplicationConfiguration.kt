@@ -45,11 +45,16 @@ class ApplicationConfiguration {
 @EnableScheduling
 @Profile(value = ["dev", "beta", "live"])
 class ScheduleConfiguration {
+
+
 }
 
+val isGradle = System.getenv("GRADLE")?.toBoolean() ?: false
 
 val attoCoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->
     val logger = KotlinLogging.logger {}
     logger.error(e) { "Unexpected internal error. Application will exit..." }
-    exitProcess(-1)
+    if (!isGradle) {
+        exitProcess(-1)
+    }
 }

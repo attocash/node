@@ -69,7 +69,7 @@ class LastDiscoverer(
 
         val request = AttoVoteRequest(transaction.hash)
         networkMessagePublisher.publish(
-            OutboundNetworkMessage(
+            DirectNetworkMessage(
                 message.socketAddress,
                 request
             )

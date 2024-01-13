@@ -13,8 +13,8 @@ group = "cash.atto"
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 repositories {
-    mavenLocal()
     mavenCentral()
+    mavenLocal()
 }
 
 dependencies {

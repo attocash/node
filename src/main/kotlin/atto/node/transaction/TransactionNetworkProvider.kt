@@ -1,8 +1,8 @@
 package atto.node.transaction
 
+import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
-import atto.node.network.OutboundNetworkMessage
 import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import atto.protocol.transaction.AttoTransactionStreamRequest
@@ -24,7 +24,7 @@ class TransactionNetworkProvider(
         val transaction = transactionRepository.findById(request.hash)
         if (transaction != null) {
             val response = AttoTransactionResponse(transaction.toAttoTransaction())
-            networkMessagePublisher.publish(OutboundNetworkMessage(message.socketAddress, response))
+            networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
         }
     }
 
@@ -45,7 +45,7 @@ class TransactionNetworkProvider(
             .asFlow()
             .collect {
                 val response = AttoTransactionStreamResponse(it)
-                networkMessagePublisher.publish(OutboundNetworkMessage(message.socketAddress, response))
+                networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
             }
     }
 }

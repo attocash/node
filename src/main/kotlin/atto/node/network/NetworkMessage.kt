@@ -1,5 +1,6 @@
 package atto.node.network
 
+import atto.protocol.AttoNode
 import atto.protocol.network.AttoMessage
 import mu.KotlinLogging
 import org.springframework.context.ApplicationEventPublisher
@@ -13,30 +14,54 @@ interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     override fun getResolvableType(): ResolvableType {
         return ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
     }
-}
 
-data class OutboundNetworkMessage<T : AttoMessage>(
-    val socketAddress: InetSocketAddress,
-    override val payload: T
-) : NetworkMessage<T>
+}
 
 data class InboundNetworkMessage<T : AttoMessage>(
     val socketAddress: InetSocketAddress,
     override val payload: T
 ) : NetworkMessage<T>
 
+interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
+    fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean
+
+}
+
+data class DirectNetworkMessage<T : AttoMessage>(
+    val socketAddress: InetSocketAddress,
+    override val payload: T
+) : OutboundNetworkMessage<T> {
+    override fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean {
+        return socketAddress == target
+    }
+}
+
 enum class BroadcastStrategy {
     EVERYONE,
-//    MINORITY,
     VOTERS,
-//    HISTORICAL,
 }
 
 data class BroadcastNetworkMessage<T : AttoMessage>(
     val strategy: BroadcastStrategy,
     val exceptions: Set<InetSocketAddress> = setOf(),
     override val payload: T,
-) : NetworkMessage<T>
+) : OutboundNetworkMessage<T> {
+    override fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean {
+        if (exceptions.contains(target)) {
+            return false
+        }
+
+        return when (strategy) {
+            BroadcastStrategy.EVERYONE -> {
+                true
+            }
+
+            BroadcastStrategy.VOTERS -> {
+                node?.isVoter() ?: false
+            }
+        }
+    }
+}
 
 @Component
 class NetworkMessagePublisher(private val publisher: ApplicationEventPublisher) {

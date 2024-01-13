@@ -2,10 +2,10 @@ package atto.node.network.peer
 
 import atto.node.CacheSupport
 import atto.node.EventPublisher
+import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.NodeBanned
-import atto.node.network.OutboundNetworkMessage
 import atto.protocol.network.handshake.AttoHandshakeAnswer
 import atto.protocol.network.handshake.AttoHandshakeChallenge
 import cash.atto.commons.AttoHash
@@ -88,7 +88,7 @@ class HandshakeService(
         challenges.put(socketAddress, handshakeChallenge)
 
         logger.info { "Starting handshake with $socketAddress" }
-        messagePublisher.publish(OutboundNetworkMessage(socketAddress, handshakeChallenge))
+        messagePublisher.publish(DirectNetworkMessage(socketAddress, handshakeChallenge))
 
     }
 
@@ -103,7 +103,7 @@ class HandshakeService(
 
         startHandshake(message.socketAddress)
 
-        messagePublisher.publish(OutboundNetworkMessage(message.socketAddress, handshakeAnswer))
+        messagePublisher.publish(DirectNetworkMessage(message.socketAddress, handshakeAnswer))
     }
 
     @EventListener
