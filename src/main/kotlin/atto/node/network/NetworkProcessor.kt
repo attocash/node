@@ -207,7 +207,6 @@ class NetworkProcessor(
             .doOnNext { messagePublisher.publish(it!!) }
             .onErrorResume(AbortedException::class.java) { Mono.empty() }
             .doOnError { t -> logger.info(t) { "Failed to process inbound message from $socketAddress" } }
-            .retry(3)
             .then()
 
         val outboundMessages = outboundFlow
@@ -233,12 +232,13 @@ class NetworkProcessor(
             .sendByteArray(outboundMessages)
             .then()
             .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $socketAddress" } }
+            .onErrorResume(AbortedException::class.java) { Mono.empty() }
+            .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress. Retrying..." } }
+            .retry(3)
             .doOnTerminate {
                 connections.remove(socketAddress)
                 eventPublisher.publish(NodeDisconnected(socketAddress))
             }
-            .onErrorResume(AbortedException::class.java) { Mono.empty() }
-            .doOnError { t -> logger.info(t) { "Failed to send to $socketAddress" } }
             .then()
 
         val disconnectionThen = disconnectFlow
