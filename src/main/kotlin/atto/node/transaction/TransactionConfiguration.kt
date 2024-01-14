@@ -1,6 +1,5 @@
 package atto.node.transaction
 
-import atto.node.network.codec.TransactionCodec
 import atto.protocol.AttoNode
 import cash.atto.commons.*
 import kotlinx.datetime.Clock
@@ -15,7 +14,6 @@ class TransactionConfiguration {
     @Bean
     fun genesisTransaction(
         properties: TransactionProperties,
-        transactionCodec: TransactionCodec,
         privateKey: AttoPrivateKey,
         thisNode: AttoNode
     ): Transaction {
@@ -24,7 +22,7 @@ class TransactionConfiguration {
         if (!genesis.isNullOrBlank()) {
             val byteArray = genesis.fromHexToByteArray()
 
-            return transactionCodec.fromByteBuffer(AttoByteBuffer.from(byteArray))
+            return AttoTransaction.fromByteBuffer(thisNode.network, AttoByteBuffer.from(byteArray))?.toTransaction()
                 ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
         }
 
@@ -49,7 +47,7 @@ class TransactionConfiguration {
 
         logger.info {
             "Created ${thisNode.network} genesis transaction ${
-                transactionCodec.toByteBuffer(transaction).toHex()
+                transaction.toAttoTransaction().toByteBuffer().toHex()
             }"
         }
 

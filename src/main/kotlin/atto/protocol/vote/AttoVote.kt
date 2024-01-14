@@ -1,88 +1,37 @@
 package atto.protocol.vote
 
-import cash.atto.commons.*
-import kotlinx.datetime.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
-import java.time.Instant
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSignature
+import kotlinx.datetime.Instant
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
-data class AttoVoteSignature(
-    val algorithm: AttoAlgorithm,
-    val timestamp: Instant,
-    val publicKey: AttoPublicKey,
-    val signature: AttoSignature
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class AttoVote(
+    @ProtoNumber(0) val algorithm: AttoAlgorithm,
+    @ProtoNumber(1) val timestamp: Instant,
+    @ProtoNumber(2) val publicKey: AttoPublicKey,
+    @ProtoNumber(3) val signature: AttoSignature
 ) {
 
     companion object {
-        val size = 105
-        val finalTimestamp = Instant.ofEpochMilli(Long.MAX_VALUE)
-
-        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoVoteSignature? {
-            if (byteBuffer.size < size) {
-                return null
-            }
-
-            return AttoVoteSignature(
-                algorithm = byteBuffer.getAlgorithm(),
-                timestamp = byteBuffer.getInstant().toJavaInstant(),
-                publicKey = byteBuffer.getPublicKey(),
-                signature = byteBuffer.getSignature()
-            )
-        }
-    }
-
-    fun toByteBuffer(): AttoByteBuffer {
-        return AttoByteBuffer(size)
-            .add(algorithm)
-            .add(timestamp.toKotlinInstant())
-            .add(publicKey)
-            .add(signature)
+        val finalTimestamp = Instant.fromEpochMilliseconds(Long.MAX_VALUE)
     }
 
     fun isFinal(): Boolean {
         return timestamp == finalTimestamp
     }
-}
 
-data class AttoVote(
-    val type: VoteType = VoteType.UNIQUE,
-    val hash: AttoHash,
-    val signature: AttoVoteSignature,
-) {
-    companion object {
-        val size = AttoVoteSignature.size + 33
-    }
-
-    fun isValid(): Boolean {
-        if (type == VoteType.UNKNOWN) {
-            return false
-        }
-
-        if (!signature.isFinal() && signature.timestamp > Instant.now()) {
-            return false
-        }
-
-        val voteHash = AttoHash.hash(
-            32,
-            hash.value,
-            byteArrayOf(AttoAlgorithm.V1.code.toByte()),
-            signature.timestamp.toKotlinInstant().toByteArray()
+    fun isValid(blockHash: AttoHash): Boolean {
+        val voteHash = AttoHash.hashVote(
+            blockHash,
+            algorithm,
+            timestamp
         )
-        return signature.signature.isValid(signature.publicKey, voteHash)
-    }
-}
-
-/**
- * This class is to add flexibility in the future in case we need to change how votes works (i.e.: bundle votes)
- */
-enum class VoteType(val code: UByte) {
-    UNIQUE(0u),
-
-    UNKNOWN(UByte.MAX_VALUE);
-
-    companion object {
-        private val map = entries.associateBy(VoteType::code)
-        fun from(code: UByte): VoteType {
-            return map.getOrDefault(code, UNKNOWN)
-        }
+        return signature.isValid(publicKey, voteHash)
     }
 }

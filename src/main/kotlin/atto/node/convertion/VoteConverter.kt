@@ -17,7 +17,7 @@ class VoteSerializerDBConverter(val properties: ApplicationProperties) : DBConve
     override fun convert(vote: Vote): OutboundRow {
         val row = OutboundRow()
         with(row) {
-            put("hash", Parameter.from(vote.hash))
+            put("hash", Parameter.from(vote.blockHash))
             put("algorithm", Parameter.from(vote.algorithm))
             put("public_key", Parameter.from(vote.publicKey))
             put("timestamp", Parameter.from(vote.timestamp.toEpochMilli()))
@@ -39,7 +39,7 @@ class VoteSerializerDBConverter(val properties: ApplicationProperties) : DBConve
 class VoteDeserializerDBConverter(val properties: ApplicationProperties) : DBConverter<Row, Vote> {
     override fun convert(row: Row): Vote {
         return Vote(
-            hash = AttoHash(row.get("hash", ByteArray::class.java)!!),
+            blockHash = AttoHash(row.get("hash", ByteArray::class.java)!!),
             algorithm = AttoAlgorithm.valueOf(row.get("algorithm", String::class.java)!!),
             publicKey = AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
             timestamp = Instant.ofEpochMilli(row.get("timestamp", Long::class.java)!!),

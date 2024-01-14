@@ -1,49 +1,33 @@
 package atto.protocol.transaction
 
-import atto.protocol.network.AttoMessage
-import atto.protocol.network.AttoMessageType
-import cash.atto.commons.AttoByteBuffer
+import atto.protocol.AttoMessage
+import atto.protocol.AttoMessageType
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
+import kotlinx.serialization.Contextual
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 
-/**
- *
- */
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
 data class AttoTransactionStreamRequest(
-    val publicKey: AttoPublicKey,
-    val startHeight: ULong,
-    val endHeight: ULong
+    @ProtoNumber(0) @Contextual val publicKey: AttoPublicKey,
+    @ProtoNumber(1) val startHeight: ULong,
+    @ProtoNumber(2) val endHeight: ULong
 ) : AttoMessage {
 
     companion object {
-        val size = 48
-
-        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoTransactionStreamRequest? {
-            if (size > byteBuffer.size) {
-                return null
-            }
-            return AttoTransactionStreamRequest(
-                byteBuffer.getPublicKey(),
-                byteBuffer.getULong(),
-                byteBuffer.getULong()
-            )
-        }
-    }
-
-    init {
-        val count = endHeight - startHeight
-        require(count <= 1000UL && count > 0UL) { "Transaction stream should contains between 1 and 1000 transactions" }
+        const val MAX_TRANSACTIONS = 1000UL
     }
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.TRANSACTION_STREAM_REQUEST
     }
 
-    fun toByteBuffer(): AttoByteBuffer {
-        return AttoByteBuffer(size)
-            .add(publicKey)
-            .add(startHeight)
-            .add(endHeight)
+    override fun isValid(network: AttoNetwork): Boolean {
+        return startHeight < endHeight && endHeight - startHeight <= MAX_TRANSACTIONS
     }
 
 }

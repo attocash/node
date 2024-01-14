@@ -1,28 +1,36 @@
 package atto.protocol.network.handshake
 
-import atto.protocol.network.AttoMessage
-import atto.protocol.network.AttoMessageType
-import cash.atto.commons.checkLength
+import atto.protocol.AttoMessage
+import atto.protocol.AttoMessageType
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.toHex
-import kotlin.random.Random
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
+import java.security.SecureRandom
 
 
-data class AttoHandshakeChallenge(val value: ByteArray) : AttoMessage {
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class AttoHandshakeChallenge(@ProtoNumber(0) val value: ByteArray) : AttoMessage {
+
     companion object {
-        // never use 32
-        const val size = 16
+        const val SIZE = 16 // TODO: Increase it
 
+        val random = SecureRandom.getInstanceStrong()!!
         fun create(): AttoHandshakeChallenge {
-            return AttoHandshakeChallenge(Random.Default.nextBytes(ByteArray(16)))
+            val challenge = ByteArray(SIZE)
+            random.nextBytes(challenge)
+            return AttoHandshakeChallenge(challenge)
         }
-    }
-
-    init {
-        value.checkLength(size)
     }
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.HANDSHAKE_CHALLENGE
+    }
+
+    override fun isValid(network: AttoNetwork): Boolean {
+        return value.size == SIZE
     }
 
     override fun equals(other: Any?): Boolean {

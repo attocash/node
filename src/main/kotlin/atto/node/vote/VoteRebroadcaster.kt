@@ -104,7 +104,7 @@ class VoteRebroadcaster(
 
     override suspend fun process(value: VoteHolder) {
         val vote = value.vote
-        val votePush = AttoVotePush(vote.toAttoVote())
+        val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
         val exceptions = value.socketAddresses
 
         val message = BroadcastNetworkMessage(

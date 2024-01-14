@@ -41,7 +41,7 @@ internal class VoteQueueTest {
 
     private fun createVote(weight: ULong): Vote {
         return Vote(
-            hash = AttoHash(Random.nextBytes(ByteArray(32))),
+            blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             timestamp = Instant.now(),

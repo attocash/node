@@ -94,7 +94,7 @@ class Election(
         /**
          * Weighter should never be null because votes are just broadcasted to active election
          */
-        val weighter = transactionWeightMap[vote.hash]!!
+        val weighter = transactionWeightMap[vote.blockHash]!!
 
         if (!weighter.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }

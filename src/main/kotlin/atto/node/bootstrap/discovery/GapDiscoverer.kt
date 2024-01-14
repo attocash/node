@@ -89,12 +89,12 @@ class GapDiscoverer(
         gaps.filter { currentHashMap[it.publicKey] == null }
             .onEach {
                 currentHashMap[it.publicKey] = TransactionPointer(
-                    it.fromHeight(),
-                    it.toHeight(),
+                    it.startHeight(),
+                    it.endHeight(),
                     it.previousTransactionHash
                 )
             }
-            .map { AttoTransactionStreamRequest(it.publicKey, it.fromHeight(), it.toHeight()) }
+            .map { AttoTransactionStreamRequest(it.publicKey, it.startHeight(), it.endHeight()) }
             .map { DirectNetworkMessage(peers[Random.nextInt(peers.size)], it) }
             .collect { networkMessagePublisher.publish(it) }
     }
@@ -102,39 +102,32 @@ class GapDiscoverer(
     @EventListener
     fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
         val response = message.payload
-        val transactions = response.transactions
+        val transaction = response.transaction
 
-        val publicKeys = transactions.map { it.block.publicKey }.toSet()
-        if (publicKeys.size != 1) {
+        val block = transaction.block
+        val pointer = currentHashMap[block.publicKey]
+        if (transaction.hash != pointer?.currentHash) {
             return
         }
-
-        for (transaction in transactions) {
-            val block = transaction.block
-            val pointer = currentHashMap[block.publicKey]
-            if (transaction.hash != pointer?.currentHash) {
-                return
-            }
-            if (pointer.initialHeight == block.height) {
-                currentHashMap.remove(block.publicKey)
-            } else if (block is PreviousSupport) {
-                currentHashMap[block.publicKey] = TransactionPointer(
-                    pointer.initialHeight,
-                    pointer.currentHeight - 1UL,
-                    block.previous
-                )
-            }
-            logger.debug { "Discovered gap transaction ${transaction.hash}" }
-            eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
+        if (pointer.initialHeight == block.height) {
+            currentHashMap.remove(block.publicKey)
+        } else if (block is PreviousSupport) {
+            currentHashMap[block.publicKey] = TransactionPointer(
+                pointer.initialHeight,
+                pointer.currentHeight - 1UL,
+                block.previous
+            )
         }
+        logger.debug { "Discovered gap transaction ${transaction.hash}" }
+        eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }
 
 }
 
 private data class TransactionPointer(val initialHeight: ULong, val currentHeight: ULong, val currentHash: AttoHash)
 
-private fun GapView.fromHeight(): ULong {
-    val maxCount = AttoTransactionStreamResponse.maxCount.toULong()
+private fun GapView.startHeight(): ULong {
+    val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS
     val count = this.transactionHeight - this.accountHeight
     if (count > maxCount) {
         return this.transactionHeight - maxCount
@@ -142,6 +135,6 @@ private fun GapView.fromHeight(): ULong {
     return this.accountHeight + 1U
 }
 
-private fun GapView.toHeight(): ULong {
+private fun GapView.endHeight(): ULong {
     return this.transactionHeight
 }

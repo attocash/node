@@ -1,35 +1,24 @@
 package atto.protocol.network.peer
 
-import atto.protocol.network.AttoMessage
-import atto.protocol.network.AttoMessageType
+import atto.protocol.AttoMessage
+import atto.protocol.AttoMessageType
+import atto.protocol.serializer.InetSocketAddressSerializer
+import cash.atto.commons.AttoNetwork
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 import java.net.InetSocketAddress
 
-data class AttoKeepAlive(val neighbours: List<InetSocketAddress>) :
-    AttoMessage {
-    init {
-        require(neighbours.size <= 8) { "Just 8 nodes are supported" }
-    }
-
-    companion object {
-        const val size = 144
-    }
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class AttoKeepAlive(
+    @ProtoNumber(0)
+    val neighbour: @Serializable(with = InetSocketAddressSerializer::class) InetSocketAddress
+) : AttoMessage {
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.KEEP_ALIVE
     }
 
-    override fun equals(other: Any?): Boolean {
-        if (this === other) return true
-        if (javaClass != other?.javaClass) return false
-
-        other as AttoKeepAlive
-
-        if (neighbours != other.neighbours) return false
-
-        return true
-    }
-
-    override fun hashCode(): Int {
-        return neighbours.hashCode()
-    }
+    override fun isValid(network: AttoNetwork): Boolean = true
 }

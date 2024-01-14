@@ -1,17 +1,24 @@
 package atto.protocol.transaction
 
-import atto.protocol.network.AttoMessage
-import atto.protocol.network.AttoMessageType
+import atto.protocol.AttoMessage
+import atto.protocol.AttoMessageType
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoTransaction
+import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.protobuf.ProtoNumber
 
 
-data class AttoTransactionPush(val transaction: AttoTransaction) : AttoMessage {
-    companion object {
-        val size = AttoTransaction.size
-    }
+@OptIn(ExperimentalSerializationApi::class)
+@Serializable
+data class AttoTransactionPush(@ProtoNumber(0) val transaction: AttoTransaction) : AttoMessage {
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.TRANSACTION_PUSH
+    }
+
+    override fun isValid(network: AttoNetwork): Boolean {
+        return transaction.isValid(network)
     }
 
 }

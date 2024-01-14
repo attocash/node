@@ -7,9 +7,6 @@ import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.reactive.asFlow
-import kotlinx.coroutines.reactor.asFlux
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -38,14 +35,9 @@ class TransactionNetworkProvider(
             request.endHeight - 1U
         )
 
-        // no support to chunked https://github.com/Kotlin/kotlinx.coroutines/issues/1290
-        transactions.asFlux(Dispatchers.Default)
-            .map { it.toAttoTransaction() }
-            .buffer(50)
-            .asFlow()
-            .collect {
-                val response = AttoTransactionStreamResponse(it)
-                networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
-            }
+        transactions.collect {
+            val response = AttoTransactionStreamResponse(it.toAttoTransaction())
+            networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
+        }
     }
 }

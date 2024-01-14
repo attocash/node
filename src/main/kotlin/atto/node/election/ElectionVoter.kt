@@ -11,11 +11,11 @@ import atto.node.vote.VoteValidated
 import atto.node.vote.weight.VoteWeighter
 import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVotePush
-import atto.protocol.vote.AttoVoteSignature
 import cash.atto.commons.*
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
@@ -73,9 +73,9 @@ class ElectionVoter(
         val publicKeyHeight = transaction.toPublicKeyHeight()
         if (!agreements.contains(publicKeyHeight)) {
             agreements.add(publicKeyHeight)
-            vote(transaction, AttoVoteSignature.finalTimestamp)
+            vote(transaction, AttoVote.finalTimestamp.toJavaInstant())
         } else {
-            logger.trace { "Consensus about already reached ${event.transaction}" }
+            logger.trace { "Consensus already reached for ${event.transaction}" }
         }
     }
 
@@ -102,7 +102,7 @@ class ElectionVoter(
         val transaction = event.transaction
         if (transactionRepository.existsById(transaction.hash)) {
             withContext(singleDispatcher) {
-                vote(transaction, AttoVoteSignature.finalTimestamp)
+                vote(transaction, AttoVote.finalTimestamp.toJavaInstant())
             }
         }
     }
@@ -114,27 +114,23 @@ class ElectionVoter(
             return
         }
 
-        val voteHash = AttoHash.hash(
-            32,
-            transaction.hash.value,
-            byteArrayOf(AttoAlgorithm.V1.code.toByte()),
-            timestamp.toKotlinInstant().toByteArray()
+        val voteHash = AttoHash.hashVote(
+            transaction.hash,
+            AttoAlgorithm.V1,
+            timestamp.toKotlinInstant()
         )
-        val voteSignature = AttoVoteSignature(
-            timestamp = timestamp,
+        val attoVote = AttoVote(
+            timestamp = timestamp.toKotlinInstant(),
             algorithm = thisNode.algorithm,
             publicKey = thisNode.publicKey,
             signature = privateKey.sign(voteHash)
         )
-        val attoVote = AttoVote(
-            hash = transaction.hash,
-            signature = voteSignature,
-        )
         val votePush = AttoVotePush(
+            blockHash = transaction.hash,
             vote = attoVote
         )
 
-        val strategy = if (attoVote.signature.isFinal()) {
+        val strategy = if (attoVote.isFinal()) {
             BroadcastStrategy.EVERYONE
         } else {
             BroadcastStrategy.VOTERS
@@ -142,7 +138,7 @@ class ElectionVoter(
 
         logger.debug { "Sending to $strategy $attoVote" }
 
-        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoVote)))
+        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, transaction.hash, attoVote)))
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
     }
 

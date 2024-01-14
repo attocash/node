@@ -78,24 +78,27 @@ class LastDiscoverer(
 
     @EventListener
     suspend fun processVoteResponse(message: InboundNetworkMessage<AttoVoteResponse>) {
-        val voteMap = message.payload.votes.groupBy({ it.hash }, { voteConverter.convert(it) })
-        voteMap.forEach { hash, votes ->
-            val weighter = transactionWeighterMap.computeIfPresent(hash) { _, weighter ->
-                votes.filter { it.isFinal() }
-                    .forEach { weighter.add(it) }
-                weighter
-            }
+        val hash = message.payload.blockHash
+        val votes = message.payload.votes
+            .asSequence()
+            .map { voteConverter.convert(hash, it) }
+            .toList()
 
-            if (weighter != null && weighter.totalFinalWeight() >= voteWeighter.getMinimalConfirmationWeight()) {
-                logger.debug { "Discovered missing last transaction $hash" }
-                eventPublisher.publish(
-                    TransactionDiscovered(
-                        null,
-                        weighter.transaction,
-                        weighter.votes.values.toList()
-                    )
+        val weighter = transactionWeighterMap.computeIfPresent(hash) { _, weighter ->
+            votes.filter { it.isFinal() }
+                .forEach { weighter.add(it) }
+            weighter
+        }
+
+        if (weighter != null && weighter.totalFinalWeight() >= voteWeighter.getMinimalConfirmationWeight()) {
+            logger.debug { "Discovered missing last transaction $hash" }
+            eventPublisher.publish(
+                TransactionDiscovered(
+                    null,
+                    weighter.transaction,
+                    weighter.votes.values.toList()
                 )
-            }
+            )
         }
     }
 }

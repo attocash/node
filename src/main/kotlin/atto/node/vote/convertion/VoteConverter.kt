@@ -7,6 +7,7 @@ import atto.node.vote.VoteReceived
 import atto.node.vote.weight.VoteWeighter
 import atto.protocol.vote.AttoVote
 import atto.protocol.vote.AttoVotePush
+import cash.atto.commons.AttoHash
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -18,14 +19,15 @@ class VoteConverter(
 
     @EventListener
     fun add(message: InboundNetworkMessage<AttoVotePush>) {
+        val hash = message.payload.blockHash
         val attoVote = message.payload.vote
 
-        eventPublisher.publish(VoteReceived(message.socketAddress, convert(attoVote)))
+        eventPublisher.publish(VoteReceived(message.socketAddress, convert(hash, attoVote)))
     }
 
-    fun convert(attoVote: AttoVote): Vote {
-        val weight = weightService.get(attoVote.signature.publicKey)
-        return Vote.from(weight, attoVote)
+    fun convert(hash: AttoHash, attoVote: AttoVote): Vote {
+        val weight = weightService.get(attoVote.publicKey)
+        return Vote.from(weight, hash, attoVote)
     }
 
 }

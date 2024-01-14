@@ -121,7 +121,7 @@ class VotePrioritizer(
             return
         }
 
-        if (rejectedTransactionCache.contains(vote.hash)) {
+        if (rejectedTransactionCache.contains(vote.blockHash)) {
             eventPublisher.publish(VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED))
             return
         }
@@ -130,7 +130,7 @@ class VotePrioritizer(
     }
 
     private suspend fun add(vote: Vote) {
-        val transaction = activeElections[vote.hash]
+        val transaction = activeElections[vote.blockHash]
         if (transaction != null) {
             logger.trace { "Queued for prioritization. $vote" }
 
@@ -144,7 +144,7 @@ class VotePrioritizer(
             }
         } else {
             logger.trace { "Buffered until election starts. $vote" }
-            voteBuffer.compute(vote.hash) { _, m ->
+            voteBuffer.compute(vote.blockHash) { _, m ->
                 val map = m ?: HashMap()
                 map.compute(vote.publicKey) { _, v ->
                     if (v == null || vote.timestamp > v.timestamp) {

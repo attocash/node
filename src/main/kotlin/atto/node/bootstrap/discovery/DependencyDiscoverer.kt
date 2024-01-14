@@ -69,7 +69,7 @@ class DependencyDiscoverer(
             return@withContext
         }
 
-        val hash = vote.hash
+        val hash = vote.blockHash
 
         val holder = transactionHolderMap[hash] ?: return@withContext
 

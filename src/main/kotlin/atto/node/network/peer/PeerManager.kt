@@ -43,10 +43,10 @@ class PeerManager(
     fun process(message: InboundNetworkMessage<AttoKeepAlive>) {
         peers.compute(message.socketAddress) { _, value -> value } // refresh cache
 
-        message.payload.neighbours.forEach { handshakeService.startHandshake(it) }
+        handshakeService.startHandshake(message.payload.neighbour)
     }
 
-    @Scheduled(cron = "0/10 * * * * *")
+    @Scheduled(cron = "0/1 * * * * *")
     fun sendKeepAlive() {
         val peerSample = peerSample()
 
@@ -59,12 +59,11 @@ class PeerManager(
         return peers.values.toList()
     }
 
-    private fun peerSample(): List<InetSocketAddress> {
+    private fun peerSample(): InetSocketAddress {
         return peers.values.asSequence()
             .map { it.node.socketAddress }
             .shuffled()
-            .take(8)
-            .toList()
+            .first()
     }
 
     override fun clear() {

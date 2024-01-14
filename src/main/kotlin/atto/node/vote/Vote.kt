@@ -3,8 +3,9 @@ package atto.node.vote
 import atto.node.Event
 import atto.node.transaction.Transaction
 import atto.protocol.vote.AttoVote
-import atto.protocol.vote.AttoVoteSignature
 import cash.atto.commons.*
+import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.net.InetSocketAddress
@@ -13,7 +14,7 @@ import java.time.Instant
 data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
 
 data class Vote(
-    val hash: AttoHash,
+    val blockHash: AttoHash,
     val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val timestamp: Instant,
@@ -26,13 +27,13 @@ data class Vote(
 ) : Persistable<AttoSignature> {
 
     companion object {
-        fun from(weight: AttoAmount, attoVote: AttoVote): Vote {
+        fun from(weight: AttoAmount, hash: AttoHash, attoVote: AttoVote): Vote {
             return Vote(
-                hash = attoVote.hash,
-                algorithm = attoVote.signature.algorithm,
-                publicKey = attoVote.signature.publicKey,
-                timestamp = attoVote.signature.timestamp,
-                signature = attoVote.signature.signature,
+                blockHash = hash,
+                algorithm = attoVote.algorithm,
+                publicKey = attoVote.publicKey,
+                timestamp = attoVote.timestamp.toJavaInstant(),
+                signature = attoVote.signature,
                 weight = weight,
             )
         }
@@ -47,24 +48,19 @@ data class Vote(
     }
 
     fun isFinal(): Boolean {
-        return AttoVoteSignature.finalTimestamp == timestamp
+        return AttoVote.finalTimestamp == timestamp.toKotlinInstant()
     }
 
     fun toPublicKeyHash(): PublicKeyHash {
-        return PublicKeyHash(publicKey, hash)
+        return PublicKeyHash(publicKey, blockHash)
     }
 
     fun toAttoVote(): AttoVote {
-        val voteSignature = AttoVoteSignature(
-            timestamp = timestamp,
+        return AttoVote(
+            timestamp = timestamp.toKotlinInstant(),
             algorithm = algorithm,
             publicKey = publicKey,
             signature = signature
-        )
-
-        return AttoVote(
-            hash = hash,
-            signature = voteSignature
         )
     }
 }

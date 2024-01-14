@@ -1,8 +1,6 @@
 package atto.node.transaction
 
-import atto.node.network.codec.TransactionCodec
 import atto.protocol.AttoNode
-import atto.protocol.network.codec.transaction.AttoTransactionCodec
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
@@ -17,7 +15,6 @@ class TransactionConfigurationTest {
         // given
         val network = AttoNetwork.LOCAL
         val properties = TransactionProperties()
-        val codec = TransactionCodec(AttoTransactionCodec(network))
         val privateKey = AttoPrivateKey.generate()
         val node = AttoNode(
             network = network,
@@ -30,7 +27,7 @@ class TransactionConfigurationTest {
         val configuration = TransactionConfiguration()
 
         // when
-        val genesisTransaction = configuration.genesisTransaction(properties, codec, privateKey, node)
+        val genesisTransaction = configuration.genesisTransaction(properties, privateKey, node)
 
         // then
         assertTrue(genesisTransaction.toAttoTransaction().isValid(network))

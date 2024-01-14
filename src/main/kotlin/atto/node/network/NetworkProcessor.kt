@@ -4,12 +4,11 @@ package atto.node.network
 import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.EventPublisher
-import atto.node.network.codec.MessageCodecManager
 import atto.node.network.peer.PeerAdded
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.Transaction
+import atto.protocol.AttoMessage
 import atto.protocol.AttoNode
-import atto.protocol.network.AttoMessage
 import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
 import io.netty.channel.EventLoopGroup
@@ -43,7 +42,6 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @Service
 class NetworkProcessor(
-    val codecManager: MessageCodecManager,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val genesisTransaction: Transaction,
@@ -258,7 +256,7 @@ class NetworkProcessor(
 
     private fun serialize(message: AttoMessage): SerializedAttoMessage {
         try {
-            val byteBuffer = codecManager.toByteBuffer(message)
+            val byteBuffer = NetworkSerializer.serialize(message)
             logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
             return SerializedAttoMessage(message, byteBuffer.toByteArray())
         } catch (e: Exception) {
@@ -269,22 +267,22 @@ class NetworkProcessor(
 
     private fun deserializeOrDisconnect(
         socketAddress: InetSocketAddress,
-        byteArray: AttoByteBuffer,
+        byteBuffer: AttoByteBuffer,
         disconnect: () -> Any
     ): AttoMessage? {
-        val message = codecManager.fromByteArray(byteArray)
+        val message = NetworkSerializer.deserialize(byteBuffer)
 
         if (message == null) {
-            logger.trace { "Received invalid message from $socketAddress ${byteArray.toHex()}. Disconnecting..." }
+            logger.trace { "Received invalid message from $socketAddress ${byteBuffer.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message
         } else if (message.messageType().private && !peers.containsKey(socketAddress)) {
-            logger.trace { "Received private message from the unknown $socketAddress ${byteArray.toHex()}. Disconnecting..." }
+            logger.trace { "Received private message from the unknown $socketAddress ${byteBuffer.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message
         }
 
-        logger.trace { "Deserialized $message from ${byteArray.toHex()}" }
+        logger.trace { "Deserialized $message from ${byteBuffer.toHex()}" }
 
         return message
     }

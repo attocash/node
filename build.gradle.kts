@@ -3,10 +3,12 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     val kotlinVersion = "1.9.22"
 
+    kotlin("jvm") version kotlinVersion
+    kotlin("plugin.serialization") version kotlinVersion
+    kotlin("plugin.spring") version kotlinVersion
+
     id("org.springframework.boot") version "3.2.0"
     id("io.spring.dependency-management") version "1.1.4"
-    kotlin("jvm") version kotlinVersion
-    kotlin("plugin.spring") version kotlinVersion
 }
 
 group = "cash.atto"
@@ -21,8 +23,9 @@ dependencies {
     val cucumberVersion = "7.15.0"
     val springdocVersion = "2.3.0"
 
-    implementation("cash.atto:commons:2.4.0")
+    implementation("cash.atto:commons:2.4.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.6.21")
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
