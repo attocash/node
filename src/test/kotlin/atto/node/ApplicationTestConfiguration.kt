@@ -1,5 +1,6 @@
 package atto.node
 
+import cash.atto.commons.serialiazers.json.AttoJson
 import io.netty.handler.logging.LogLevel
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -24,9 +25,9 @@ class ApplicationTestConfiguration {
         return ExchangeStrategies.builder()
             .codecs { configurer: ClientCodecConfigurer ->
                 configurer.defaultCodecs()
-                    .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder())
+                    .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder(AttoJson))
                 configurer.defaultCodecs()
-                    .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder())
+                    .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder(AttoJson))
             }
             .build()
     }

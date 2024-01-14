@@ -4,9 +4,9 @@ import atto.node.PropertyHolder
 import atto.node.Waiter
 import atto.node.node.Neighbour
 import cash.atto.commons.*
+import cash.atto.commons.serialiazers.json.AttoJson
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
-import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -127,7 +127,7 @@ class TransactionStepDefinition(
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToMono<String>()
-            .map { Json.decodeFromString<AttoTransaction>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
+            .map { AttoJson.decodeFromString<AttoTransaction>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
     }
 
@@ -141,6 +141,4 @@ class TransactionStepDefinition(
             .bodyToMono<Void>()
             .block()
     }
-
-
 }

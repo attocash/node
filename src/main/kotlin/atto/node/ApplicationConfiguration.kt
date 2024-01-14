@@ -1,5 +1,6 @@
 package atto.node
 
+import cash.atto.commons.serialiazers.json.AttoJson
 import io.r2dbc.spi.Option
 import kotlinx.coroutines.CoroutineExceptionHandler
 import mu.KotlinLogging
@@ -11,14 +12,18 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
+import org.springframework.http.codec.ServerCodecConfigurer
+import org.springframework.http.codec.json.KotlinSerializationJsonDecoder
+import org.springframework.http.codec.json.KotlinSerializationJsonEncoder
 import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.web.reactive.config.WebFluxConfigurer
 import kotlin.system.exitProcess
 
 
 @Configuration
 @AutoConfigureOrder(0)
 @EnableConfigurationProperties(FlywayProperties::class)
-class ApplicationConfiguration {
+class ApplicationConfiguration : WebFluxConfigurer {
 
     @Bean(initMethod = "migrate")
     fun flyway(connectionDetails: R2dbcConnectionDetails): Flyway {
@@ -37,6 +42,13 @@ class ApplicationConfiguration {
                     password
                 )
         )
+    }
+
+    override fun configureHttpMessageCodecs(configurer: ServerCodecConfigurer) {
+        configurer.defaultCodecs()
+            .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder(AttoJson))
+        configurer.defaultCodecs()
+            .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder(AttoJson))
     }
 }
 

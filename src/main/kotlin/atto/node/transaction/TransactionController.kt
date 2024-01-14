@@ -9,12 +9,12 @@ import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.serialiazers.json.AttoJson
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
-import kotlinx.serialization.json.Json
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -71,7 +71,7 @@ class TransactionController(
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
             .map {
-                Json.encodeToString(
+                AttoJson.encodeToString(
                     AttoTransaction.serializer(),
                     it
                 )
@@ -114,7 +114,7 @@ class TransactionController(
             .onCompletion { logger.trace { "Stopped streaming $hash transaction" } }
             .take(1)
             .map {
-                Json.encodeToString(
+                AttoJson.encodeToString(
                     AttoTransaction.serializer(),
                     it
                 )
@@ -153,7 +153,7 @@ class TransactionController(
             .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
             .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
             .map {
-                Json.encodeToString(
+                AttoJson.encodeToString(
                     AttoTransaction.serializer(),
                     it
                 )
