@@ -15,7 +15,7 @@ import java.security.SecureRandom
 data class AttoHandshakeChallenge(@ProtoNumber(0) val value: ByteArray) : AttoMessage {
 
     companion object {
-        const val SIZE = 16 // TODO: Increase it
+        const val SIZE = 128 // Should never be 32
 
         val random = SecureRandom.getInstanceStrong()!!
         fun create(): AttoHandshakeChallenge {
