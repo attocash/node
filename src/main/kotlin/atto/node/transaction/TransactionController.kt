@@ -136,22 +136,28 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1") fromHeight: Long
+        @RequestParam(defaultValue = "1") fromHeight: Long,
+        @RequestParam(defaultValue = Long.MAX_VALUE.toString()) toHeight: Long
     ): Flow<String> {
         if (fromHeight.toULong() == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
 
-        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong())
+        if (fromHeight > toHeight) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
+        }
+
+        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong(), toHeight.toULong())
             .map { it.toAttoTransaction() }
 
         val transactionFlow = transactionFlow
             .filter { it.block.publicKey == publicKey }
+            .takeWhile { fromHeight.toULong() <= it.height && it.height <= toHeight.toULong() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(fromHeight.toULong())
-            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
-            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height equals or after ${fromHeight.toULong()}" } }
+            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
+            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
             .map {
                 AttoJson.encodeToString(
                     AttoTransaction.serializer(),

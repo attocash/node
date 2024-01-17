@@ -22,8 +22,8 @@ interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>
     )
     suspend fun getLastSample(limit: Long): Flow<Transaction>
 
-    @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height >= :fromHeight ORDER BY height ASC")
-    suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong): Flow<Transaction>
+    @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height ASC")
+    suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong, toHeight: ULong): Flow<Transaction>
 
     @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC")
     suspend fun findDesc(
