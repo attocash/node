@@ -1,5 +1,6 @@
 package atto.node.receivable
 
+import atto.node.Event
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
@@ -23,3 +24,12 @@ data class Receivable(
     }
 
 }
+
+
+data class ReceivableSaved(
+    val receivable: Receivable,
+) : Event
+
+data class ReceivableDeleted(
+    val receivable: Receivable,
+) : Event

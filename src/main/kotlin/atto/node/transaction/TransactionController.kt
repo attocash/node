@@ -134,6 +134,7 @@ class TransactionController(
             )
         ]
     )
+
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1") fromHeight: Long,
