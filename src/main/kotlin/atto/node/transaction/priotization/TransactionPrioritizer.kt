@@ -37,9 +37,9 @@ class TransactionPrioritizer(
     private val duplicateDetector = DuplicateDetector<AttoHash>()
 
     @PreDestroy
-    fun stop() {
+    override fun stop() {
         singleDispatcher.cancel()
-        super.cancel()
+        super.stop()
     }
 
     override suspend fun poll(): Transaction? = withContext(singleDispatcher) {

@@ -36,6 +36,8 @@ CREATE TABLE transaction
 CREATE TABLE receivable
 (
     hash                VARBINARY(32) PRIMARY KEY,
+    version   SMALLINT UNSIGNED NOT NULl,
+    algorithm ENUM ('V1')       NOT NULL,
     receiver_public_key VARBINARY(32)                       NOT NULL,
     amount              BIGINT UNSIGNED                     NOT NULL,
     persisted_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL

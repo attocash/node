@@ -4,12 +4,9 @@ import atto.node.EventPublisher
 import atto.node.account.Account
 import atto.node.account.AccountRepository
 import atto.node.account.AccountService
-import atto.node.receivable.Receivable
 import atto.node.receivable.ReceivableService
-import cash.atto.commons.AttoOpenBlock
-import cash.atto.commons.AttoSendBlock
-import cash.atto.commons.ReceiveSupport
-import cash.atto.commons.RepresentativeSupport
+import atto.node.receivable.toReceivable
+import cash.atto.commons.*
 import kotlinx.datetime.toJavaInstant
 import mu.KotlinLogging
 import org.springframework.stereotype.Service
@@ -44,11 +41,7 @@ class TransactionService(
         logger.debug { "Saved $transaction" }
 
         if (block is AttoSendBlock) {
-            val receivable = Receivable(
-                hash = block.hash,
-                receiverPublicKey = block.receiverPublicKey,
-                amount = block.amount
-            )
+            val receivable = block.toReceivable().toReceivable()
             receivableService.save(receivable)
         } else if (block is ReceiveSupport) {
             receivableService.delete(block.sendHash)

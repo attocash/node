@@ -55,7 +55,7 @@ class TransactionStepDefinition(
 
         val account = getAccount(PropertyHolder[Neighbour::class.java, receiverShortId], publicKey)
         val transaction = if (account != null) {
-            val receiveBlock = account.receive(sendBlock)
+            val receiveBlock = account.receive(sendBlock.toReceivable())
             Transaction(
                 block = receiveBlock,
                 signature = privateKey.sign(receiveBlock.hash),

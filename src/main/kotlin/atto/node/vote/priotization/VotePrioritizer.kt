@@ -60,8 +60,9 @@ class VotePrioritizer(
         .asMap()
 
     @PreDestroy
-    fun preDestroy() {
+    override fun stop() {
         singleDispatcher.cancel()
+        super.stop()
     }
 
     fun getQueueSize(): Int {

@@ -43,9 +43,9 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
 
     @PreDestroy
-    fun stop() {
+    override fun stop() {
         singleDispatcher.cancel()
-        super.cancel()
+        super.stop()
     }
 
     @EventListener

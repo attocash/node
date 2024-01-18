@@ -37,6 +37,8 @@ class TransactionGenesisInitializer(
 
             val receivable = Receivable(
                 hash = block.sendHash,
+                version = block.version,
+                algorithm = block.algorithm,
                 receiverPublicKey = block.publicKey,
                 amount = block.balance
             )

@@ -1,25 +1,37 @@
 package atto.node
 
 import jakarta.annotation.PostConstruct
-import kotlinx.coroutines.*
+import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import mu.KotlinLogging
 import kotlin.time.Duration
 
 
 abstract class AsynchronousQueueProcessor<T>(private val duration: Duration) {
-    private lateinit var job: Job
+    private val logger = KotlinLogging.logger {}
+
+    @Volatile
+    private var running = false
 
     @PostConstruct
     fun start() {
-        job = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler).launch {
-            while (isActive) {
+        running = true
+        val className = this.javaClass.simpleName
+        CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler).launch {
+            while (running) {
                 process()
                 delay(duration.inWholeMilliseconds)
             }
+            logger.info { "Stopped $className" }
         }
     }
 
-    fun cancel() {
-        job.cancel()
+    @PreDestroy
+    open fun stop() {
+        running = false
     }
 
     protected abstract suspend fun poll(): T?

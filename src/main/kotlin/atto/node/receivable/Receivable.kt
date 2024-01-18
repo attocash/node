@@ -1,9 +1,7 @@
 package atto.node.receivable
 
 import atto.node.Event
-import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.*
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -11,6 +9,8 @@ import java.time.Instant
 data class Receivable(
     @Id
     val hash: AttoHash,
+    val version: UShort,
+    val algorithm: AttoAlgorithm,
     val receiverPublicKey: AttoPublicKey,
     val amount: AttoAmount,
     val persistedAt: Instant? = null,
@@ -23,6 +23,25 @@ data class Receivable(
         return persistedAt == null
     }
 
+    fun toAttoReceivable(): AttoReceivable {
+        return AttoReceivable(
+            hash = hash,
+            version = version,
+            algorithm = algorithm,
+            receiverPublicKey = receiverPublicKey,
+            amount = amount,
+        )
+    }
+}
+
+fun AttoReceivable.toReceivable(): Receivable {
+    return Receivable(
+        hash = hash,
+        version = version,
+        algorithm = algorithm,
+        receiverPublicKey = receiverPublicKey,
+        amount = amount,
+    )
 }
 
 

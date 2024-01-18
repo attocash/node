@@ -47,8 +47,9 @@ class VoteRebroadcaster(
     private val voteQueue = PriorityQueue<VoteHolder>()
 
     @PreDestroy
-    fun stop() {
+    override fun stop() {
         singleDispatcher.cancel()
+        super.stop()
     }
 
     @EventListener

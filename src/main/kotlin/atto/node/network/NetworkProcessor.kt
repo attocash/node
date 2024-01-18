@@ -95,10 +95,11 @@ class NetworkProcessor(
         .bindNow()
 
     @PreDestroy
-    fun stop() {
+    override fun stop() {
         clear()
         server.disposeNow()
         eventLoopGroup.shutdownGracefully().await().get()
+        this.stop()
     }
 
     @EventListener
