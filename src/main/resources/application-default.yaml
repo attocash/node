@@ -2,7 +2,7 @@ atto:
   node:
     voterStrategy: FORCE_ENABLED
     network: LOCAL
-    publicAddress: localhost:${server.tcp.port}
+    publicAddress: localhost:${server.websocket.port}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 0

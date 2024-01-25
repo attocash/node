@@ -9,18 +9,17 @@ import java.time.Instant
 data class Account(
     @Id
     val publicKey: AttoPublicKey,
-    var version: UShort,
-    var algorithm: AttoAlgorithm,
-    var height: ULong,
-    var balance: AttoAmount,
-    var lastTransactionTimestamp: Instant,
-    var lastTransactionHash: AttoHash,
-    var representative: AttoPublicKey,
+    val version: UShort,
+    val algorithm: AttoAlgorithm,
+    val height: ULong,
+    val balance: AttoAmount,
+    val lastTransactionTimestamp: Instant,
+    val lastTransactionHash: AttoHash,
+    val representative: AttoPublicKey,
 
-    var persistedAt: Instant? = null,
-    var updatedAt: Instant? = null,
-
-    ) : Persistable<AttoPublicKey> {
+    val persistedAt: Instant? = null,
+    val updatedAt: Instant? = null,
+) : Persistable<AttoPublicKey> {
 
     override fun getId(): AttoPublicKey {
         return publicKey

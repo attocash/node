@@ -58,7 +58,7 @@ logging:
     atto: INFO
 
 server:
-  tcp:
+  websocket:
     port: 8315
 
 management:

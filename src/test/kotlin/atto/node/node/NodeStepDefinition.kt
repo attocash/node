@@ -64,7 +64,7 @@ class NodeStepDefinition(
                 "--spring.r2dbc.username=${user}",
                 "--spring.r2dbc.password=${password}",
                 "--atto.node.publicAddress=localhost:${tcpPort}",
-                "--server.tcp.port=${tcpPort}",
+                "--server.websocket.port=${tcpPort}",
                 "--atto.node.private-key=${privateKey.value.toHex()}",
                 "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
             )
