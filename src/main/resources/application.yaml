@@ -23,7 +23,7 @@ spring:
 atto:
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
-    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT:8315}
+    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT:8081}
     publicKey: ${ATTO_PRIVATE_KEY}
   network:
     broadcaster:
@@ -35,7 +35,6 @@ atto:
   transaction:
     prioritization:
       group-max-size: 1_000
-      cache-max-size: 20_000
   vote:
     prioritization:
       group-max-size: 1_000
@@ -58,12 +57,14 @@ logging:
     atto: INFO
 
 server:
-  websocket:
-    port: 8315
+  port: 8080
+
+websocket:
+  port: 8081
 
 management:
   server:
-    port: 8081
+    port: 8082
   endpoints:
     web:
       base-path: /

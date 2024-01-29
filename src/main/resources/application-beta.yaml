@@ -3,8 +3,8 @@ atto:
     network: BETA
   peer:
     defaultNodes:
-      - node-adventurous.beta.core.atto.cash:8315
-      - node-cautious.beta.core.atto.cash:8315
-      - node-conservative.beta.core.atto.cash:8315
+      - node-adventurous.beta.core.atto.cash
+      - node-cautious.beta.core.atto.cash
+      - node-conservative.beta.core.atto.cash
   transaction:
     genesis:

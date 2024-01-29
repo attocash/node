@@ -6,9 +6,7 @@ import kotlinx.coroutines.CoroutineExceptionHandler
 import mu.KotlinLogging
 import org.flywaydb.core.Flyway
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
-import org.springframework.boot.autoconfigure.flyway.FlywayProperties
 import org.springframework.boot.autoconfigure.r2dbc.R2dbcConnectionDetails
-import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -22,7 +20,6 @@ import kotlin.system.exitProcess
 
 @Configuration
 @AutoConfigureOrder(0)
-@EnableConfigurationProperties(FlywayProperties::class)
 class ApplicationConfiguration : WebFluxConfigurer {
 
     @Bean(initMethod = "migrate")

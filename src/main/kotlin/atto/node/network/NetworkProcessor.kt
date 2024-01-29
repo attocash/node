@@ -65,7 +65,7 @@ class NetworkProcessor(
     private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>()
     private val disconnectFlow = MutableSharedFlow<InetSocketAddress>()
 
-    private val port = environment.getRequiredProperty("server.websocket.port", Int::class.java)
+    private val port = environment.getRequiredProperty("websocket.port", Int::class.java)
 
     private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(Thread.ofVirtual().factory())
 

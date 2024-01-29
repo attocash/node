@@ -1,3 +1,5 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package atto.protocol
 
 import atto.protocol.serializer.InetSocketAddressSerializer
@@ -13,7 +15,6 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import java.net.InetSocketAddress
 import kotlin.math.min
 
-@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class AttoNode(
     @ProtoNumber(0) val network: AttoNetwork,
