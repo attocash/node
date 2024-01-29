@@ -4,8 +4,11 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
 import mu.KotlinLogging
+import org.springframework.boot.web.server.WebServerFactoryCustomizer
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.Profile
 
 @Configuration
 class NodeConfiguration(val nodeProperties: NodeProperties) {
@@ -41,5 +44,15 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
             socketAddress = nodeProperties.getPublicAddress(),
             features = features
         )
+    }
+
+    @Bean
+    @Profile("!default")
+    fun webServerFactoryCustomizer(nodeProperties: NodeProperties): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {
+        return WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> { factory ->
+            if (nodeProperties.getPrivateKey() != null) {
+                factory.setPort(-1)
+            }
+        }
     }
 }
