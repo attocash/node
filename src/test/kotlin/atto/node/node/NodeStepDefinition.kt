@@ -29,7 +29,7 @@ class NodeStepDefinition(
     fun startNeighbour(shortId: String) {
         val nodeName = "Node $shortId"
         val starter = Runnable {
-            val tcpPort = randomPort()
+            val websocketPort = randomPort()
             val httpPort = randomPort()
 
             val classLoader = Thread.currentThread().contextClassLoader
@@ -63,8 +63,8 @@ class NodeStepDefinition(
                 "--spring.r2dbc.url=r2dbc:${driver}://${host}:${port}/${shortId}",
                 "--spring.r2dbc.username=${user}",
                 "--spring.r2dbc.password=${password}",
-                "--atto.node.publicAddress=localhost:${tcpPort}",
-                "--websocket.port=${tcpPort}",
+                "--atto.node.public-uri=ws://localhost:${websocketPort}",
+                "--websocket.port=${websocketPort}",
                 "--atto.node.private-key=${privateKey.value.toHex()}",
                 "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
             )
@@ -78,7 +78,7 @@ class NodeStepDefinition(
             PropertyHolder.add(shortId, privateKey)
             PropertyHolder.add(shortId, privateKey.toPublicKey())
             PropertyHolder.add(shortId, AttoAlgorithm.V1)
-            PropertyHolder.add(shortId, Neighbour(tcpPort, httpPort))
+            PropertyHolder.add(shortId, Neighbour(websocketPort, httpPort))
         }
 
         val futureTask = FutureTask(starter, null)
@@ -94,7 +94,7 @@ class NodeStepDefinition(
     @Given("is a default node")
     fun setAsDefaultNode() {
         val neighbour = PropertyHolder[Neighbour::class.java]
-        peerProperties.defaultNodes.add("localhost:${neighbour.tcpPort}")
+        peerProperties.defaultNodes.add("ws://localhost:${neighbour.tcpPort}")
     }
 
     private fun randomPort(): UShort {

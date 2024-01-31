@@ -29,7 +29,7 @@ import java.net.InetSocketAddress
 @RequestMapping
 class TransactionController(
     val applicationProperties: ApplicationProperties,
-    val node: atto.protocol.AttoNode,
+    val thisNode: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository
@@ -170,7 +170,7 @@ class TransactionController(
     @PostMapping("/transactions")
     @Operation(description = "Publish transaction")
     suspend fun publish(@RequestBody transaction: AttoTransaction, request: ServerHttpRequest) {
-        if (!transaction.isValid(node.network)) {
+        if (!transaction.isValid(thisNode.network)) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction");
         }
 
@@ -190,6 +190,7 @@ class TransactionController(
 
         messagePublisher.publish(
             InboundNetworkMessage(
+                thisNode.publicUri,
                 socketAddress,
                 AttoTransactionPush(transaction)
             )

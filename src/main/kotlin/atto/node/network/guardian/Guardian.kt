@@ -32,8 +32,8 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
 
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
-        val address = message.socketAddress
-        statisticsMap.compute(address) { _, v ->
+        val socketAddress = message.socketAddress
+        statisticsMap.compute(socketAddress) { _, v ->
             (v ?: 0UL) + 1UL
         }
     }

@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
-import java.net.InetSocketAddress
+import java.net.URI
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -54,7 +54,7 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
 
         holderMap.compute(transaction.hash) { _, v ->
             val holder = v ?: TransactionSocketAddressHolder(transaction)
-            holder.add(message.socketAddress)
+            holder.add(message.publicUri)
             holder
         }
 
@@ -90,7 +90,7 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
         val transaction = value.transaction
         logger.trace { "Transaction dequeued. $transaction" }
         val transactionPush = AttoTransactionPush(transaction)
-        val exceptions = value.socketAddresses
+        val exceptions = value.publicUris
 
         val message = BroadcastNetworkMessage(
             BroadcastStrategy.EVERYONE,
@@ -103,10 +103,10 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
 
 
     class TransactionSocketAddressHolder(val transaction: AttoTransaction) {
-        val socketAddresses = HashSet<InetSocketAddress>()
+        val publicUris = HashSet<URI>()
 
-        fun add(socketAddress: InetSocketAddress) {
-            socketAddresses.add(socketAddress)
+        fun add(publicUri: URI) {
+            publicUris.add(publicUri)
         }
     }
 

@@ -15,6 +15,7 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.PreviousSupport
+import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -24,7 +25,9 @@ import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.InetSocketAddress
+import java.net.URI
+import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.random.Random
 
@@ -36,9 +39,12 @@ class GapDiscoverer(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val peers = ConcurrentHashMap.newKeySet<InetSocketAddress>()
+    private val peers = ConcurrentHashMap.newKeySet<URI>()
 
-    private val currentHashMap = HashMap<AttoPublicKey, TransactionPointer>()
+    private val pointerMap = Caffeine.newBuilder()
+        .expireAfterWrite(Duration.ofMinutes(1))
+        .build<AttoPublicKey, TransactionPointer>()
+        .asMap()
 
 
     @EventListener
@@ -47,13 +53,13 @@ class GapDiscoverer(
         if (!peer.node.isHistorical()) {
             return
         }
-        peers.add(peer.connectionSocketAddress)
+        peers.add(peer.node.publicUri)
     }
 
     @EventListener
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
-        peers.remove(peer.connectionSocketAddress)
+        peers.remove(peer.node.publicUri)
     }
 
     @Scheduled(cron = "0 0/1 * * * *")
@@ -86,9 +92,9 @@ class GapDiscoverer(
             )
         }.all().asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
 
-        gaps.filter { currentHashMap[it.publicKey] == null }
+        gaps.filter { pointerMap[it.publicKey] == null }
             .onEach {
-                currentHashMap[it.publicKey] = TransactionPointer(
+                pointerMap[it.publicKey] = TransactionPointer(
                     it.startHeight(),
                     it.endHeight(),
                     it.previousTransactionHash
@@ -105,14 +111,14 @@ class GapDiscoverer(
         val transaction = response.transaction
 
         val block = transaction.block
-        val pointer = currentHashMap[block.publicKey]
+        val pointer = pointerMap[block.publicKey]
         if (transaction.hash != pointer?.currentHash) {
             return
         }
         if (pointer.initialHeight == block.height) {
-            currentHashMap.remove(block.publicKey)
+            pointerMap.remove(block.publicKey)
         } else if (block is PreviousSupport) {
-            currentHashMap[block.publicKey] = TransactionPointer(
+            pointerMap[block.publicKey] = TransactionPointer(
                 pointer.initialHeight,
                 pointer.currentHeight - 1UL,
                 block.previous
@@ -124,7 +130,12 @@ class GapDiscoverer(
 
 }
 
-private data class TransactionPointer(val initialHeight: ULong, val currentHeight: ULong, val currentHash: AttoHash)
+private data class TransactionPointer(
+    val initialHeight: ULong,
+    val currentHeight: ULong,
+    val currentHash: AttoHash,
+    val timestamp: Instant = Instant.now()
+)
 
 private fun GapView.startHeight(): ULong {
     val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS

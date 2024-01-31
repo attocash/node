@@ -6,7 +6,7 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.net.InetSocketAddress
+import java.net.URI
 
 class TransactionConfigurationTest {
 
@@ -21,7 +21,7 @@ class TransactionConfigurationTest {
             protocolVersion = 0U,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
-            socketAddress = InetSocketAddress(8080),
+            publicUri = URI("ws://localhost:8081"),
             features = setOf()
         )
         val configuration = TransactionConfiguration()

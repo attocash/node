@@ -14,8 +14,7 @@ import kotlinx.datetime.toKotlinInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
-import java.net.InetAddress
-import java.net.InetSocketAddress
+import java.net.URI
 import kotlin.random.Random
 
 internal class ReceiveValidatorTest {
@@ -48,7 +47,7 @@ internal class ReceiveValidatorTest {
         protocolVersion = 0u,
         algorithm = AttoAlgorithm.V1,
         publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-        socketAddress = InetSocketAddress(InetAddress.getLocalHost(), 8330),
+        publicUri = URI("ws://localhost:8081"),
         features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)
     )
 

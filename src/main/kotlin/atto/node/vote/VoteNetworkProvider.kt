@@ -20,7 +20,7 @@ class VoteNetworkProvider(
         val votes = voteRepository.findByHash(request.blockHash, AttoVoteResponse.MAX_COUNT)
         if (votes.isNotEmpty()) {
             val response = AttoVoteResponse(request.blockHash, votes.map { it.toAttoVote() })
-            networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
+            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
         }
     }
 }

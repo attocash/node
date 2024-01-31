@@ -21,7 +21,7 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
-import java.net.InetSocketAddress
+import java.net.URI
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 
@@ -32,7 +32,7 @@ class SendDiscoverer(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val peers = ConcurrentHashMap<AttoPublicKey, InetSocketAddress>()
+    private val peers = ConcurrentHashMap<AttoPublicKey, URI>()
 
     private val unknownHashCache = Caffeine.newBuilder()
         .maximumSize(100_000)
@@ -44,7 +44,7 @@ class SendDiscoverer(
 
     @EventListener
     fun add(peerEvent: PeerAdded) {
-        peers[peerEvent.peer.node.publicKey] = peerEvent.peer.connectionSocketAddress
+        peers[peerEvent.peer.node.publicKey] = peerEvent.peer.node.publicUri
     }
 
     @EventListener
@@ -79,7 +79,7 @@ class SendDiscoverer(
 
         val request = AttoTransactionRequest(block.sendHash)
 
-        val socketAddress = randomSocketAddress(votes)
+        val socketAddress = randomUri(votes)
         val message = if (socketAddress != null) {
             DirectNetworkMessage(socketAddress, request)
         } else {
@@ -103,7 +103,7 @@ class SendDiscoverer(
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }
 
-    private fun randomSocketAddress(votes: Collection<Vote>): InetSocketAddress? {
+    private fun randomUri(votes: Collection<Vote>): URI? {
         return votes.asSequence()
             .map { v -> peers[v.publicKey] }
             .filterNotNull()

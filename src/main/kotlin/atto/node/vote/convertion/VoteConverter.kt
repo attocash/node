@@ -22,7 +22,7 @@ class VoteConverter(
         val hash = message.payload.blockHash
         val attoVote = message.payload.vote
 
-        eventPublisher.publish(VoteReceived(message.socketAddress, convert(hash, attoVote)))
+        eventPublisher.publish(VoteReceived(message.publicUri, convert(hash, attoVote)))
     }
 
     fun convert(hash: AttoHash, attoVote: AttoVote): Vote {

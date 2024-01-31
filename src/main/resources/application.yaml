@@ -23,7 +23,7 @@ spring:
 atto:
   useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
-    publicAddress: ${ATTO_NODE_HOST}:${ATTO_NODE_PORT:8081}
+    public-uri: ${ATTO_PUBLIC_URI}
     publicKey: ${ATTO_PRIVATE_KEY}
   network:
     broadcaster:

@@ -18,7 +18,7 @@ import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
-import java.net.InetSocketAddress
+import java.net.URI
 import java.util.*
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
@@ -58,7 +58,7 @@ class VoteRebroadcaster(
 
         holderMap.compute(vote.signature) { _, v ->
             val holder = v ?: VoteHolder(vote)
-            holder.add(event.socketAddress)
+            holder.add(event.publicUri)
             holder
         }
 
@@ -106,7 +106,7 @@ class VoteRebroadcaster(
     override suspend fun process(value: VoteHolder) {
         val vote = value.vote
         val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
-        val exceptions = value.socketAddresses
+        val exceptions = value.publicUris
 
         val message = BroadcastNetworkMessage(
             BroadcastStrategy.EVERYONE,
@@ -119,10 +119,10 @@ class VoteRebroadcaster(
     }
 
     class VoteHolder(val vote: Vote) : Comparable<VoteHolder> {
-        val socketAddresses = HashSet<InetSocketAddress>()
+        val publicUris = HashSet<URI>()
 
-        fun add(socketAddress: InetSocketAddress) {
-            socketAddresses.add(socketAddress)
+        fun add(publicUri: URI) {
+            publicUris.add(publicUri)
         }
 
         override fun compareTo(other: VoteHolder): Int {

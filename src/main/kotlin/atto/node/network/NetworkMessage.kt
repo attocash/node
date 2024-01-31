@@ -8,6 +8,7 @@ import org.springframework.core.ResolvableType
 import org.springframework.core.ResolvableTypeProvider
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
+import java.net.URI
 
 interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
@@ -18,21 +19,22 @@ interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
 }
 
 data class InboundNetworkMessage<T : AttoMessage>(
+    val publicUri: URI,
     val socketAddress: InetSocketAddress,
     override val payload: T
 ) : NetworkMessage<T>
 
 interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
-    fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean
+    fun accepts(target: URI, node: AttoNode?): Boolean
 
 }
 
 data class DirectNetworkMessage<T : AttoMessage>(
-    val socketAddress: InetSocketAddress,
+    val publicUri: URI,
     override val payload: T
 ) : OutboundNetworkMessage<T> {
-    override fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean {
-        return socketAddress == target
+    override fun accepts(target: URI, node: AttoNode?): Boolean {
+        return publicUri == target
     }
 }
 
@@ -43,10 +45,10 @@ enum class BroadcastStrategy {
 
 data class BroadcastNetworkMessage<T : AttoMessage>(
     val strategy: BroadcastStrategy,
-    val exceptions: Set<InetSocketAddress> = setOf(),
+    val exceptions: Set<URI> = setOf(),
     override val payload: T,
 ) : OutboundNetworkMessage<T> {
-    override fun accepts(target: InetSocketAddress, node: AttoNode?): Boolean {
+    override fun accepts(target: URI, node: AttoNode?): Boolean {
         if (exceptions.contains(target)) {
             return false
         }

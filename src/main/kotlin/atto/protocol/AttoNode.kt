@@ -2,9 +2,8 @@
 
 package atto.protocol
 
-import atto.protocol.serializer.InetSocketAddressSerializer
+import atto.protocol.serializer.URISerializer
 import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import com.fasterxml.jackson.annotation.JsonIgnore
@@ -12,8 +11,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
 import kotlinx.serialization.protobuf.ProtoNumber
-import java.net.InetSocketAddress
-import kotlin.math.min
+import java.net.URI
 
 @Serializable
 data class AttoNode(
@@ -21,8 +19,7 @@ data class AttoNode(
     @ProtoNumber(1) val protocolVersion: UShort,
     @ProtoNumber(2) val algorithm: AttoAlgorithm,
     @ProtoNumber(3) val publicKey: AttoPublicKey,
-    @ProtoNumber(4) @Serializable(with = InetSocketAddressSerializer::class)
-    val socketAddress: InetSocketAddress,
+    @ProtoNumber(4) @Serializable(with = URISerializer::class) val publicUri: URI,
     @ProtoNumber(5) val features: Set<NodeFeature>
 ) {
 
@@ -37,33 +34,7 @@ data class AttoNode(
     val maxProtocolVersion = (protocolVersion + 2u).toUShort()
 
     companion object {
-        val maxFeaturesSize = 10
         val size = 57
-
-        fun fromByteBuffer(byteBuffer: AttoByteBuffer): AttoNode? {
-            if (byteBuffer.size < size) return null
-
-            return AttoNode(
-                network = byteBuffer.getNetwork(),
-                protocolVersion = byteBuffer.getUShort(),
-                algorithm = byteBuffer.getAlgorithm(),
-                publicKey = byteBuffer.getPublicKey(),
-                socketAddress = byteBuffer.getInetSocketAddress(),
-                features = byteBuffer.getFeatures()
-            )
-        }
-
-        private fun AttoByteBuffer.getFeatures(): Set<NodeFeature> {
-            val featuresSize = min(this.getByte(56).toInt(), maxFeaturesSize)
-            val features = HashSet<NodeFeature>(featuresSize)
-            for (i in 0 until featuresSize) {
-                val feature = NodeFeature.from(this.getUByte(57 + i))
-                if (feature != NodeFeature.UNKNOWN) {
-                    features.add(feature)
-                }
-            }
-            return features.toSet()
-        }
     }
 
     @JsonIgnore
@@ -81,25 +52,6 @@ data class AttoNode(
         return features.contains(NodeFeature.HISTORICAL)
     }
 
-    fun toByteBuffer(): AttoByteBuffer {
-        val byteBuffer = AttoByteBuffer(size + features.size)
-
-        byteBuffer
-            .add(network)
-            .add(protocolVersion)
-            .add(algorithm)
-            .add(publicKey)
-            .add(socketAddress)
-            .add(features.size.toByte())
-
-        features.asSequence()
-            .map { it.code }
-            .sorted()
-            .forEach { byteBuffer.add(it) }
-
-        return byteBuffer
-    }
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -110,7 +62,7 @@ data class AttoNode(
         if (protocolVersion != other.protocolVersion) return false
         if (algorithm != other.algorithm) return false
         if (!publicKey.value.contentEquals(other.publicKey.value)) return false
-        if (socketAddress != other.socketAddress) return false
+        if (publicUri != other.publicUri) return false
         if (features != other.features) return false
 
         return true
@@ -120,7 +72,7 @@ data class AttoNode(
         var result = network.hashCode()
         result = 31 * result + protocolVersion.hashCode()
         result = 31 * result + publicKey.hashCode()
-        result = 31 * result + socketAddress.hashCode()
+        result = 31 * result + publicUri.hashCode()
         result = 31 * result + features.hashCode()
         return result
     }

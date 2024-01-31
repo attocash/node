@@ -8,7 +8,7 @@ import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
-import java.net.InetSocketAddress
+import java.net.URI
 import java.time.Instant
 
 data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
@@ -66,7 +66,7 @@ data class Vote(
 }
 
 data class VoteReceived(
-    val socketAddress: InetSocketAddress,
+    val publicUri: URI,
     val vote: Vote
 ) : Event
 

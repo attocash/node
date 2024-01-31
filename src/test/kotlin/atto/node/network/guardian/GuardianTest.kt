@@ -23,6 +23,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.URI
 import kotlin.random.Random
 
 @ExtendWith(MockKExtension::class)
@@ -47,7 +48,7 @@ class GuardianTest {
         // given
         val peer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(peer))
-        guardian.count(inboundMessage(peer.connectionSocketAddress))
+        guardian.count(inboundMessage(peer.node.publicUri, peer.connectionSocketAddress))
 
         // when
         guardian.guard()
@@ -62,12 +63,12 @@ class GuardianTest {
         // given
         val votePeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(votePeer))
-        guardian.count(inboundMessage(votePeer.connectionSocketAddress))
+        guardian.count(inboundMessage(votePeer.node.publicUri, votePeer.connectionSocketAddress))
 
         val normalPeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(normalPeer))
         for (i in 0..Guardian.toleranceMultiplier.toInt()) {
-            guardian.count(inboundMessage(normalPeer.connectionSocketAddress))
+            guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer.node.publicKey) } returns true
@@ -85,16 +86,16 @@ class GuardianTest {
         // given
         val votePeer1 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
         guardian.add(PeerAdded(votePeer1))
-        guardian.count(inboundMessage(votePeer1.connectionSocketAddress))
+        guardian.count(inboundMessage(votePeer1.node.publicUri, votePeer1.connectionSocketAddress))
 
         val votePeer2 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
         guardian.add(PeerAdded(votePeer2))
-        guardian.count(inboundMessage(votePeer2.connectionSocketAddress))
+        guardian.count(inboundMessage(votePeer2.node.publicUri, votePeer2.connectionSocketAddress))
 
         val normalPeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(normalPeer))
         for (i in 0U..Guardian.toleranceMultiplier) {
-            guardian.count(inboundMessage(normalPeer.connectionSocketAddress))
+            guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer1.node.publicKey) } returns true
@@ -124,19 +125,20 @@ class GuardianTest {
 
     private fun createPeer(weight: AttoAmount): Peer {
         val socketAddress = randomSocketAddress()
-        val node = createNode(socketAddress)
+        val publicUri = randomURI()
+        val node = createNode(publicUri)
         val peer = Peer(socketAddress, node)
         every { voteWeighter.get(peer.node.publicKey) } returns weight
         return peer
     }
 
-    private fun createNode(socketAddress: InetSocketAddress): AttoNode {
+    private fun createNode(publicUri: URI): AttoNode {
         return AttoNode(
             network = AttoNetwork.LOCAL,
             protocolVersion = 0u,
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            socketAddress = socketAddress,
+            publicUri = publicUri,
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL)
         )
     }
@@ -146,7 +148,12 @@ class GuardianTest {
         return InetSocketAddress(InetAddress.getByAddress(address), Random.nextInt(65535))
     }
 
-    private fun inboundMessage(socketAddress: InetSocketAddress): InboundNetworkMessage<*> {
-        return InboundNetworkMessage(socketAddress, AttoVoteRequest(AttoHash(ByteArray(32))))
+    private fun randomURI(): URI {
+        val port = Random.Default.nextInt(Short.MAX_VALUE.toInt()).toShort()
+        return URI("ws://localhost:$port")
+    }
+
+    private fun inboundMessage(publicUri: URI, socketAddress: InetSocketAddress): InboundNetworkMessage<*> {
+        return InboundNetworkMessage(publicUri, socketAddress, AttoVoteRequest(AttoHash(ByteArray(32))))
     }
 }

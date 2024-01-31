@@ -18,6 +18,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -31,27 +32,25 @@ class HandshakeService(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val peers = ConcurrentHashMap<InetSocketAddress, Peer>()
+    private val peers = ConcurrentHashMap<URI, Peer>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
     private val challenges = Caffeine.newBuilder()
         .expireAfterWrite(5, TimeUnit.SECONDS)
-        .build<InetSocketAddress, AttoHandshakeChallenge>()
+        .build<URI, AttoHandshakeChallenge>()
         .asMap()
 
     @EventListener
     fun add(peerEvent: PeerAdded) {
         val peer = peerEvent.peer
-        peers[peer.node.socketAddress] = peer
-        peers[peer.connectionSocketAddress] = peer
-        challenges.remove(peer.connectionSocketAddress)
+        peers[peer.node.publicUri] = peer
+        challenges.remove(peer.node.publicUri)
     }
 
     @EventListener
     fun remove(peerEvent: PeerRemoved) {
         val peer = peerEvent.peer
-        peers.remove(peer.node.socketAddress)
-        peers.remove(peer.connectionSocketAddress)
+        peers.remove(peer.node.publicUri)
     }
 
     @EventListener
@@ -66,44 +65,38 @@ class HandshakeService(
         }
 
         properties.defaultNodes.asSequence()
-            .map {
-                val address = it.split(":")
-                InetSocketAddress(
-                    InetAddress.getByName(address[0]),
-                    address[1].toInt()
-                )
-            }
+            .map { URI(it) }
             .forEach {
                 startHandshake(it)
             }
     }
 
-    fun startHandshake(socketAddress: InetSocketAddress) {
-        if (isKnown(socketAddress)) {
-            logger.trace { "Ignoring handshake with $socketAddress. This node is already known" }
+    fun startHandshake(publicUri: URI) {
+        if (isKnown(publicUri)) {
+            logger.trace { "Ignoring handshake with $publicUri. This node is already known" }
             return
         }
 
         val handshakeChallenge = AttoHandshakeChallenge.create()
-        challenges[socketAddress] = handshakeChallenge
+        challenges[publicUri] = handshakeChallenge
 
-        logger.info { "Starting handshake with $socketAddress" }
-        messagePublisher.publish(DirectNetworkMessage(socketAddress, handshakeChallenge))
+        logger.info { "Starting handshake with $publicUri" }
+        messagePublisher.publish(DirectNetworkMessage(publicUri, handshakeChallenge))
 
     }
 
 
     @EventListener
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
-        val hash = AttoHash.hash(64, thisNode.toByteBuffer().toByteArray(), message.payload.value)
+        val hash = AttoHash.hash(64, thisNode.publicKey.value, message.payload.value)
         val handshakeAnswer = AttoHandshakeAnswer(
             signature = privateKey.sign(hash),
             node = thisNode
         )
 
-        startHandshake(message.socketAddress)
+        startHandshake(message.publicUri)
 
-        messagePublisher.publish(DirectNetworkMessage(message.socketAddress, handshakeAnswer))
+        messagePublisher.publish(DirectNetworkMessage(message.publicUri, handshakeAnswer))
     }
 
     @EventListener
@@ -111,7 +104,7 @@ class HandshakeService(
         val answer = message.payload
         val node = answer.node
 
-        val challenge = challenges[message.socketAddress]
+        val challenge = challenges[message.publicUri]
         if (challenge == null) {
             val rejected = PeerRejected(PeerRejectionReason.UNKNOWN_HANDSHAKE, Peer(message.socketAddress, node))
             eventPublisher.publish(rejected)
@@ -121,7 +114,7 @@ class HandshakeService(
 
         val publicKey = node.publicKey
 
-        val hash = AttoHash.hash(64, node.toByteBuffer().toByteArray(), challenge.value)
+        val hash = AttoHash.hash(64, node.publicKey.value, challenge.value)
         if (!answer.signature.isValid(
                 publicKey,
                 hash
@@ -136,12 +129,13 @@ class HandshakeService(
         eventPublisher.publish(PeerAdded(Peer(message.socketAddress, node)))
     }
 
-    private fun isKnown(socketAddress: InetSocketAddress): Boolean {
-        if (socketAddress == thisNode.socketAddress) {
+    private fun isKnown(publicAddress: URI): Boolean {
+        if (publicAddress == thisNode.publicUri) {
             return true
         }
-        return challenges.contains(socketAddress) ||
-                peers.containsKey(socketAddress) ||
+        val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port);
+        return challenges.contains(publicAddress) ||
+                peers.containsKey(publicAddress) ||
                 bannedNodes.contains(socketAddress.address)
     }
 

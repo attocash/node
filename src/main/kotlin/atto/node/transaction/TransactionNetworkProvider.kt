@@ -21,7 +21,7 @@ class TransactionNetworkProvider(
         val transaction = transactionRepository.findById(request.hash)
         if (transaction != null) {
             val response = AttoTransactionResponse(transaction.toAttoTransaction())
-            networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
+            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
         }
     }
 
@@ -37,7 +37,7 @@ class TransactionNetworkProvider(
 
         transactions.collect {
             val response = AttoTransactionStreamResponse(it.toAttoTransaction())
-            networkMessagePublisher.publish(DirectNetworkMessage(message.socketAddress, response))
+            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
         }
     }
 }
