@@ -59,6 +59,7 @@ class NetworkProcessor(
         const val MAX_MESSAGE_SIZE = 1600
         const val GENESIS_HEADER = "Atto-Genesis"
         const val PUBLIC_URI_HEADER = "Atto-Public-URI"
+        const val PROTOCOL_VERSION_HEADER = "Atto-Protocol-Version"
 
         val serverSpec = WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
         val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
@@ -102,12 +103,15 @@ class NetworkProcessor(
 
                         val genesis = headers.get(GENESIS_HEADER)
                         val publicUri = URI(headers.get(PUBLIC_URI_HEADER))
+                        val protocolVersion = headers.get(PROTOCOL_VERSION_HEADER)?.toUShort() ?: 0U
 
                         dnsResolver.resolve(publicUri.host)
                             .toMono()
                             .flatMap {
                                 val genesisMatches = genesis == genesisTransaction.hash.toString()
                                 val connectionMatches = it == connection?.address
+                                val protocolVersionMatches =
+                                    thisNode.minProtocolVersion <= protocolVersion && protocolVersion <= thisNode.maxProtocolVersion
 
                                 if (connection == null) {
                                     logger.debug {
@@ -116,12 +120,17 @@ class NetworkProcessor(
                                     wsOutbound.sendClose()
                                 } else if (!genesisMatches) {
                                     logger.debug {
-                                        "Received $genesis as genesis. This is different from this node ${genesisTransaction.hash} genesis"
+                                        "Received from $connection genesis $genesis. This is different from this node ${genesisTransaction.hash} genesis"
                                     }
                                     wsOutbound.sendClose()
                                 } else if (!connectionMatches) {
                                     logger.debug {
                                         "Attempt connection from $connection which does not match the publicUri resolved ip"
+                                    }
+                                    wsOutbound.sendClose()
+                                } else if (!protocolVersionMatches) {
+                                    logger.debug {
+                                        "Received from $connection $protocolVersion which is not supported"
                                     }
                                     wsOutbound.sendClose()
                                 } else {
@@ -177,6 +186,7 @@ class NetworkProcessor(
                     .headers {
                         it.add(GENESIS_HEADER, genesisTransaction.hash.toString())
                         it.add(PUBLIC_URI_HEADER, thisNode.publicUri)
+                        it.add(PROTOCOL_VERSION_HEADER, thisNode.protocolVersion)
                     }
                     .websocket(clientSpec)
                     .uri(publicUri)
