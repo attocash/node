@@ -6,8 +6,9 @@ import atto.protocol.network.handshake.AttoHandshakeChallenge
 import atto.protocol.network.peer.AttoKeepAlive
 import atto.protocol.transaction.*
 import atto.protocol.vote.AttoVotePush
-import atto.protocol.vote.AttoVoteRequest
-import atto.protocol.vote.AttoVoteResponse
+import atto.protocol.vote.AttoVoteStreamCancel
+import atto.protocol.vote.AttoVoteStreamRequest
+import atto.protocol.vote.AttoVoteStreamResponse
 import cash.atto.commons.AttoNetwork
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -35,9 +36,10 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
     TRANSACTION_STREAM_REQUEST(6u, false),
     TRANSACTION_STREAM_RESPONSE(7u, false),
     VOTE_PUSH(8u, false),
-    VOTE_REQUEST(9u, false),
-    VOTE_RESPONSE(10u, false),
-    BOOTSTRAP_TRANSACTION_PUSH(11u, false),
+    VOTE_STREAM_REQUEST(9u, false),
+    VOTE_STREAM_RESPONSE(10u, false),
+    VOTE_STREAM_CANCEL(11u, false),
+    BOOTSTRAP_TRANSACTION_PUSH(12u, false),
 
     UNKNOWN(UByte.MAX_VALUE, false);
 
@@ -62,8 +64,9 @@ val messageSerializerMap = mapOf(
     AttoMessageType.TRANSACTION_STREAM_REQUEST to AttoTransactionStreamRequest.serializer(),
     AttoMessageType.TRANSACTION_STREAM_RESPONSE to AttoTransactionStreamResponse.serializer(),
     AttoMessageType.VOTE_PUSH to AttoVotePush.serializer(),
-    AttoMessageType.VOTE_REQUEST to AttoVoteRequest.serializer(),
-    AttoMessageType.VOTE_RESPONSE to AttoVoteResponse.serializer(),
+    AttoMessageType.VOTE_STREAM_REQUEST to AttoVoteStreamRequest.serializer(),
+    AttoMessageType.VOTE_STREAM_RESPONSE to AttoVoteStreamResponse.serializer(),
+    AttoMessageType.VOTE_STREAM_CANCEL to AttoVoteStreamCancel.serializer(),
     AttoMessageType.BOOTSTRAP_TRANSACTION_PUSH to AttoBootstrapTransactionPush.serializer(),
     AttoMessageType.UNKNOWN to AttoUnknown.serializer(),
 )

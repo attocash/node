@@ -9,7 +9,7 @@ import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
 import atto.protocol.AttoNode
 import atto.protocol.NodeFeature
-import atto.protocol.vote.AttoVoteRequest
+import atto.protocol.vote.AttoVoteStreamRequest
 import cash.atto.commons.*
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
@@ -154,6 +154,6 @@ class GuardianTest {
     }
 
     private fun inboundMessage(publicUri: URI, socketAddress: InetSocketAddress): InboundNetworkMessage<*> {
-        return InboundNetworkMessage(publicUri, socketAddress, AttoVoteRequest(AttoHash(ByteArray(32))))
+        return InboundNetworkMessage(publicUri, socketAddress, AttoVoteStreamRequest(AttoHash(ByteArray(32))))
     }
 }

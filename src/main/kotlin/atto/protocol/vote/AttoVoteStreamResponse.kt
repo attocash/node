@@ -4,7 +4,6 @@ import atto.protocol.AttoMessage
 import atto.protocol.AttoMessageType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
-import kotlinx.serialization.Contextual
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
@@ -12,14 +11,17 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class AttoVoteRequest(@ProtoNumber(0) @Contextual val blockHash: AttoHash) : AttoMessage {
+data class AttoVoteStreamResponse(
+    @ProtoNumber(0) val blockHash: AttoHash,
+    @ProtoNumber(1) val vote: AttoVote
+) : AttoMessage {
 
     override fun messageType(): AttoMessageType {
-        return AttoMessageType.VOTE_REQUEST
+        return AttoMessageType.VOTE_STREAM_RESPONSE
     }
 
     override fun isValid(network: AttoNetwork): Boolean {
-        return blockHash.isValid()
+        return vote.isValid(blockHash) && vote.isFinal()
     }
 
 }

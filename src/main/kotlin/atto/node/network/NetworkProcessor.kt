@@ -56,7 +56,7 @@ class NetworkProcessor(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val MAX_MESSAGE_SIZE = 1600
+        const val MAX_MESSAGE_SIZE = 255
         const val GENESIS_HEADER = "Atto-Genesis"
         const val PUBLIC_URI_HEADER = "Atto-Public-URI"
         const val PROTOCOL_VERSION_HEADER = "Atto-Protocol-Version"
@@ -311,9 +311,21 @@ class NetworkProcessor(
 
     private fun serialize(message: AttoMessage): SerializedAttoMessage {
         try {
-            val byteBuffer = NetworkSerializer.serialize(message)
-            logger.trace { "Serialized $message into ${byteBuffer.toHex()}" }
-            return SerializedAttoMessage(message, byteBuffer.toByteArray())
+            val serialized = NetworkSerializer.serialize(message)
+
+            val byteArray = serialized.toByteArray()
+
+            logger.trace { "Serialized $message into ${serialized.toHex()}" }
+
+            if (byteArray.size > MAX_MESSAGE_SIZE) {
+                logger.error {
+                    "Message ${message.messageType()} is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
+                            "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+                }
+                exitProcess(-1)
+            }
+
+            return SerializedAttoMessage(message, byteArray)
         } catch (e: Exception) {
             logger.error(e) { "Message couldn't be serialized. $message" }
             exitProcess(-1)
@@ -346,8 +358,8 @@ class NetworkProcessor(
      * Just sanity test to avoid produce invalid data
      */
     private fun checkBelowMaxMessageSize(byteArray: ByteArray) {
-        if (byteArray.size - 8 > MAX_MESSAGE_SIZE) {
-            logger.error { "Message longer than max size: ${byteArray.toHex()}" }
+        if (byteArray.size > MAX_MESSAGE_SIZE) {
+            logger.error { "Message ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}" }
             exitProcess(-1)
         }
     }
@@ -365,6 +377,7 @@ class NetworkProcessor(
 
     private data class SerializedAttoMessage(val message: AttoMessage, val serialized: ByteArray)
 
+    @Suppress("UNCHECKED_CAST")
     private fun <T> Future<T>.toMono(): Mono<T> {
         val future = this;
         return Mono.create { sink ->

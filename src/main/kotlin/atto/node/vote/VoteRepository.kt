@@ -3,6 +3,7 @@ package atto.node.vote
 import atto.node.AttoRepository
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignature
+import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.time.Instant
@@ -28,8 +29,7 @@ interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRep
         FROM vote v 
         WHERE v.hash = :hash
         ORDER BY v.weight DESC
-        LIMIT :limit
         """
     )
-    suspend fun findByHash(hash: AttoHash, limit: Long): List<Vote>
+    suspend fun findByHash(hash: AttoHash): Flow<Vote>
 }

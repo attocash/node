@@ -34,10 +34,12 @@ class ElectionVoter(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
+    companion object {
+        val MIN_WEIGHT = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000)) // 1M
+    }
+
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-
-    private val minWeight = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000_000)) // 1M
 
     private val transactions = HashMap<PublicKeyHeight, Transaction>()
     private val agreements = HashSet<PublicKeyHeight>()
@@ -143,7 +145,7 @@ class ElectionVoter(
     }
 
     private fun canVote(weight: AttoAmount): Boolean {
-        return thisNode.isVoter() && weight >= minWeight
+        return thisNode.isVoter() && weight >= MIN_WEIGHT
     }
 
     private suspend fun remove(transaction: Transaction) {
