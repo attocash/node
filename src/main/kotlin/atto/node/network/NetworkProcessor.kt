@@ -41,6 +41,7 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -279,11 +280,6 @@ class NetworkProcessor(
             .doOnNext { checkBelowMaxMessageSize(it.serialized) }
             .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
             .map { it.serialized }
-            .doOnSubscribe {
-                if (initialMessage != null) {
-                    messageQueue.add(initialMessage)
-                }
-            }
 
         val outboundThen = wsOutbound
             .sendByteArray(outboundMessages)
@@ -305,7 +301,13 @@ class NetworkProcessor(
             .flatMap { wsOutbound.sendClose() }
             .onErrorComplete()
 
+        val isFirstRequest = AtomicBoolean(true)
         return Flux.merge(inboundThen, outboundThen, disconnectionThen)
+            .doOnRequest {
+                if (isFirstRequest.compareAndSet(true, false) && initialMessage != null) {
+                    messageQueue.add(initialMessage)
+                }
+            }
             .then()
     }
 
