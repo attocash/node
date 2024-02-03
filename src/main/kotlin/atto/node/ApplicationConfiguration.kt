@@ -15,7 +15,6 @@ import org.springframework.http.codec.json.KotlinSerializationJsonDecoder
 import org.springframework.http.codec.json.KotlinSerializationJsonEncoder
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.web.reactive.config.WebFluxConfigurer
-import kotlin.system.exitProcess
 
 
 @Configuration
@@ -53,17 +52,9 @@ class ApplicationConfiguration : WebFluxConfigurer {
 @Configuration
 @EnableScheduling
 @Profile(value = ["dev", "beta", "live"])
-class ScheduleConfiguration {
-
-
-}
-
-val isGradle = System.getenv("GRADLE")?.toBoolean() ?: false
+class ScheduleConfiguration
 
 val attoCoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->
     val logger = KotlinLogging.logger {}
-    logger.error(e) { "Unexpected internal error. Application will exit..." }
-    if (!isGradle) {
-        exitProcess(-1)
-    }
+    logger.error(e) { "Unexpected internal error" }
 }
