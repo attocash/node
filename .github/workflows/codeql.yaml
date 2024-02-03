@@ -12,7 +12,7 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
-      - uses: gradle/gradle-build-action@v2
+      - uses: gradle/gradle-build-action@v3
 
       - uses: github/codeql-action/init@v3
         with:
