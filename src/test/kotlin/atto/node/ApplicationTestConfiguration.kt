@@ -51,7 +51,7 @@ class ApplicationTestConfiguration {
     @ServiceConnection
     @ConditionalOnProperty("atto.test.mysql-container.enabled", havingValue = "true", matchIfMissing = true)
     fun mysqlContainer(): MySQLContainer<*> {
-        val container = MySQLContainer("mysql:8")
+        val container = MySQLContainer("mysql:8.2")
         container.withUsername("root")
         return container
     }
