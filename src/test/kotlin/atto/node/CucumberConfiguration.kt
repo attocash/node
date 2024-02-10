@@ -49,7 +49,7 @@ class CucumberConfiguration(
         PropertyHolder.add("THIS", privateKey)
         PropertyHolder.add("THIS", AttoAlgorithm.V1)
         PropertyHolder.add("THIS", privateKey.toPublicKey())
-        PropertyHolder.add("THIS", Neighbour(8313U, 8080U))
+        PropertyHolder.add("THIS", Neighbour(8082U, 8080U))
 
         NodeHolder.clear(context)
         NodeHolder.add(context)

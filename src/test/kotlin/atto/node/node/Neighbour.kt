@@ -1,3 +1,3 @@
 package atto.node.node
 
-data class Neighbour(val tcpPort: UShort, val httpPort: UShort)
+data class Neighbour(val websocketPort: UShort, val httpPort: UShort)

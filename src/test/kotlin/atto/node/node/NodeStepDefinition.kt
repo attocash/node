@@ -94,7 +94,7 @@ class NodeStepDefinition(
     @Given("is a default node")
     fun setAsDefaultNode() {
         val neighbour = PropertyHolder[Neighbour::class.java]
-        peerProperties.defaultNodes.add("ws://localhost:${neighbour.tcpPort}")
+        peerProperties.defaultNodes.add("ws://localhost:${neighbour.websocketPort}")
     }
 
     private fun randomPort(): UShort {

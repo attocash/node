@@ -60,11 +60,11 @@ server:
   port: 8080
 
 websocket:
-  port: 8081
+  port: 8082
 
 management:
   server:
-    port: 8082
+    port: 8081
   endpoints:
     web:
       base-path: /
