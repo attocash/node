@@ -16,7 +16,7 @@ class NodeProperties {
     var privateKey: String? = null
 
     fun getPrivateKey(): AttoPrivateKey? {
-        if (privateKey == null) {
+        if (privateKey.isNullOrEmpty()) {
             return null
         }
         return AttoPrivateKey(privateKey!!.fromHexToByteArray())

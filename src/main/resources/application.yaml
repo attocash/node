@@ -16,15 +16,19 @@ spring:
     username: ${ATTO_DB_USER}
     password: ${ATTO_DB_PASSWORD}
     pool:
-      initial-size: 10
-      max-size: 10
+      min-idle: ${ATTO_DB_POOL_MIN_SIZE:1}
+      max-size: ${ATTO_DB_POOL_MAX_SIZE:10}
       max-life-time: 8h
+  flyway:
+    url: jdbc:mysql://${ATTO_DB_HOST}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME}
+    user: ${ATTO_DB_USER}
+    password: ${ATTO_DB_PASSWORD}
 
 atto:
-  useXForwardedFor: ${ATTO_USE_X_FORWARDED_FOR:false}
+  use-x-forwarded-for: ${ATTO_USE_X_FORWARDED_FOR:false}
   node:
     public-uri: ${ATTO_PUBLIC_URI}
-    publicKey: ${ATTO_PRIVATE_KEY}
+    private-key: ${ATTO_PRIVATE_KEY:}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 10
@@ -68,3 +72,5 @@ management:
   endpoints:
     web:
       base-path: /
+      exposure:
+        include: health,metrics,prometheus

@@ -9,6 +9,7 @@ plugins {
 
     id("org.springframework.boot") version "3.2.0"
     id("io.spring.dependency-management") version "1.1.4"
+    id("org.graalvm.buildtools.native") version "0.10.0"
 }
 
 group = "cash.atto"
@@ -17,6 +18,15 @@ java.sourceCompatibility = JavaVersion.VERSION_21
 repositories {
     mavenCentral()
     mavenLocal()
+}
+
+configurations {
+    compileOnly {
+        extendsFrom(configurations.annotationProcessor.get())
+    }
+    all {
+        exclude(group = "commons-logging", module = "commons-logging")
+    }
 }
 
 dependencies {
@@ -88,4 +98,18 @@ tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
+}
+
+graalvmNative {
+    binaries {
+        named("main") {
+            buildArgs.add("--static")
+            buildArgs.add("--libc=musl")
+            buildArgs.add("--no-server")
+            buildArgs.add("-H:ReflectionConfigurationFiles=../../../src/main/resources/reflect-config.json")
+        }
+    }
+    metadataRepository {
+        enabled = true
+    }
 }

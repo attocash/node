@@ -8,37 +8,37 @@ on:
       - main
 
 jobs:
-  build:
-    uses: ./.github/workflows/build.yaml
+  test:
+    uses: ./.github/workflows/test.yaml
   codeql:
     uses: ./.github/workflows/codeql.yaml
-  docker:
+  build:
     if: "startsWith(github.ref, 'refs/heads/')"
     needs:
-      - build
+      - test
       - codeql
-    uses: ./.github/workflows/docker.yaml
+    uses: ./.github/workflows/build.yaml
     secrets:
       token: ${{ secrets.TOKEN }}
   dev:
     if: "startsWith(github.ref, 'refs/heads/release/') && endsWith(github.ref, '.x')"
-    needs: [ docker ]
+    needs: [ build ]
     uses: ./.github/workflows/release.yaml
     with:
-      environment: dev
+      profile: dev
     secrets:
       token: ${{ secrets.TOKEN }}
   beta:
     needs: [ dev ]
     uses: ./.github/workflows/release.yaml
     with:
-      environment: beta
+      profile: beta
     secrets:
       token: ${{ secrets.TOKEN }}
   live:
     needs: [ beta ]
     uses: ./.github/workflows/release.yaml
     with:
-      environment: live
+      profile: live
     secrets:
       token: ${{ secrets.TOKEN }}

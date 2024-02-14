@@ -24,7 +24,7 @@ import java.util.concurrent.ConcurrentHashMap
 import kotlin.math.max
 
 @Component
-@DependsOn("transactionGenesisInitializer")
+@DependsOn("genesisTransaction")
 class VoteWeighter(
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,

@@ -2,7 +2,8 @@ package atto.node
 
 import atto.node.network.peer.PeerProperties
 import atto.node.node.Neighbour
-import atto.node.transaction.TransactionGenesisInitializer
+import atto.node.transaction.Transaction
+import atto.node.transaction.TransactionConfiguration
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import io.cucumber.java.After
@@ -18,10 +19,11 @@ import org.springframework.context.ConfigurableApplicationContext
 @CucumberContextConfiguration
 class CucumberConfiguration(
     val context: ConfigurableApplicationContext,
+    val genesisTransaction: Transaction,
     val thisNode: atto.protocol.AttoNode,
     val peerProperties: PeerProperties,
     val privateKey: AttoPrivateKey,
-    val genesisInitializer: TransactionGenesisInitializer,
+    val transactionConfiguration: TransactionConfiguration,
     val caches: List<CacheSupport>,
     val repositories: List<AttoRepository>
 ) {
@@ -34,7 +36,7 @@ class CucumberConfiguration(
     fun before() = runBlocking {
         repositories.forEach { it.deleteAll() }
 
-        genesisInitializer.init()
+        transactionConfiguration.initializeDatabase(genesisTransaction, thisNode)
 
         caches.forEach {
             it.clear()

@@ -3,6 +3,10 @@ spring:
     url:
     username:
     password:
+  flyway:
+    url:
+    user:
+    password:
 
 atto:
   node:

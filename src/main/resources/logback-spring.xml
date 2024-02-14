@@ -20,13 +20,13 @@
         </encoder>
     </appender>
 
-    <springProfile name="!default">
+    <springProfile name="json">
         <root level="INFO">
             <appender-ref ref="JSON_CONSOLE"/>
         </root>
     </springProfile>
 
-    <springProfile name="default">
+    <springProfile name="!json">
         <root level="INFO">
             <appender-ref ref="PLAIN_CONSOLE"/>
         </root>
