@@ -62,7 +62,7 @@ class TransactionStepDefinition(
                 work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash)
             )
         } else {
-            val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
+            val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock.toReceivable())
             Transaction(
                 block = openBlock,
                 signature = privateKey.sign(openBlock.hash),

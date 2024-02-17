@@ -61,6 +61,7 @@ class TransactionConfiguration(
                 hash = block.sendHash,
                 version = block.version,
                 algorithm = block.algorithm,
+                receiverAlgorithm = block.algorithm,
                 receiverPublicKey = block.publicKey,
                 amount = block.balance
             )

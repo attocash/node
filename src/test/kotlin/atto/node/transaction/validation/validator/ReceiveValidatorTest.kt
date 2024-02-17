@@ -63,7 +63,8 @@ internal class ReceiveValidatorTest {
         val receivable = Receivable(
             hash = block.sendHash,
             version = 0U,
-            algorithm = AttoAlgorithm.V1,
+            algorithm = block.algorithm,
+            receiverAlgorithm = block.algorithm,
             receiverPublicKey = block.publicKey,
             amount = block.balance - account.balance
         )
@@ -106,6 +107,7 @@ internal class ReceiveValidatorTest {
             hash = block.sendHash,
             version = 0U,
             algorithm = AttoAlgorithm.V1,
+            receiverAlgorithm = block.algorithm,
             receiverPublicKey = AttoPublicKey(byteArray),
             amount = block.balance - account.balance
         )
@@ -130,6 +132,7 @@ internal class ReceiveValidatorTest {
             hash = block.sendHash,
             version = 0U,
             algorithm = AttoAlgorithm.V1,
+            receiverAlgorithm = block.algorithm,
             receiverPublicKey = account.publicKey,
             amount = AttoAmount(2UL)
         )

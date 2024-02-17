@@ -33,9 +33,9 @@ dependencies {
     val cucumberVersion = "7.15.0"
     val springdocVersion = "2.3.0"
 
-    implementation("cash.atto:commons:2.6.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.6.2")
+    implementation("cash.atto:commons:2.7.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
