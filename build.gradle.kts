@@ -106,7 +106,6 @@ graalvmNative {
             buildArgs.add("--static")
             buildArgs.add("--libc=musl")
             buildArgs.add("--no-server")
-            buildArgs.add("-H:ReflectionConfigurationFiles=../../../src/main/resources/reflect-config.json")
         }
     }
 }
