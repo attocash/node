@@ -33,7 +33,7 @@ class ReceivableController(
         receivableFlow.emit(transactionSaved.receivable)
     }
 
-    @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all receivables",
         responses = [

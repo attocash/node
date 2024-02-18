@@ -53,7 +53,7 @@ class TransactionController(
         transactionFlow.emit(transactionSaved.transaction.toAttoTransaction())
     }
 
-    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest transactions",
         responses = [
@@ -85,7 +85,7 @@ class TransactionController(
         return ResponseEntity.ofNullable(transaction?.toAttoTransaction())
     }
 
-    @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream a single transaction",
         responses = [
@@ -121,7 +121,7 @@ class TransactionController(
             } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
-    @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream transactions by height",
         responses = [

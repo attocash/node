@@ -45,7 +45,7 @@ class AccountController(
     }
 
 
-    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest accounts",
         responses = [
@@ -77,7 +77,7 @@ class AccountController(
         return ResponseEntity.ofNullable(account?.toAttoAccount())
     }
 
-    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream account",
         responses = [
