@@ -21,7 +21,13 @@
     "name": "kotlinx.datetime.Instant",
     "allPublicMethods": true,
     "allDeclaredConstructors": true,
-    "allPublicFields": true
+    "allPublicFields": true,
+    "methods": [
+      {
+        "name": "now",
+        "parameterTypes": []
+      }
+    ]
   },
   {
     "name": "atto.node.CacheSupport",
