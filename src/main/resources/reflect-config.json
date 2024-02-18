@@ -18,6 +18,12 @@
     "allPublicFields": true
   },
   {
+    "name": "kotlinx.datetime.Instant",
+    "allPublicMethods": true,
+    "allDeclaredConstructors": true,
+    "allPublicFields": true
+  },
+  {
     "name": "atto.node.CacheSupport",
     "methods": [
       {

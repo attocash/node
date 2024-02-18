@@ -109,7 +109,4 @@ graalvmNative {
             buildArgs.add("-H:ReflectionConfigurationFiles=../../../src/main/resources/reflect-config.json")
         }
     }
-    metadataRepository {
-        enabled = true
-    }
 }
