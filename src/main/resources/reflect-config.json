@@ -18,10 +18,7 @@
     "allPublicFields": true
   },
   {
-    "name": "kotlinx.datetime.Instant",
-    "allPublicMethods": true,
-    "allDeclaredConstructors": true,
-    "allPublicFields": true,
+    "name": "kotlinx.datetime.Instant$Companion",
     "methods": [
       {
         "name": "now",
