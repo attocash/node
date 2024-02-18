@@ -20,4 +20,5 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          path: ./
+          name: native-image-metadata
+          path: build/native/agent-output/test
