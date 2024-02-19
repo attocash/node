@@ -8,5 +8,6 @@ import org.springframework.context.annotation.Configuration
 @ConfigurationProperties(prefix = "atto.peer")
 class PeerProperties {
     var expirationTimeInSeconds: Long = 300
-    var defaultNodes: MutableSet<String> = HashSet()
+    var defaultNodes: Set<String> = HashSet()
+        get() = defaultNodes.filter { it.isNotEmpty() }.toSet()
 }

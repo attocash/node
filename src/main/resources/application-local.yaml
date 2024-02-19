@@ -13,7 +13,8 @@ atto:
     network: LOCAL
   transaction:
     genesis: ${ATTO_GENESIS:}
-
+  peer:
+    defaultNodes: ${ATTO_DEFAULT_NODES:}
 server:
   error:
     include-message: ALWAYS
