@@ -157,8 +157,8 @@ class TransactionController(
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(fromHeight.toULong())
-            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${toHeight.toULong()}" } }
-            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${toHeight.toULong()}" } }
+            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
+            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
             .map {
                 AttoJson.encodeToString(
                     AttoTransaction.serializer(),

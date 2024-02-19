@@ -43,7 +43,7 @@ class CucumberConfiguration(
             it.init()
         }
 
-        peerProperties.defaultNodes.clear()
+        peerProperties.defaultNodes = mutableSetOf()
 
         PropertyHolder.clear()
         PropertyHolder.add("THIS", context)
