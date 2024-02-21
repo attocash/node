@@ -135,10 +135,10 @@ class TransactionStepDefinition(
         val neighbour = PropertyHolder[Neighbour::class.java, neighbourShortId]
         webClient
             .post()
-            .uri("http://localhost:${neighbour.httpPort}/transactions")
+            .uri("http://localhost:${neighbour.httpPort}/transactions/stream")
             .bodyValue(transaction.toAttoTransaction())
             .retrieve()
-            .bodyToMono<Void>()
-            .block()
+            .bodyToMono<AttoTransaction>()
+            .block(Duration.ofSeconds(Waiter.timeoutInSeconds))
     }
 }

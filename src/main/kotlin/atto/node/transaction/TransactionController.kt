@@ -167,7 +167,7 @@ class TransactionController(
             } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
-    @PostMapping("/transactions")
+    @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
     @Operation(description = "Publish transaction")
     suspend fun publish(@RequestBody transaction: AttoTransaction, request: ServerHttpRequest) {
         if (!transaction.isValid(thisNode.network)) {
@@ -197,7 +197,11 @@ class TransactionController(
         )
     }
 
-    @PostMapping("/transactions/stream")
+    @PostMapping(
+        "/transactions/stream",
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.APPLICATION_NDJSON_VALUE]
+    )
     @Operation(description = "Publish transaction and stream")
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
