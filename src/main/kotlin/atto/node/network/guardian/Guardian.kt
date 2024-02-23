@@ -14,6 +14,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 @Service
 class Guardian(private val voteWeighter: VoteWeighter, private val eventPublisher: EventPublisher) : CacheSupport {
@@ -55,7 +56,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
         voterMap.remove(peer.connectionSocketAddress)
     }
 
-    @Scheduled(cron = "0/1 * * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     fun guard() {
         val newSnapshot = statisticsMap.toMap()
 

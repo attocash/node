@@ -4,10 +4,10 @@ import atto.node.PropertyHolder
 import atto.node.Waiter
 import atto.node.node.Neighbour
 import cash.atto.commons.*
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import mu.KotlinLogging
+import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
@@ -62,7 +62,7 @@ class TransactionStepDefinition(
                 work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash)
             )
         } else {
-            val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock)
+            val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock.toReceivable())
             Transaction(
                 block = openBlock,
                 signature = privateKey.sign(openBlock.hash),
@@ -126,8 +126,7 @@ class TransactionStepDefinition(
             .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<String>()
-            .map { AttoJson.decodeFromString<AttoTransaction>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
+            .bodyToMono<AttoTransaction>()
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
     }
 
@@ -136,6 +135,7 @@ class TransactionStepDefinition(
         webClient
             .post()
             .uri("http://localhost:${neighbour.httpPort}/transactions")
+            .contentType(MediaType.APPLICATION_JSON)
             .bodyValue(transaction.toAttoTransaction())
             .retrieve()
             .bodyToMono<Void>()

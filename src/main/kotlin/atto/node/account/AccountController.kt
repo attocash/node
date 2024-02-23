@@ -5,7 +5,6 @@ import atto.node.forwardHeight
 import atto.node.transaction.TransactionSaved
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -45,7 +44,7 @@ class AccountController(
     }
 
 
-    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest accounts",
         responses = [
@@ -58,16 +57,10 @@ class AccountController(
             )
         ]
     )
-    suspend fun stream(): Flow<String> {
+    suspend fun stream(): Flow<AttoAccount> {
         return accountFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
-            .map {
-                AttoJson.encodeToString(
-                    AttoAccount.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
     @GetMapping("/{publicKey}")
@@ -77,7 +70,7 @@ class AccountController(
         return ResponseEntity.ofNullable(account?.toAttoAccount())
     }
 
-    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream account",
         responses = [
@@ -92,7 +85,7 @@ class AccountController(
     )
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey
-    ): Flow<String> {
+    ): Flow<AttoAccount> {
         val accountDatabaseFlow = flow {
             repository.findById(publicKey)?.let {
                 emit(it.toAttoAccount())
@@ -105,12 +98,6 @@ class AccountController(
             .forwardHeight()
             .onStart { logger.trace { "Started streaming $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming $publicKey account" } }
-            .map {
-                AttoJson.encodeToString(
-                    AttoAccount.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
 
     }
 

@@ -29,6 +29,7 @@ import java.net.URI
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 @Component
@@ -62,7 +63,7 @@ class GapDiscoverer(
         peers.remove(peer.node.publicUri)
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun resolve() {
         val peers = peers.toList()
 

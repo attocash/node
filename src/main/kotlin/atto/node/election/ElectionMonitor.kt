@@ -32,7 +32,7 @@ class ElectionMonitor(
         val transaction = event.transaction
         val transactionPush = AttoTransactionPush(transaction.toAttoTransaction())
 
-        logger.debug { "Expiring transaction will be rebroadcasted $transaction" }
+        logger.info { "Expiring transaction will be rebroadcasted $transaction" }
 
         messagePublisher.publish(
             BroadcastNetworkMessage(

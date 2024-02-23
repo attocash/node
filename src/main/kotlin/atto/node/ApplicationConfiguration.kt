@@ -4,8 +4,8 @@ import cash.atto.commons.serialiazers.json.AttoJson
 import kotlinx.coroutines.CoroutineExceptionHandler
 import mu.KotlinLogging
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Profile
 import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.http.codec.json.KotlinSerializationJsonDecoder
 import org.springframework.http.codec.json.KotlinSerializationJsonEncoder
@@ -28,7 +28,7 @@ class ApplicationConfiguration : WebFluxConfigurer {
 
 @Configuration
 @EnableScheduling
-@Profile(value = ["dev", "beta", "live"])
+@ConditionalOnProperty(name = ["atto.scheduling.enabled"], havingValue = "true", matchIfMissing = true)
 class ScheduleConfiguration
 
 val attoCoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->

@@ -9,6 +9,8 @@ spring:
     password:
 
 atto:
+  scheduling:
+    enabled: false
   node:
     voterStrategy: FORCE_ENABLED
     network: LOCAL

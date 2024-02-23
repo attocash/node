@@ -13,7 +13,8 @@ atto:
     network: LOCAL
   transaction:
     genesis: ${ATTO_GENESIS:}
-
+  peer:
+    defaultNodes: ${ATTO_DEFAULT_NODES:}
 server:
   error:
     include-message: ALWAYS
@@ -21,8 +22,10 @@ server:
 
 logging:
   level:
-    atto: TRACE
-    atto.node.network: TRACE
+    atto: INFO
+    atto.node.network: INFO
+    atto.node.transaction: DEBUG
+    atto.node.election: DEBUG
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 

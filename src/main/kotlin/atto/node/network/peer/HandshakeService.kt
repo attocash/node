@@ -58,7 +58,7 @@ class HandshakeService(
         bannedNodes.add(event.address)
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     fun startDefaultHandshake() {
         if (peers.size > properties.defaultNodes.size) {
             return

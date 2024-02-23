@@ -7,9 +7,9 @@ plugins {
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
 
-    id("org.springframework.boot") version "3.2.0"
+    id("org.springframework.boot") version "3.2.3"
     id("io.spring.dependency-management") version "1.1.4"
-    id("org.graalvm.buildtools.native") version "0.10.0"
+    id("org.graalvm.buildtools.native") version "0.10.1"
 }
 
 group = "cash.atto"
@@ -33,9 +33,9 @@ dependencies {
     val cucumberVersion = "7.15.0"
     val springdocVersion = "2.3.0"
 
-    implementation("cash.atto:commons:2.6.0")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:1.6.2")
+    implementation("cash.atto:commons:2.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
@@ -58,7 +58,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("org.flywaydb:flyway-core")
 
-    implementation("io.asyncer:r2dbc-mysql:1.0.6")
+    implementation("io.asyncer:r2dbc-mysql:1.1.1")
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
@@ -106,10 +106,6 @@ graalvmNative {
             buildArgs.add("--static")
             buildArgs.add("--libc=musl")
             buildArgs.add("--no-server")
-            buildArgs.add("-H:ReflectionConfigurationFiles=../../../src/main/resources/reflect-config.json")
         }
-    }
-    metadataRepository {
-        enabled = true
     }
 }

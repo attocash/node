@@ -9,7 +9,6 @@ import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -53,7 +52,7 @@ class TransactionController(
         transactionFlow.emit(transactionSaved.transaction.toAttoTransaction())
     }
 
-    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest transactions",
         responses = [
@@ -66,16 +65,10 @@ class TransactionController(
             )
         ]
     )
-    suspend fun stream(): Flow<String> {
+    suspend fun stream(): Flow<AttoTransaction> {
         return transactionFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
-            .map {
-                AttoJson.encodeToString(
-                    AttoTransaction.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
     @GetMapping("/transactions/{hash}")
@@ -85,7 +78,7 @@ class TransactionController(
         return ResponseEntity.ofNullable(transaction?.toAttoTransaction())
     }
 
-    @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream a single transaction",
         responses = [
@@ -98,7 +91,7 @@ class TransactionController(
             )
         ]
     )
-    suspend fun stream(@PathVariable hash: AttoHash): Flow<String> {
+    suspend fun stream(@PathVariable hash: AttoHash): Flow<AttoTransaction> {
         val transactionDatabaseFlow: Flow<AttoTransaction> = flow {
             val transaction = repository.findById(hash)
             if (transaction != null) {
@@ -113,15 +106,9 @@ class TransactionController(
             .onStart { logger.trace { "Started streaming $hash transaction" } }
             .onCompletion { logger.trace { "Stopped streaming $hash transaction" } }
             .take(1)
-            .map {
-                AttoJson.encodeToString(
-                    AttoTransaction.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
-    @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream transactions by height",
         responses = [
@@ -139,7 +126,7 @@ class TransactionController(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1") fromHeight: Long,
         @RequestParam(defaultValue = Long.MAX_VALUE.toString()) toHeight: Long
-    ): Flow<String> {
+    ): Flow<AttoTransaction> {
         if (fromHeight.toULong() == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
@@ -159,15 +146,9 @@ class TransactionController(
             .sortByHeight(fromHeight.toULong())
             .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
             .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
-            .map {
-                AttoJson.encodeToString(
-                    AttoTransaction.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 
-    @PostMapping("/transactions")
+    @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
     @Operation(description = "Publish transaction")
     suspend fun publish(@RequestBody transaction: AttoTransaction, request: ServerHttpRequest) {
         if (!transaction.isValid(thisNode.network)) {
@@ -197,12 +178,16 @@ class TransactionController(
         )
     }
 
-    @PostMapping("/transactions/stream")
+    @PostMapping(
+        "/transactions/stream",
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.APPLICATION_NDJSON_VALUE]
+    )
     @Operation(description = "Publish transaction and stream")
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest
-    ): Flow<String> {
+    ): Flow<AttoTransaction> {
         return stream(transaction.hash)
             .onStart { publish(transaction, request) }
     }

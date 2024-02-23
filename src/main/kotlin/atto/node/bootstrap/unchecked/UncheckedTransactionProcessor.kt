@@ -19,6 +19,7 @@ import mu.KotlinLogging
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
+import java.util.concurrent.TimeUnit
 
 @Component
 class UncheckedTransactionProcessor(
@@ -70,7 +71,7 @@ class UncheckedTransactionProcessor(
 
 @Component
 class UncheckedTransactionProcessorStarter(val processor: UncheckedTransactionProcessor) {
-    @Scheduled(cron = "0/10 * * * * *")
+    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
         processor.process()
     }

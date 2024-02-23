@@ -48,7 +48,7 @@ class PeerManager(
         }
     }
 
-    @Scheduled(cron = "0/1 * * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     fun sendKeepAlive() {
         val peerList = peers.values.toList()
 

@@ -3,6 +3,7 @@ package atto.protocol.transaction
 import cash.atto.commons.*
 import cash.atto.commons.serialiazers.protobuf.AttoProtobuf
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
@@ -20,7 +21,7 @@ class AttoTransactionStreamResponseTest {
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             height = 2u,
             balance = AttoAmount.MAX,
-            timestamp = Clock.System.now(),
+            timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(ByteArray(32)),

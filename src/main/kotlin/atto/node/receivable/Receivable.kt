@@ -11,6 +11,7 @@ data class Receivable(
     val hash: AttoHash,
     val version: UShort,
     val algorithm: AttoAlgorithm,
+    val receiverAlgorithm: AttoAlgorithm,
     val receiverPublicKey: AttoPublicKey,
     val amount: AttoAmount,
     val persistedAt: Instant? = null,
@@ -28,6 +29,7 @@ data class Receivable(
             hash = hash,
             version = version,
             algorithm = algorithm,
+            receiverAlgorithm = receiverAlgorithm,
             receiverPublicKey = receiverPublicKey,
             amount = amount,
         )
@@ -39,6 +41,7 @@ fun AttoReceivable.toReceivable(): Receivable {
         hash = hash,
         version = version,
         algorithm = algorithm,
+        receiverAlgorithm = receiverAlgorithm,
         receiverPublicKey = receiverPublicKey,
         amount = amount,
     )

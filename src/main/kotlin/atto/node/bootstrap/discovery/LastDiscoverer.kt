@@ -40,9 +40,9 @@ class LastDiscoverer(
         .build<AttoHash, TransactionWeighter>()
         .asMap()
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
-        val transactions = transactionRepository.getLastSample(1_000)
+        val transactions = transactionRepository.getLastSample(20)
         transactions
             .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
             .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }

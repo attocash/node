@@ -71,7 +71,7 @@ class TransactionPrioritizer(
         val bufferedTransactions = buffer.remove(hash) ?: setOf()
 
         bufferedTransactions.forEach {
-            logger.trace { "Unbuffered $it" }
+            logger.debug { "Unbuffered $it" }
             add(it)
         }
     }
@@ -94,7 +94,7 @@ class TransactionPrioritizer(
             if (droppedTransaction != null) {
                 eventPublisher.publish(TransactionDropped(droppedTransaction))
             }
-            logger.trace { "Queued $transaction" }
+            logger.debug { "Queued $transaction" }
         }
     }
 
@@ -104,7 +104,7 @@ class TransactionPrioritizer(
             set.add(transaction)
             set
         }
-        logger.trace { "Buffered until dependencies are confirmed. $transaction" }
+        logger.debug { "Buffered until dependencies are confirmed. $transaction" }
     }
 
     fun getQueueSize(): Int {

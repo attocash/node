@@ -4,7 +4,6 @@ package atto.node.receivable
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -33,7 +32,7 @@ class ReceivableController(
         receivableFlow.emit(transactionSaved.receivable)
     }
 
-    @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE + "+json"])
+    @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all receivables",
         responses = [
@@ -47,7 +46,7 @@ class ReceivableController(
         ]
     )
 
-    suspend fun stream(@PathVariable publicKey: AttoPublicKey): Flow<String> {
+    suspend fun stream(@PathVariable publicKey: AttoPublicKey): Flow<AttoReceivable> {
         val receivableDatabaseFlow = repository.findAsc(publicKey)
 
         val receivableFlow = receivableFlow
@@ -59,11 +58,5 @@ class ReceivableController(
             .map { it.toAttoReceivable() }
             .onStart { logger.trace { "Started streaming receivable for $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming transactions for $publicKey account" } }
-            .map {
-                AttoJson.encodeToString(
-                    AttoReceivable.serializer(),
-                    it
-                )
-            } //https://github.com/spring-projects/spring-framework/issues/30398
     }
 }

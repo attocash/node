@@ -34,7 +34,7 @@ internal class SendValidatorTest {
         balance = AttoAmount(0u),
         timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
         previous = account.lastTransactionHash,
-        receiverPublicKeyAlgorithm = AttoAlgorithm.V1,
+        receiverAlgorithm = AttoAlgorithm.V1,
         receiverPublicKey = privateKey.toPublicKey(),
         amount = AttoAmount(100u),
     )

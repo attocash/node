@@ -23,6 +23,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 
 @Service
@@ -132,7 +133,7 @@ class Election(
         eventPublisher.publish(ElectionConsensusChanged(weighter.account, weighter.transaction))
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun processStaling() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
@@ -149,7 +150,7 @@ class Election(
             }
     }
 
-    @Scheduled(cron = "0 0/1 * * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun stopObservingStaled() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 

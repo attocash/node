@@ -21,6 +21,7 @@ import java.time.Instant
 import java.time.ZoneOffset
 import java.time.ZonedDateTime
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 
 @Component
@@ -125,7 +126,7 @@ class VoteWeighter(
         return minimalRebroadcastWeight <= get(publicKey)
     }
 
-    @Scheduled(cron = "0 0 0/1 * * *")
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     fun calculateMinimalWeights() {
         val minTimestamp = getMinTimestamp()
 

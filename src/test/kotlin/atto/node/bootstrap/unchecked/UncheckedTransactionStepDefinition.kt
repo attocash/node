@@ -4,7 +4,6 @@ import atto.node.PropertyHolder
 import atto.node.Waiter
 import atto.node.node.Neighbour
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.cucumber.java.en.When
 import mu.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
@@ -71,8 +70,7 @@ class UncheckedTransactionDefinition(
         return webClient.get()
             .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions")
             .retrieve()
-            .bodyToMono<String>()
-            .map { AttoJson.decodeFromString<List<AttoTransaction>>(it) } //https://github.com/spring-projects/spring-framework/issues/30398
+            .bodyToMono<List<AttoTransaction>>()
             .block()!!
     }
 

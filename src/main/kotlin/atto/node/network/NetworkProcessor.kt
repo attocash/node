@@ -195,7 +195,13 @@ class NetworkProcessor(
                         dnsResolver.resolve(publicUri.host)
                             .toMono()
                             .flatMap {
-                                val port = if (publicUri.port != -1) publicUri.port else 80
+                                val port = if (publicUri.port != -1) {
+                                    publicUri.port
+                                } else if (publicUri.host.startsWith("ws://")) {
+                                    80
+                                } else {
+                                    433
+                                }
                                 prepareConnection(publicUri, InetSocketAddress(it, port), inbound, outbound, message)
                             }
                     }
@@ -265,6 +271,10 @@ class NetworkProcessor(
             .doOnNext { messagePublisher.publish(it!!) }
             .onErrorResume(AbortedException::class.java) { Mono.empty() }
             .doOnError { t -> logger.info(t) { "Failed to process inbound message from $publicUri" } }
+            .doOnTerminate {
+                connections.remove(publicUri)
+                eventPublisher.publish(NodeDisconnected(publicUri))
+            }
             .then()
 
         val outboundMessages = outboundFlow

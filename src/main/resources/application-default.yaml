@@ -24,8 +24,10 @@ server:
 
 logging:
   level:
-    atto: TRACE
-    atto.node.network: TRACE
+    atto: INFO
+    atto.node.network: INFO
+    atto.node.transaction.TransactionService: DEBUG
+    atto.node.transaction.priotization.TransactionPrioritizer: DEBUG
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 
