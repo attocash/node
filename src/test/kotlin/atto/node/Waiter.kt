@@ -19,14 +19,14 @@ object Waiter {
     fun <T> waitUntilNonNull(callable: Callable<T>): T {
         return Awaitility.await().atMost(timeoutInSeconds, TimeUnit.SECONDS)
             .with()
-            .pollDelay(50, TimeUnit.MILLISECONDS)
+            .pollInterval(100, TimeUnit.MILLISECONDS)
             .until(callable, Matchers.notNullValue())
     }
 
     fun waitUntilTrue(callable: Callable<Boolean>?) {
         Awaitility.await().atMost(timeoutInSeconds, TimeUnit.SECONDS)
             .with()
-            .pollDelay(50, TimeUnit.MILLISECONDS)
+            .pollInterval(100, TimeUnit.MILLISECONDS)
             .until(callable) { it == true }
     }
 }
