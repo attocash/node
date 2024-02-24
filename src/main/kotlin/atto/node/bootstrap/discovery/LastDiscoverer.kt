@@ -5,7 +5,7 @@ import atto.node.account.AccountRepository
 import atto.node.account.getByAlgorithmAndPublicKey
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.election.ElectionVoter
-import atto.node.election.TransactionWeighter
+import atto.node.election.TransactionElection
 import atto.node.network.*
 import atto.node.transaction.TransactionRepository
 import atto.node.transaction.toTransaction
@@ -35,9 +35,9 @@ class LastDiscoverer(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val transactionWeighterMap = Caffeine.newBuilder()
+    private val transactionElectionMap = Caffeine.newBuilder()
         .maximumSize(100_000)
-        .build<AttoHash, TransactionWeighter>()
+        .build<AttoHash, TransactionElection>()
         .asMap()
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
@@ -61,21 +61,21 @@ class LastDiscoverer(
             return
         }
 
-        if (transactionWeighterMap.putIfAbsent(
-                transaction.hash,
-                TransactionWeighter(account, transaction)
-            ) != null
-        ) {
-            return
-        }
+        transactionElectionMap.computeIfAbsent(transaction.hash) {
+            val election = TransactionElection(transaction) {
+                voteWeighter.getMinimalConfirmationWeight()
+            }
 
-        val request = AttoVoteStreamRequest(transaction.hash)
-        networkMessagePublisher.publish(
-            DirectNetworkMessage(
-                message.publicUri,
-                request
+            val request = AttoVoteStreamRequest(transaction.hash)
+            networkMessagePublisher.publish(
+                DirectNetworkMessage(
+                    message.publicUri,
+                    request
+                )
             )
-        )
+
+            election
+        }
     }
 
     @EventListener
@@ -87,27 +87,19 @@ class LastDiscoverer(
             return
         }
 
-        val weighter = transactionWeighterMap.computeIfPresent(blockHash) { _, weighter ->
-            weighter.add(vote)
-            weighter
-        }
+        transactionElectionMap.computeIfPresent(blockHash) { _, election ->
+            election.add(vote)
+            if (election.isConfirmed()) {
+                logger.debug { "Discovered missing last transaction $blockHash" }
 
-        if (weighter != null && weighter.totalFinalWeight() >= voteWeighter.getMinimalConfirmationWeight()) {
-            logger.debug { "Discovered missing last transaction $blockHash" }
-            val request = AttoVoteStreamCancel(blockHash)
-            networkMessagePublisher.publish(
-                DirectNetworkMessage(
-                    message.publicUri,
-                    request
-                )
-            )
-            eventPublisher.publish(
-                TransactionDiscovered(
-                    null,
-                    weighter.transaction,
-                    weighter.votes.values.toList()
-                )
-            )
+                val request = AttoVoteStreamCancel(blockHash)
+                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, request))
+                eventPublisher.publish(TransactionDiscovered(null, election.transaction, election.votes.values))
+
+                null
+            } else {
+                election
+            }
         }
     }
 }

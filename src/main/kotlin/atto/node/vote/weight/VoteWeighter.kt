@@ -36,8 +36,8 @@ class VoteWeighter(
 
     private val weightMap = ConcurrentHashMap<AttoPublicKey, AttoAmount>()
     private val latestVoteMap = ConcurrentHashMap<AttoPublicKey, Vote>()
-    private var minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.toAttoAmount()
-    private var minimalConfirmationWeight = properties.minimalConfirmationWeight!!.toAttoAmount()
+    private lateinit var minimalRebroadcastWeight: AttoAmount
+    private lateinit var minimalConfirmationWeight: AttoAmount
 
     @PostConstruct
     override fun init() = runBlocking {

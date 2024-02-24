@@ -37,7 +37,7 @@ class Election(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    private val transactionWeighters = HashMap<PublicKeyHeight, HashMap<AttoHash, TransactionWeighter>>()
+    private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
 
     @PreDestroy
     fun stop() {
@@ -45,11 +45,11 @@ class Election(
     }
 
     fun getSize(): Int {
-        return transactionWeighters.size
+        return publicKeyHeightElectionMap.size
     }
 
-    fun getElections(): Map<PublicKeyHeight, Map<AttoHash, TransactionWeighter>> {
-        return transactionWeighters
+    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> {
+        return publicKeyHeightElectionMap
     }
 
     @EventListener
@@ -64,13 +64,13 @@ class Election(
         process(event.transaction, vote)
     }
 
-    private suspend fun start(account: Account, transaction: Transaction) {
-        withContext(singleDispatcher) {
-            transactionWeighters.compute(transaction.toPublicKeyHeight()) { _, v ->
-                val weighter = v ?: HashMap()
-                weighter[transaction.hash] = TransactionWeighter(account, transaction)
-                weighter
+    private suspend fun start(account: Account, transaction: Transaction) = withContext(singleDispatcher) {
+        publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
+            val publicKeyHeightElection = v ?: PublicKeyHeightElection(account) {
+                voteWeighter.getMinimalConfirmationWeight()
             }
+            publicKeyHeightElection.add(transaction)
+            publicKeyHeightElection
         }
 
         logger.trace { "Started election for $transaction" }
@@ -78,75 +78,50 @@ class Election(
         eventPublisher.publish(ElectionStarted(account, transaction))
     }
 
-    private fun isObserving(transaction: Transaction): Boolean {
-        return transactionWeighters.containsKey(transaction.toPublicKeyHeight())
-    }
-
-    private fun stopObserving(transaction: Transaction) {
-        transactionWeighters.remove(transaction.toPublicKeyHeight())
-    }
-
     private suspend fun process(transaction: Transaction, vote: Vote) = withContext(singleDispatcher) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        val transactionWeightMap = transactionWeighters[publicKeyHeight] ?: return@withContext
+        val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight] ?: return@withContext
 
         logger.trace { "Processing $vote" }
-        /**
-         * Weighter should never be null because votes are just broadcasted to active election
-         */
-        val weighter = transactionWeightMap[vote.blockHash]!!
 
-        if (!weighter.add(vote)) {
+        if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
             return@withContext
         }
 
-        transactionWeightMap.values.asSequence()
-            .filter { it != weighter }
-            .forEach { _ -> weighter.remove(vote) }
+        val account = publicKeyHeightElection.account
 
-        consensed(publicKeyHeight)
-
-        val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
-
-        if (isObserving(transaction) && weighter.totalWeight() >= minimalConfirmationWeight) {
-            eventPublisher.publish(ElectionConsensusReached(weighter.account, weighter.transaction))
+        val finalTransactionElection = publicKeyHeightElection.getFinalConsensus()
+        if (finalTransactionElection != null) {
+            val finalTransaction = finalTransactionElection.transaction
+            val votes = finalTransactionElection.votes.values
+            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+            eventPublisher.publish(ElectionFinished(account, finalTransaction, votes))
+            return@withContext
         }
 
-        if (isObserving(transaction) && weighter.totalFinalWeight() >= minimalConfirmationWeight) {
-            stopObserving(transaction)
-
-            val votes = weighter.votes.values.filter { it.isFinal() }
-
-            eventPublisher.publish(ElectionFinished(weighter.account, weighter.transaction, votes))
+        val consensusTransactionElection = publicKeyHeightElection.getConsensus()
+        if (consensusTransactionElection != null) {
+            eventPublisher.publish(ElectionConsensusReached(account, consensusTransactionElection.transaction))
+            return@withContext
         }
-    }
 
-    private fun getConsensus(publicKeyHeight: PublicKeyHeight): TransactionWeighter {
-        return transactionWeighters[publicKeyHeight]!!.values
-            .maxByOrNull { it.totalWeight() }!!
-    }
-
-    private suspend fun consensed(publicKeyHeight: PublicKeyHeight) {
-        val weighter = getConsensus(publicKeyHeight)
-        eventPublisher.publish(ElectionConsensusChanged(weighter.account, weighter.transaction))
+        val currentConsensusTransactionElection = publicKeyHeightElection.getCurrentConsensus()
+        eventPublisher.publish(ElectionConsensusChanged(account, currentConsensusTransactionElection.transaction))
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun processStaling() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
-        transactionWeighters.values.asSequence()
-            .flatMap { it.values }
-            .map { it.transaction }
-            .filter { it.receivedAt < minimalTimestamp }
-            .map { it.toPublicKeyHeight() }
-            .distinct()
-            .map { getConsensus(it) }
-            .forEach { weighter ->
-                logger.trace { "Staling ${weighter.transaction}" }
-                eventPublisher.publish(ElectionExpiring(weighter.account, weighter.transaction))
+        publicKeyHeightElectionMap.values.asSequence()
+            .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
+            .forEach {
+                val transaction = it.getCurrentConsensus().transaction
+                logger.trace { "Expiring $transaction" }
+                publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+                eventPublisher.publish(ElectionExpiring(it.account, transaction))
             }
     }
 
@@ -154,22 +129,78 @@ class Election(
     suspend fun stopObservingStaled() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 
-        transactionWeighters.values.asSequence()
-            .flatMap { it.values }
-            .filter { it.transaction.receivedAt < minimalTimestamp }
-            .forEach { weighter ->
-                logger.trace { "Staled ${weighter.transaction}" }
-                stopObserving(weighter.transaction)
-                eventPublisher.publish(ElectionExpired(weighter.account, weighter.transaction))
+        publicKeyHeightElectionMap.values.asSequence()
+            .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
+            .forEach {
+                val transaction = it.getCurrentConsensus().transaction
+                logger.trace { "Expired $transaction" }
+                publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+                eventPublisher.publish(ElectionExpired(it.account, transaction))
             }
     }
 
     override fun clear() {
-        transactionWeighters.clear()
+        publicKeyHeightElectionMap.clear()
     }
 }
 
-data class TransactionWeighter(val account: Account, val transaction: Transaction) {
+class PublicKeyHeightElection(
+    val account: Account,
+    private val minimalConfirmationWeightProvider: () -> AttoAmount
+) {
+    private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
+    fun add(transaction: Transaction) {
+        if (transactionElectionMap.containsKey(transaction.hash)) {
+            throw IllegalStateException("Transaction for block ${transaction.hash} already started")
+        }
+
+        transactionElectionMap[transaction.hash] =
+            TransactionElection(transaction, minimalConfirmationWeightProvider)
+    }
+
+    fun add(vote: Vote): Boolean {
+        val transactionElection = transactionElectionMap[vote.blockHash]
+            ?: throw IllegalStateException("No election for block ${vote.blockHash}")
+
+        if (!transactionElection.add(vote)) {
+            return false
+        }
+
+        transactionElectionMap.values.asSequence()
+            .filter { it.transaction.hash != vote.blockHash }
+            .forEach { it.remove(vote) }
+
+        return true
+    }
+
+    fun getCurrentConsensus(): TransactionElection {
+        return transactionElectionMap.values
+            .maxBy { it.totalWeight }
+    }
+
+    fun getConsensus(): TransactionElection? {
+        return transactionElectionMap.values
+            .firstOrNull { it.isConsensusReached() }
+    }
+
+    fun getFinalConsensus(): TransactionElection? {
+        return transactionElectionMap.values
+            .firstOrNull { it.isConfirmed() }
+    }
+}
+
+class TransactionElection(
+    val transaction: Transaction,
+    private val minimalConfirmationWeightProvider: () -> AttoAmount
+) {
+    @Volatile
+    var totalWeight = AttoAmount.MIN
+        private set
+
+    @Volatile
+    var totalFinalWeight = AttoAmount.MIN
+        private set
+
     internal val votes = HashMap<AttoPublicKey, Vote>()
 
     internal fun add(vote: Vote): Boolean {
@@ -181,20 +212,30 @@ data class TransactionWeighter(val account: Account, val transaction: Transactio
 
         votes[vote.publicKey] = vote
 
+        /**
+         * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
+         * is unlikely to happen in the live environment but very likely to happen locally.
+         */
+        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
+        if (totalWeight < minimalConfirmationWeight) {
+            totalWeight += vote.weight
+        }
+
+        if (vote.isFinal() && totalFinalWeight < minimalConfirmationWeight) {
+            totalFinalWeight += vote.weight
+        }
+
         return true
     }
 
-    internal fun totalWeight(): AttoAmount {
-        return votes.values.asSequence()
-            .map { it.weight }
-            .fold(AttoAmount.MIN) { a1, a2 -> a1 + a2 }
+    fun isConsensusReached(): Boolean {
+        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
+        return totalWeight >= minimalConfirmationWeight
     }
 
-    internal fun totalFinalWeight(): AttoAmount {
-        return votes.values.asSequence()
-            .filter { it.isFinal() }
-            .map { it.weight }
-            .fold(AttoAmount.MIN) { a1, a2 -> a1 + a2 }
+    fun isConfirmed(): Boolean {
+        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
+        return totalFinalWeight >= minimalConfirmationWeight
     }
 
     internal fun remove(vote: Vote): Vote? {
@@ -220,7 +261,7 @@ data class ElectionConsensusReached(
 data class ElectionFinished(
     val account: Account,
     val transaction: Transaction,
-    val votes: List<Vote>
+    val votes: Collection<Vote>
 ) : Event
 
 data class ElectionExpiring(

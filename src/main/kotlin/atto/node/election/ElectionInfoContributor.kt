@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component
 @Component
 class ElectionInfoContributor(val election: Election) : InfoContributor {
 
+    // TODO: Improve contributor
     override fun contribute(builder: Info.Builder) {
         val election = mapOf(
             "weights" to runBlocking { election.getElections() },
