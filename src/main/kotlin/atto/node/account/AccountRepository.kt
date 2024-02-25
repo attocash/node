@@ -5,18 +5,71 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
+import com.github.benmanes.caffeine.cache.Caffeine
+import org.springframework.context.annotation.Primary
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
+import org.springframework.stereotype.Component
 import java.math.BigInteger
 import java.time.Instant
 
-interface AccountRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AttoRepository {
+interface AccountRepository : AttoRepository {
+
+    suspend fun save(entity: Account): Account
+
+    suspend fun findById(id: AttoPublicKey): Account?
 
     suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account?
 
-    @Query("SELECT representative AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight FROM account GROUP BY representative")
     suspend fun findAllWeights(): List<WeightView>
 }
+
+
+interface AccountCrudRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AccountRepository {
+
+    override suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account?
+
+    @Query("SELECT representative AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight FROM account GROUP BY representative")
+    override suspend fun findAllWeights(): List<WeightView>
+}
+
+@Primary
+@Component
+class AccountCachedRepository(private val accountCrudRepository: AccountCrudRepository) : AccountRepository {
+    private val cache = Caffeine.newBuilder()
+        .maximumSize(100_000)
+        .build<AttoPublicKey, Account>()
+        .asMap()
+
+    override suspend fun save(entity: Account): Account {
+        executeAfterCommit {
+            cache[entity.publicKey] = entity.copy(
+                persistedAt = entity.persistedAt ?: Instant.now(),
+                updatedAt = Instant.now()
+            )
+        }
+        return accountCrudRepository.save(entity)
+    }
+
+    override suspend fun findById(id: AttoPublicKey): Account? {
+        return cache[id] ?: accountCrudRepository.findById(id)
+    }
+
+    override suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account? {
+        return accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
+    }
+
+    override suspend fun findAllWeights(): List<WeightView> {
+        return accountCrudRepository.findAllWeights()
+    }
+
+    override suspend fun deleteAll() {
+        accountCrudRepository.deleteAll()
+    }
+
+
+}
+
 
 /**
  * There's a weird bug when using default methods causing it to throw a ClassCastException
