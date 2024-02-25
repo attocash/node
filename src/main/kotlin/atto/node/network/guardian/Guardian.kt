@@ -22,6 +22,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
 
     companion object {
         const val toleranceMultiplier = 10U
+        const val minimalMedian = 100U
     }
 
 
@@ -63,6 +64,9 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
         val differenceMap = calculateDifference(newSnapshot, snapshot)
         val median = median(extractVoters(differenceMap).values)
 
+        if (median < minimalMedian) {
+            return
+        }
 
         val mergedDifferenceMap = differenceMap.entries
             .groupBy({ it.key.address }, { it.value })
