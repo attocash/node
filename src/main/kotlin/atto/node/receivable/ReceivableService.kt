@@ -17,7 +17,7 @@ class ReceivableService(
     suspend fun save(receivable: Receivable) {
         receivableRepository.save(receivable)
         logger.debug { "Saved $receivable" }
-        eventPublisher.publish(ReceivableSaved(receivable))
+        eventPublisher.publishAfterCommit(ReceivableSaved(receivable))
     }
 
     @Transactional
@@ -25,6 +25,6 @@ class ReceivableService(
         val receivable = receivableRepository.findById(hash)!!
         receivableRepository.delete(receivable)
         logger.debug { "Deleted receivable $hash" }
-        eventPublisher.publish(ReceivableDeleted(receivable))
+        eventPublisher.publishAfterCommit(ReceivableDeleted(receivable))
     }
 }

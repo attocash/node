@@ -12,6 +12,7 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
+
 @Service
 class TransactionService(
     private val accountRepository: AccountRepository,
@@ -47,9 +48,9 @@ class TransactionService(
             receivableService.delete(block.sendHash)
         }
 
-        eventPublisher.publish(TransactionSaved(updatedAccount, updatedAccount, transaction))
+        eventPublisher.publishAfterCommit(TransactionSaved(previousAccount, updatedAccount, transaction))
 
-        return SaveTransactionResponse(updatedAccount, updatedAccount, transaction)
+        return SaveTransactionResponse(previousAccount, updatedAccount, transaction)
     }
 
     private suspend fun getAccount(transaction: Transaction): Account {

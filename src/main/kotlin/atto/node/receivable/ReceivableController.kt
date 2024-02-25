@@ -28,8 +28,8 @@ class ReceivableController(
     private val receivableFlow = MutableSharedFlow<Receivable>()
 
     @EventListener
-    suspend fun process(transactionSaved: ReceivableSaved) {
-        receivableFlow.emit(transactionSaved.receivable)
+    suspend fun process(receivableSaved: ReceivableSaved) {
+        receivableFlow.emit(receivableSaved.receivable)
     }
 
     @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
