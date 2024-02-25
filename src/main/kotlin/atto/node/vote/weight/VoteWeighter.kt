@@ -2,8 +2,9 @@ package atto.node.vote.weight
 
 import atto.node.CacheSupport
 import atto.node.account.AccountRepository
-import atto.node.election.ElectionFinished
 import atto.node.toULong
+import atto.node.transaction.Transaction
+import atto.node.transaction.TransactionSaved
 import atto.node.vote.Vote
 import atto.node.vote.VoteRepository
 import atto.node.vote.VoteValidated
@@ -31,6 +32,7 @@ class VoteWeighter(
     val properties: VoteWeightProperties,
     val accountRepository: AccountRepository,
     val voteRepository: VoteRepository,
+    val genesisTransaction: Transaction,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -66,21 +68,34 @@ class VoteWeighter(
     }
 
     @EventListener
-    fun listen(event: ElectionFinished) {
-        val account = event.account
+    fun listen(event: TransactionSaved) {
+        val previousAccount = event.previousAccount
+        val updatedAccount = event.updatedAccount
         val transaction = event.transaction
         val block = transaction.block
 
-        if (block is AttoOpenBlock) {
-            add(block.representative, block.balance, block.balance)
-        } else if (block is AttoReceiveBlock) {
-            val amount = block.balance - account.balance
-            add(account.representative, amount, block.balance)
-        } else if (block is AttoSendBlock) {
-            subtract(account.representative, block.amount, block.balance)
-        } else if (block is AttoChangeBlock) {
-            subtract(account.representative, account.balance, AttoAmount.MIN)
-            add(block.representative, account.balance, account.balance)
+        if (transaction == genesisTransaction) {
+            return
+        }
+
+        when (block) {
+            is AttoOpenBlock -> {
+                add(block.representative, block.balance, block.balance)
+            }
+
+            is AttoReceiveBlock -> {
+                val amount = block.balance - previousAccount.balance
+                add(updatedAccount.representative, amount, block.balance)
+            }
+
+            is AttoSendBlock -> {
+                subtract(updatedAccount.representative, block.amount, block.balance)
+            }
+
+            is AttoChangeBlock -> {
+                subtract(previousAccount.representative, updatedAccount.balance, AttoAmount.MIN)
+                add(block.representative, updatedAccount.balance, updatedAccount.balance)
+            }
         }
 
         logger.trace { "Weight updated $weightMap" }

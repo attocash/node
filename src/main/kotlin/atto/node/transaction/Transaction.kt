@@ -42,6 +42,30 @@ data class Transaction(
         return PublicKeyHeight(this.block.publicKey, this.block.height)
     }
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Transaction) return false
+
+        if (block != other.block) return false
+        if (signature != other.signature) return false
+        if (work != other.work) return false
+        if (hash != other.hash) return false
+        if (algorithm != other.algorithm) return false
+        if (publicKey != other.publicKey) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = block.hashCode()
+        result = 31 * result + signature.hashCode()
+        result = 31 * result + work.hashCode()
+        result = 31 * result + hash.hashCode()
+        result = 31 * result + algorithm.hashCode()
+        result = 31 * result + publicKey.hashCode()
+        return result
+    }
+
     override fun toString(): String {
         return "Transaction(hash=$hash, publicKey=$publicKey, block=$block, signature=$signature, work=$work, receivedAt=$receivedAt, persistedAt=$persistedAt)"
     }
