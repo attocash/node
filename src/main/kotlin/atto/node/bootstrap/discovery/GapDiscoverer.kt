@@ -67,6 +67,10 @@ class GapDiscoverer(
     suspend fun resolve() {
         val peers = peers.toList()
 
+        if (peers.isEmpty()) {
+            return
+        }
+
 
         val gaps = databaseClient.sql(
             """
