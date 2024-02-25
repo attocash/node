@@ -17,13 +17,12 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 @Service
-class Guardian(private val voteWeighter: VoteWeighter, private val eventPublisher: EventPublisher) : CacheSupport {
+class Guardian(
+    private val voteWeighter: VoteWeighter,
+    private val eventPublisher: EventPublisher,
+    private val guardianProperties: GuardianProperties
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
-
-    companion object {
-        const val toleranceMultiplier = 10U
-        const val minimalMedian = 100U
-    }
 
 
     private val statisticsMap = ConcurrentHashMap<InetSocketAddress, ULong>()
@@ -64,7 +63,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
         val differenceMap = calculateDifference(newSnapshot, snapshot)
         val median = median(extractVoters(differenceMap).values)
 
-        if (median < minimalMedian) {
+        if (median < guardianProperties.minimalMedian) {
             return
         }
 
@@ -75,7 +74,7 @@ class Guardian(private val voteWeighter: VoteWeighter, private val eventPublishe
         val maliciousActors = mergedDifferenceMap.entries
             .associateBy({ it.value }, { it.key })
             .toSortedMap()
-            .tailMap(median * toleranceMultiplier)
+            .tailMap(median * guardianProperties.toleranceMultiplier)
 
         maliciousActors.forEach {
             logger.info { "Banning ${it.value}. Received ${it.key} requests while median of voters is $median per second" }

@@ -28,12 +28,17 @@ import kotlin.random.Random
 
 @ExtendWith(MockKExtension::class)
 class GuardianTest {
+    private val minimalMedian = 1UL
+    private val toleranceMultiplier = 10UL
 
     @RelaxedMockK
     lateinit var voteWeighter: VoteWeighter
 
     @RelaxedMockK
     lateinit var eventPublisher: EventPublisher
+
+    @RelaxedMockK
+    lateinit var guardianProperties: GuardianProperties
 
     @InjectMockKs
     lateinit var guardian: Guardian
@@ -46,6 +51,9 @@ class GuardianTest {
     @Test
     fun `should take snapshot`() {
         // given
+        every { guardianProperties.minimalMedian } returns minimalMedian
+        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
+
         val peer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(peer))
         guardian.count(inboundMessage(peer.node.publicUri, peer.connectionSocketAddress))
@@ -61,13 +69,16 @@ class GuardianTest {
     @Test
     fun `should ban when node deviate from single voter`() {
         // given
+        every { guardianProperties.minimalMedian } returns minimalMedian
+        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
+
         val votePeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(votePeer))
         guardian.count(inboundMessage(votePeer.node.publicUri, votePeer.connectionSocketAddress))
 
         val normalPeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(normalPeer))
-        for (i in 0..Guardian.toleranceMultiplier.toInt()) {
+        for (i in 0UL..toleranceMultiplier) {
             guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
 
@@ -84,6 +95,9 @@ class GuardianTest {
     @Test
     fun `should ban when node deviate from voters median`() {
         // given
+        every { guardianProperties.minimalMedian } returns minimalMedian
+        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
+
         val votePeer1 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
         guardian.add(PeerAdded(votePeer1))
         guardian.count(inboundMessage(votePeer1.node.publicUri, votePeer1.connectionSocketAddress))
@@ -94,7 +108,7 @@ class GuardianTest {
 
         val normalPeer = createPeer(AttoAmount.MAX)
         guardian.add(PeerAdded(normalPeer))
-        for (i in 0U..Guardian.toleranceMultiplier) {
+        for (i in 0UL..toleranceMultiplier) {
             guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
 

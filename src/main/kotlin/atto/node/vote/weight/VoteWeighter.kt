@@ -93,7 +93,7 @@ class VoteWeighter(
             }
 
             is AttoChangeBlock -> {
-                subtract(previousAccount.representative, updatedAccount.balance, AttoAmount.MIN)
+                subtract(previousAccount.representative, previousAccount.balance, AttoAmount.MIN)
                 add(block.representative, updatedAccount.balance, updatedAccount.balance)
             }
         }
