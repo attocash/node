@@ -115,7 +115,7 @@ class Election(
     suspend fun processStaling() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values.asSequence()
+        publicKeyHeightElectionMap.values
             .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
             .forEach {
                 val transaction = it.getCurrentConsensus().transaction
@@ -129,7 +129,7 @@ class Election(
     suspend fun stopObservingStaled() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values.asSequence()
+        publicKeyHeightElectionMap.values
             .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
             .forEach {
                 val transaction = it.getCurrentConsensus().transaction
@@ -218,11 +218,13 @@ class TransactionElection(
          */
         val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
         if (totalWeight < minimalConfirmationWeight) {
-            totalWeight += vote.weight
+            val remainingWeight = minimalConfirmationWeight - totalWeight
+            totalWeight += if (vote.weight < remainingWeight) vote.weight else remainingWeight
         }
 
         if (vote.isFinal() && totalFinalWeight < minimalConfirmationWeight) {
-            totalFinalWeight += vote.weight
+            val remainingWeight = minimalConfirmationWeight - totalFinalWeight
+            totalFinalWeight += if (vote.weight < remainingWeight) vote.weight else remainingWeight
         }
 
         return true
