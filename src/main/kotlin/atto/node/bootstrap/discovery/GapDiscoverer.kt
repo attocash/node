@@ -11,14 +11,8 @@ import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.toTransaction
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
-import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.PreviousSupport
+import cash.atto.commons.*
 import com.github.benmanes.caffeine.cache.Caffeine
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.reactive.asFlow
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
@@ -44,6 +38,7 @@ class GapDiscoverer(
 
     private val pointerMap = Caffeine.newBuilder()
         .expireAfterWrite(Duration.ofMinutes(1))
+        .maximumSize(100_000)
         .build<AttoPublicKey, TransactionPointer>()
         .asMap()
 
@@ -97,40 +92,50 @@ class GapDiscoverer(
             )
         }.all().asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
 
-        gaps.filter { pointerMap[it.publicKey] == null }
-            .onEach {
-                pointerMap[it.publicKey] = TransactionPointer(
-                    it.startHeight(),
-                    it.endHeight(),
-                    it.previousTransactionHash
-                )
+        gaps.collect { view ->
+            pointerMap.computeIfAbsent(view.publicKey) {
+                val request = AttoTransactionStreamRequest(view.publicKey, view.startHeight(), view.endHeight())
+                val message = DirectNetworkMessage(peers[Random.nextInt(peers.size)], request)
+                networkMessagePublisher.publish(message)
+                TransactionPointer(view.startHeight(), view.endHeight(), view.previousTransactionHash)
             }
-            .map { AttoTransactionStreamRequest(it.publicKey, it.startHeight(), it.endHeight()) }
-            .map { DirectNetworkMessage(peers[Random.nextInt(peers.size)], it) }
-            .collect { networkMessagePublisher.publish(it) }
+        }
     }
 
     @EventListener
     fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
         val response = message.payload
         val transaction = response.transaction
+        val block = transaction.block
+
+        pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
+            process(pointer, transaction)
+        }
+    }
+
+
+    private fun process(pointer: TransactionPointer, transaction: AttoTransaction): TransactionPointer? {
+        if (transaction.hash != pointer.currentHash) {
+            return pointer
+        }
 
         val block = transaction.block
-        val pointer = pointerMap[block.publicKey]
-        if (transaction.hash != pointer?.currentHash) {
-            return
-        }
-        if (pointer.initialHeight == block.height) {
-            pointerMap.remove(block.publicKey)
-        } else if (block is PreviousSupport) {
-            pointerMap[block.publicKey] = TransactionPointer(
+
+        val nextPointer = if (pointer.initialHeight == block.height) {
+            null
+        } else {
+            TransactionPointer(
                 pointer.initialHeight,
                 pointer.currentHeight - 1UL,
-                block.previous
+                (block as PreviousSupport).previous
             )
         }
+
         logger.debug { "Discovered gap transaction ${transaction.hash}" }
+
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
+
+        return nextPointer
     }
 
 }
