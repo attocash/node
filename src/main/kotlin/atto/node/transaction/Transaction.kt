@@ -27,7 +27,7 @@ data class Transaction(
     }
 
     override fun isNew(): Boolean {
-        return persistedAt == null
+        return true
     }
 
     fun toAttoTransaction(): AttoTransaction {

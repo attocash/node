@@ -44,7 +44,7 @@ data class Vote(
     }
 
     override fun isNew(): Boolean {
-        return persistedAt == null
+        return true
     }
 
     fun isFinal(): Boolean {

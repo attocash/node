@@ -33,6 +33,8 @@ CREATE TABLE transaction
     persisted_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 );
 
+CREATE UNIQUE INDEX transaction_public_key_height ON transaction (public_key, height);
+
 CREATE TABLE receivable
 (
     hash                VARBINARY(32) PRIMARY KEY,
@@ -74,3 +76,5 @@ CREATE TABLE unchecked_transaction
     received_at  TIMESTAMP(3)                              NOT NULL,
     persisted_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 );
+
+CREATE UNIQUE INDEX unchecked_transaction_public_key_height ON unchecked_transaction (public_key, height);

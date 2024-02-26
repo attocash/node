@@ -68,7 +68,9 @@ class Election(
     @EventListener
     suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
         val transaction = event.transaction
-        publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+        publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {
+            logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
+        }
     }
 
     private suspend fun start(account: Account, transaction: Transaction) = withContext(singleDispatcher) {
