@@ -138,7 +138,7 @@ class ElectionVoter(
             BroadcastStrategy.VOTERS
         }
 
-        logger.debug { "Sending to $strategy $attoVote" }
+        logger.debug { "Sending to $strategy $votePush" }
 
         eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, transaction.hash, attoVote)))
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))

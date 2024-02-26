@@ -6,6 +6,7 @@ import atto.node.EventPublisher
 import atto.node.account.Account
 import atto.node.transaction.PublicKeyHeight
 import atto.node.transaction.Transaction
+import atto.node.transaction.TransactionSaved
 import atto.node.transaction.TransactionValidated
 import atto.node.vote.Vote
 import atto.node.vote.VoteValidated
@@ -64,6 +65,12 @@ class Election(
         process(event.transaction, vote)
     }
 
+    @EventListener
+    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
+        val transaction = event.transaction
+        publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+    }
+
     private suspend fun start(account: Account, transaction: Transaction) = withContext(singleDispatcher) {
         publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
             val publicKeyHeightElection = v ?: PublicKeyHeightElection(account) {
@@ -115,12 +122,11 @@ class Election(
     suspend fun processStaling() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values
+        publicKeyHeightElectionMap.values.toList()
             .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
             .forEach {
                 val transaction = it.getCurrentConsensus().transaction
                 logger.trace { "Expiring $transaction" }
-                publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
                 eventPublisher.publish(ElectionExpiring(it.account, transaction))
             }
     }
@@ -129,7 +135,7 @@ class Election(
     suspend fun stopObservingStaled() = withContext(singleDispatcher) {
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values
+        publicKeyHeightElectionMap.values.toList()
             .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
             .forEach {
                 val transaction = it.getCurrentConsensus().transaction
