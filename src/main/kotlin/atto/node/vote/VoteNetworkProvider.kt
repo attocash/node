@@ -7,11 +7,13 @@ import atto.protocol.vote.AttoVoteStreamCancel
 import atto.protocol.vote.AttoVoteStreamRequest
 import atto.protocol.vote.AttoVoteStreamResponse
 import cash.atto.commons.AttoHash
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.milliseconds
 
 @Component
 class VoteNetworkProvider(
@@ -41,6 +43,7 @@ class VoteNetworkProvider(
             .collect {
                 val response = AttoVoteStreamResponse(request.blockHash, it.toAttoVote())
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+                delay(10.milliseconds)
             }
     }
 

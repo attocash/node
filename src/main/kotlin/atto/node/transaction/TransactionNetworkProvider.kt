@@ -7,8 +7,10 @@ import atto.protocol.transaction.AttoTransactionRequest
 import atto.protocol.transaction.AttoTransactionResponse
 import atto.protocol.transaction.AttoTransactionStreamRequest
 import atto.protocol.transaction.AttoTransactionStreamResponse
+import kotlinx.coroutines.delay
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import kotlin.time.Duration.Companion.milliseconds
 
 @Component
 class TransactionNetworkProvider(
@@ -38,6 +40,7 @@ class TransactionNetworkProvider(
         transactions.collect {
             val response = AttoTransactionStreamResponse(it.toAttoTransaction())
             networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+            delay(10.milliseconds)
         }
     }
 }
