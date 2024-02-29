@@ -10,7 +10,7 @@ import mu.KotlinLogging
 import kotlin.time.Duration
 
 
-abstract class AsynchronousQueueProcessor<T>(private val duration: Duration) {
+abstract class AsynchronousQueueProcessor<T>(private val delayDuration: Duration) {
     private val logger = KotlinLogging.logger {}
 
     @Volatile
@@ -23,7 +23,7 @@ abstract class AsynchronousQueueProcessor<T>(private val duration: Duration) {
         CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler).launch {
             while (running) {
                 process()
-                delay(duration.inWholeMilliseconds)
+                delay(delayDuration)
             }
             logger.info { "Stopped $className" }
         }
