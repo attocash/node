@@ -86,6 +86,7 @@ data class VoteDropped(
 
 enum class VoteRejectionReason {
     INVALID_VOTING_WEIGHT,
+    OLD_VOTE,
 }
 
 data class VoteRejected(

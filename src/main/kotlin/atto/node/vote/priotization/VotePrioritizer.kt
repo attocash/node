@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -173,6 +174,10 @@ class VotePrioritizer(
     private fun validate(vote: Vote): VoteRejectionReason? {
         if (vote.weight == AttoAmount.MIN) {
             return VoteRejectionReason.INVALID_VOTING_WEIGHT
+        }
+
+        if (vote.timestamp < Instant.now().minusSeconds(60)) {
+            return VoteRejectionReason.OLD_VOTE
         }
 
         return null
