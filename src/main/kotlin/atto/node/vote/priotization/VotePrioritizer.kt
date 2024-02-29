@@ -31,7 +31,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class VotePrioritizer(
     properties: VotePrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<TransactionVote>(1.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)

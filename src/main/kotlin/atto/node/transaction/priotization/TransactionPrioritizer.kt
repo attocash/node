@@ -25,7 +25,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<Transaction>(1.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<Transaction>(100.milliseconds), CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
