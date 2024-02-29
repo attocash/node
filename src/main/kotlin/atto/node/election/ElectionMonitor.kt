@@ -5,6 +5,7 @@ import atto.node.network.BroadcastStrategy
 import atto.node.network.NetworkMessagePublisher
 import atto.node.transaction.TransactionService
 import atto.node.vote.VoteService
+import atto.protocol.AttoNode
 import atto.protocol.transaction.AttoTransactionPush
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
@@ -12,6 +13,7 @@ import org.springframework.stereotype.Service
 
 @Service
 class ElectionMonitor(
+    private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val transactionService: TransactionService,
     private val voteService: VoteService,
@@ -24,7 +26,9 @@ class ElectionMonitor(
         val votes = event.votes
 
         transactionService.save(transaction)
-        voteService.saveAll(votes)
+        if (thisNode.isHistorical()) {
+            voteService.saveAll(votes)
+        }
     }
 
     @EventListener
