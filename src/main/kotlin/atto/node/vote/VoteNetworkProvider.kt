@@ -3,6 +3,7 @@ package atto.node.vote
 import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
+import atto.protocol.AttoNode
 import atto.protocol.vote.AttoVoteStreamCancel
 import atto.protocol.vote.AttoVoteStreamRequest
 import atto.protocol.vote.AttoVoteStreamResponse
@@ -17,8 +18,9 @@ import kotlin.time.Duration.Companion.milliseconds
 
 @Component
 class VoteNetworkProvider(
+    private val thisNode: AttoNode,
     private val voteRepository: VoteRepository,
-    private val networkMessagePublisher: NetworkMessagePublisher
+    private val networkMessagePublisher: NetworkMessagePublisher,
 ) {
     private val voteStreams = ConcurrentHashMap.newKeySet<VoteStream>()
 
@@ -31,6 +33,10 @@ class VoteNetworkProvider(
 
     @EventListener
     suspend fun stream(message: InboundNetworkMessage<AttoVoteStreamRequest>) {
+        if (thisNode.isNotHistorical()) {
+            return
+        }
+        
         val request = message.payload
 
         val stream = VoteStream(message.publicUri, request.blockHash)

@@ -20,9 +20,6 @@ data class AttoHandshakeAnswer(
     val signature: AttoSignature,
 ) :
     AttoMessage {
-    companion object {
-        val size = AttoNode.size + AttoSignature.SIZE
-    }
 
     override fun messageType(): AttoMessageType {
         return AttoMessageType.HANDSHAKE_ANSWER

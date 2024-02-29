@@ -6,7 +6,6 @@ import atto.protocol.serializer.URISerializer
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
-import com.fasterxml.jackson.annotation.JsonIgnore
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.Transient
@@ -33,23 +32,20 @@ data class AttoNode(
     @Transient
     val maxProtocolVersion = (protocolVersion + 2u).toUShort()
 
-    companion object {
-        val size = 57
-    }
-
-    @JsonIgnore
     fun isVoter(): Boolean {
         return features.contains(NodeFeature.VOTING)
     }
 
-    @JsonIgnore
     fun isNotVoter(): Boolean {
         return !isVoter()
     }
 
-    @JsonIgnore
     fun isHistorical(): Boolean {
         return features.contains(NodeFeature.HISTORICAL)
+    }
+
+    fun isNotHistorical(): Boolean {
+        return !isHistorical()
     }
 
     override fun equals(other: Any?): Boolean {
