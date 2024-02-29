@@ -68,7 +68,7 @@ class TransactionConfiguration(
 
             receivableService.save(receivable)
 
-            transactionService.save(transaction)
+            transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
 
             val network = thisNode.network
             val hash = genesisTransaction.hash

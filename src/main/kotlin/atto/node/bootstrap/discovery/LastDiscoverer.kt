@@ -94,7 +94,7 @@ class LastDiscoverer(
 
         transactionElectionMap.computeIfPresent(blockHash) { _, election ->
             election.add(vote)
-            if (election.isConfirmed()) {
+            if (election.isConsensusReached()) {
                 logger.debug { "Discovered missing last transaction $blockHash" }
 
                 val request = AttoVoteStreamCancel(blockHash)

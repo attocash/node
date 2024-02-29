@@ -3,6 +3,7 @@ package atto.node.election
 import atto.node.network.BroadcastNetworkMessage
 import atto.node.network.BroadcastStrategy
 import atto.node.network.NetworkMessagePublisher
+import atto.node.transaction.TransactionSaveSource
 import atto.node.transaction.TransactionService
 import atto.node.vote.VoteService
 import atto.protocol.AttoNode
@@ -21,11 +22,11 @@ class ElectionMonitor(
     private val logger = KotlinLogging.logger {}
 
     @EventListener
-    suspend fun process(event: ElectionFinished) {
+    suspend fun process(event: ElectionConsensusReached) {
         val transaction = event.transaction
         val votes = event.votes
 
-        transactionService.save(transaction)
+        transactionService.save(TransactionSaveSource.ELECTION, transaction)
         if (thisNode.isHistorical()) {
             voteService.saveAll(votes)
         }

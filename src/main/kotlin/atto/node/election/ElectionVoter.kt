@@ -36,6 +36,7 @@ class ElectionVoter(
 
     companion object {
         val MIN_WEIGHT = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000)) // 1M
+        val finalVoteTimestamp = AttoVote.finalTimestamp.toJavaInstant()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -75,15 +76,11 @@ class ElectionVoter(
         val publicKeyHeight = transaction.toPublicKeyHeight()
         if (!agreements.contains(publicKeyHeight)) {
             agreements.add(publicKeyHeight)
-            vote(transaction, AttoVote.finalTimestamp.toJavaInstant())
+            vote(transaction, Instant.now())
+            remove(event.transaction)
         } else {
             logger.trace { "Consensus already reached for ${event.transaction}" }
         }
-    }
-
-    @EventListener
-    suspend fun process(event: ElectionFinished) = withContext(singleDispatcher) {
-        remove(event.transaction)
     }
 
     @EventListener
@@ -97,6 +94,13 @@ class ElectionVoter(
     }
 
     @EventListener
+    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
+        if (event.source == TransactionSaveSource.ELECTION) {
+            vote(event.transaction, finalVoteTimestamp)
+        }
+    }
+
+    @EventListener
     suspend fun process(event: TransactionRejected) {
         if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
             return
@@ -104,7 +108,7 @@ class ElectionVoter(
         val transaction = event.transaction
         if (transactionRepository.existsById(transaction.hash)) {
             withContext(singleDispatcher) {
-                vote(transaction, AttoVote.finalTimestamp.toJavaInstant())
+                vote(transaction, finalVoteTimestamp)
             }
         }
     }

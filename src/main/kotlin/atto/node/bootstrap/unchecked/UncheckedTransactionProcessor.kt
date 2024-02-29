@@ -5,6 +5,7 @@ import atto.node.account.AccountRepository
 import atto.node.account.getByAlgorithmAndPublicKey
 import atto.node.bootstrap.TransactionResolved
 import atto.node.bootstrap.TransactionStuck
+import atto.node.transaction.TransactionSaveSource
 import atto.node.transaction.TransactionService
 import atto.node.transaction.validation.TransactionValidationManager
 import cash.atto.commons.AttoAlgorithmPublicKey
@@ -59,7 +60,7 @@ class UncheckedTransactionProcessor(
                 }
 
                 uncheckedTransactionService.delete(transaction.hash)
-                val response = transactionService.save(transaction)
+                val response = transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
                 account = response.updatedAccount
 
                 logger.debug { "Resolved $transaction" }

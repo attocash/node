@@ -101,23 +101,17 @@ class Election(
 
         val account = publicKeyHeightElection.account
 
-        val finalTransactionElection = publicKeyHeightElection.getFinalConsensus()
-        if (finalTransactionElection != null) {
-            val finalTransaction = finalTransactionElection.transaction
-            val votes = finalTransactionElection.votes.values
-            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
-            eventPublisher.publish(ElectionFinished(account, finalTransaction, votes))
-            return@withContext
-        }
-
         val consensusTransactionElection = publicKeyHeightElection.getConsensus()
         if (consensusTransactionElection != null) {
-            eventPublisher.publish(ElectionConsensusReached(account, consensusTransactionElection.transaction))
+            val finalTransaction = consensusTransactionElection.transaction
+            val votes = consensusTransactionElection.votes.values
+            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+            eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withContext
         }
 
-        val currentConsensusTransactionElection = publicKeyHeightElection.getCurrentConsensus()
-        eventPublisher.publish(ElectionConsensusChanged(account, currentConsensusTransactionElection.transaction))
+        val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
+        eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
@@ -125,9 +119,9 @@ class Election(
         val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
 
         publicKeyHeightElectionMap.values.toList()
-            .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
+            .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
             .forEach {
-                val transaction = it.getCurrentConsensus().transaction
+                val transaction = it.getProvisionalLeader().transaction
                 logger.trace { "Expiring $transaction" }
                 eventPublisher.publish(ElectionExpiring(it.account, transaction))
             }
@@ -138,9 +132,9 @@ class Election(
         val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
 
         publicKeyHeightElectionMap.values.toList()
-            .filter { it.getCurrentConsensus().transaction.receivedAt < minimalTimestamp }
+            .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
             .forEach {
-                val transaction = it.getCurrentConsensus().transaction
+                val transaction = it.getProvisionalLeader().transaction
                 logger.trace { "Expired $transaction" }
                 publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
                 eventPublisher.publish(ElectionExpired(it.account, transaction))
@@ -181,7 +175,7 @@ class PublicKeyHeightElection(
         return true
     }
 
-    fun getCurrentConsensus(): TransactionElection {
+    fun getProvisionalLeader(): TransactionElection {
         return transactionElectionMap.values
             .maxBy { it.totalWeight }
     }
@@ -189,11 +183,6 @@ class PublicKeyHeightElection(
     fun getConsensus(): TransactionElection? {
         return transactionElectionMap.values
             .firstOrNull { it.isConsensusReached() }
-    }
-
-    fun getFinalConsensus(): TransactionElection? {
-        return transactionElectionMap.values
-            .firstOrNull { it.isConfirmed() }
     }
 }
 
@@ -203,10 +192,6 @@ class TransactionElection(
 ) {
     @Volatile
     var totalWeight = AttoAmount.MIN
-        private set
-
-    @Volatile
-    var totalFinalWeight = AttoAmount.MIN
         private set
 
     internal val votes = HashMap<AttoPublicKey, Vote>()
@@ -230,22 +215,12 @@ class TransactionElection(
             totalWeight += if (vote.weight < remainingWeight) vote.weight else remainingWeight
         }
 
-        if (vote.isFinal() && totalFinalWeight < minimalConfirmationWeight) {
-            val remainingWeight = minimalConfirmationWeight - totalFinalWeight
-            totalFinalWeight += if (vote.weight < remainingWeight) vote.weight else remainingWeight
-        }
-
         return true
     }
 
     fun isConsensusReached(): Boolean {
         val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
         return totalWeight >= minimalConfirmationWeight
-    }
-
-    fun isConfirmed(): Boolean {
-        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
-        return totalFinalWeight >= minimalConfirmationWeight
     }
 
     internal fun remove(vote: Vote): Vote? {
@@ -264,11 +239,6 @@ data class ElectionConsensusChanged(
 ) : Event
 
 data class ElectionConsensusReached(
-    val account: Account,
-    val transaction: Transaction
-) : Event
-
-data class ElectionFinished(
     val account: Account,
     val transaction: Transaction,
     val votes: Collection<Vote>

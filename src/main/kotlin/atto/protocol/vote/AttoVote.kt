@@ -4,10 +4,12 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -27,6 +29,10 @@ data class AttoVote(
     }
 
     fun isValid(blockHash: AttoHash): Boolean {
+        if (timestamp < Clock.System.now().minus(60.seconds)) {
+            return false
+        }
+        
         val voteHash = AttoHash.hashVote(
             blockHash,
             algorithm,
