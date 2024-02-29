@@ -11,6 +11,7 @@ import atto.node.transaction.TransactionRepository
 import atto.node.transaction.toTransaction
 import atto.node.vote.convertion.VoteConverter
 import atto.node.vote.weight.VoteWeighter
+import atto.protocol.AttoNode
 import atto.protocol.bootstrap.AttoBootstrapTransactionPush
 import atto.protocol.vote.AttoVoteStreamCancel
 import atto.protocol.vote.AttoVoteStreamRequest
@@ -26,6 +27,7 @@ import java.util.concurrent.TimeUnit
 
 @Component
 class LastDiscoverer(
+    private val thisNode: AttoNode,
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
@@ -42,6 +44,9 @@ class LastDiscoverer(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
+        if (thisNode.isNotHistorical()) {
+            return
+        }
         val transactions = transactionRepository.getLastSample(20)
         transactions
             .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }

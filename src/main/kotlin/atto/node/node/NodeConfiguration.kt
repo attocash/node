@@ -1,5 +1,7 @@
 package atto.node.node
 
+import atto.protocol.AttoNode
+import atto.protocol.NodeFeature
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
@@ -34,23 +36,24 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
     }
 
     @Bean
-    fun node(nodeProperties: NodeProperties, privateKey: AttoPrivateKey): atto.protocol.AttoNode {
-        val features = HashSet<atto.protocol.NodeFeature>()
-        features.add(atto.protocol.NodeFeature.HISTORICAL)
+    fun node(nodeProperties: NodeProperties, privateKey: AttoPrivateKey): AttoNode {
+        val features = HashSet<NodeFeature>()
 
-        if (nodeProperties.voterStrategy == NodeVoterStrategy.FORCE_ENABLED ||
-            nodeProperties.voterStrategy == NodeVoterStrategy.DEFAULT && nodeProperties.privateKey != null
-        ) {
-            features.add(atto.protocol.NodeFeature.VOTING)
+        if (nodeProperties.privateKey != null || nodeProperties.forceVoter) {
+            features.add(NodeFeature.VOTING)
         }
 
-        return atto.protocol.AttoNode(
+        if (nodeProperties.privateKey == null || nodeProperties.forceHistorical) {
+            features.add(NodeFeature.HISTORICAL)
+        }
+
+        return AttoNode(
             network = nodeProperties.network!!,
             protocolVersion = 0u,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             publicUri = URI(nodeProperties.publicUri!!),
-            features = features
+            features = features.toSet()
         )
     }
 

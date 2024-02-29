@@ -10,7 +10,8 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @ConfigurationProperties(prefix = "atto.node")
 class NodeProperties {
-    var voterStrategy: NodeVoterStrategy = NodeVoterStrategy.DEFAULT
+    var forceVoter: Boolean = false
+    var forceHistorical: Boolean = false
     var network: AttoNetwork? = null
     var publicUri: String? = null
     var privateKey: String? = null
@@ -33,9 +34,17 @@ enum class NodeVoterStrategy {
      * Always enables voting
      */
     FORCE_ENABLED,
+}
+
+
+enum class HistoricalStrategy {
+    /**
+     * Enables voting when the private key is defined
+     */
+    DEFAULT,
 
     /**
-     * Always disable voting
+     * Always enables voting
      */
-    DISABLED
+    FORCE_ENABLED,
 }

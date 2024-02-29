@@ -10,7 +10,8 @@ spring:
 
 atto:
   node:
-    voterStrategy: FORCE_ENABLED
+    force-voter: true
+    force-historical: true
     network: LOCAL
     public-uri: ws://localhost:${websocket.port}
   network:
