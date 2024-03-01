@@ -275,7 +275,7 @@ class NetworkProcessor(
             .doOnNext { logger.debug { "Received from $publicUri ${it.toHex()}" } }
             .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $publicUri" } }
             .mapNotNull { deserializeOrDisconnect(publicUri, it) { wsOutbound.sendClose().subscribe() } }
-            .map { InboundNetworkMessage(publicUri, socketAddress, it!!) }
+            .map { InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, it!!) }
             .doOnNext { messagePublisher.publish(it!!) }
             .onErrorResume(AbortedException::class.java) { Mono.empty() }
             .doOnError { t -> logger.info(t) { "Failed to process inbound message from $publicUri" } }

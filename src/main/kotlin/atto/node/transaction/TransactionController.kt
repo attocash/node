@@ -3,6 +3,7 @@ package atto.node.transaction
 import atto.node.ApplicationProperties
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
+import atto.node.network.MessageSource
 import atto.node.network.NetworkMessagePublisher
 import atto.node.sortByHeight
 import atto.protocol.transaction.AttoTransactionPush
@@ -171,6 +172,7 @@ class TransactionController(
 
         messagePublisher.publish(
             InboundNetworkMessage(
+                MessageSource.REST,
                 thisNode.publicUri,
                 socketAddress,
                 AttoTransactionPush(transaction)

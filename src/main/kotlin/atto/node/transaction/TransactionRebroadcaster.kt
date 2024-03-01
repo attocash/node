@@ -2,10 +2,7 @@ package atto.node.transaction
 
 import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
-import atto.node.network.BroadcastNetworkMessage
-import atto.node.network.BroadcastStrategy
-import atto.node.network.InboundNetworkMessage
-import atto.node.network.NetworkMessagePublisher
+import atto.node.network.*
 import atto.node.transaction.TransactionRebroadcaster.TransactionSocketAddressHolder
 import atto.protocol.transaction.AttoTransactionPush
 import cash.atto.commons.AttoHash
@@ -52,6 +49,11 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
+        if (message.source == MessageSource.REST) {
+            broadcast(transaction, emptySet())
+            return
+        }
+
         holderMap.compute(transaction.hash) { _, v ->
             val holder = v ?: TransactionSocketAddressHolder(transaction)
             holder.add(message.publicUri)
@@ -89,9 +91,12 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
     override suspend fun process(value: TransactionSocketAddressHolder) {
         val transaction = value.transaction
         logger.trace { "Transaction dequeued. $transaction" }
-        val transactionPush = AttoTransactionPush(transaction)
-        val exceptions = value.publicUris
 
+        broadcast(transaction, value.publicUris)
+    }
+
+    private fun broadcast(transaction: AttoTransaction, exceptions: Set<URI>) {
+        val transactionPush = AttoTransactionPush(transaction)
         val message = BroadcastNetworkMessage(
             BroadcastStrategy.EVERYONE,
             exceptions,

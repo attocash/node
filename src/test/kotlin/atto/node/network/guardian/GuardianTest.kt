@@ -2,6 +2,7 @@ package atto.node.network.guardian
 
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
+import atto.node.network.MessageSource
 import atto.node.network.NodeBanned
 import atto.node.network.peer.Peer
 import atto.node.network.peer.PeerConnected
@@ -168,6 +169,11 @@ class GuardianTest {
     }
 
     private fun inboundMessage(publicUri: URI, socketAddress: InetSocketAddress): InboundNetworkMessage<*> {
-        return InboundNetworkMessage(publicUri, socketAddress, AttoVoteStreamRequest(AttoHash(ByteArray(32))))
+        return InboundNetworkMessage(
+            MessageSource.WEBSOCKET,
+            publicUri,
+            socketAddress,
+            AttoVoteStreamRequest(AttoHash(ByteArray(32)))
+        )
     }
 }

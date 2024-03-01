@@ -18,7 +18,12 @@ interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
 
 }
 
+enum class MessageSource {
+    WEBSOCKET, REST
+}
+
 data class InboundNetworkMessage<T : AttoMessage>(
+    val source: MessageSource,
     val publicUri: URI,
     val socketAddress: InetSocketAddress,
     override val payload: T
