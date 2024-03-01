@@ -1,6 +1,7 @@
 package atto.protocol
 
 import atto.protocol.bootstrap.AttoBootstrapTransactionPush
+import atto.protocol.network.handshake.AttoHandshakeAcceptance
 import atto.protocol.network.handshake.AttoHandshakeAnswer
 import atto.protocol.network.handshake.AttoHandshakeChallenge
 import atto.protocol.network.peer.AttoKeepAlive
@@ -29,17 +30,18 @@ class AttoUnknown : AttoMessage {
 enum class AttoMessageType(val code: UByte, val public: Boolean) {
     HANDSHAKE_CHALLENGE(0u, true),
     HANDSHAKE_ANSWER(1u, true),
-    KEEP_ALIVE(2u, false),
-    TRANSACTION_PUSH(3u, false),
-    TRANSACTION_REQUEST(4u, false),
-    TRANSACTION_RESPONSE(5u, false),
-    TRANSACTION_STREAM_REQUEST(6u, false),
-    TRANSACTION_STREAM_RESPONSE(7u, false),
-    VOTE_PUSH(8u, false),
-    VOTE_STREAM_REQUEST(9u, false),
-    VOTE_STREAM_RESPONSE(10u, false),
-    VOTE_STREAM_CANCEL(11u, false),
-    BOOTSTRAP_TRANSACTION_PUSH(12u, false),
+    HANDSHAKE_ACCEPTANCE(2u, true),
+    KEEP_ALIVE(3u, false),
+    TRANSACTION_PUSH(4u, false),
+    TRANSACTION_REQUEST(5u, false),
+    TRANSACTION_RESPONSE(6u, false),
+    TRANSACTION_STREAM_REQUEST(7u, false),
+    TRANSACTION_STREAM_RESPONSE(8u, false),
+    VOTE_PUSH(9u, false),
+    VOTE_STREAM_REQUEST(10u, false),
+    VOTE_STREAM_RESPONSE(11u, false),
+    VOTE_STREAM_CANCEL(12u, false),
+    BOOTSTRAP_TRANSACTION_PUSH(13u, false),
 
     UNKNOWN(UByte.MAX_VALUE, false);
 
@@ -57,6 +59,7 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
 val messageSerializerMap = mapOf(
     AttoMessageType.HANDSHAKE_CHALLENGE to AttoHandshakeChallenge.serializer(),
     AttoMessageType.HANDSHAKE_ANSWER to AttoHandshakeAnswer.serializer(),
+    AttoMessageType.HANDSHAKE_ACCEPTANCE to AttoHandshakeAcceptance.serializer(),
     AttoMessageType.KEEP_ALIVE to AttoKeepAlive.serializer(),
     AttoMessageType.TRANSACTION_PUSH to AttoTransactionPush.serializer(),
     AttoMessageType.TRANSACTION_REQUEST to AttoTransactionRequest.serializer(),

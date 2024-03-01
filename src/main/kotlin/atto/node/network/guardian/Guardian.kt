@@ -4,7 +4,7 @@ import atto.node.CacheSupport
 import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NodeBanned
-import atto.node.network.peer.PeerAdded
+import atto.node.network.peer.PeerConnected
 import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
 import cash.atto.commons.AttoPublicKey
@@ -40,7 +40,7 @@ class Guardian(
     }
 
     @EventListener
-    fun add(peerEvent: PeerAdded) {
+    fun add(peerEvent: PeerConnected) {
         val peer = peerEvent.peer
 
         if (peer.node.isNotVoter()) {

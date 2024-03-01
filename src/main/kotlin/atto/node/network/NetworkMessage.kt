@@ -55,7 +55,7 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
 
         return when (strategy) {
             BroadcastStrategy.EVERYONE -> {
-                true
+                node != null
             }
 
             BroadcastStrategy.VOTERS -> {

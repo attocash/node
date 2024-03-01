@@ -6,6 +6,7 @@ import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.NodeBanned
+import atto.protocol.network.handshake.AttoHandshakeAcceptance
 import atto.protocol.network.handshake.AttoHandshakeAnswer
 import atto.protocol.network.handshake.AttoHandshakeChallenge
 import cash.atto.commons.AttoHash
@@ -41,8 +42,17 @@ class HandshakeService(
         .build<URI, AttoHandshakeChallenge>()
         .asMap()
 
+    private val authorizedNodes = Caffeine.newBuilder()
+        .expireAfterWrite(5, TimeUnit.SECONDS)
+        .maximumSize(100_000)
+        .evictionListener { _: URI?, peer: Peer?, _ ->
+            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
+        }
+        .build<URI, Peer>()
+        .asMap()
+
     @EventListener
-    fun add(peerEvent: PeerAdded) {
+    fun add(peerEvent: PeerConnected) {
         val peer = peerEvent.peer
         peers[peer.node.publicUri] = peer
         challenges.remove(peer.node.publicUri)
@@ -107,26 +117,31 @@ class HandshakeService(
         val answer = message.payload
         val node = answer.node
 
-        challenges.compute(message.publicUri) { k, v ->
-            if (v == null) {
-                val rejected = PeerRejected(PeerRejectionReason.UNKNOWN_HANDSHAKE, Peer(message.socketAddress, node))
-                eventPublisher.publish(rejected)
-                logger.warn { "Not requested handshake answer (or too old) was received from $node" }
-            } else {
-                val publicKey = node.publicKey
+        challenges.computeIfPresent(message.publicUri) { _, challenge ->
+            val publicKey = node.publicKey
 
-                val hash = AttoHash.hash(64, node.publicKey.value, v.value)
-                if (!answer.signature.isValid(publicKey, hash)) {
-                    val rejected = PeerRejected(
-                        PeerRejectionReason.INVALID_HANDSHAKE_ANSWER,
-                        Peer(message.socketAddress, node)
-                    )
-                    eventPublisher.publish(rejected)
-                    logger.warn { "Invalid handshake answer was received $answer" }
-                } else {
-                    eventPublisher.publish(PeerAdded(Peer(message.socketAddress, node)))
-                }
+            val hash = AttoHash.hash(64, node.publicKey.value, challenge.value)
+            if (!answer.signature.isValid(publicKey, hash)) {
+                val rejected = PeerRejected(
+                    PeerRejectionReason.INVALID_HANDSHAKE_ANSWER,
+                    Peer(message.socketAddress, node)
+                )
+                eventPublisher.publish(rejected)
+                logger.warn { "Invalid handshake answer was received $answer" }
+            } else {
+                val peer = Peer(message.socketAddress, node)
+                authorizedNodes.putIfAbsent(message.publicUri, peer)
+                eventPublisher.publish(PeerAuthorized(peer))
+                messagePublisher.publish(DirectNetworkMessage(message.publicUri, AttoHandshakeAcceptance()))
             }
+            null
+        }
+    }
+
+    @EventListener
+    fun processAcceptance(message: InboundNetworkMessage<AttoHandshakeAcceptance>) {
+        authorizedNodes.computeIfPresent(message.publicUri) { _, peer ->
+            eventPublisher.publish(PeerConnected(peer))
             null
         }
     }

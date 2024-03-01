@@ -4,7 +4,7 @@ import atto.node.EventPublisher
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NodeBanned
 import atto.node.network.peer.Peer
-import atto.node.network.peer.PeerAdded
+import atto.node.network.peer.PeerConnected
 import atto.node.network.peer.PeerRemoved
 import atto.node.vote.weight.VoteWeighter
 import atto.protocol.AttoNode
@@ -55,7 +55,7 @@ class GuardianTest {
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
         val peer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerAdded(peer))
+        guardian.add(PeerConnected(peer))
         guardian.count(inboundMessage(peer.node.publicUri, peer.connectionSocketAddress))
 
         // when
@@ -73,11 +73,11 @@ class GuardianTest {
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
         val votePeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerAdded(votePeer))
+        guardian.add(PeerConnected(votePeer))
         guardian.count(inboundMessage(votePeer.node.publicUri, votePeer.connectionSocketAddress))
 
         val normalPeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerAdded(normalPeer))
+        guardian.add(PeerConnected(normalPeer))
         for (i in 0UL..toleranceMultiplier) {
             guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
@@ -99,15 +99,15 @@ class GuardianTest {
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
         val votePeer1 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
-        guardian.add(PeerAdded(votePeer1))
+        guardian.add(PeerConnected(votePeer1))
         guardian.count(inboundMessage(votePeer1.node.publicUri, votePeer1.connectionSocketAddress))
 
         val votePeer2 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
-        guardian.add(PeerAdded(votePeer2))
+        guardian.add(PeerConnected(votePeer2))
         guardian.count(inboundMessage(votePeer2.node.publicUri, votePeer2.connectionSocketAddress))
 
         val normalPeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerAdded(normalPeer))
+        guardian.add(PeerConnected(normalPeer))
         for (i in 0UL..toleranceMultiplier) {
             guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
         }
@@ -127,7 +127,7 @@ class GuardianTest {
     fun `should remove voter when disconnected`() {
         // given
         val peer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerAdded(peer))
+        guardian.add(PeerConnected(peer))
 
         // when
         guardian.remove(PeerRemoved(peer))

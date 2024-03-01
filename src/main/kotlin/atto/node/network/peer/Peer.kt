@@ -31,7 +31,9 @@ data class Peer(val connectionSocketAddress: InetSocketAddress, val node: AttoNo
 
 }
 
-data class PeerAdded(val peer: Peer) : Event
+data class PeerConnected(val peer: Peer) : Event
+
+data class PeerAuthorized(val peer: Peer) : Event
 
 data class PeerRemoved(val peer: Peer) : Event
 
@@ -39,6 +41,4 @@ data class PeerRejected(val reason: PeerRejectionReason, val peer: Peer) : Event
 
 enum class PeerRejectionReason {
     INVALID_HANDSHAKE_ANSWER,
-    UNKNOWN_HANDSHAKE
-
 }

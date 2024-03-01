@@ -2,10 +2,7 @@ package atto.node.network.peer
 
 import atto.node.CacheSupport
 import atto.node.EventPublisher
-import atto.node.network.DirectNetworkMessage
-import atto.node.network.InboundNetworkMessage
-import atto.node.network.NetworkMessagePublisher
-import atto.node.network.NodeDisconnected
+import atto.node.network.*
 import atto.protocol.network.peer.AttoKeepAlive
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.event.EventListener
@@ -29,7 +26,7 @@ class PeerManager(
         .asMap()
 
     @EventListener
-    fun process(peerEvent: PeerAdded) {
+    fun process(peerEvent: PeerConnected) {
         val peer = peerEvent.peer
         peers[peer.node.publicUri] = peer
     }
@@ -50,17 +47,9 @@ class PeerManager(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     fun sendKeepAlive() {
-        val peerList = peers.values.toList()
-
-        peerList.forEach {
-            val peer = peerList.random()
-            val keepAlive = if (peer != it) {
-                AttoKeepAlive(peer.node.publicUri)
-            } else {
-                AttoKeepAlive()
-            }
-            messagePublisher.publish(DirectNetworkMessage(it.node.publicUri, keepAlive))
-        }
+        val peer = peers.values.random()
+        val keepAlive = AttoKeepAlive(peer.node.publicUri)
+        messagePublisher.publish(BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), keepAlive))
     }
 
     fun getPeers(): List<Peer> {

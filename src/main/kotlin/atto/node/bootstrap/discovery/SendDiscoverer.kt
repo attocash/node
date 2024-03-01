@@ -6,7 +6,7 @@ import atto.node.EventPublisher
 import atto.node.bootstrap.TransactionDiscovered
 import atto.node.bootstrap.TransactionStuck
 import atto.node.network.*
-import atto.node.network.peer.PeerAdded
+import atto.node.network.peer.PeerConnected
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.Transaction
 import atto.node.transaction.TransactionRejectionReason
@@ -43,7 +43,7 @@ class SendDiscoverer(
     private val duplicateDetector = DuplicateDetector<AttoHash>()
 
     @EventListener
-    fun add(peerEvent: PeerAdded) {
+    fun add(peerEvent: PeerConnected) {
         peers[peerEvent.peer.node.publicKey] = peerEvent.peer.node.publicUri
     }
 

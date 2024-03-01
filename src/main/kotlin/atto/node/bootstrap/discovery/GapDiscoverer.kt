@@ -6,7 +6,7 @@ import atto.node.bootstrap.unchecked.GapView
 import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
-import atto.node.network.peer.PeerAdded
+import atto.node.network.peer.PeerConnected
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.toTransaction
 import atto.protocol.transaction.AttoTransactionStreamRequest
@@ -44,7 +44,7 @@ class GapDiscoverer(
 
 
     @EventListener
-    fun add(peerEvent: PeerAdded) {
+    fun add(peerEvent: PeerConnected) {
         val peer = peerEvent.peer
         if (!peer.node.isHistorical()) {
             return

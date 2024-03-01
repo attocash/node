@@ -4,7 +4,8 @@ package atto.node.network
 import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.EventPublisher
-import atto.node.network.peer.PeerAdded
+import atto.node.network.peer.PeerAuthorized
+import atto.node.network.peer.PeerConnected
 import atto.node.network.peer.PeerRemoved
 import atto.node.transaction.Transaction
 import atto.protocol.AttoMessage
@@ -66,7 +67,8 @@ class NetworkProcessor(
         val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
     }
 
-    private val peers = ConcurrentHashMap<URI, AttoNode>()
+    private val peers = ConcurrentHashMap<URI, PeerHolder>()
+
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
     private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
@@ -157,8 +159,14 @@ class NetworkProcessor(
     }
 
     @EventListener
-    fun add(event: PeerAdded) {
-        peers[event.peer.node.publicUri] = event.peer.node
+    fun add(event: PeerAuthorized) {
+        peers[event.peer.node.publicUri] = PeerHolder(PeerStatus.AUTHORIZED, event.peer.node)
+    }
+
+    @EventListener
+    fun add(event: PeerConnected) {
+        peers[event.peer.node.publicUri] = PeerHolder(PeerStatus.CONNECTED, event.peer.node)
+
     }
 
     @EventListener
@@ -279,7 +287,16 @@ class NetworkProcessor(
 
         val outboundMessages = outboundFlow
             .asFlux(Dispatchers.Default)
-            .filter { it.accepts(publicUri, peers[publicUri]) }
+            .filter {
+                val connectedNode = peers[publicUri]?.let {
+                    if (it.peerStatus == PeerStatus.CONNECTED) {
+                        it.node
+                    } else {
+                        null
+                    }
+                }
+                it.accepts(publicUri, connectedNode)
+            }
             .replay(1)
             .refCount()
             .let {
@@ -402,4 +419,10 @@ class NetworkProcessor(
             }
         }
     }
+
+    private enum class PeerStatus {
+        CONNECTED, AUTHORIZED
+    }
+
+    private data class PeerHolder(val peerStatus: PeerStatus, val node: AttoNode)
 }
