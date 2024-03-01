@@ -47,7 +47,7 @@ class PeerManager(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     fun sendKeepAlive() {
-        val peer = peers.values.random()
+        val peer = peers.values.randomOrNull() ?: return
         val keepAlive = AttoKeepAlive(peer.node.publicUri)
         messagePublisher.publish(BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), keepAlive))
     }
