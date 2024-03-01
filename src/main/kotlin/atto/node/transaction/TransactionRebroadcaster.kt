@@ -65,7 +65,7 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
 
     @EventListener
     suspend fun process(event: TransactionValidated) {
-        val transactionHolder = holderMap.remove(event.transaction.hash)!!
+        val transactionHolder = holderMap.remove(event.transaction.hash) ?: return
         withContext(singleDispatcher) {
             transactionQueue.add(transactionHolder)
             logger.trace { "Transaction queued for rebroadcast. ${event.transaction}" }
