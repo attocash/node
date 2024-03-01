@@ -124,10 +124,10 @@ class TransactionController(
 
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1") fromHeight: Long,
-        @RequestParam(defaultValue = Long.MAX_VALUE.toString()) toHeight: Long
+        @RequestParam(defaultValue = "1") fromHeight: ULong,
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: ULong
     ): Flow<AttoTransaction> {
-        if (fromHeight.toULong() == 0UL) {
+        if (fromHeight == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
 
@@ -135,17 +135,17 @@ class TransactionController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
         }
 
-        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight.toULong(), toHeight.toULong())
+        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight, toHeight)
             .map { it.toAttoTransaction() }
 
         val transactionFlow = transactionFlow
             .filter { it.block.publicKey == publicKey }
-            .takeWhile { fromHeight.toULong() <= it.height && it.height <= toHeight.toULong() }
+            .takeWhile { it.height in fromHeight..toHeight }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .sortByHeight(fromHeight.toULong())
-            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
-            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between ${fromHeight.toULong()} and ${fromHeight.toULong()}" } }
+            .sortByHeight(fromHeight)
+            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" } }
+            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" } }
     }
 
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
