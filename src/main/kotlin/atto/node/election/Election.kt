@@ -115,8 +115,8 @@ class Election(
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    suspend fun processStaling() = withContext(singleDispatcher) {
-        val minimalTimestamp = Instant.now().minusSeconds(properties.stalingAfterTimeInSeconds!!)
+    suspend fun processExpiring() = withContext(singleDispatcher) {
+        val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
 
         publicKeyHeightElectionMap.values.toList()
             .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
@@ -129,7 +129,7 @@ class Election(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun stopObservingStaled() = withContext(singleDispatcher) {
-        val minimalTimestamp = Instant.now().minusSeconds(properties.staledAfterTimeInSeconds!!)
+        val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
 
         publicKeyHeightElectionMap.values.toList()
             .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }

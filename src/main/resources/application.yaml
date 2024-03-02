@@ -49,8 +49,8 @@ atto:
       confirmation-threshold: 65
       sample-period-in-days: 14
     election:
-      staling-after-time-in-seconds: 120
-      staled-after-time-in-seconds: 180
+      expiring-after-time-in-seconds: 10
+      expired-after-time-in-seconds: 30
 
 springdoc:
   swagger-ui:

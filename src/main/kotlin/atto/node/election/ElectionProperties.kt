@@ -7,6 +7,6 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @ConfigurationProperties(prefix = "atto.vote.election")
 class ElectionProperties {
-    var stalingAfterTimeInSeconds: Long? = null
-    var staledAfterTimeInSeconds: Long? = null
+    var expiringAfterTimeInSeconds: Long? = null
+    var expiredAfterTimeInSeconds: Long? = null
 }
