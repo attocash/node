@@ -3,7 +3,7 @@ package atto.node.transaction
 import atto.node.transaction.priotization.TransactionQueue
 import cash.atto.commons.*
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
+import kotlinx.datetime.toKotlinInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -13,16 +13,16 @@ import kotlin.random.Random
 
 
 internal class TransactionQueueTest {
-    val queue = TransactionQueue(2)
+    private val queue = TransactionQueue(2)
 
     @Test
-    @Timeout(1)
-    fun `should remove first entry when maxSize exceeded`() = runBlocking {
+    @Timeout(2)
+    fun `should remove first entry when maxSize exceeded`() {
         // given
-        val transaction200 = createTransaction(200u, Instant.now())
-        val transaction50 = createTransaction(50u, Instant.now())
-        val transaction15 = createTransaction(15u, Instant.now().minusSeconds(5))
-        val transaction10 = createTransaction(10u, Instant.now().minusSeconds(160))
+        val transaction200 = createTransaction(200u, Instant.now().minusSeconds(160), Instant.now())
+        val transaction50 = createTransaction(50u, Instant.now(), Instant.now())
+        val transaction15 = createTransaction(15u, Instant.now().minusSeconds(10), Instant.now())
+        val transaction10 = createTransaction(10u, Instant.now().minusSeconds(5), Instant.now())
 
         // when
         assertNull(queue.add(transaction200))
@@ -31,9 +31,31 @@ internal class TransactionQueueTest {
         val deleted = queue.add(transaction10)
 
         // then
-        assertEquals(transaction50, deleted)
-        assertEquals(transaction10, queue.poll())
+        assertEquals(transaction15, deleted)
         assertEquals(transaction200, queue.poll())
+        assertEquals(transaction50, queue.poll())
+        assertEquals(transaction10, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    @Timeout(2)
+    fun `should use lower group when maxGroup is lower than group`() {
+        // given
+        val queue = TransactionQueue(2, 17)
+
+        val transaction200 = createTransaction(200u, Instant.now().minusSeconds(160), Instant.now())
+        val transaction50 = createTransaction(50u, Instant.now(), Instant.now())
+        val transaction15 = createTransaction(15u, Instant.now().minusSeconds(10), Instant.now())
+
+        // when
+        assertNull(queue.add(transaction200))
+        assertNull(queue.add(transaction50))
+        val deleted = queue.add(transaction15)
+
+        // then
+        assertEquals(transaction200, deleted)
+        assertEquals(transaction50, queue.poll())
         assertEquals(transaction15, queue.poll())
         assertNull(queue.poll())
     }
@@ -45,14 +67,14 @@ internal class TransactionQueueTest {
     }
 
 
-    private fun createTransaction(amount: ULong, receivedAt: Instant): Transaction {
+    private fun createTransaction(amount: ULong, timestamp: Instant, receivedAt: Instant): Transaction {
         val block = AttoReceiveBlock(
             version = 0u,
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             height = 2u,
             balance = AttoAmount(amount),
-            timestamp = Clock.System.now(),
+            timestamp = timestamp.toKotlinInstant(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(ByteArray(32)),

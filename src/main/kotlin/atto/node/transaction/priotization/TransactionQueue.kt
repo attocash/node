@@ -6,8 +6,9 @@ import kotlinx.datetime.toJavaInstant
 import java.time.temporal.ChronoUnit
 import java.util.*
 import java.util.Comparator.comparing
+import kotlin.math.min
 
-class TransactionQueue(private val groupMaxSize: Int) {
+class TransactionQueue(private val groupMaxSize: Int, private val maxGroup: Int = 19) {
     companion object {
         /**
          * Smaller groups are easier to exploit during a spam attack due to low amount invested.
@@ -16,34 +17,28 @@ class TransactionQueue(private val groupMaxSize: Int) {
          */
         private val groupMap = TreeMap(
             mapOf(
-//                9UL to 0,
-//                99UL to 1,
-//                999UL to 2,
-//                9_999UL to 3,
-//                99_999UL to 4,
-//                999_999UL to 5,
-//                9_999_999UL to 6,
-//                99_999_999UL to 7,
-//                999_999_999UL to 8,
-//                9_999_999_999UL to 9,
-//                99_999_999_999UL to 10,
-                999_999_999_999UL to 11,
-                9_999_999_999_999UL to 12,
-                99_999_999_999_999UL to 13,
-                999_999_999_999_999UL to 14,
-                9_999_999_999_999_999UL to 15,
-                99_999_999_999_999_999UL to 16,
-                999_999_999_999_999_999UL to 17,
-                9_999_999_999_999_999_999UL to 18,
-                ULong.MAX_VALUE to 19
+                9UL to 19,
+                99UL to 18,
+                999UL to 17,
+                9_999UL to 16,
+                99_999UL to 15,
+                999_999UL to 14,
+                9_999_999UL to 13,
+                99_999_999UL to 12,
+                999_999_999UL to 11,
+                9_999_999_999UL to 10,
+                99_999_999_999UL to 9,
+                999_999_999_999UL to 8,
+                9_999_999_999_999UL to 7,
+                99_999_999_999_999UL to 6,
+                999_999_999_999_999UL to 5,
+                9_999_999_999_999_999UL to 4,
+                99_999_999_999_999_999UL to 3,
+                999_999_999_999_999_999UL to 2,
+                9_999_999_999_999_999_999UL to 1,
+                ULong.MAX_VALUE to 0
             )
         )
-
-        fun getGroup(transaction: Transaction): Int {
-            val block = transaction.block
-            val raw = block.balance.raw + if (block is AttoSendBlock) block.amount.raw else 0UL
-            return groupMap.ceilingEntry(raw).value
-        }
     }
 
     private val dateComparator: Comparator<Transaction> = comparing {
@@ -59,6 +54,12 @@ class TransactionQueue(private val groupMaxSize: Int) {
     private var currentGroup = 0
     private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
     private var size = 0
+
+    private fun getGroup(transaction: Transaction): Int {
+        val block = transaction.block
+        val raw = block.balance.raw + if (block is AttoSendBlock) block.amount.raw else 0UL
+        return min(groupMap.ceilingEntry(raw).value, maxGroup)
+    }
 
     /**
      * @return deleted transaction

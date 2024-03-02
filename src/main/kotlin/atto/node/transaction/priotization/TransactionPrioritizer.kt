@@ -31,7 +31,7 @@ class TransactionPrioritizer(
     @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
-    private val queue = TransactionQueue(properties.groupMaxSize!!)
+    private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>()
