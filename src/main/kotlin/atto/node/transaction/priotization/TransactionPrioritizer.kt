@@ -5,6 +5,7 @@ import atto.node.CacheSupport
 import atto.node.DuplicateDetector
 import atto.node.EventPublisher
 import atto.node.election.ElectionExpired
+import atto.node.election.ElectionStarted
 import atto.node.network.InboundNetworkMessage
 import atto.node.transaction.*
 import atto.protocol.transaction.AttoTransactionPush
@@ -74,6 +75,11 @@ class TransactionPrioritizer(
             logger.debug { "Unbuffered $it" }
             add(it)
         }
+    }
+
+    @EventListener
+    suspend fun process(event: ElectionStarted) = withContext(singleDispatcher) {
+        activeElections.add(event.transaction.hash)
     }
 
     @EventListener
