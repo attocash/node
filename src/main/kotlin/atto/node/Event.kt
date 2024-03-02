@@ -29,9 +29,13 @@ class EventPublisher(private val publisher: ApplicationEventPublisher) {
 
     fun publish(event: Event) {
         defaultScope.launch {
-            logger.trace { "$event" }
-            publisher.publishEvent(event)
+            publishSync(event)
         }
+    }
+
+    fun publishSync(event: Event) {
+        logger.trace { "$event" }
+        publisher.publishEvent(event)
     }
 
     suspend fun publishAfterCommit(event: Event) {

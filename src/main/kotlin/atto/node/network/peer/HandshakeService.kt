@@ -6,6 +6,7 @@ import atto.node.network.DirectNetworkMessage
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.NetworkMessagePublisher
 import atto.node.network.NodeBanned
+import atto.protocol.AttoNode
 import atto.protocol.network.handshake.AttoHandshakeAcceptance
 import atto.protocol.network.handshake.AttoHandshakeAnswer
 import atto.protocol.network.handshake.AttoHandshakeChallenge
@@ -36,26 +37,27 @@ class HandshakeService(
     private val peers = ConcurrentHashMap<URI, Peer>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val challenges = Caffeine.newBuilder()
+    private val handshakes = Caffeine.newBuilder()
         .expireAfterWrite(5, TimeUnit.SECONDS)
         .maximumSize(100_000)
-        .build<URI, AttoHandshakeChallenge>()
-        .asMap()
-
-    private val authorizedNodes = Caffeine.newBuilder()
-        .expireAfterWrite(5, TimeUnit.SECONDS)
-        .maximumSize(100_000)
-        .evictionListener { _: URI?, peer: Peer?, _ ->
-            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
+        .evictionListener { _: URI?, handshake: PeerHandshake?, _ ->
+            handshake?.let {
+                val socketAddress = it.socketAddress
+                val node = it.node
+                if (socketAddress != null && node != null) {
+                    val peer = Peer(socketAddress, node)
+                    peer.let { eventPublisher.publish(PeerRemoved(peer)) }
+                }
+            }
         }
-        .build<URI, Peer>()
+        .build<URI, PeerHandshake>()
         .asMap()
 
     @EventListener
     fun add(peerEvent: PeerConnected) {
         val peer = peerEvent.peer
         peers[peer.node.publicUri] = peer
-        challenges.remove(peer.node.publicUri)
+        handshakes.remove(peer.node.publicUri)
     }
 
     @EventListener
@@ -88,13 +90,14 @@ class HandshakeService(
             return
         }
 
-        challenges.computeIfAbsent(publicUri) {
+        handshakes.computeIfAbsent(publicUri) {
             val handshakeChallenge = AttoHandshakeChallenge.create()
 
             logger.info { "Starting handshake with $publicUri" }
+
             messagePublisher.publish(DirectNetworkMessage(publicUri, handshakeChallenge))
 
-            handshakeChallenge
+            PeerHandshake(publicUri, handshakeChallenge)
         }
     }
 
@@ -114,35 +117,49 @@ class HandshakeService(
 
     @EventListener
     fun processAnswer(message: InboundNetworkMessage<AttoHandshakeAnswer>) {
+        val socketAddress = message.socketAddress
         val answer = message.payload
         val node = answer.node
 
-        challenges.computeIfPresent(message.publicUri) { _, challenge ->
-            val publicKey = node.publicKey
+        handshakes.computeIfPresent(message.publicUri) { _, peerHandshake ->
+            if (peerHandshake.answered(socketAddress, answer)) {
+                val peer = Peer(message.socketAddress, node)
 
-            val hash = AttoHash.hash(64, node.publicKey.value, challenge.value)
-            if (!answer.signature.isValid(publicKey, hash)) {
+                eventPublisher.publishSync(PeerAuthorized(peer))
+
+                messagePublisher.publish(DirectNetworkMessage(message.publicUri, AttoHandshakeAcceptance()))
+
+                if (peerHandshake.isConnected()) {
+                    eventPublisher.publishSync(PeerConnected(peer))
+                    null
+                } else {
+                    peerHandshake
+                }
+            } else {
                 val rejected = PeerRejected(
                     PeerRejectionReason.INVALID_HANDSHAKE_ANSWER,
                     Peer(message.socketAddress, node)
                 )
                 eventPublisher.publish(rejected)
                 logger.warn { "Invalid handshake answer was received $answer" }
-            } else {
-                val peer = Peer(message.socketAddress, node)
-                authorizedNodes.putIfAbsent(message.publicUri, peer)
-                eventPublisher.publish(PeerAuthorized(peer))
-                messagePublisher.publish(DirectNetworkMessage(message.publicUri, AttoHandshakeAcceptance()))
+                null
             }
-            null
         }
     }
 
     @EventListener
     fun processAcceptance(message: InboundNetworkMessage<AttoHandshakeAcceptance>) {
-        authorizedNodes.computeIfPresent(message.publicUri) { _, peer ->
-            eventPublisher.publish(PeerConnected(peer))
-            null
+        handshakes.computeIfPresent(message.publicUri) { _, peerHandshake ->
+
+            peerHandshake.accepted(message.payload)
+
+            if (peerHandshake.isConnected()) {
+                val peer = Peer(peerHandshake.socketAddress!!, peerHandshake.node!!)
+                eventPublisher.publish(PeerConnected(peer))
+                null
+            } else {
+                peerHandshake
+            }
         }
     }
 
@@ -151,13 +168,53 @@ class HandshakeService(
             return true
         }
         val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port);
-        return challenges.contains(publicAddress) ||
+        return handshakes.contains(publicAddress) ||
                 peers.containsKey(publicAddress) ||
                 bannedNodes.contains(socketAddress.address)
     }
 
     override fun clear() {
-        challenges.clear()
+        handshakes.clear()
         peers.clear()
+    }
+
+    private data class PeerHandshake(
+        val publicUri: URI,
+        val challenge: AttoHandshakeChallenge
+    ) {
+        @Volatile
+        var socketAddress: InetSocketAddress? = null
+            private set
+
+        @Volatile
+        var node: AttoNode? = null
+            private set
+
+        @Volatile
+        private var ready = false
+            private set
+
+        fun answered(socketAddress: InetSocketAddress, answer: AttoHandshakeAnswer): Boolean {
+            val node = answer.node
+            val publicKey = node.publicKey
+
+            val hash = AttoHash.hash(64, node.publicKey.value, challenge.value)
+            if (!answer.signature.isValid(publicKey, hash)) {
+                return false
+            }
+
+            this.node = node
+            this.socketAddress = socketAddress
+
+            return true
+        }
+
+        fun accepted(acceptance: AttoHandshakeAcceptance) {
+            ready = true
+        }
+
+        fun isConnected(): Boolean {
+            return ready && node != null
+        }
     }
 }
