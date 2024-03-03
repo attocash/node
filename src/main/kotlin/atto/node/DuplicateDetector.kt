@@ -1,10 +1,12 @@
 package atto.node
 
 import com.github.benmanes.caffeine.cache.Caffeine
+import kotlin.time.Duration
+import kotlin.time.toJavaDuration
 
-class DuplicateDetector<T> {
+class DuplicateDetector<T>(val duration: Duration) {
     private val cache: MutableMap<T, T> = Caffeine.newBuilder()
-        .maximumSize(1_000_000)
+        .expireAfterWrite(duration.toJavaDuration())
         .build<T, T>()
         .asMap()
 

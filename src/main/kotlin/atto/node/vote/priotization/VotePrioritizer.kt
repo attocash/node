@@ -26,6 +26,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 
 @Service
 class VotePrioritizer(
@@ -41,7 +42,7 @@ class VotePrioritizer(
 
     private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
 
-    private val duplicateDetector = DuplicateDetector<AttoSignature>()
+    private val duplicateDetector = DuplicateDetector<AttoSignature>(1.minutes)
 
     private val rejectedTransactionCache = Caffeine.newBuilder()
         .maximumSize(10_000)

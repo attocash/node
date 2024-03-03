@@ -21,6 +21,7 @@ import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 @Service
 class TransactionPrioritizer(
@@ -35,7 +36,7 @@ class TransactionPrioritizer(
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
-    private val duplicateDetector = DuplicateDetector<AttoHash>()
+    private val duplicateDetector = DuplicateDetector<AttoHash>(10.seconds)
 
     @PreDestroy
     override fun stop() {
@@ -53,14 +54,14 @@ class TransactionPrioritizer(
 
     @EventListener
     suspend fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
-        val transaction = message.payload.transaction.toTransaction()
+        val transaction = message.payload.transaction
 
         if (duplicateDetector.isDuplicate(transaction.hash)) {
             logger.trace { "Ignored duplicated $transaction" }
             return
         }
 
-        add(transaction)
+        add(transaction.toTransaction())
     }
 
     @EventListener

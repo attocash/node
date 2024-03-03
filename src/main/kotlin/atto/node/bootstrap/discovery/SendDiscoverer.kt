@@ -24,6 +24,7 @@ import org.springframework.stereotype.Component
 import java.net.URI
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Duration.Companion.minutes
 
 @Component
 class SendDiscoverer(
@@ -40,7 +41,7 @@ class SendDiscoverer(
         .build<AttoHash, AttoHash>()
         .asMap()
 
-    private val duplicateDetector = DuplicateDetector<AttoHash>()
+    private val duplicateDetector = DuplicateDetector<AttoHash>(1.minutes)
 
     @EventListener
     fun add(peerEvent: PeerConnected) {
@@ -69,11 +70,11 @@ class SendDiscoverer(
 
         val block = transaction.block as ReceiveSupport
 
-        if (unknownHashCache.putIfAbsent(block.sendHash, block.sendHash) != null) {
+        if (duplicateDetector.isDuplicate(transaction.hash)) {
             return
         }
 
-        if (duplicateDetector.isDuplicate(transaction.hash)) {
+        if (unknownHashCache.putIfAbsent(block.sendHash, block.sendHash) != null) {
             return
         }
 
