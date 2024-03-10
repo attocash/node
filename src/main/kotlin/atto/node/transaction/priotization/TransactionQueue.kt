@@ -15,30 +15,14 @@ class TransactionQueue(private val groupMaxSize: Int, private val maxGroup: Int 
          *
          * To reduce the attack surface the groups below 0.001 USD should be removed
          */
-        private val groupMap = TreeMap(
-            mapOf(
-                9UL to 19,
-                99UL to 18,
-                999UL to 17,
-                9_999UL to 16,
-                99_999UL to 15,
-                999_999UL to 14,
-                9_999_999UL to 13,
-                99_999_999UL to 12,
-                999_999_999UL to 11,
-                9_999_999_999UL to 10,
-                99_999_999_999UL to 9,
-                999_999_999_999UL to 8,
-                9_999_999_999_999UL to 7,
-                99_999_999_999_999UL to 6,
-                999_999_999_999_999UL to 5,
-                9_999_999_999_999_999UL to 4,
-                99_999_999_999_999_999UL to 3,
-                999_999_999_999_999_999UL to 2,
-                9_999_999_999_999_999_999UL to 1,
-                ULong.MAX_VALUE to 0
-            )
-        )
+        private val groupMap: SortedMap<ULong, Int> = TreeMap<ULong, Int>().apply {
+            var value = 9UL
+            for (i in 19 downTo 1) {
+                this[value] = i
+                value = value * 10UL + 9UL
+            }
+            this[ULong.MAX_VALUE] = 0
+        }
     }
 
     private val dateComparator: Comparator<Transaction> = comparing {
@@ -58,7 +42,8 @@ class TransactionQueue(private val groupMaxSize: Int, private val maxGroup: Int 
     private fun getGroup(transaction: Transaction): Int {
         val block = transaction.block
         val raw = block.balance.raw + if (block is AttoSendBlock) block.amount.raw else 0UL
-        return min(groupMap.ceilingEntry(raw).value, maxGroup)
+        val group = groupMap.tailMap(raw).firstEntry().value
+        return min(group, maxGroup)
     }
 
     /**
