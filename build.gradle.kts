@@ -98,6 +98,7 @@ tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
+    jvmArgs = listOf("-Dgraal.PGOInstrument=node.iprof")
 }
 
 graalvmNative {
