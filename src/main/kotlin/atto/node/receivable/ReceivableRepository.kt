@@ -1,6 +1,7 @@
 package atto.node.receivable
 
 import atto.node.AttoRepository
+import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import com.github.benmanes.caffeine.cache.Caffeine
@@ -20,15 +21,22 @@ interface ReceivableRepository : AttoRepository {
 
     suspend fun findById(id: AttoHash): Receivable?
 
-    suspend fun findAsc(publicKey: AttoPublicKey): Flow<Receivable>
+    suspend fun findAsc(publicKey: AttoPublicKey, minAmount: AttoAmount): Flow<Receivable>
 
 }
 
 
 interface ReceivableCrudRepository : CoroutineCrudRepository<Receivable, AttoHash>, ReceivableRepository {
 
-    @Query("SELECT * FROM receivable t WHERE t.receiver_public_key = :publicKey ORDER BY t.amount DESC")
-    override suspend fun findAsc(publicKey: AttoPublicKey): Flow<Receivable>
+    @Query(
+        """
+            SELECT * FROM receivable t 
+            WHERE t.receiver_public_key = :publicKey 
+            AND t.amount >= :minAmount 
+            ORDER BY t.amount DESC
+        """
+    )
+    override suspend fun findAsc(publicKey: AttoPublicKey, minAmount: AttoAmount): Flow<Receivable>
 
 }
 
@@ -61,8 +69,8 @@ class ReceivableCachedRepository(
         return cache[id] ?: receivableCrudRepository.findById(id)
     }
 
-    override suspend fun findAsc(publicKey: AttoPublicKey): Flow<Receivable> {
-        return receivableCrudRepository.findAsc(publicKey)
+    override suspend fun findAsc(publicKey: AttoPublicKey, minAmount: AttoAmount): Flow<Receivable> {
+        return receivableCrudRepository.findAsc(publicKey, minAmount)
     }
 
     override suspend fun deleteAll() {

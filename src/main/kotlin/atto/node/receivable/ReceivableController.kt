@@ -1,6 +1,7 @@
 package atto.node.receivable
 
 
+import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
@@ -12,10 +13,7 @@ import kotlinx.coroutines.flow.*
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
-import org.springframework.web.bind.annotation.GetMapping
-import org.springframework.web.bind.annotation.PathVariable
-import org.springframework.web.bind.annotation.RequestMapping
-import org.springframework.web.bind.annotation.RestController
+import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping
@@ -46,11 +44,15 @@ class ReceivableController(
         ]
     )
 
-    suspend fun stream(@PathVariable publicKey: AttoPublicKey): Flow<AttoReceivable> {
-        val receivableDatabaseFlow = repository.findAsc(publicKey)
+    suspend fun stream(
+        @PathVariable publicKey: AttoPublicKey,
+        @RequestParam(defaultValue = "1") minAmount: AttoAmount
+    ): Flow<AttoReceivable> {
+        val receivableDatabaseFlow = repository.findAsc(publicKey, minAmount)
 
         val receivableFlow = receivableFlow
             .filter { it.receiverPublicKey == publicKey }
+            .filter { it.amount >= minAmount }
 
         val knownHashes = HashSet<AttoHash>()
         return merge(receivableDatabaseFlow, receivableFlow)
