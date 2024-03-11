@@ -14,11 +14,6 @@ jobs:
           name: native-image-metadata
           path: src/main/resources/META-INF/native-image
 
-      - uses: actions/download-artifact@v4
-        with:
-          name: node-iprof
-          path: src/pgo-profiles
-
       - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'

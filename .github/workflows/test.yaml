@@ -22,8 +22,3 @@ jobs:
         with:
           name: native-image-metadata
           path: build/native/agent-output/test
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: node-iprof
-          path: node.iprof
