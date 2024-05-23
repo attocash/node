@@ -58,7 +58,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("org.flywaydb:flyway-core")
 
-    implementation("io.asyncer:r2dbc-mysql:1.1.2")
+    implementation("io.asyncer:r2dbc-mysql:1.1.3")
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
