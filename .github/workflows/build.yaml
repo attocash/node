@@ -1,3 +1,5 @@
+# Managed by management-terraform
+
 on:
   workflow_call:
     secrets:
