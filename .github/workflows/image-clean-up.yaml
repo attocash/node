@@ -1,3 +1,5 @@
+# Managed by management-terraform
+
 name: Cleanup Old Docker Images
 
 on:
@@ -15,7 +17,7 @@ jobs:
       - name: Clean up
         run: |
           PACKAGE_VERSIONS=$(curl --request GET \
-          --url "https://api.github.com/orgs/AttoCash/packages/container/node/versions" \
+          --url "https://api.github.com/orgs/AttoCash/packages/container/${{ github.repository }}/versions" \
           --header "Authorization: Bearer $TOKEN" \
           --header "Accept: application/vnd.github.v3+json")
           
