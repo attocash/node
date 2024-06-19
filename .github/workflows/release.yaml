@@ -6,9 +6,8 @@ on:
       profile:
         required: true
         type: string
-    bump-version:
-      profile:
-        required: true
+      bump-version:
+        default: false
         type: boolean
     secrets:
       token:
@@ -51,7 +50,7 @@ jobs:
           echo "LABEL org.opencontainers.image.source https://github.com/${{ github.repository }}" >> EnvDockerfile
           echo "ENV SPRING_PROFILES_ACTIVE=${{ inputs.profile }},json" >> EnvDockerfile
 
-          docker build -t ghcr.io/${{github.repository}}:{NEXT_TAG}-{{ inputs.profile }} -f EnvDockerfile .
+          docker build -t ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }} -f EnvDockerfile .
           docker tag ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }} ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.profile }}
           docker push ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }}
           docker push ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.profile }}
