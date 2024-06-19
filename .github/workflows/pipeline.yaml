@@ -26,6 +26,7 @@ jobs:
     uses: ./.github/workflows/release.yaml
     with:
       profile: dev
+      bump: true
     secrets:
       token: ${{ secrets.TOKEN }}
   beta:
