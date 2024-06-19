@@ -1,9 +1,15 @@
+# Managed by management-terraform
+
 on:
   workflow_call:
     inputs:
       profile:
         required: true
         type: string
+    bump-version:
+      profile:
+        required: true
+        type: boolean
     secrets:
       token:
         required: true
@@ -30,33 +36,33 @@ jobs:
           RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
           MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
           LATEST_TAG=$(git tag --list "v$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
-          
+
           if [ -z "$LATEST_TAG" ]; then
             MINOR=0
-          elif [ "${{ inputs.profile }}" == "dev" ]; then
+          elif [ "${{ inputs.bump-version }}" == "true" ]; then
             MINOR=$(( ${LATEST_TAG##*.} + 1 ))
           else
             MINOR=${LATEST_TAG##*.}
           fi
-          
+
           NEXT_TAG="$MAJOR_VERSION.$MINOR"
-          
+
           echo "FROM ghcr.io/${{ github.repository }}:${{ github.sha }}" > EnvDockerfile
           echo "LABEL org.opencontainers.image.source https://github.com/${{ github.repository }}" >> EnvDockerfile
           echo "ENV SPRING_PROFILES_ACTIVE=${{ inputs.profile }},json" >> EnvDockerfile
-          
-          docker build -t ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }} -f EnvDockerfile .
+
+          docker build -t ghcr.io/${{github.repository}}:{NEXT_TAG}-{{ inputs.profile }} -f EnvDockerfile .
           docker tag ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }} ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.profile }}
           docker push ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }}
           docker push ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.profile }}
-          
+
           HIGHER_MAJOR_EXISTS=$(git tag --list 'v*' --sort=-v:refname | awk -F. '{print $1}' | sed 's/v//' | uniq | awk -v curr="$MAJOR_VERSION" '$1>curr {print "yes"; exit}')
           if [ "$HIGHER_MAJOR_EXISTS" != "yes" ]; then
             docker tag ghcr.io/${{ github.repository }}:${NEXT_TAG}-${{ inputs.profile }} ghcr.io/${{ github.repository }}:${{ inputs.profile }}
             docker push ghcr.io/${{ github.repository }}:${{ inputs.profile }}
           fi
-          
-          if [ "${{ inputs.profile }}" == "dev" ]; then
+
+          if [ "${{ inputs.bump-version }}" == "true" ]; then
             git tag v$NEXT_TAG
             git push origin v$NEXT_TAG
           fi
