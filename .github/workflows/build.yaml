@@ -36,7 +36,7 @@ jobs:
 
       - run: echo "BRANCH_NAME=${GITHUB_REF_NAME//\//_}" >> $GITHUB_ENV
 
-      - uses: docker/build-push-action@v5
+      - uses: docker/build-push-action@v6
         with:
           context: .
           pull: true
