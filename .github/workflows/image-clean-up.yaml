@@ -35,7 +35,7 @@ jobs:
           
             DELETE=true
             for TAG in $TAGS; do
-              if [[ $TAG =~ ^[0-9]+\.[0-9]+-(dev|beta|live)$|^[0-9]+-(dev|beta|live)$|^(dev|beta|live)$ ]]; then
+              if [[ $TAG =~ ^[0-9]+\.[0-9]+-(dev|beta|live)$|^[0-9]+-(dev|beta|live)$|^(dev|beta|live|main)$ ]]; then
                 DELETE=false
                 break
               fi
