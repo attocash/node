@@ -23,28 +23,3 @@ class NodeProperties {
         return AttoPrivateKey(privateKey!!.fromHexToByteArray())
     }
 }
-
-enum class NodeVoterStrategy {
-    /**
-     * Enables voting when the private key is defined
-     */
-    DEFAULT,
-
-    /**
-     * Always enables voting
-     */
-    FORCE_ENABLED,
-}
-
-
-enum class HistoricalStrategy {
-    /**
-     * Enables voting when the private key is defined
-     */
-    DEFAULT,
-
-    /**
-     * Always enables voting
-     */
-    FORCE_ENABLED,
-}

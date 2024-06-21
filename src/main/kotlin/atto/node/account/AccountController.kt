@@ -1,6 +1,7 @@
 package atto.node.account
 
 import atto.node.EventPublisher
+import atto.node.NotVoterCondition
 import atto.node.forwardHeight
 import atto.node.transaction.TransactionSaved
 import cash.atto.commons.AttoAccount
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
 import mu.KotlinLogging
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -22,6 +24,7 @@ import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/accounts")
+@Conditional(NotVoterCondition::class)
 class AccountController(
     val node: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,

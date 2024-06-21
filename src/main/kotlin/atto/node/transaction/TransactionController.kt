@@ -2,6 +2,7 @@ package atto.node.transaction
 
 import atto.node.ApplicationProperties
 import atto.node.EventPublisher
+import atto.node.NotVoterCondition
 import atto.node.network.InboundNetworkMessage
 import atto.node.network.MessageSource
 import atto.node.network.NetworkMessagePublisher
@@ -16,6 +17,7 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
 import mu.KotlinLogging
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -27,6 +29,7 @@ import java.net.InetSocketAddress
 
 @RestController
 @RequestMapping
+@Conditional(NotVoterCondition::class)
 class TransactionController(
     val applicationProperties: ApplicationProperties,
     val thisNode: atto.protocol.AttoNode,
@@ -166,7 +169,7 @@ class TransactionController(
         } else {
             throw ResponseStatusException(
                 HttpStatus.BAD_REQUEST,
-                "X-Forwarded-For is empty. Are you behind a proxy?"
+                "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?"
             )
         }
 

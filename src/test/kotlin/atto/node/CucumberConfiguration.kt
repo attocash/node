@@ -14,7 +14,6 @@ import kotlinx.coroutines.runBlocking
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.context.ConfigurableApplicationContext
 
-@OptIn(ExperimentalCoroutinesApi::class)
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT)
 @CucumberContextConfiguration
 class CucumberConfiguration(

@@ -1,6 +1,7 @@
 package atto.node.receivable
 
 
+import atto.node.NotVoterCondition
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
@@ -11,12 +12,14 @@ import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import kotlinx.coroutines.flow.*
 import mu.KotlinLogging
+import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.*
 
 @RestController
 @RequestMapping
+@Conditional(NotVoterCondition::class)
 class ReceivableController(
     val repository: ReceivableRepository
 ) {
