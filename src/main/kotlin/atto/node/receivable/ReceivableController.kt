@@ -1,6 +1,5 @@
 package atto.node.receivable
 
-
 import atto.node.NotVoterCondition
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -21,10 +20,9 @@ import org.springframework.web.bind.annotation.*
 @RequestMapping
 @Conditional(NotVoterCondition::class)
 class ReceivableController(
-    val repository: ReceivableRepository
+    val repository: ReceivableRepository,
 ) {
     private val logger = KotlinLogging.logger {}
-
 
     private val receivableFlow = MutableSharedFlow<Receivable>()
 
@@ -39,23 +37,25 @@ class ReceivableController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = Receivable::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = Receivable::class),
+                    ),
+                ],
+            ),
+        ],
     )
-
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1") minAmount: AttoAmount
+        @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
         val receivableDatabaseFlow = repository.findAsc(publicKey, minAmount)
 
-        val receivableFlow = receivableFlow
-            .filter { it.receiverPublicKey == publicKey }
-            .filter { it.amount >= minAmount }
+        val receivableFlow =
+            receivableFlow
+                .filter { it.receiverPublicKey == publicKey }
+                .filter { it.amount >= minAmount }
 
         val knownHashes = HashSet<AttoHash>()
         return merge(receivableDatabaseFlow, receivableFlow)

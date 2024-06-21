@@ -7,11 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 class AttoHandshakeAcceptance : AttoMessage {
-
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.HANDSHAKE_ACCEPTANCE
-    }
+    override fun messageType(): AttoMessageType = AttoMessageType.HANDSHAKE_ACCEPTANCE
 
     override fun isValid(network: AttoNetwork) = true
-
 }

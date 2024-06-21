@@ -7,10 +7,6 @@ fun AttoByteBuffer.add(messageType: AttoMessageType): AttoByteBuffer {
     return this
 }
 
-fun AttoByteBuffer.getMessageType(): AttoMessageType {
-    return getMessageType(getIndex())
-}
+fun AttoByteBuffer.getMessageType(): AttoMessageType = getMessageType(getIndex())
 
-fun AttoByteBuffer.getMessageType(index: Int): AttoMessageType {
-    return AttoMessageType.fromCode(getUByte(index))
-}
+fun AttoByteBuffer.getMessageType(index: Int): AttoMessageType = AttoMessageType.fromCode(getUByte(index))

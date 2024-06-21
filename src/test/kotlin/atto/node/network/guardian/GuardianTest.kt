@@ -85,7 +85,6 @@ class GuardianTest {
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer.node.publicKey) } returns true
 
-
         // when
         guardian.guard()
 
@@ -116,7 +115,6 @@ class GuardianTest {
         every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer1.node.publicKey) } returns true
         every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer2.node.publicKey) } returns true
 
-
         // when
         guardian.guard()
 
@@ -137,7 +135,6 @@ class GuardianTest {
         assertThat(guardian.getVoters()).isEmpty()
     }
 
-
     private fun createPeer(weight: AttoAmount): Peer {
         val socketAddress = randomSocketAddress()
         val publicUri = randomURI()
@@ -154,7 +151,7 @@ class GuardianTest {
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
             publicUri = publicUri,
-            features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL)
+            features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
     }
 
@@ -168,12 +165,14 @@ class GuardianTest {
         return URI("ws://localhost:$port")
     }
 
-    private fun inboundMessage(publicUri: URI, socketAddress: InetSocketAddress): InboundNetworkMessage<*> {
-        return InboundNetworkMessage(
+    private fun inboundMessage(
+        publicUri: URI,
+        socketAddress: InetSocketAddress,
+    ): InboundNetworkMessage<*> =
+        InboundNetworkMessage(
             MessageSource.WEBSOCKET,
             publicUri,
             socketAddress,
-            AttoVoteStreamRequest(AttoHash(ByteArray(32)))
+            AttoVoteStreamRequest(AttoHash(ByteArray(32))),
         )
-    }
 }

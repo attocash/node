@@ -15,7 +15,9 @@ import org.springframework.context.annotation.Profile
 import java.net.URI
 
 @Configuration
-class NodeConfiguration(val nodeProperties: NodeProperties) {
+class NodeConfiguration(
+    val nodeProperties: NodeProperties,
+) {
     private val logger = KotlinLogging.logger {}
 
     @PostConstruct
@@ -36,7 +38,10 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
     }
 
     @Bean
-    fun node(nodeProperties: NodeProperties, privateKey: AttoPrivateKey): AttoNode {
+    fun node(
+        nodeProperties: NodeProperties,
+        privateKey: AttoPrivateKey,
+    ): AttoNode {
         val features = HashSet<NodeFeature>()
 
         if (nodeProperties.privateKey != null || nodeProperties.forceVoter) {
@@ -53,17 +58,16 @@ class NodeConfiguration(val nodeProperties: NodeProperties) {
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             publicUri = URI(nodeProperties.publicUri!!),
-            features = features.toSet()
+            features = features.toSet(),
         )
     }
 
     @Bean
     @Profile("!default")
-    fun webServerFactoryCustomizer(nodeProperties: NodeProperties): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> {
-        return WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> { factory ->
+    fun webServerFactoryCustomizer(nodeProperties: NodeProperties): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> =
+        WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> { factory ->
             if (nodeProperties.getPrivateKey() != null) {
                 factory.setPort(-1)
             }
         }
-    }
 }

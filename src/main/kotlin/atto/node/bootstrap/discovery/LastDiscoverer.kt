@@ -37,10 +37,12 @@ class LastDiscoverer(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val transactionElectionMap = Caffeine.newBuilder()
-        .maximumSize(100_000)
-        .build<AttoHash, TransactionElection>()
-        .asMap()
+    private val transactionElectionMap =
+        Caffeine
+            .newBuilder()
+            .maximumSize(100_000)
+            .build<AttoHash, TransactionElection>()
+            .asMap()
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
@@ -67,16 +69,17 @@ class LastDiscoverer(
         }
 
         transactionElectionMap.computeIfAbsent(transaction.hash) {
-            val election = TransactionElection(transaction) {
-                voteWeighter.getMinimalConfirmationWeight()
-            }
+            val election =
+                TransactionElection(transaction) {
+                    voteWeighter.getMinimalConfirmationWeight()
+                }
 
             val request = AttoVoteStreamRequest(transaction.hash)
             networkMessagePublisher.publish(
                 DirectNetworkMessage(
                     message.publicUri,
-                    request
-                )
+                    request,
+                ),
             )
 
             election

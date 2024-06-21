@@ -26,12 +26,11 @@ import org.springframework.stereotype.Service
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
-
 @Service
 class Election(
     private val properties: ElectionProperties,
     private val voteWeighter: VoteWeighter,
-    private val eventPublisher: EventPublisher
+    private val eventPublisher: EventPublisher,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -66,18 +65,23 @@ class Election(
     }
 
     @EventListener
-    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
-        val transaction = event.transaction
-        publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {
-            logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
-        }
-    }
-
-    private suspend fun start(account: Account, transaction: Transaction) = withContext(singleDispatcher) {
-        publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
-            val publicKeyHeightElection = v ?: PublicKeyHeightElection(account) {
-                voteWeighter.getMinimalConfirmationWeight()
+    suspend fun process(event: TransactionSaved) =
+        withContext(singleDispatcher) {
+            val transaction = event.transaction
+            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {
+                logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
             }
+        }
+
+    private suspend fun start(
+        account: Account,
+        transaction: Transaction,
+    ) = withContext(singleDispatcher) {
+        publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
+            val publicKeyHeightElection =
+                v ?: PublicKeyHeightElection(account) {
+                    voteWeighter.getMinimalConfirmationWeight()
+                }
             publicKeyHeightElection.add(transaction)
             publicKeyHeightElection
         }
@@ -87,7 +91,10 @@ class Election(
         eventPublisher.publish(ElectionStarted(account, transaction))
     }
 
-    private suspend fun process(transaction: Transaction, vote: Vote) = withContext(singleDispatcher) {
+    private suspend fun process(
+        transaction: Transaction,
+        vote: Vote,
+    ) = withContext(singleDispatcher) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight] ?: return@withContext
@@ -115,31 +122,37 @@ class Election(
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    suspend fun processExpiring() = withContext(singleDispatcher) {
-        val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
+    suspend fun processExpiring() =
+        withContext(singleDispatcher) {
+            val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values.toList()
-            .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
-            .forEach {
-                val transaction = it.getProvisionalLeader().transaction
-                logger.trace { "Expiring $transaction" }
-                eventPublisher.publish(ElectionExpiring(it.account, transaction))
-            }
-    }
+            publicKeyHeightElectionMap
+                .values
+                .toList()
+                .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
+                .forEach {
+                    val transaction = it.getProvisionalLeader().transaction
+                    logger.trace { "Expiring $transaction" }
+                    eventPublisher.publish(ElectionExpiring(it.account, transaction))
+                }
+        }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    suspend fun stopObservingStaled() = withContext(singleDispatcher) {
-        val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
+    suspend fun stopObservingStaled() =
+        withContext(singleDispatcher) {
+            val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
 
-        publicKeyHeightElectionMap.values.toList()
-            .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
-            .forEach {
-                val transaction = it.getProvisionalLeader().transaction
-                logger.trace { "Expired $transaction" }
-                publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
-                eventPublisher.publish(ElectionExpired(it.account, transaction))
-            }
-    }
+            publicKeyHeightElectionMap
+                .values
+                .toList()
+                .filter { it.getProvisionalLeader().transaction.receivedAt < minimalTimestamp }
+                .forEach {
+                    val transaction = it.getProvisionalLeader().transaction
+                    logger.trace { "Expired $transaction" }
+                    publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+                    eventPublisher.publish(ElectionExpired(it.account, transaction))
+                }
+        }
 
     override fun clear() {
         publicKeyHeightElectionMap.clear()
@@ -148,9 +161,10 @@ class Election(
 
 class PublicKeyHeightElection(
     val account: Account,
-    private val minimalConfirmationWeightProvider: () -> AttoAmount
+    private val minimalConfirmationWeightProvider: () -> AttoAmount,
 ) {
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
+
     fun add(transaction: Transaction) {
         if (transactionElectionMap.containsKey(transaction.hash)) {
             throw IllegalStateException("Transaction for block ${transaction.hash} already started")
@@ -161,14 +175,17 @@ class PublicKeyHeightElection(
     }
 
     fun add(vote: Vote): Boolean {
-        val transactionElection = transactionElectionMap[vote.blockHash]
-            ?: throw IllegalStateException("No election for block ${vote.blockHash}")
+        val transactionElection =
+            transactionElectionMap[vote.blockHash]
+                ?: throw IllegalStateException("No election for block ${vote.blockHash}")
 
         if (!transactionElection.add(vote)) {
             return false
         }
 
-        transactionElectionMap.values.asSequence()
+        transactionElectionMap
+            .values
+            .asSequence()
             .filter { it.transaction.hash != vote.blockHash }
             .forEach { it.remove(vote) }
 
@@ -176,19 +193,21 @@ class PublicKeyHeightElection(
     }
 
     fun getProvisionalLeader(): TransactionElection {
-        return transactionElectionMap.values
+        return transactionElectionMap
+            .values
             .maxBy { it.totalWeight }
     }
 
     fun getConsensus(): TransactionElection? {
-        return transactionElectionMap.values
+        return transactionElectionMap
+            .values
             .firstOrNull { it.isConsensusReached() }
     }
 }
 
 class TransactionElection(
     val transaction: Transaction,
-    private val minimalConfirmationWeightProvider: () -> AttoAmount
+    private val minimalConfirmationWeightProvider: () -> AttoAmount,
 ) {
     @Volatile
     var totalWeight = AttoAmount.MIN
@@ -223,33 +242,31 @@ class TransactionElection(
         return totalWeight >= minimalConfirmationWeight
     }
 
-    internal fun remove(vote: Vote): Vote? {
-        return votes.remove(vote.publicKey)
-    }
+    internal fun remove(vote: Vote): Vote? = votes.remove(vote.publicKey)
 }
 
 data class ElectionStarted(
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event
 
 data class ElectionConsensusChanged(
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event
 
 data class ElectionConsensusReached(
     val account: Account,
     val transaction: Transaction,
-    val votes: Collection<Vote>
+    val votes: Collection<Vote>,
 ) : Event
 
 data class ElectionExpiring(
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event
 
 data class ElectionExpired(
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event

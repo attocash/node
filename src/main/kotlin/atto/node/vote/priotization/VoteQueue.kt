@@ -6,8 +6,9 @@ import atto.node.vote.Vote
 import java.util.*
 import java.util.Comparator.comparing
 
-
-class VoteQueue(private val maxSize: Int) {
+class VoteQueue(
+    private val maxSize: Int,
+) {
     private val weightComparator: Comparator<TransactionVote> = comparing { it.vote.weight.raw }
 
     private val map = HashMap<PublicKeyHash, TransactionVote>()
@@ -55,9 +56,7 @@ class VoteQueue(private val maxSize: Int) {
         return entry
     }
 
-    fun getSize(): Int {
-        return size
-    }
+    fun getSize(): Int = size
 
     fun clear() {
         map.clear()
@@ -67,6 +66,6 @@ class VoteQueue(private val maxSize: Int) {
 
     public data class TransactionVote(
         val transaction: Transaction,
-        val vote: Vote
+        val vote: Vote,
     )
 }

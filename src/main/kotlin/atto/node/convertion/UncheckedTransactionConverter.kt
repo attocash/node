@@ -10,7 +10,6 @@ import java.time.Instant
 
 @Component
 class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransaction, OutboundRow> {
-
     override fun convert(uncheckedTransaction: UncheckedTransaction): OutboundRow {
         val block = uncheckedTransaction.block
         val row = OutboundRow()
@@ -21,7 +20,7 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put("height", Parameter.from(block.height))
             put(
                 "previous",
-                Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java)
+                Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java),
             )
             put("block", Parameter.from(block.toByteBuffer()))
             put("signature", Parameter.from(uncheckedTransaction.signature))
@@ -29,13 +28,12 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put("received_at", Parameter.from(uncheckedTransaction.receivedAt))
             put(
                 "persisted_at",
-                Parameter.fromOrEmpty(uncheckedTransaction.persistedAt, Instant::class.java)
+                Parameter.fromOrEmpty(uncheckedTransaction.persistedAt, Instant::class.java),
             )
         }
 
         return row
     }
-
 }
 
 @Component
@@ -52,5 +50,4 @@ class UncheckedTransactionDeserializerDBConverter : DBConverter<Row, UncheckedTr
             persistedAt = row.get("persisted_at", Instant::class.java)!!,
         )
     }
-
 }

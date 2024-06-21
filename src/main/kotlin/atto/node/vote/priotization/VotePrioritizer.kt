@@ -32,7 +32,8 @@ import kotlin.time.Duration.Companion.minutes
 class VotePrioritizer(
     properties: VotePrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds),
+    CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -44,21 +45,24 @@ class VotePrioritizer(
 
     private val duplicateDetector = DuplicateDetector<AttoSignature>(1.minutes)
 
-    private val rejectedTransactionCache = Caffeine.newBuilder()
-        .maximumSize(10_000)
-        .build<AttoHash, AttoHash>()
-        .asMap()
+    private val rejectedTransactionCache =
+        Caffeine
+            .newBuilder()
+            .maximumSize(10_000)
+            .build<AttoHash, AttoHash>()
+            .asMap()
 
-    private val voteBuffer: MutableMap<AttoHash, MutableMap<AttoPublicKey, Vote>> = Caffeine.newBuilder()
-        .maximumWeight(10_000)
-        .weigher { _: AttoHash, v: MutableMap<AttoPublicKey, Vote> -> v.size }
-        .evictionListener { _: AttoHash?, votes: MutableMap<AttoPublicKey, Vote>?, _ ->
-            votes?.values?.forEach {
-                eventPublisher.publish(VoteDropped(it, VoteDropReason.NO_ELECTION))
-            }
-        }
-        .build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
-        .asMap()
+    private val voteBuffer: MutableMap<AttoHash, MutableMap<AttoPublicKey, Vote>> =
+        Caffeine
+            .newBuilder()
+            .maximumWeight(10_000)
+            .weigher { _: AttoHash, v: MutableMap<AttoPublicKey, Vote> -> v.size }
+            .evictionListener { _: AttoHash?, votes: MutableMap<AttoPublicKey, Vote>?, _ ->
+                votes?.values?.forEach {
+                    eventPublisher.publish(VoteDropped(it, VoteDropReason.NO_ELECTION))
+                }
+            }.build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
+            .asMap()
 
     @PreDestroy
     override fun stop() {
@@ -136,9 +140,10 @@ class VotePrioritizer(
         if (transaction != null) {
             logger.trace { "Queued for prioritization. $vote" }
 
-            val droppedVote = withContext(singleDispatcher) {
-                queue.add(TransactionVote(transaction, vote))
-            }
+            val droppedVote =
+                withContext(singleDispatcher) {
+                    queue.add(TransactionVote(transaction, vote))
+                }
 
             droppedVote?.let {
                 logger.trace { "Dropped from queue. $droppedVote" }
@@ -160,9 +165,10 @@ class VotePrioritizer(
         }
     }
 
-    override suspend fun poll(): TransactionVote? = withContext(singleDispatcher) {
-        queue.poll()
-    }
+    override suspend fun poll(): TransactionVote? =
+        withContext(singleDispatcher) {
+            queue.poll()
+        }
 
     override suspend fun process(value: TransactionVote) {
         val transaction = value.transaction

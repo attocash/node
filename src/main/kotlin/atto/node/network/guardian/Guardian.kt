@@ -20,10 +20,9 @@ import java.util.concurrent.TimeUnit
 class Guardian(
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
-    private val guardianProperties: GuardianProperties
+    private val guardianProperties: GuardianProperties,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
-
 
     private val statisticsMap = ConcurrentHashMap<InetSocketAddress, ULong>()
     private val voterMap = ConcurrentHashMap<InetSocketAddress, AttoPublicKey>()
@@ -44,7 +43,7 @@ class Guardian(
         val peer = peerEvent.peer
 
         if (peer.node.isNotVoter()) {
-            return;
+            return
         }
 
         voterMap[peer.connectionSocketAddress] = peer.node.publicKey
@@ -67,14 +66,18 @@ class Guardian(
             return
         }
 
-        val mergedDifferenceMap = differenceMap.entries
-            .groupBy({ it.key.address }, { it.value })
-            .mapValues { it.value.sum() }
+        val mergedDifferenceMap =
+            differenceMap
+                .entries
+                .groupBy({ it.key.address }, { it.value })
+                .mapValues { it.value.sum() }
 
-        val maliciousActors = mergedDifferenceMap.entries
-            .associateBy({ it.value }, { it.key })
-            .toSortedMap()
-            .tailMap(median * guardianProperties.toleranceMultiplier)
+        val maliciousActors =
+            mergedDifferenceMap
+                .entries
+                .associateBy({ it.value }, { it.key })
+                .toSortedMap()
+                .tailMap(median * guardianProperties.toleranceMultiplier)
 
         maliciousActors.forEach {
             logger.info { "Banning ${it.value}. Received ${it.key} requests while median of voters is $median per second" }
@@ -86,15 +89,15 @@ class Guardian(
 
     private fun calculateDifference(
         newSnapshot: Map<InetSocketAddress, ULong>,
-        oldSnapshot: Map<InetSocketAddress, ULong>
+        oldSnapshot: Map<InetSocketAddress, ULong>,
     ): HashMap<InetSocketAddress, ULong> {
         val treeMap = HashMap<InetSocketAddress, ULong>()
-        return newSnapshot.asSequence()
+        return newSnapshot
+            .asSequence()
             .map {
                 val hits = it.value - (oldSnapshot[it.key] ?: 0U)
                 Pair(it.key, hits)
-            }
-            .toMap(treeMap)
+            }.toMap(treeMap)
     }
 
     private fun extractVoters(snapshot: Map<InetSocketAddress, ULong>): Map<InetSocketAddress, ULong> {
@@ -117,18 +120,13 @@ class Guardian(
         }
     }
 
-    fun getSnapshot(): Map<InetSocketAddress, ULong> {
-        return snapshot.toMap()
-    }
+    fun getSnapshot(): Map<InetSocketAddress, ULong> = snapshot.toMap()
 
-    fun getVoters(): Map<InetSocketAddress, AttoPublicKey> {
-        return voterMap.toMap()
-    }
+    fun getVoters(): Map<InetSocketAddress, AttoPublicKey> = voterMap.toMap()
 
     override fun clear() {
         statisticsMap.clear()
         snapshot = mapOf()
         voterMap.clear()
-
     }
 }

@@ -6,20 +6,15 @@ import kotlinx.coroutines.flow.flow
 import java.math.BigInteger
 import java.util.*
 
-fun ULong.toBigInteger(): BigInteger {
-    return BigInteger(this.toString())
-}
+fun ULong.toBigInteger(): BigInteger = BigInteger(this.toString())
 
-
-fun BigInteger.toULong(): ULong {
-    return this.toString().toULong()
-}
+fun BigInteger.toULong(): ULong = this.toString().toULong()
 
 /**
  * Sort by height while avoid duplications. No height should be skipped otherwise this function will accumulate indefinitely.
  */
-fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: ULong): Flow<T> {
-    return flow {
+fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: ULong): Flow<T> =
+    flow {
         var currentHeight = initialHeight
         val sortedSet = TreeSet<T>(Comparator.comparing { it.height })
         collect {
@@ -33,13 +28,12 @@ fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: ULong): Flow<T> {
             }
         }
     }
-}
 
 /**
  * Just emits when previous height was before the current height
  */
-fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> {
-    return flow {
+fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> =
+    flow {
         var lastHeight = 0UL
         collect {
             if (lastHeight < it.height) {
@@ -48,4 +42,3 @@ fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> {
             }
         }
     }
-}

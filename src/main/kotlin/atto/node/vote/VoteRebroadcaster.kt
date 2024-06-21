@@ -36,8 +36,8 @@ class VoteRebroadcaster(
     private val thisNode: AttoNode,
     private val voteWeighter: VoteWeighter,
     private val messagePublisher: NetworkMessagePublisher,
-) :
-    AsynchronousQueueProcessor<VoteHolder>(100.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<VoteHolder>(100.milliseconds),
+    CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -99,40 +99,46 @@ class VoteRebroadcaster(
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
-    override suspend fun poll(): VoteHolder? = withContext(singleDispatcher) {
-        voteQueue.poll()
-    }
+    override suspend fun poll(): VoteHolder? =
+        withContext(singleDispatcher) {
+            voteQueue.poll()
+        }
 
     override suspend fun process(value: VoteHolder) {
         val vote = value.vote
         val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
         val exceptions = value.publicUris
 
-        val message = BroadcastNetworkMessage(
-            BroadcastStrategy.EVERYONE,
-            exceptions,
-            votePush,
-        )
+        val message =
+            BroadcastNetworkMessage(
+                BroadcastStrategy.EVERYONE,
+                exceptions,
+                votePush,
+            )
 
         logger.trace { "Vote dequeued and it will be rebroadcasted. $vote" }
         messagePublisher.publish(message)
     }
 
-    class VoteHolder(val vote: Vote) : Comparable<VoteHolder> {
+    class VoteHolder(
+        val vote: Vote,
+    ) : Comparable<VoteHolder> {
         val publicUris = HashSet<URI>()
 
         fun add(publicUri: URI) {
             publicUris.add(publicUri)
         }
 
-        override fun compareTo(other: VoteHolder): Int {
-            return other.vote.weight.raw.compareTo(vote.weight.raw)
-        }
+        override fun compareTo(other: VoteHolder): Int =
+            other
+                .vote
+                .weight
+                .raw
+                .compareTo(vote.weight.raw)
     }
 
     override fun clear() {
         holderMap.clear()
         voteQueue.clear()
     }
-
 }

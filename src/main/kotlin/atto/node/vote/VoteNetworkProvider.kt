@@ -36,7 +36,7 @@ class VoteNetworkProvider(
         if (thisNode.isNotHistorical()) {
             return
         }
-        
+
         val request = message.payload
 
         val stream = VoteStream(message.publicUri, request.blockHash)
@@ -45,7 +45,8 @@ class VoteNetworkProvider(
         }
 
         val votes = voteRepository.findByHash(request.blockHash)
-        votes.takeWhile { voteStreams.contains(stream) }
+        votes
+            .takeWhile { voteStreams.contains(stream) }
             .collect {
                 val response = AttoVoteStreamResponse(request.blockHash, it.toAttoVote())
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
@@ -53,5 +54,8 @@ class VoteNetworkProvider(
             }
     }
 
-    private data class VoteStream(val publicUri: URI, val blockHash: AttoHash)
+    private data class VoteStream(
+        val publicUri: URI,
+        val blockHash: AttoHash,
+    )
 }

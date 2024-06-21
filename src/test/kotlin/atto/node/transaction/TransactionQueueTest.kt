@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Timeout
 import java.time.Instant
 import kotlin.random.Random
 
-
 internal class TransactionQueueTest {
     private val queue = TransactionQueue(2)
 
@@ -62,28 +61,33 @@ internal class TransactionQueueTest {
 
     @Test
     @Timeout(1)
-    fun `should return null when queue empty`() = runBlocking {
-        assertNull(queue.poll())
-    }
+    fun `should return null when queue empty`() =
+        runBlocking {
+            assertNull(queue.poll())
+        }
 
-
-    private fun createTransaction(amount: ULong, timestamp: Instant, receivedAt: Instant): Transaction {
-        val block = AttoReceiveBlock(
-            version = 0u,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            height = 2u,
-            balance = AttoAmount(amount),
-            timestamp = timestamp.toKotlinInstant(),
-            previous = AttoHash(Random.nextBytes(ByteArray(32))),
-            sendHashAlgorithm = AttoAlgorithm.V1,
-            sendHash = AttoHash(ByteArray(32)),
-        )
+    private fun createTransaction(
+        amount: ULong,
+        timestamp: Instant,
+        receivedAt: Instant,
+    ): Transaction {
+        val block =
+            AttoReceiveBlock(
+                version = 0u,
+                algorithm = AttoAlgorithm.V1,
+                publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+                height = 2u,
+                balance = AttoAmount(amount),
+                timestamp = timestamp.toKotlinInstant(),
+                previous = AttoHash(Random.nextBytes(ByteArray(32))),
+                sendHashAlgorithm = AttoAlgorithm.V1,
+                sendHash = AttoHash(ByteArray(32)),
+            )
         return Transaction(
             block = block,
             signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             work = AttoWork(Random.nextBytes(ByteArray(8))),
-            receivedAt = receivedAt
+            receivedAt = receivedAt,
         )
     }
 }

@@ -11,7 +11,10 @@ import org.springframework.data.domain.Persistable
 import java.net.URI
 import java.time.Instant
 
-data class PublicKeyHash(val publicKey: AttoPublicKey, val hash: AttoHash)
+data class PublicKeyHash(
+    val publicKey: AttoPublicKey,
+    val hash: AttoHash,
+)
 
 data class Vote(
     val blockHash: AttoHash,
@@ -21,14 +24,16 @@ data class Vote(
     @Id
     val signature: AttoSignature,
     val weight: AttoAmount,
-
     val receivedAt: Instant = Instant.now(),
     val persistedAt: Instant? = null,
 ) : Persistable<AttoSignature> {
-
     companion object {
-        fun from(weight: AttoAmount, hash: AttoHash, attoVote: AttoVote): Vote {
-            return Vote(
+        fun from(
+            weight: AttoAmount,
+            hash: AttoHash,
+            attoVote: AttoVote,
+        ): Vote =
+            Vote(
                 blockHash = hash,
                 algorithm = attoVote.algorithm,
                 publicKey = attoVote.publicKey,
@@ -36,52 +41,44 @@ data class Vote(
                 signature = attoVote.signature,
                 weight = weight,
             )
-        }
     }
 
-    override fun getId(): AttoSignature {
-        return signature
-    }
+    override fun getId(): AttoSignature = signature
 
-    override fun isNew(): Boolean {
-        return true
-    }
+    override fun isNew(): Boolean = true
 
-    fun isFinal(): Boolean {
-        return AttoVote.finalTimestamp == timestamp.toKotlinInstant()
-    }
+    fun isFinal(): Boolean = AttoVote.finalTimestamp == timestamp.toKotlinInstant()
 
-    fun toPublicKeyHash(): PublicKeyHash {
-        return PublicKeyHash(publicKey, blockHash)
-    }
+    fun toPublicKeyHash(): PublicKeyHash = PublicKeyHash(publicKey, blockHash)
 
-    fun toAttoVote(): AttoVote {
-        return AttoVote(
+    fun toAttoVote(): AttoVote =
+        AttoVote(
             timestamp = timestamp.toKotlinInstant(),
             algorithm = algorithm,
             publicKey = publicKey,
-            signature = signature
+            signature = signature,
         )
-    }
 }
 
 data class VoteReceived(
     val publicUri: URI,
-    val vote: Vote
+    val vote: Vote,
 ) : Event
 
 data class VoteValidated(
     val transaction: Transaction,
-    val vote: Vote
+    val vote: Vote,
 ) : Event
 
 enum class VoteDropReason {
-    SUPERSEDED, NO_ELECTION, TRANSACTION_DROPPED
+    SUPERSEDED,
+    NO_ELECTION,
+    TRANSACTION_DROPPED,
 }
 
 data class VoteDropped(
     val vote: Vote,
-    val reason: VoteDropReason
+    val reason: VoteDropReason,
 ) : Event
 
 enum class VoteRejectionReason {
@@ -90,5 +87,5 @@ enum class VoteRejectionReason {
 
 data class VoteRejected(
     val reason: VoteRejectionReason,
-    val vote: Vote
+    val vote: Vote,
 ) : Event

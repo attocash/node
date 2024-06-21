@@ -11,13 +11,10 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class AttoTransactionRequest(@ProtoNumber(0) @Contextual val hash: AttoHash) : AttoMessage {
-
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.TRANSACTION_REQUEST
-    }
+data class AttoTransactionRequest(
+    @ProtoNumber(0) @Contextual val hash: AttoHash,
+) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_REQUEST
 
     override fun isValid(network: AttoNetwork): Boolean = true
-
 }
-

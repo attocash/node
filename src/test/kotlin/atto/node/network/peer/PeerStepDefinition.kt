@@ -17,8 +17,6 @@ class PeerStepDefinition(
     private val peerManager: PeerManager,
     private val webClient: WebClient,
 ) {
-
-
     @Given("^the peer (\\w+)$")
     fun startPeer(shortId: String) {
         nodeStepDefinition.startNeighbour(shortId)
@@ -29,7 +27,6 @@ class PeerStepDefinition(
         checkPeer(shortId, "THIS")
 
         peerManager.sendKeepAlive()
-
     }
 
     @When("default handshake starts")
@@ -38,12 +35,16 @@ class PeerStepDefinition(
     }
 
     @Then("^(\\w+) node is (\\w+) node peer$")
-    fun checkPeer(sourceNodeShortId: String, peerNodeShortId: String) {
+    fun checkPeer(
+        sourceNodeShortId: String,
+        peerNodeShortId: String,
+    ) {
         val sourceNeighbour = PropertyHolder[Neighbour::class.java, sourceNodeShortId]
         val peerPublicKey = PropertyHolder[AttoPublicKey::class.java, peerNodeShortId]
 
         waitUntilNonNull {
-            webClient.get()
+            webClient
+                .get()
                 .uri("http://localhost:${sourceNeighbour.httpPort}/nodes/peers")
                 .retrieve()
                 .bodyToMono<List<AttoPublicKey>>()

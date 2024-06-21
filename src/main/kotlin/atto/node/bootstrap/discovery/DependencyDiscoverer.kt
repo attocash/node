@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component
 @Component
 class DependencyDiscoverer(
     private val voteWeighter: VoteWeighter,
-    private val eventPublisher: EventPublisher
+    private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -48,12 +48,14 @@ class DependencyDiscoverer(
         add(event.reason, event.transaction)
     }
 
-    suspend fun add(reason: TransactionRejectionReason?, transaction: Transaction) = withContext(singleDispatcher) {
+    suspend fun add(
+        reason: TransactionRejectionReason?,
+        transaction: Transaction,
+    ) = withContext(singleDispatcher) {
         val transactionHolder = TransactionHolder(reason, transaction)
         transactionHolderMap[transaction.hash] = transactionHolder
         logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
     }
-
 
     @EventListener
     suspend fun process(event: VoteDropped) {
@@ -64,36 +66,37 @@ class DependencyDiscoverer(
         process(event.vote)
     }
 
-    suspend fun process(vote: Vote) = withContext(singleDispatcher) {
-        if (!vote.isFinal()) {
-            return@withContext
-        }
+    suspend fun process(vote: Vote) =
+        withContext(singleDispatcher) {
+            if (!vote.isFinal()) {
+                return@withContext
+            }
 
-        val hash = vote.blockHash
+            val hash = vote.blockHash
 
-        val holder = transactionHolderMap[hash] ?: return@withContext
+            val holder = transactionHolderMap[hash] ?: return@withContext
 
-        holder.add(vote)
+            holder.add(vote)
 
-        val weight = holder.getWeight()
-        val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
-        if (weight >= minimalConfirmationWeight) {
-            transactionHolderMap.remove(hash)
-            logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
-            eventPublisher.publish(
-                TransactionDiscovered(
-                    holder.reason,
-                    holder.transaction,
-                    holder.votes.values.toList()
+            val weight = holder.getWeight()
+            val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
+            if (weight >= minimalConfirmationWeight) {
+                transactionHolderMap.remove(hash)
+                logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
+                eventPublisher.publish(
+                    TransactionDiscovered(
+                        holder.reason,
+                        holder.transaction,
+                        holder.votes.values.toList(),
+                    ),
                 )
-            )
+            }
         }
-    }
 }
 
 private class TransactionHolder(
     val reason: TransactionRejectionReason?,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) {
     val votes = HashMap<AttoPublicKey, Vote>()
 
@@ -101,16 +104,16 @@ private class TransactionHolder(
         votes[vote.publicKey] = vote
     }
 
-    fun getWeight(): AttoAmount {
-        return votes.values.asSequence()
+    fun getWeight(): AttoAmount =
+        votes
+            .values
+            .asSequence()
             .map { it.weight }
             .fold(AttoAmount.MIN) { acc, weight -> acc + weight }
-    }
-
 }
 
-private class FixedSizeHashMap<K, V>(private val maxSize: Int) : LinkedHashMap<K, V>(maxSize) {
-    override fun removeEldestEntry(eldest: Map.Entry<K, V>?): Boolean {
-        return size > maxSize
-    }
+private class FixedSizeHashMap<K, V>(
+    private val maxSize: Int,
+) : LinkedHashMap<K, V>(maxSize) {
+    override fun removeEldestEntry(eldest: Map.Entry<K, V>?): Boolean = size > maxSize
 }

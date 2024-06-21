@@ -30,18 +30,19 @@ import kotlin.random.Random
 class GapDiscoverer(
     private val databaseClient: DatabaseClient,
     private val networkMessagePublisher: NetworkMessagePublisher,
-    private val eventPublisher: EventPublisher
+    private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
 
     private val peers = ConcurrentHashMap.newKeySet<URI>()
 
-    private val pointerMap = Caffeine.newBuilder()
-        .expireAfterWrite(Duration.ofMinutes(1))
-        .maximumSize(100_000)
-        .build<AttoPublicKey, TransactionPointer>()
-        .asMap()
-
+    private val pointerMap =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .maximumSize(100_000)
+            .build<AttoPublicKey, TransactionPointer>()
+            .asMap()
 
     @EventListener
     fun add(peerEvent: PeerConnected) {
@@ -66,9 +67,10 @@ class GapDiscoverer(
             return
         }
 
-
-        val gaps = databaseClient.sql(
-            """
+        val gaps =
+            databaseClient
+                .sql(
+                    """
                                 SELECT algorithm, public_key, account_height, transaction_height, previous_transaction_hash FROM (
                                         SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
                                                 ut.algorithm algorithm,
@@ -81,16 +83,17 @@ class GapDiscoverer(
                                         ORDER BY ut.public_key, ut.height ) ready
                                 WHERE transaction_height > account_height + row_num
                                 AND row_num = 1
-                """
-        ).map { row, _ ->
-            GapView(
-                AttoAlgorithm.valueOf(row.get("algorithm", String::class.javaObjectType)!!),
-                AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                row.get("account_height", Long::class.javaObjectType)!!.toULong(),
-                row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),
-                AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!)
-            )
-        }.all().asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
+                """,
+                ).map { row, _ ->
+                    GapView(
+                        AttoAlgorithm.valueOf(row.get("algorithm", String::class.javaObjectType)!!),
+                        AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
+                        row.get("account_height", Long::class.javaObjectType)!!.toULong(),
+                        row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),
+                        AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!),
+                    )
+                }.all()
+                .asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
 
         gaps.collect { view ->
             pointerMap.computeIfAbsent(view.publicKey) {
@@ -113,23 +116,26 @@ class GapDiscoverer(
         }
     }
 
-
-    private fun process(pointer: TransactionPointer, transaction: AttoTransaction): TransactionPointer? {
+    private fun process(
+        pointer: TransactionPointer,
+        transaction: AttoTransaction,
+    ): TransactionPointer? {
         if (transaction.hash != pointer.currentHash) {
             return pointer
         }
 
         val block = transaction.block
 
-        val nextPointer = if (pointer.initialHeight == block.height) {
-            null
-        } else {
-            TransactionPointer(
-                pointer.initialHeight,
-                pointer.currentHeight - 1UL,
-                (block as PreviousSupport).previous
-            )
-        }
+        val nextPointer =
+            if (pointer.initialHeight == block.height) {
+                null
+            } else {
+                TransactionPointer(
+                    pointer.initialHeight,
+                    pointer.currentHeight - 1UL,
+                    (block as PreviousSupport).previous,
+                )
+            }
 
         logger.debug { "Discovered gap transaction ${transaction.hash}" }
 
@@ -137,14 +143,13 @@ class GapDiscoverer(
 
         return nextPointer
     }
-
 }
 
 private data class TransactionPointer(
     val initialHeight: ULong,
     val currentHeight: ULong,
     val currentHash: AttoHash,
-    val timestamp: Instant = Instant.now()
+    val timestamp: Instant = Instant.now(),
 )
 
 private fun GapView.startHeight(): ULong {
@@ -156,6 +161,4 @@ private fun GapView.startHeight(): ULong {
     return this.accountHeight + 1U
 }
 
-private fun GapView.endHeight(): ULong {
-    return this.transactionHeight
-}
+private fun GapView.endHeight(): ULong = this.transactionHeight

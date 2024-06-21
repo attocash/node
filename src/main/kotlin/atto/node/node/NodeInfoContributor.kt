@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component
 
 @ExperimentalCoroutinesApi
 @Component
-class NodeInfoContributor(val thisNode: atto.protocol.AttoNode) : InfoContributor {
-
+class NodeInfoContributor(
+    val thisNode: atto.protocol.AttoNode,
+) : InfoContributor {
     override fun contribute(builder: Info.Builder) {
         builder.withDetail("this-node", thisNode)
     }
-
 }

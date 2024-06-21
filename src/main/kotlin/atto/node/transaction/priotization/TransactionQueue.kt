@@ -8,30 +8,36 @@ import java.util.*
 import java.util.Comparator.comparing
 import kotlin.math.min
 
-class TransactionQueue(private val groupMaxSize: Int, private val maxGroup: Int = 19) {
+class TransactionQueue(
+    private val groupMaxSize: Int,
+    private val maxGroup: Int = 19,
+) {
     companion object {
         /**
          * Smaller groups are easier to exploit during a spam attack due to low amount invested.
          *
          * To reduce the attack surface the groups below 0.001 USD should be removed
          */
-        private val groupMap: SortedMap<ULong, Int> = TreeMap<ULong, Int>().apply {
-            var value = 9UL
-            for (i in 19 downTo 1) {
-                this[value] = i
-                value = value * 10UL + 9UL
+        private val groupMap: SortedMap<ULong, Int> =
+            TreeMap<ULong, Int>().apply {
+                var value = 9UL
+                for (i in 19 downTo 1) {
+                    this[value] = i
+                    value = value * 10UL + 9UL
+                }
+                this[ULong.MAX_VALUE] = 0
             }
-            this[ULong.MAX_VALUE] = 0
+    }
+
+    private val dateComparator: Comparator<Transaction> =
+        comparing {
+            ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp.toJavaInstant())
         }
-    }
 
-    private val dateComparator: Comparator<Transaction> = comparing {
-        ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp.toJavaInstant())
-    }
-
-    private val versionComparator: Comparator<Transaction> = comparing {
-        it.block.version
-    }
+    private val versionComparator: Comparator<Transaction> =
+        comparing {
+            it.block.version
+        }
 
     private val comparator = versionComparator.thenComparing(dateComparator)
 
@@ -85,9 +91,7 @@ class TransactionQueue(private val groupMaxSize: Int, private val maxGroup: Int 
         return null
     }
 
-    fun getSize(): Int {
-        return size
-    }
+    fun getSize(): Int = size
 
     fun clear() {
         groups.forEach { it.clear() }

@@ -18,13 +18,8 @@ data class AttoHandshakeAnswer(
     @ProtoNumber(1)
     @Contextual
     val signature: AttoSignature,
-) :
-    AttoMessage {
-
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.HANDSHAKE_ANSWER
-    }
+) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.HANDSHAKE_ANSWER
 
     override fun isValid(network: AttoNetwork) = true
-
 }

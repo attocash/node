@@ -8,9 +8,8 @@ import atto.node.vote.Vote
 data class TransactionDiscovered(
     val reason: TransactionRejectionReason?,
     val transaction: Transaction,
-    val votes: Collection<Vote>
+    val votes: Collection<Vote>,
 ) : Event
-
 
 data class TransactionStuck(
     val reason: TransactionRejectionReason,

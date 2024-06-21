@@ -19,15 +19,15 @@ data class AttoNode(
     @ProtoNumber(2) val algorithm: AttoAlgorithm,
     @ProtoNumber(3) val publicKey: AttoPublicKey,
     @ProtoNumber(4) @Serializable(with = URISerializer::class) val publicUri: URI,
-    @ProtoNumber(5) val features: Set<NodeFeature>
+    @ProtoNumber(5) val features: Set<NodeFeature>,
 ) {
-
     @Transient
-    val minProtocolVersion: UShort = when (protocolVersion) {
-        0.toUShort() -> 0u
-        1.toUShort() -> 0u
-        else -> (protocolVersion - 2u).toUShort()
-    }
+    val minProtocolVersion: UShort =
+        when (protocolVersion) {
+            0.toUShort() -> 0u
+            1.toUShort() -> 0u
+            else -> (protocolVersion - 2u).toUShort()
+        }
 
     @Transient
     val maxProtocolVersion = (protocolVersion + 2u).toUShort()
@@ -75,7 +75,9 @@ data class AttoNode(
 }
 
 @Serializable
-enum class NodeFeature(val code: UByte) {
+enum class NodeFeature(
+    val code: UByte,
+) {
     @ProtoNumber(255)
     UNKNOWN(UByte.MAX_VALUE),
 
@@ -83,12 +85,12 @@ enum class NodeFeature(val code: UByte) {
     VOTING(0u),
 
     @ProtoNumber(1)
-    HISTORICAL(1u);
+    HISTORICAL(1u),
+    ;
 
     companion object {
         private val map = entries.associateBy(NodeFeature::code)
-        fun from(code: UByte): NodeFeature {
-            return NodeFeature.map.getOrDefault(code, UNKNOWN)
-        }
+
+        fun from(code: UByte): NodeFeature = NodeFeature.map.getOrDefault(code, UNKNOWN)
     }
 }

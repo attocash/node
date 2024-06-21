@@ -38,10 +38,13 @@ class TransactionValidationManager(
         }
     }
 
-    suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
-        return validators.asFlow()
+    suspend fun validate(
+        account: Account,
+        transaction: Transaction,
+    ): TransactionViolation? =
+        validators
+            .asFlow()
             .filter { it.supports(transaction) }
             .mapNotNull { it.validate(account, transaction) }
             .firstOrNull()
-    }
 }

@@ -43,8 +43,8 @@ class ElectionMonitor(
             BroadcastNetworkMessage(
                 BroadcastStrategy.VOTERS,
                 emptySet(),
-                transactionPush
-            )
+                transactionPush,
+            ),
         )
     }
 }

@@ -8,9 +8,9 @@ import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.time.Instant
 
-
-interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRepository {
-
+interface VoteRepository :
+    CoroutineCrudRepository<Vote, AttoSignature>,
+    AttoRepository {
     @Query(
         """
         SELECT * FROM (
@@ -19,7 +19,7 @@ interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRep
             WHERE timestamp > :timestamp
         ) TEMP
         WHERE num = 1
-        """
+        """,
     )
     suspend fun findLatestAfter(timestamp: Instant): List<Vote>
 
@@ -29,7 +29,7 @@ interface VoteRepository : CoroutineCrudRepository<Vote, AttoSignature>, AttoRep
         FROM vote v 
         WHERE v.hash = :hash
         ORDER BY v.weight DESC
-        """
+        """,
     )
     suspend fun findByHash(hash: AttoHash): Flow<Vote>
 }

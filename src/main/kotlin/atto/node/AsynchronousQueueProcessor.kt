@@ -9,8 +9,9 @@ import kotlinx.coroutines.launch
 import mu.KotlinLogging
 import kotlin.time.Duration
 
-
-abstract class AsynchronousQueueProcessor<T>(private val delayDuration: Duration) {
+abstract class AsynchronousQueueProcessor<T>(
+    private val delayDuration: Duration,
+) {
     private val logger = KotlinLogging.logger {}
 
     @Volatile
@@ -45,5 +46,4 @@ abstract class AsynchronousQueueProcessor<T>(private val delayDuration: Duration
             value = poll()
         }
     }
-
 }

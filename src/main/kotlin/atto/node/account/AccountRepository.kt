@@ -14,20 +14,25 @@ import java.math.BigInteger
 import java.time.Instant
 
 interface AccountRepository : AttoRepository {
-
     suspend fun save(entity: Account): Account
 
     suspend fun findById(id: AttoPublicKey): Account?
 
-    suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account?
+    suspend fun findByAlgorithmAndPublicKey(
+        algorithm: AttoAlgorithm,
+        publicKey: AttoPublicKey,
+    ): Account?
 
     suspend fun findAllWeights(): List<WeightView>
 }
 
-
-interface AccountCrudRepository : CoroutineCrudRepository<Account, AttoPublicKey>, AccountRepository {
-
-    override suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account?
+interface AccountCrudRepository :
+    CoroutineCrudRepository<Account, AttoPublicKey>,
+    AccountRepository {
+    override suspend fun findByAlgorithmAndPublicKey(
+        algorithm: AttoAlgorithm,
+        publicKey: AttoPublicKey,
+    ): Account?
 
     @Query("SELECT representative AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight FROM account GROUP BY representative")
     override suspend fun findAllWeights(): List<WeightView>
@@ -35,18 +40,23 @@ interface AccountCrudRepository : CoroutineCrudRepository<Account, AttoPublicKey
 
 @Primary
 @Component
-class AccountCachedRepository(private val accountCrudRepository: AccountCrudRepository) : AccountRepository {
-    private val cache = Caffeine.newBuilder()
-        .maximumSize(100_000)
-        .build<AttoPublicKey, Account>()
-        .asMap()
+class AccountCachedRepository(
+    private val accountCrudRepository: AccountCrudRepository,
+) : AccountRepository {
+    private val cache =
+        Caffeine
+            .newBuilder()
+            .maximumSize(100_000)
+            .build<AttoPublicKey, Account>()
+            .asMap()
 
     override suspend fun save(entity: Account): Account {
         executeAfterCommit {
-            cache[entity.publicKey] = entity.copy(
-                persistedAt = entity.persistedAt ?: Instant.now(),
-                updatedAt = Instant.now()
-            )
+            cache[entity.publicKey] =
+                entity.copy(
+                    persistedAt = entity.persistedAt ?: Instant.now(),
+                    updatedAt = Instant.now(),
+                )
         }
         return accountCrudRepository.save(entity)
     }
@@ -55,7 +65,10 @@ class AccountCachedRepository(private val accountCrudRepository: AccountCrudRepo
         return cache[id] ?: accountCrudRepository.findById(id)
     }
 
-    override suspend fun findByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account? {
+    override suspend fun findByAlgorithmAndPublicKey(
+        algorithm: AttoAlgorithm,
+        publicKey: AttoPublicKey,
+    ): Account? {
         return accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
     }
 
@@ -66,10 +79,7 @@ class AccountCachedRepository(private val accountCrudRepository: AccountCrudRepo
     override suspend fun deleteAll() {
         accountCrudRepository.deleteAll()
     }
-
-
 }
-
 
 /**
  * There's a weird bug when using default methods causing it to throw a ClassCastException
@@ -98,7 +108,10 @@ class AccountCachedRepository(private val accountCrudRepository: AccountCrudRepo
  * 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.runWorker(CoroutineScheduler.kt:697)
  * 	at kotlinx.coroutines.scheduling.CoroutineScheduler$Worker.run(CoroutineScheduler.kt:684)
  */
-suspend fun AccountRepository.getByAlgorithmAndPublicKey(algorithm: AttoAlgorithm, publicKey: AttoPublicKey): Account {
+suspend fun AccountRepository.getByAlgorithmAndPublicKey(
+    algorithm: AttoAlgorithm,
+    publicKey: AttoPublicKey,
+): Account {
     val account = findByAlgorithmAndPublicKey(algorithm, publicKey)
     if (account != null) {
         return account
@@ -112,11 +125,12 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(algorithm: AttoAlgorith
         representative = AttoPublicKey(ByteArray(32)),
         balance = AttoAmount.MIN,
         lastTransactionHash = AttoHash(ByteArray(32)),
-        lastTransactionTimestamp = Instant.MIN
+        lastTransactionTimestamp = Instant.MIN,
     )
 }
 
 data class WeightView(
     val publicKey: AttoPublicKey,
-    val weight: BigInteger // r2dbc doesn't seem to respect the DBConverter
+    // r2dbc doesn't seem to respect the DBConverter
+    val weight: BigInteger,
 )

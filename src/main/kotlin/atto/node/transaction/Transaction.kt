@@ -7,7 +7,10 @@ import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
 
-data class PublicKeyHeight(val publicKey: AttoPublicKey, val height: ULong)
+data class PublicKeyHeight(
+    val publicKey: AttoPublicKey,
+    val height: ULong,
+)
 
 data class Transaction(
     val block: AttoBlock,
@@ -34,7 +37,7 @@ data class Transaction(
         return AttoTransaction(
             block = block,
             signature = signature,
-            work = work
+            work = work,
         )
     }
 
@@ -66,39 +69,46 @@ data class Transaction(
         return result
     }
 
-    override fun toString(): String {
-        return "Transaction(hash=$hash, publicKey=$publicKey, block=$block, signature=$signature, work=$work, receivedAt=$receivedAt, persistedAt=$persistedAt)"
-    }
+    override fun toString(): String =
+        "Transaction(hash=$hash, publicKey=$publicKey, block=$block, signature=$signature, work=$work, " +
+            "receivedAt=$receivedAt, persistedAt=$persistedAt)"
 }
 
-fun AttoTransaction.toTransaction(): Transaction {
-    return Transaction(
+fun AttoTransaction.toTransaction(): Transaction =
+    Transaction(
         block = block,
         signature = signature,
-        work = work
+        work = work,
     )
-}
 
-data class TransactionReceived(val transaction: Transaction) : Event
+data class TransactionReceived(
+    val transaction: Transaction,
+) : Event
 
-data class TransactionDropped(val transaction: Transaction) : Event
+data class TransactionDropped(
+    val transaction: Transaction,
+) : Event
+
 data class TransactionValidated(
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event
 
 enum class TransactionSaveSource {
-    BOOTSTRAP, ELECTION
+    BOOTSTRAP,
+    ELECTION,
 }
 
 data class TransactionSaved(
     val source: TransactionSaveSource,
     val previousAccount: Account,
     val updatedAccount: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event
 
-enum class TransactionRejectionReason(val recoverable: Boolean) {
+enum class TransactionRejectionReason(
+    val recoverable: Boolean,
+) {
     INVALID_TRANSACTION(false),
     INVALID_BALANCE(false),
     INVALID_AMOUNT(false),
@@ -117,5 +127,5 @@ data class TransactionRejected(
     val reason: TransactionRejectionReason,
     val message: String,
     val account: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 ) : Event

@@ -10,6 +10,7 @@ plugins {
     id("org.springframework.boot") version "3.3.0"
     id("io.spring.dependency-management") version "1.1.5"
     id("org.graalvm.buildtools.native") version "0.10.2"
+    id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
 }
 
 group = "cash.atto"
@@ -46,7 +47,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
 
-    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}")
+    implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:$springdocVersion")
 
     implementation("com.github.ben-manes.caffeine:caffeine")
 
@@ -80,9 +81,9 @@ dependencies {
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 
     testImplementation("org.junit.platform:junit-platform-suite") // for cucumber
-    testImplementation("io.cucumber:cucumber-java:${cucumberVersion}")
-    testImplementation("io.cucumber:cucumber-spring:${cucumberVersion}")
-    testImplementation("io.cucumber:cucumber-junit-platform-engine:${cucumberVersion}")
+    testImplementation("io.cucumber:cucumber-java:$cucumberVersion")
+    testImplementation("io.cucumber:cucumber-spring:$cucumberVersion")
+    testImplementation("io.cucumber:cucumber-junit-platform-engine:$cucumberVersion")
     testImplementation("org.awaitility:awaitility:4.2.1")
 
     testImplementation("org.testcontainers:junit-jupiter")

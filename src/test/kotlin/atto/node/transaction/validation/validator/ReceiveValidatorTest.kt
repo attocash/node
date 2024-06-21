@@ -20,132 +20,140 @@ import kotlin.random.Random
 internal class ReceiveValidatorTest {
     val privateKey = AttoPrivateKey.generate()
 
-    val account = Account(
-        publicKey = privateKey.toPublicKey(),
-        algorithm = AttoAlgorithm.V1,
-        version = 0u,
-        height = 2u,
-        balance = AttoAmount(0u),
-        lastTransactionHash = AttoHash(ByteArray(32)),
-        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
-        representative = AttoPublicKey(ByteArray(32))
-    )
-    val block = AttoReceiveBlock(
-        version = account.version,
-        algorithm = AttoAlgorithm.V1,
-        publicKey = privateKey.toPublicKey(),
-        height = account.height + 1U,
-        balance = AttoAmount(10U),
-        timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
-        previous = account.lastTransactionHash,
-        sendHashAlgorithm = AttoAlgorithm.V1,
-        sendHash = AttoHash(ByteArray(32))
-    )
-
-    val node = atto.protocol.AttoNode(
-        network = AttoNetwork.LOCAL,
-        protocolVersion = 0u,
-        algorithm = AttoAlgorithm.V1,
-        publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-        publicUri = URI("ws://localhost:8081"),
-        features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)
-    )
-
-    val transaction = Transaction(
-        block,
-        privateKey.sign(block.hash),
-        AttoWork.work(node.network, block.timestamp, block.previous)
-    )
-
-    @Test
-    fun `should validate`() = runBlocking {
-        // given
-        val receivable = Receivable(
-            hash = block.sendHash,
-            version = 0U,
-            algorithm = block.algorithm,
-            receiverAlgorithm = block.algorithm,
-            receiverPublicKey = block.publicKey,
-            amount = block.balance - account.balance
-        )
-
-        val receivableRepository = mockk<ReceivableRepository>()
-        coEvery { receivableRepository.findById(block.sendHash) } returns receivable
-
-        val validator = ReceiveValidator(receivableRepository)
-
-        // when
-        val violation = validator.validate(account, transaction)
-
-        // then
-        assertNull(violation)
-    }
-
-
-    @Test
-    fun `should return SEND_NOT_FOUND when receivable is not found`() = runBlocking {
-        // given
-        val receivableRepository = mockk<ReceivableRepository>()
-        coEvery { receivableRepository.findById(block.sendHash) } returns null
-
-        val validator = ReceiveValidator(receivableRepository)
-
-        // when
-        val violation = validator.validate(account, transaction)
-
-        // then
-        assertEquals(TransactionRejectionReason.RECEIVABLE_NOT_FOUND, violation?.reason)
-    }
-
-
-    @Test
-    fun `should return INVALID_RECEIVER when previous is different`() = runBlocking {
-        // given
-        val byteArray = ByteArray(32)
-        byteArray.fill(1)
-        val receivable = Receivable(
-            hash = block.sendHash,
-            version = 0U,
+    val account =
+        Account(
+            publicKey = privateKey.toPublicKey(),
             algorithm = AttoAlgorithm.V1,
-            receiverAlgorithm = block.algorithm,
-            receiverPublicKey = AttoPublicKey(byteArray),
-            amount = block.balance - account.balance
+            version = 0u,
+            height = 2u,
+            balance = AttoAmount(0u),
+            lastTransactionHash = AttoHash(ByteArray(32)),
+            lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
+            representative = AttoPublicKey(ByteArray(32)),
+        )
+    val block =
+        AttoReceiveBlock(
+            version = account.version,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = privateKey.toPublicKey(),
+            height = account.height + 1U,
+            balance = AttoAmount(10U),
+            timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
+            previous = account.lastTransactionHash,
+            sendHashAlgorithm = AttoAlgorithm.V1,
+            sendHash = AttoHash(ByteArray(32)),
         )
 
-        val receivableRepository = mockk<ReceivableRepository>()
-        coEvery { receivableRepository.findById(block.sendHash) } returns receivable
+    val node =
+        atto.protocol.AttoNode(
+            network = AttoNetwork.LOCAL,
+            protocolVersion = 0u,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+            publicUri = URI("ws://localhost:8081"),
+            features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL),
+        )
 
-        val validator = ReceiveValidator(receivableRepository)
-
-        // when
-        val violation = validator.validate(account, transaction)
-
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_RECEIVER, violation?.reason)
-    }
-
+    val transaction =
+        Transaction(
+            block,
+            privateKey.sign(block.hash),
+            AttoWork.work(node.network, block.timestamp, block.previous),
+        )
 
     @Test
-    fun `should return INVALID_BALANCE when previous is different`() = runBlocking {
-        // given
-        val receivable = Receivable(
-            hash = block.sendHash,
-            version = 0U,
-            algorithm = AttoAlgorithm.V1,
-            receiverAlgorithm = block.algorithm,
-            receiverPublicKey = account.publicKey,
-            amount = AttoAmount(2UL)
-        )
+    fun `should validate`() =
+        runBlocking {
+            // given
+            val receivable =
+                Receivable(
+                    hash = block.sendHash,
+                    version = 0U,
+                    algorithm = block.algorithm,
+                    receiverAlgorithm = block.algorithm,
+                    receiverPublicKey = block.publicKey,
+                    amount = block.balance - account.balance,
+                )
 
-        val receivableRepository = mockk<ReceivableRepository>()
-        coEvery { receivableRepository.findById(block.sendHash) } returns receivable
+            val receivableRepository = mockk<ReceivableRepository>()
+            coEvery { receivableRepository.findById(block.sendHash) } returns receivable
 
-        val validator = ReceiveValidator(receivableRepository)
+            val validator = ReceiveValidator(receivableRepository)
 
-        // when
-        val violation = validator.validate(account, transaction)
+            // when
+            val violation = validator.validate(account, transaction)
 
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_BALANCE, violation?.reason)
-    }
+            // then
+            assertNull(violation)
+        }
+
+    @Test
+    fun `should return SEND_NOT_FOUND when receivable is not found`() =
+        runBlocking {
+            // given
+            val receivableRepository = mockk<ReceivableRepository>()
+            coEvery { receivableRepository.findById(block.sendHash) } returns null
+
+            val validator = ReceiveValidator(receivableRepository)
+
+            // when
+            val violation = validator.validate(account, transaction)
+
+            // then
+            assertEquals(TransactionRejectionReason.RECEIVABLE_NOT_FOUND, violation?.reason)
+        }
+
+    @Test
+    fun `should return INVALID_RECEIVER when previous is different`() =
+        runBlocking {
+            // given
+            val byteArray = ByteArray(32)
+            byteArray.fill(1)
+            val receivable =
+                Receivable(
+                    hash = block.sendHash,
+                    version = 0U,
+                    algorithm = AttoAlgorithm.V1,
+                    receiverAlgorithm = block.algorithm,
+                    receiverPublicKey = AttoPublicKey(byteArray),
+                    amount = block.balance - account.balance,
+                )
+
+            val receivableRepository = mockk<ReceivableRepository>()
+            coEvery { receivableRepository.findById(block.sendHash) } returns receivable
+
+            val validator = ReceiveValidator(receivableRepository)
+
+            // when
+            val violation = validator.validate(account, transaction)
+
+            // then
+            assertEquals(TransactionRejectionReason.INVALID_RECEIVER, violation?.reason)
+        }
+
+    @Test
+    fun `should return INVALID_BALANCE when previous is different`() =
+        runBlocking {
+            // given
+            val receivable =
+                Receivable(
+                    hash = block.sendHash,
+                    version = 0U,
+                    algorithm = AttoAlgorithm.V1,
+                    receiverAlgorithm = block.algorithm,
+                    receiverPublicKey = account.publicKey,
+                    amount = AttoAmount(2UL),
+                )
+
+            val receivableRepository = mockk<ReceivableRepository>()
+            coEvery { receivableRepository.findById(block.sendHash) } returns receivable
+
+            val validator = ReceiveValidator(receivableRepository)
+
+            // when
+            val violation = validator.validate(account, transaction)
+
+            // then
+            assertEquals(TransactionRejectionReason.INVALID_BALANCE, violation?.reason)
+        }
 }

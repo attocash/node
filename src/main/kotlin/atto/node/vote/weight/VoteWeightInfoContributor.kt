@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component
 
 @ExperimentalCoroutinesApi
 @Component
-class VoteWeightInfoContributor(val service: VoteWeighter) : InfoContributor {
-
+class VoteWeightInfoContributor(
+    val service: VoteWeighter,
+) : InfoContributor {
     override fun contribute(builder: Info.Builder) {
         builder.withDetail("weights", service.getAll())
     }
-
 }

@@ -16,61 +16,67 @@ import kotlin.random.Random
 internal class SendValidatorTest {
     val privateKey = AttoPrivateKey.generate()
 
-    val account = Account(
-        publicKey = privateKey.toPublicKey(),
-        algorithm = AttoAlgorithm.V1,
-        version = 0u,
-        height = 2u,
-        balance = AttoAmount(100u),
-        lastTransactionHash = AttoHash(ByteArray(32)),
-        lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
-        representative = AttoPublicKey(ByteArray(32))
-    )
-    val block = AttoSendBlock(
-        version = account.version,
-        algorithm = AttoAlgorithm.V1,
-        publicKey = privateKey.toPublicKey(),
-        height = account.height + 1U,
-        balance = AttoAmount(0u),
-        timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
-        previous = account.lastTransactionHash,
-        receiverAlgorithm = AttoAlgorithm.V1,
-        receiverPublicKey = privateKey.toPublicKey(),
-        amount = AttoAmount(100u),
-    )
+    val account =
+        Account(
+            publicKey = privateKey.toPublicKey(),
+            algorithm = AttoAlgorithm.V1,
+            version = 0u,
+            height = 2u,
+            balance = AttoAmount(100u),
+            lastTransactionHash = AttoHash(ByteArray(32)),
+            lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
+            representative = AttoPublicKey(ByteArray(32)),
+        )
+    val block =
+        AttoSendBlock(
+            version = account.version,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = privateKey.toPublicKey(),
+            height = account.height + 1U,
+            balance = AttoAmount(0u),
+            timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
+            previous = account.lastTransactionHash,
+            receiverAlgorithm = AttoAlgorithm.V1,
+            receiverPublicKey = privateKey.toPublicKey(),
+            amount = AttoAmount(100u),
+        )
 
-    val node = atto.protocol.AttoNode(
-        network = AttoNetwork.LOCAL,
-        protocolVersion = 0u,
-        algorithm = AttoAlgorithm.V1,
-        publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-        publicUri = URI("ws://localhost:8081"),
-        features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL)
-    )
+    val node =
+        atto.protocol.AttoNode(
+            network = AttoNetwork.LOCAL,
+            protocolVersion = 0u,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+            publicUri = URI("ws://localhost:8081"),
+            features = setOf(atto.protocol.NodeFeature.VOTING, atto.protocol.NodeFeature.HISTORICAL),
+        )
 
-    val transaction = Transaction(
-        block,
-        privateKey.sign(block.hash),
-        AttoWork.work(node.network, block.timestamp, block.previous)
-    )
+    val transaction =
+        Transaction(
+            block,
+            privateKey.sign(block.hash),
+            AttoWork.work(node.network, block.timestamp, block.previous),
+        )
 
     private val validator = SendValidator()
 
     @Test
-    fun `should validate`() = runBlocking {
-        // when
-        val violation = validator.validate(account, transaction)
+    fun `should validate`() =
+        runBlocking {
+            // when
+            val violation = validator.validate(account, transaction)
 
-        // then
-        assertNull(violation)
-    }
+            // then
+            assertNull(violation)
+        }
 
     @Test
-    fun `should return INVALID_AMOUNT when account height is not immediately before`() = runBlocking {
-        // when
-        val violation = validator.validate(account.copy(balance = account.balance + AttoAmount(1UL)), transaction)
+    fun `should return INVALID_AMOUNT when account height is not immediately before`() =
+        runBlocking {
+            // when
+            val violation = validator.validate(account.copy(balance = account.balance + AttoAmount(1UL)), transaction)
 
-        // then
-        assertEquals(TransactionRejectionReason.INVALID_AMOUNT, violation?.reason)
-    }
+            // then
+            assertEquals(TransactionRejectionReason.INVALID_AMOUNT, violation?.reason)
+        }
 }

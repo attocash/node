@@ -8,14 +8,10 @@ import java.math.BigInteger
 
 @Component
 class AttoAmountToBigIntegerSerializerDBConverter : DBConverter<AttoAmount, BigInteger> {
-    override fun convert(source: AttoAmount): BigInteger {
-        return source.raw.toBigInteger()
-    }
+    override fun convert(source: AttoAmount): BigInteger = source.raw.toBigInteger()
 }
 
 @Component
 class BigIntegerToAttoAmountDeserializerDBConverter : DBConverter<BigInteger, AttoAmount> {
-    override fun convert(source: BigInteger): AttoAmount {
-        return AttoAmount(source.toULong())
-    }
+    override fun convert(source: BigInteger): AttoAmount = AttoAmount(source.toULong())
 }

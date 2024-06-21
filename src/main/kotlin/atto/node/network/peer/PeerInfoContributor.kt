@@ -7,10 +7,10 @@ import org.springframework.stereotype.Component
 
 @ExperimentalCoroutinesApi
 @Component
-class PeerInfoContributor(val peerManager: PeerManager) : InfoContributor {
-
+class PeerInfoContributor(
+    val peerManager: PeerManager,
+) : InfoContributor {
     override fun contribute(builder: Info.Builder) {
         builder.withDetail("peers", peerManager.getPeers())
     }
-
 }

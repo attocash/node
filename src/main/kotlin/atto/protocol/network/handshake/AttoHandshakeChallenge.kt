@@ -9,15 +9,16 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import java.security.SecureRandom
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class AttoHandshakeChallenge(@ProtoNumber(0) val value: ByteArray) : AttoMessage {
-
+data class AttoHandshakeChallenge(
+    @ProtoNumber(0) val value: ByteArray,
+) : AttoMessage {
     companion object {
         const val SIZE = 128 // Should never be 32
 
         val random = SecureRandom.getInstanceStrong()!!
+
         fun create(): AttoHandshakeChallenge {
             val challenge = ByteArray(SIZE)
             random.nextBytes(challenge)
@@ -44,12 +45,7 @@ data class AttoHandshakeChallenge(@ProtoNumber(0) val value: ByteArray) : AttoMe
         return true
     }
 
-    override fun hashCode(): Int {
-        return value.contentHashCode()
-    }
+    override fun hashCode(): Int = value.contentHashCode()
 
-    override fun toString(): String {
-        return "AttoHandshakeChallenge(value=${value.toHex()})"
-    }
+    override fun toString(): String = "AttoHandshakeChallenge(value=${value.toHex()})"
 }
-

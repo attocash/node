@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 @Profile("default")
 class DiscoveryController(
     val gapDiscoverer: GapDiscoverer,
-    val lastDiscoverer: LastDiscoverer
+    val lastDiscoverer: LastDiscoverer,
 ) {
     @PostMapping("gap")
     @Operation(description = "Start processing of gap transaction")

@@ -35,11 +35,13 @@ class SendDiscoverer(
 
     private val peers = ConcurrentHashMap<AttoPublicKey, URI>()
 
-    private val unknownHashCache = Caffeine.newBuilder()
-        .maximumSize(100_000)
-        .expireAfterWrite(Duration.ofMinutes(5))
-        .build<AttoHash, AttoHash>()
-        .asMap()
+    private val unknownHashCache =
+        Caffeine
+            .newBuilder()
+            .maximumSize(100_000)
+            .expireAfterWrite(Duration.ofMinutes(5))
+            .build<AttoHash, AttoHash>()
+            .asMap()
 
     private val duplicateDetector = DuplicateDetector<AttoHash>(1.minutes)
 
@@ -63,7 +65,11 @@ class SendDiscoverer(
         process(event.reason, event.transaction, listOf())
     }
 
-    private fun process(reason: TransactionRejectionReason?, transaction: Transaction, votes: Collection<Vote>) {
+    private fun process(
+        reason: TransactionRejectionReason?,
+        transaction: Transaction,
+        votes: Collection<Vote>,
+    ) {
         if (reason != TransactionRejectionReason.RECEIVABLE_NOT_FOUND) {
             return
         }
@@ -81,11 +87,12 @@ class SendDiscoverer(
         val request = AttoTransactionRequest(block.sendHash)
 
         val socketAddress = randomUri(votes)
-        val message = if (socketAddress != null) {
-            DirectNetworkMessage(socketAddress, request)
-        } else {
-            BroadcastNetworkMessage(BroadcastStrategy.VOTERS, setOf(), request)
-        }
+        val message =
+            if (socketAddress != null) {
+                DirectNetworkMessage(socketAddress, request)
+            } else {
+                BroadcastNetworkMessage(BroadcastStrategy.VOTERS, setOf(), request)
+            }
 
         networkMessagePublisher.publish(message)
     }
@@ -104,16 +111,15 @@ class SendDiscoverer(
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
     }
 
-    private fun randomUri(votes: Collection<Vote>): URI? {
-        return votes.asSequence()
+    private fun randomUri(votes: Collection<Vote>): URI? =
+        votes
+            .asSequence()
             .map { v -> peers[v.publicKey] }
             .filterNotNull()
             .firstOrNull()
-    }
 
     override fun clear() {
         peers.clear()
         unknownHashCache.clear()
     }
-
 }

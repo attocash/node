@@ -12,7 +12,6 @@ import mu.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
-
 @Service
 class TransactionService(
     private val accountRepository: AccountRepository,
@@ -24,18 +23,22 @@ class TransactionService(
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(source: TransactionSaveSource, transaction: Transaction): SaveTransactionResponse {
+    suspend fun save(
+        source: TransactionSaveSource,
+        transaction: Transaction,
+    ): SaveTransactionResponse {
         val block = transaction.block
 
         val previousAccount = getAccount(transaction)
-        val updatedAccount = previousAccount.copy(
-            version = block.version,
-            height = block.height,
-            balance = block.balance,
-            lastTransactionHash = block.hash,
-            lastTransactionTimestamp = block.timestamp.toJavaInstant(),
-            representative = if (block is RepresentativeSupport) block.representative else previousAccount.representative
-        )
+        val updatedAccount =
+            previousAccount.copy(
+                version = block.version,
+                height = block.height,
+                balance = block.balance,
+                lastTransactionHash = block.hash,
+                lastTransactionTimestamp = block.timestamp.toJavaInstant(),
+                representative = if (block is RepresentativeSupport) block.representative else previousAccount.representative,
+            )
 
         accountService.save(updatedAccount)
         transactionRepository.save(transaction)
@@ -64,7 +67,7 @@ class TransactionService(
                 balance = block.balance,
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = block.timestamp.toJavaInstant(),
-                representative = block.representative
+                representative = block.representative,
             )
         }
         return accountRepository.findById(transaction.publicKey)!!
@@ -74,5 +77,5 @@ class TransactionService(
 data class SaveTransactionResponse(
     val previousAccount: Account,
     val updatedAccount: Account,
-    val transaction: Transaction
+    val transaction: Transaction,
 )

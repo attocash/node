@@ -14,12 +14,16 @@ class SendValidator : TransactionValidator {
         return transaction.block is AttoSendBlock
     }
 
-    override suspend fun validate(account: Account, transaction: Transaction): TransactionViolation? {
+    override suspend fun validate(
+        account: Account,
+        transaction: Transaction,
+    ): TransactionViolation? {
         val block = transaction.block as AttoSendBlock
         if (account.balance != block.balance + block.amount) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_AMOUNT,
-                "The account ${account.publicKey} balance is ${account.balance}. The received send transaction has the amount ${block.amount}"
+                "The account ${account.publicKey} balance is ${account.balance}. " +
+                    "The received send transaction has the amount ${block.amount}",
             )
         }
         return null

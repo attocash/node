@@ -26,45 +26,51 @@ class TransactionConfiguration(
     fun genesisTransaction(
         properties: TransactionProperties,
         privateKey: AttoPrivateKey,
-        thisNode: AttoNode
+        thisNode: AttoNode,
     ): Transaction {
         val genesis = properties.genesis
 
-        val genesisTransaction = if (!genesis.isNullOrBlank()) {
-            val byteArray = genesis.fromHexToByteArray()
+        val genesisTransaction =
+            if (!genesis.isNullOrBlank()) {
+                val byteArray = genesis.fromHexToByteArray()
 
-            AttoTransaction.fromByteBuffer(thisNode.network, AttoByteBuffer.from(byteArray))?.toTransaction()
-                ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
-        } else {
-            logger.info { "No genesis configured. Creating new genesis with this node private key..." }
-            createGenesis(privateKey, thisNode)
-        }
+                AttoTransaction.fromByteBuffer(thisNode.network, AttoByteBuffer.from(byteArray))?.toTransaction()
+                    ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
+            } else {
+                logger.info { "No genesis configured. Creating new genesis with this node private key..." }
+                createGenesis(privateKey, thisNode)
+            }
 
         initializeDatabase(genesisTransaction, thisNode)
 
         return genesisTransaction
     }
 
-    fun initializeDatabase(genesisTransaction: Transaction, thisNode: AttoNode) = runBlocking {
+    fun initializeDatabase(
+        genesisTransaction: Transaction,
+        thisNode: AttoNode,
+    ) = runBlocking {
         val anyAccountChange = transactionRepository.getLastSample(1).toList()
         if (anyAccountChange.isEmpty()) {
             val block = genesisTransaction.block as AttoOpenBlock
 
-            val transaction = Transaction(
-                block = block,
-                signature = genesisTransaction.signature,
-                work = genesisTransaction.work,
-                receivedAt = Instant.now(),
-            )
+            val transaction =
+                Transaction(
+                    block = block,
+                    signature = genesisTransaction.signature,
+                    work = genesisTransaction.work,
+                    receivedAt = Instant.now(),
+                )
 
-            val receivable = Receivable(
-                hash = block.sendHash,
-                version = block.version,
-                algorithm = block.algorithm,
-                receiverAlgorithm = block.algorithm,
-                receiverPublicKey = block.publicKey,
-                amount = block.balance
-            )
+            val receivable =
+                Receivable(
+                    hash = block.sendHash,
+                    version = block.version,
+                    algorithm = block.algorithm,
+                    receiverAlgorithm = block.algorithm,
+                    receiverPublicKey = block.publicKey,
+                    amount = block.balance,
+                )
 
             receivableService.save(receivable)
 
@@ -80,24 +86,26 @@ class TransactionConfiguration(
 
     internal fun createGenesis(
         privateKey: AttoPrivateKey,
-        thisNode: AttoNode
+        thisNode: AttoNode,
     ): Transaction {
-        val block = AttoOpenBlock(
-            version = 0u,
-            algorithm = thisNode.algorithm,
-            publicKey = privateKey.toPublicKey(),
-            balance = AttoAmount.MAX,
-            timestamp = Clock.System.now(),
-            sendHashAlgorithm = thisNode.algorithm,
-            sendHash = AttoHash(ByteArray(32)),
-            representative = privateKey.toPublicKey(),
-        )
+        val block =
+            AttoOpenBlock(
+                version = 0u,
+                algorithm = thisNode.algorithm,
+                publicKey = privateKey.toPublicKey(),
+                balance = AttoAmount.MAX,
+                timestamp = Clock.System.now(),
+                sendHashAlgorithm = thisNode.algorithm,
+                sendHash = AttoHash(ByteArray(32)),
+                representative = privateKey.toPublicKey(),
+            )
 
-        val transaction = Transaction(
-            block = block,
-            signature = privateKey.sign(block.hash),
-            work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey)
-        )
+        val transaction =
+            Transaction(
+                block = block,
+                signature = privateKey.sign(block.hash),
+                work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey),
+            )
 
         logger.info {
             "Created ${thisNode.network} genesis transaction ${

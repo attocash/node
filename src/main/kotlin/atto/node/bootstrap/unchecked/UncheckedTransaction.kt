@@ -15,7 +15,6 @@ data class UncheckedTransaction(
     var receivedAt: Instant,
     var persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
-
     @Id
     val hash = block.hash
 
@@ -25,33 +24,27 @@ data class UncheckedTransaction(
 
     val previous = if (block is PreviousSupport) block.previous else null
 
-    override fun getId(): AttoHash {
-        return hash
-    }
+    override fun getId(): AttoHash = hash
 
-    override fun isNew(): Boolean {
-        return persistedAt == null
-    }
+    override fun isNew(): Boolean = persistedAt == null
 
-    fun toTransaction(): Transaction {
-        return Transaction(
+    fun toTransaction(): Transaction =
+        Transaction(
             block = block,
             signature = signature,
             work = work,
-            receivedAt = receivedAt
+            receivedAt = receivedAt,
         )
-    }
 
-    override fun toString(): String {
-        return "UncheckedTransaction(block=$block, signature=$signature, work=$work, receivedAt=$receivedAt, persistedAt=$persistedAt, hash=$hash, publicKey=$publicKey, height=$height)"
-    }
+    override fun toString(): String =
+        "UncheckedTransaction(block=$block, signature=$signature, work=$work, receivedAt=$receivedAt, persistedAt=$persistedAt, " +
+            "hash=$hash, publicKey=$publicKey, height=$height)"
 }
 
-fun Transaction.toUncheckedTransaction(): UncheckedTransaction {
-    return UncheckedTransaction(
+fun Transaction.toUncheckedTransaction(): UncheckedTransaction =
+    UncheckedTransaction(
         block = block,
         signature = signature,
         work = work,
-        receivedAt = receivedAt
+        receivedAt = receivedAt,
     )
-}

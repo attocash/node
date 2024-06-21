@@ -12,26 +12,26 @@ import org.springframework.http.codec.json.KotlinSerializationJsonEncoder
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.web.reactive.config.WebFluxConfigurer
 
-
 @Configuration
 @AutoConfigureOrder(0)
 class ApplicationConfiguration : WebFluxConfigurer {
-
     override fun configureHttpMessageCodecs(configurer: ServerCodecConfigurer) {
-        configurer.defaultCodecs()
+        configurer
+            .defaultCodecs()
             .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder(AttoJson))
-        configurer.defaultCodecs()
+        configurer
+            .defaultCodecs()
             .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder(AttoJson))
     }
 }
-
 
 @Configuration
 @EnableScheduling
 @ConditionalOnProperty(name = ["atto.scheduling.enabled"], havingValue = "true", matchIfMissing = true)
 class ScheduleConfiguration
 
-val attoCoroutineExceptionHandler = CoroutineExceptionHandler { _, e ->
-    val logger = KotlinLogging.logger {}
-    logger.error(e) { "Unexpected internal error" }
-}
+val attoCoroutineExceptionHandler =
+    CoroutineExceptionHandler { _, e ->
+        val logger = KotlinLogging.logger {}
+        logger.error(e) { "Unexpected internal error" }
+    }

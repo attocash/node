@@ -4,7 +4,6 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 import java.math.BigInteger
 
-
 @Configuration
 @ConfigurationProperties(prefix = "atto.vote.weight")
 class VoteWeightProperties {

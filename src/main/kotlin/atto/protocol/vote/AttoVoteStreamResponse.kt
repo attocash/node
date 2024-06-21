@@ -8,21 +8,13 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class AttoVoteStreamResponse(
     @ProtoNumber(0) val blockHash: AttoHash,
-    @ProtoNumber(1) val vote: AttoVote
+    @ProtoNumber(1) val vote: AttoVote,
 ) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.VOTE_STREAM_RESPONSE
 
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.VOTE_STREAM_RESPONSE
-    }
-
-    override fun isValid(network: AttoNetwork): Boolean {
-        return vote.isValid(blockHash) && vote.isFinal()
-    }
-
+    override fun isValid(network: AttoNetwork): Boolean = vote.isValid(blockHash) && vote.isFinal()
 }
-

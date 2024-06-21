@@ -37,21 +37,22 @@ class HandshakeService(
     private val peers = ConcurrentHashMap<URI, Peer>()
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val handshakes = Caffeine.newBuilder()
-        .expireAfterWrite(5, TimeUnit.SECONDS)
-        .maximumSize(100_000)
-        .evictionListener { _: URI?, handshake: PeerHandshake?, _ ->
-            handshake?.let {
-                val socketAddress = it.socketAddress
-                val node = it.node
-                if (socketAddress != null && node != null) {
-                    val peer = Peer(socketAddress, node)
-                    peer.let { eventPublisher.publish(PeerRemoved(peer)) }
+    private val handshakes =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(5, TimeUnit.SECONDS)
+            .maximumSize(100_000)
+            .evictionListener { _: URI?, handshake: PeerHandshake?, _ ->
+                handshake?.let {
+                    val socketAddress = it.socketAddress
+                    val node = it.node
+                    if (socketAddress != null && node != null) {
+                        val peer = Peer(socketAddress, node)
+                        peer.let { eventPublisher.publish(PeerRemoved(peer)) }
+                    }
                 }
-            }
-        }
-        .build<URI, PeerHandshake>()
-        .asMap()
+            }.build<URI, PeerHandshake>()
+            .asMap()
 
     @EventListener
     fun add(peerEvent: PeerConnected) {
@@ -77,7 +78,9 @@ class HandshakeService(
             return
         }
 
-        properties.defaultNodes.asSequence()
+        properties
+            .defaultNodes
+            .asSequence()
             .map { URI(it) }
             .forEach {
                 startHandshake(it)
@@ -101,14 +104,14 @@ class HandshakeService(
         }
     }
 
-
     @EventListener
     fun processChallenge(message: InboundNetworkMessage<AttoHandshakeChallenge>) {
         val hash = AttoHash.hash(64, thisNode.publicKey.value, message.payload.value)
-        val handshakeAnswer = AttoHandshakeAnswer(
-            signature = privateKey.sign(hash),
-            node = thisNode
-        )
+        val handshakeAnswer =
+            AttoHandshakeAnswer(
+                signature = privateKey.sign(hash),
+                node = thisNode,
+            )
 
         startHandshake(message.publicUri)
 
@@ -136,10 +139,11 @@ class HandshakeService(
                     peerHandshake
                 }
             } else {
-                val rejected = PeerRejected(
-                    PeerRejectionReason.INVALID_HANDSHAKE_ANSWER,
-                    Peer(message.socketAddress, node)
-                )
+                val rejected =
+                    PeerRejected(
+                        PeerRejectionReason.INVALID_HANDSHAKE_ANSWER,
+                        Peer(message.socketAddress, node),
+                    )
                 eventPublisher.publish(rejected)
                 logger.warn { "Invalid handshake answer was received $answer" }
                 null
@@ -167,10 +171,10 @@ class HandshakeService(
         if (publicAddress == thisNode.publicUri) {
             return true
         }
-        val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port);
+        val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port)
         return handshakes.contains(publicAddress) ||
-                peers.containsKey(publicAddress) ||
-                bannedNodes.contains(socketAddress.address)
+            peers.containsKey(publicAddress) ||
+            bannedNodes.contains(socketAddress.address)
     }
 
     override fun clear() {
@@ -180,7 +184,7 @@ class HandshakeService(
 
     private data class PeerHandshake(
         val publicUri: URI,
-        val challenge: AttoHandshakeChallenge
+        val challenge: AttoHandshakeChallenge,
     ) {
         @Volatile
         var socketAddress: InetSocketAddress? = null
@@ -194,7 +198,10 @@ class HandshakeService(
         private var ready = false
             private set
 
-        fun answered(socketAddress: InetSocketAddress, answer: AttoHandshakeAnswer): Boolean {
+        fun answered(
+            socketAddress: InetSocketAddress,
+            answer: AttoHandshakeAnswer,
+        ): Boolean {
             val node = answer.node
             val publicKey = node.publicKey
 
@@ -213,8 +220,6 @@ class HandshakeService(
             ready = true
         }
 
-        fun isConnected(): Boolean {
-            return ready && node != null
-        }
+        fun isConnected(): Boolean = ready && node != null
     }
 }

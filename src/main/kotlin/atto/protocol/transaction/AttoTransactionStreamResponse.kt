@@ -8,17 +8,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class AttoTransactionStreamResponse(@ProtoNumber(0) val transaction: AttoTransaction) : AttoMessage {
+data class AttoTransactionStreamResponse(
+    @ProtoNumber(0) val transaction: AttoTransaction,
+) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_RESPONSE
 
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.TRANSACTION_STREAM_RESPONSE
-    }
-
-    override fun isValid(network: AttoNetwork): Boolean {
-        return transaction.isValid(network)
-    }
+    override fun isValid(network: AttoNetwork): Boolean = transaction.isValid(network)
 }
-

@@ -18,12 +18,14 @@ class PeerManager(
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
 ) : CacheSupport {
-    private val peers = Caffeine.newBuilder()
-        .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
-        .removalListener { _: URI?, peer: Peer?, _ ->
-            peer?.let { eventPublisher.publish(PeerRemoved(it)) }
-        }.build<URI, Peer>()
-        .asMap()
+    private val peers =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(properties.expirationTimeInSeconds, TimeUnit.SECONDS)
+            .removalListener { _: URI?, peer: Peer?, _ ->
+                peer?.let { eventPublisher.publish(PeerRemoved(it)) }
+            }.build<URI, Peer>()
+            .asMap()
 
     @EventListener
     fun process(peerEvent: PeerConnected) {
@@ -52,16 +54,15 @@ class PeerManager(
         messagePublisher.publish(BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), keepAlive))
     }
 
-    fun getPeers(): List<Peer> {
-        return peers.values.toList()
-    }
+    fun getPeers(): List<Peer> = peers.values.toList()
 
-    private fun peerSample(): URI {
-        return peers.values.asSequence()
+    private fun peerSample(): URI =
+        peers
+            .values
+            .asSequence()
             .map { it.node.publicUri }
             .shuffled()
             .first()
-    }
 
     override fun clear() {
         peers.clear()

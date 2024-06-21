@@ -16,21 +16,15 @@ data class Account(
     val lastTransactionTimestamp: Instant,
     val lastTransactionHash: AttoHash,
     val representative: AttoPublicKey,
-
     val persistedAt: Instant? = null,
     val updatedAt: Instant? = null,
 ) : Persistable<AttoPublicKey> {
+    override fun getId(): AttoPublicKey = publicKey
 
-    override fun getId(): AttoPublicKey {
-        return publicKey
-    }
+    override fun isNew(): Boolean = persistedAt == null
 
-    override fun isNew(): Boolean {
-        return persistedAt == null
-    }
-
-    fun toAttoAccount(): AttoAccount {
-        return AttoAccount(
+    fun toAttoAccount(): AttoAccount =
+        AttoAccount(
             publicKey = publicKey,
             version = version,
             algorithm = algorithm,
@@ -40,5 +34,4 @@ data class Account(
             lastTransactionTimestamp = lastTransactionTimestamp.toKotlinInstant(),
             representative = representative,
         )
-    }
 }

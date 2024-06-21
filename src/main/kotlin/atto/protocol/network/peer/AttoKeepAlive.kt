@@ -13,12 +13,11 @@ import java.net.URI
 @Serializable
 data class AttoKeepAlive(
     @ProtoNumber(0)
-    val neighbour: @Serializable(with = URISerializer::class) URI? = null
+    val neighbour:
+        @Serializable(with = URISerializer::class)
+        URI? = null,
 ) : AttoMessage {
-
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.KEEP_ALIVE
-    }
+    override fun messageType(): AttoMessageType = AttoMessageType.KEEP_ALIVE
 
     override fun isValid(network: AttoNetwork): Boolean = neighbour?.path == null
 }

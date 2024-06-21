@@ -13,16 +13,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 data class AttoVotePush(
     @ProtoNumber(0) @Contextual val blockHash: AttoHash,
-    @ProtoNumber(1) val vote: AttoVote
+    @ProtoNumber(1) val vote: AttoVote,
 ) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.VOTE_PUSH
 
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.VOTE_PUSH
-    }
-
-    override fun isValid(network: AttoNetwork): Boolean {
-        return vote.isValid(blockHash)
-    }
-
+    override fun isValid(network: AttoNetwork): Boolean = vote.isValid(blockHash)
 }
-

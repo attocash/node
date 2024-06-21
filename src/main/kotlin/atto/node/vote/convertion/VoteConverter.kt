@@ -14,9 +14,8 @@ import org.springframework.stereotype.Component
 @Component
 class VoteConverter(
     private val weightService: VoteWeighter,
-    private val eventPublisher: EventPublisher
+    private val eventPublisher: EventPublisher,
 ) {
-
     @EventListener
     fun add(message: InboundNetworkMessage<AttoVotePush>) {
         val hash = message.payload.blockHash
@@ -25,9 +24,11 @@ class VoteConverter(
         eventPublisher.publish(VoteReceived(message.publicUri, convert(hash, attoVote)))
     }
 
-    fun convert(hash: AttoHash, attoVote: AttoVote): Vote {
+    fun convert(
+        hash: AttoHash,
+        attoVote: AttoVote,
+    ): Vote {
         val weight = weightService.get(attoVote.publicKey)
         return Vote.from(weight, hash, attoVote)
     }
-
 }

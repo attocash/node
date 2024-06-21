@@ -29,7 +29,7 @@ class UncheckedTransactionProcessor(
     private val transactionValidationManager: TransactionValidationManager,
     private val transactionService: TransactionService,
     private val uncheckedTransactionService: UncheckedTransactionService,
-    private val eventPublisher: EventPublisher
+    private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -42,36 +42,41 @@ class UncheckedTransactionProcessor(
     }
 
     @Transactional
-    suspend fun process() = withContext(singleDispatcher) {
-        val transactionMap = uncheckedTransactionRepository.findReadyToValidate(10_000L)
-            .map { it.toTransaction() }
-            .toList()
-            .groupBy { AttoAlgorithmPublicKey(it.block.algorithm, it.publicKey) }
+    suspend fun process() =
+        withContext(singleDispatcher) {
+            val transactionMap =
+                uncheckedTransactionRepository
+                    .findReadyToValidate(10_000L)
+                    .map { it.toTransaction() }
+                    .toList()
+                    .groupBy { AttoAlgorithmPublicKey(it.block.algorithm, it.publicKey) }
 
-        transactionMap.forEach { (algorithmPublicKey, transactions) ->
-            logger.info { "Unchecked solving $algorithmPublicKey, ${transactions.map { it.hash }}" }
-            var account =
-                accountRepository.getByAlgorithmAndPublicKey(algorithmPublicKey.algorithm, algorithmPublicKey.publicKey)
-            for (transaction in transactions) {
-                val violation = transactionValidationManager.validate(account, transaction)
-                if (violation != null) {
-                    eventPublisher.publish(TransactionStuck(violation.reason, transaction))
-                    break
+            transactionMap.forEach { (algorithmPublicKey, transactions) ->
+                logger.info { "Unchecked solving $algorithmPublicKey, ${transactions.map { it.hash }}" }
+                var account =
+                    accountRepository.getByAlgorithmAndPublicKey(algorithmPublicKey.algorithm, algorithmPublicKey.publicKey)
+                for (transaction in transactions) {
+                    val violation = transactionValidationManager.validate(account, transaction)
+                    if (violation != null) {
+                        eventPublisher.publish(TransactionStuck(violation.reason, transaction))
+                        break
+                    }
+
+                    uncheckedTransactionService.delete(transaction.hash)
+                    val response = transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
+                    account = response.updatedAccount
+
+                    logger.debug { "Resolved $transaction" }
+                    eventPublisher.publish(TransactionResolved(transaction))
                 }
-
-                uncheckedTransactionService.delete(transaction.hash)
-                val response = transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
-                account = response.updatedAccount
-
-                logger.debug { "Resolved $transaction" }
-                eventPublisher.publish(TransactionResolved(transaction))
             }
         }
-    }
 }
 
 @Component
-class UncheckedTransactionProcessorStarter(val processor: UncheckedTransactionProcessor) {
+class UncheckedTransactionProcessorStarter(
+    val processor: UncheckedTransactionProcessor,
+) {
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
         processor.process()

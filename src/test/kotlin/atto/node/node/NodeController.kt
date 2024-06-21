@@ -11,11 +11,8 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/nodes")
 @Profile("default")
 class NodeController(
-    private val peerManager: PeerManager
+    private val peerManager: PeerManager,
 ) {
-
     @GetMapping("/peers")
-    suspend fun get(): List<AttoPublicKey> {
-        return peerManager.getPeers().map { it.node.publicKey }
-    }
+    suspend fun get(): List<AttoPublicKey> = peerManager.getPeers().map { it.node.publicKey }
 }

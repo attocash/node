@@ -8,22 +8,15 @@ import org.springframework.stereotype.Component
 @Component
 @ConfigurationPropertiesBinding
 object AttoWorkConverter : Converter<String, AttoWork> {
-    override fun convert(source: String): AttoWork {
-        return AttoWork.parse(source)
-    }
+    override fun convert(source: String): AttoWork = AttoWork.parse(source)
 }
 
 @Component
 class AttoWorkSerializerDBConverter : DBConverter<AttoWork, ByteArray> {
-    override fun convert(source: AttoWork): ByteArray {
-        return source.value;
-    }
+    override fun convert(source: AttoWork): ByteArray = source.value
 }
 
 @Component
 class AttoWorkDeserializerDBConverter : DBConverter<ByteArray, AttoWork> {
-    override fun convert(source: ByteArray): AttoWork {
-        return AttoWork(source)
-    }
+    override fun convert(source: ByteArray): AttoWork = AttoWork(source)
 }
-

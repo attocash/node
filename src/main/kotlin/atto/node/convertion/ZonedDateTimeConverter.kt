@@ -7,17 +7,10 @@ import java.time.ZonedDateTime
 
 @Component
 class ZonedDateTimeSerializerDBConverter : DBConverter<Instant, ZonedDateTime> {
-
-    override fun convert(source: Instant): ZonedDateTime {
-        return source.atZone(ZoneOffset.UTC)
-    }
-
+    override fun convert(source: Instant): ZonedDateTime = source.atZone(ZoneOffset.UTC)
 }
 
 @Component
 class ZonedDateTimeDeserializerDBConverter : DBConverter<ZonedDateTime, Instant> {
-    override fun convert(source: ZonedDateTime): Instant {
-        return source.toInstant()
-    }
-
+    override fun convert(source: ZonedDateTime): Instant = source.toInstant()
 }

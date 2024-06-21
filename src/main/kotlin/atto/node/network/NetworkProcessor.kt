@@ -1,6 +1,5 @@
 package atto.node.network
 
-
 import atto.node.AsynchronousQueueProcessor
 import atto.node.CacheSupport
 import atto.node.EventPublisher
@@ -46,7 +45,6 @@ import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.system.exitProcess
 import kotlin.time.Duration.Companion.milliseconds
 
-
 @Service
 class NetworkProcessor(
     private val eventPublisher: EventPublisher,
@@ -54,7 +52,8 @@ class NetworkProcessor(
     private val genesisTransaction: Transaction,
     private val thisNode: AttoNode,
     environment: Environment,
-) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds),
+    CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
@@ -80,75 +79,77 @@ class NetworkProcessor(
 
     private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(Thread.ofVirtual().factory())
 
-    val dnsResolver = DnsNameResolverBuilder(eventLoopGroup.next())
-        .channelType(NioDatagramChannel::class.java)
-        .nameServerProvider(DnsServerAddressStreamProviders.platformDefault())
-        .build()
+    val dnsResolver =
+        DnsNameResolverBuilder(eventLoopGroup.next())
+            .channelType(NioDatagramChannel::class.java)
+            .nameServerProvider(DnsServerAddressStreamProviders.platformDefault())
+            .build()
 
-    private val server = HttpServer.create()
-        .port(port)
-        .runOn(eventLoopGroup)
-        .doOnBind {
-            logger.info { "WebSocket started on port $port" }
-        }
-        .doOnConnection {
-            val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
-            logger.info { "Connected as a server to $socketAddress" }
-        }
-        .route { routes ->
-            routes.ws(
-                "/",
-                { wsInbound, wsOutbound ->
-                    try {
-                        val connection = getConnection(wsInbound)
+    private val server =
+        HttpServer
+            .create()
+            .port(port)
+            .runOn(eventLoopGroup)
+            .doOnBind {
+                logger.info { "WebSocket started on port $port" }
+            }.doOnConnection {
+                val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
+                logger.info { "Connected as a server to $socketAddress" }
+            }.route { routes ->
+                routes.ws(
+                    "/",
+                    { wsInbound, wsOutbound ->
+                        try {
+                            val connection = getConnection(wsInbound)
 
-                        val headers = wsInbound.headers()
+                            val headers = wsInbound.headers()
 
-                        val genesis = headers.get(GENESIS_HEADER)
-                        val publicUri = URI(headers.get(PUBLIC_URI_HEADER))
-                        val protocolVersion = headers.get(PROTOCOL_VERSION_HEADER)?.toUShort() ?: 0U
+                            val genesis = headers.get(GENESIS_HEADER)
+                            val publicUri = URI(headers.get(PUBLIC_URI_HEADER))
+                            val protocolVersion = headers.get(PROTOCOL_VERSION_HEADER)?.toUShort() ?: 0U
 
-                        dnsResolver.resolve(publicUri.host)
-                            .toMono()
-                            .flatMap {
-                                val genesisMatches = genesis == genesisTransaction.hash.toString()
-                                val connectionMatches = it == connection?.address
-                                val protocolVersionMatches =
-                                    thisNode.minProtocolVersion <= protocolVersion && protocolVersion <= thisNode.maxProtocolVersion
+                            dnsResolver
+                                .resolve(publicUri.host)
+                                .toMono()
+                                .flatMap {
+                                    val genesisMatches = genesis == genesisTransaction.hash.toString()
+                                    val connectionMatches = it == connection?.address
+                                    val protocolVersionMatches =
+                                        thisNode.minProtocolVersion <= protocolVersion && protocolVersion <= thisNode.maxProtocolVersion
 
-                                if (connection == null) {
-                                    logger.debug {
-                                        "Unable to resolve $publicUri"
+                                    if (connection == null) {
+                                        logger.debug {
+                                            "Unable to resolve $publicUri"
+                                        }
+                                        wsOutbound.sendClose()
+                                    } else if (!genesisMatches) {
+                                        logger.debug {
+                                            "Received from $connection genesis $genesis. " +
+                                                "This is different from this node ${genesisTransaction.hash} genesis"
+                                        }
+                                        wsOutbound.sendClose()
+                                    } else if (!connectionMatches) {
+                                        logger.debug {
+                                            "Attempt connection from $connection which does not match the publicUri resolved ip"
+                                        }
+                                        wsOutbound.sendClose()
+                                    } else if (!protocolVersionMatches) {
+                                        logger.debug {
+                                            "Received from $connection $protocolVersion which is not supported"
+                                        }
+                                        wsOutbound.sendClose()
+                                    } else {
+                                        connections[publicUri] = publicUri
+                                        prepareConnection(publicUri, connection, wsInbound, wsOutbound)
                                     }
-                                    wsOutbound.sendClose()
-                                } else if (!genesisMatches) {
-                                    logger.debug {
-                                        "Received from $connection genesis $genesis. This is different from this node ${genesisTransaction.hash} genesis"
-                                    }
-                                    wsOutbound.sendClose()
-                                } else if (!connectionMatches) {
-                                    logger.debug {
-                                        "Attempt connection from $connection which does not match the publicUri resolved ip"
-                                    }
-                                    wsOutbound.sendClose()
-                                } else if (!protocolVersionMatches) {
-                                    logger.debug {
-                                        "Received from $connection $protocolVersion which is not supported"
-                                    }
-                                    wsOutbound.sendClose()
-                                } else {
-                                    connections[publicUri] = publicUri
-                                    prepareConnection(publicUri, connection, wsInbound, wsOutbound)
                                 }
-                            }
-                    } catch (e: Exception) {
-                        wsOutbound.sendClose()
-                    }
-                },
-                serverSpec
-            )
-        }
-        .bindNow()
+                        } catch (e: Exception) {
+                            wsOutbound.sendClose()
+                        }
+                    },
+                    serverSpec,
+                )
+            }.bindNow()
 
     @PreDestroy
     override fun stop() {
@@ -166,7 +167,6 @@ class NetworkProcessor(
     @EventListener
     fun add(event: PeerConnected) {
         peers[event.peer.node.publicUri] = PeerHolder(PeerStatus.CONNECTED, event.peer.node)
-
     }
 
     @EventListener
@@ -177,7 +177,9 @@ class NetworkProcessor(
     @EventListener
     suspend fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
-        connections.keys().asSequence()
+        connections
+            .keys()
+            .asSequence()
             .filter { InetAddress.getByName(it.host) == event.address }
             .forEach { disconnectFlow.emit(it) }
     }
@@ -190,33 +192,33 @@ class NetworkProcessor(
             if (v != null) {
                 messageQueue.add(message)
             } else {
-                HttpClient.create()
+                HttpClient
+                    .create()
                     .runOn(eventLoopGroup)
                     .headers {
                         it.add(GENESIS_HEADER, genesisTransaction.hash.toString())
                         it.add(PUBLIC_URI_HEADER, thisNode.publicUri)
                         it.add(PROTOCOL_VERSION_HEADER, thisNode.protocolVersion)
-                    }
-                    .websocket(clientSpec)
+                    }.websocket(clientSpec)
                     .uri(publicUri)
                     .handle { inbound, outbound ->
-                        dnsResolver.resolve(publicUri.host)
+                        dnsResolver
+                            .resolve(publicUri.host)
                             .toMono()
                             .flatMap {
-                                val port = if (publicUri.port != -1) {
-                                    publicUri.port
-                                } else if (publicUri.host.startsWith("ws://")) {
-                                    80
-                                } else {
-                                    433
-                                }
+                                val port =
+                                    if (publicUri.port != -1) {
+                                        publicUri.port
+                                    } else if (publicUri.host.startsWith("ws://")) {
+                                        80
+                                    } else {
+                                        433
+                                    }
                                 prepareConnection(publicUri, InetSocketAddress(it, port), inbound, outbound, message)
                             }
-                    }
-                    .doOnSubscribe {
+                    }.doOnSubscribe {
                         logger.info { "Connected as a client to $publicUri" }
-                    }
-                    .subscribe()
+                    }.subscribe()
             }
             publicUri
         }
@@ -256,86 +258,87 @@ class NetworkProcessor(
             return wsOutbound.sendClose()
         }
 
-        val inboundThen = wsInbound
-            .receiveFrames()
-            .flatMap {
-                val content = it.content()
-                if (!it.isFinalFragment) {
-                    wsOutbound.sendClose().cast(AttoByteBuffer::class.java)
-                } else if (content.hasArray()) {
-                    Mono.just(AttoByteBuffer(content.array()))
-                } else {
-                    ByteArray(content.readableBytes()).also { byteArray ->
-                        content.getBytes(content.readerIndex(), byteArray)
-                    }.let { byteArray ->
-                        Mono.just(AttoByteBuffer(byteArray))
-                    }
-                }
-            }
-            .doOnNext { logger.debug { "Received from $publicUri ${it.toHex()}" } }
-            .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $publicUri" } }
-            .mapNotNull { deserializeOrDisconnect(publicUri, it) { wsOutbound.sendClose().subscribe() } }
-            .map { InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, it!!) }
-            .doOnNext { messagePublisher.publish(it!!) }
-            .onErrorResume(AbortedException::class.java) { Mono.empty() }
-            .doOnError { t -> logger.info(t) { "Failed to process inbound message from $publicUri" } }
-            .doOnTerminate {
-                connections.remove(publicUri)
-                eventPublisher.publish(NodeDisconnected(publicUri))
-            }
-            .then()
-
-        val outboundMessages = outboundFlow
-            .asFlux(Dispatchers.Default)
-            .filter {
-                val connectedNode = peers[publicUri]?.let {
-                    if (it.peerStatus == PeerStatus.CONNECTED) {
-                        it.node
+        val inboundThen =
+            wsInbound
+                .receiveFrames()
+                .flatMap {
+                    val content = it.content()
+                    if (!it.isFinalFragment) {
+                        wsOutbound.sendClose().cast(AttoByteBuffer::class.java)
+                    } else if (content.hasArray()) {
+                        Mono.just(AttoByteBuffer(content.array()))
                     } else {
-                        null
+                        ByteArray(content.readableBytes())
+                            .also { byteArray ->
+                                content.getBytes(content.readerIndex(), byteArray)
+                            }.let { byteArray ->
+                                Mono.just(AttoByteBuffer(byteArray))
+                            }
                     }
-                }
-                it.accepts(publicUri, connectedNode)
-            }
-            .replay(1)
-            .refCount()
-            .let {
-                val dummySubscription = it.subscribe()
-                it.doOnTerminate { dummySubscription.dispose() }
-            }
-            .map { serialize(it.payload) }
-            .doOnNext { checkBelowMaxMessageSize(it.serialized) }
-            .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
-            .map { it.serialized }
+                }.doOnNext { logger.debug { "Received from $publicUri ${it.toHex()}" } }
+                .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $publicUri" } }
+                .mapNotNull { deserializeOrDisconnect(publicUri, it) { wsOutbound.sendClose().subscribe() } }
+                .map { InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, it!!) }
+                .doOnNext { messagePublisher.publish(it!!) }
+                .onErrorResume(AbortedException::class.java) { Mono.empty() }
+                .doOnError { t -> logger.info(t) { "Failed to process inbound message from $publicUri" } }
+                .doOnTerminate {
+                    connections.remove(publicUri)
+                    eventPublisher.publish(NodeDisconnected(publicUri))
+                }.then()
 
-        val outboundThen = wsOutbound
-            .sendByteArray(outboundMessages)
-            .then()
-            .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $publicUri" } }
-            .onErrorResume(AbortedException::class.java) { Mono.empty() }
-            .doOnError { t -> logger.info(t) { "Failed to send to $publicUri. Retrying..." } }
-            .retry(3)
-            .doOnTerminate {
-                connections.remove(publicUri)
-                eventPublisher.publish(NodeDisconnected(publicUri))
-            }
-            .then()
+        val outboundMessages =
+            outboundFlow
+                .asFlux(Dispatchers.Default)
+                .filter {
+                    val connectedNode =
+                        peers[publicUri]?.let {
+                            if (it.peerStatus == PeerStatus.CONNECTED) {
+                                it.node
+                            } else {
+                                null
+                            }
+                        }
+                    it.accepts(publicUri, connectedNode)
+                }.replay(1)
+                .refCount()
+                .let {
+                    val dummySubscription = it.subscribe()
+                    it.doOnTerminate { dummySubscription.dispose() }
+                }.map { serialize(it.payload) }
+                .doOnNext { checkBelowMaxMessageSize(it.serialized) }
+                .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
+                .map { it.serialized }
 
-        val disconnectionThen = disconnectFlow
-            .filter { it == publicUri }
-            .asFlux(Dispatchers.Default)
-            .next()
-            .flatMap { wsOutbound.sendClose() }
-            .onErrorComplete()
+        val outboundThen =
+            wsOutbound
+                .sendByteArray(outboundMessages)
+                .then()
+                .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $publicUri" } }
+                .onErrorResume(AbortedException::class.java) { Mono.empty() }
+                .doOnError { t -> logger.info(t) { "Failed to send to $publicUri. Retrying..." } }
+                .retry(3)
+                .doOnTerminate {
+                    connections.remove(publicUri)
+                    eventPublisher.publish(NodeDisconnected(publicUri))
+                }.then()
+
+        val disconnectionThen =
+            disconnectFlow
+                .filter { it == publicUri }
+                .asFlux(Dispatchers.Default)
+                .next()
+                .flatMap { wsOutbound.sendClose() }
+                .onErrorComplete()
 
         val isFirstRequest = AtomicBoolean(true)
-        return Flux.merge(inboundThen, outboundThen, disconnectionThen)
+        return Flux
+            .merge(inboundThen, outboundThen, disconnectionThen)
             .doOnRequest {
                 if (isFirstRequest.compareAndSet(true, false) && initialMessage != null) {
                     messageQueue.add(initialMessage)
                 }
-            }
-            .then()
+            }.then()
     }
 
     private fun serialize(message: AttoMessage): SerializedAttoMessage {
@@ -349,7 +352,7 @@ class NetworkProcessor(
             if (byteArray.size > MAX_MESSAGE_SIZE) {
                 logger.error {
                     "Message ${message.messageType()} is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
-                            "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+                        "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
                 }
                 exitProcess(-1)
             }
@@ -364,7 +367,7 @@ class NetworkProcessor(
     private fun deserializeOrDisconnect(
         publicUri: URI,
         byteBuffer: AttoByteBuffer,
-        disconnect: () -> Any
+        disconnect: () -> Any,
     ): AttoMessage? {
         val message = NetworkSerializer.deserialize(byteBuffer)
 
@@ -388,7 +391,9 @@ class NetworkProcessor(
      */
     private fun checkBelowMaxMessageSize(byteArray: ByteArray) {
         if (byteArray.size > MAX_MESSAGE_SIZE) {
-            logger.error { "Message ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}" }
+            logger.error {
+                "Message ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+            }
             exitProcess(-1)
         }
     }
@@ -404,11 +409,14 @@ class NetworkProcessor(
         connections.clear()
     }
 
-    private data class SerializedAttoMessage(val message: AttoMessage, val serialized: ByteArray)
+    private data class SerializedAttoMessage(
+        val message: AttoMessage,
+        val serialized: ByteArray,
+    )
 
     @Suppress("UNCHECKED_CAST")
     private fun <T> Future<T>.toMono(): Mono<T> {
-        val future = this;
+        val future = this
         return Mono.create { sink ->
             future.addListener {
                 if (it.isSuccess) {
@@ -421,8 +429,12 @@ class NetworkProcessor(
     }
 
     private enum class PeerStatus {
-        CONNECTED, AUTHORIZED
+        CONNECTED,
+        AUTHORIZED,
     }
 
-    private data class PeerHolder(val peerStatus: PeerStatus, val node: AttoNode)
+    private data class PeerHolder(
+        val peerStatus: PeerStatus,
+        val node: AttoNode,
+    )
 }

@@ -21,14 +21,13 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
-
 @RestController
 @RequestMapping("/accounts")
 @Conditional(NotVoterCondition::class)
 class AccountController(
     val node: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,
-    val repository: AccountRepository
+    val repository: AccountRepository,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -46,19 +45,20 @@ class AccountController(
         accountFlow.emit(transactionSaved.updatedAccount.toAttoAccount())
     }
 
-
     @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest accounts",
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = AttoAccount::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoAccount::class),
+                    ),
+                ],
+            ),
+        ],
     )
     suspend fun stream(): Flow<AttoAccount> {
         return accountFlow
@@ -68,7 +68,9 @@ class AccountController(
 
     @GetMapping("/{publicKey}")
     @Operation(description = "Get account")
-    suspend fun get(@PathVariable publicKey: AttoPublicKey): ResponseEntity<AttoAccount> {
+    suspend fun get(
+        @PathVariable publicKey: AttoPublicKey,
+    ): ResponseEntity<AttoAccount> {
         val account = repository.findById(publicKey)
         return ResponseEntity.ofNullable(account?.toAttoAccount())
     }
@@ -79,29 +81,31 @@ class AccountController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = AttoAccount::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoAccount::class),
+                    ),
+                ],
+            ),
+        ],
     )
     suspend fun stream(
-        @PathVariable publicKey: AttoPublicKey
+        @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
-        val accountDatabaseFlow = flow {
-            repository.findById(publicKey)?.let {
-                emit(it.toAttoAccount())
+        val accountDatabaseFlow =
+            flow {
+                repository.findById(publicKey)?.let {
+                    emit(it.toAttoAccount())
+                }
             }
-        }
-        val accountFlow = accountFlow
-            .filter { it.publicKey == publicKey }
+        val accountFlow =
+            accountFlow
+                .filter { it.publicKey == publicKey }
 
         return merge(accountFlow, accountDatabaseFlow)
             .forwardHeight()
             .onStart { logger.trace { "Started streaming $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming $publicKey account" } }
-
     }
-
 }

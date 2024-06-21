@@ -13,11 +13,12 @@ import org.springframework.transaction.reactive.TransactionSynchronization
 import org.springframework.transaction.reactive.TransactionSynchronizationManager
 import reactor.core.publisher.Mono
 
-interface Event {
-}
+interface Event
 
 @Component
-class EventPublisher(private val publisher: ApplicationEventPublisher) {
+class EventPublisher(
+    private val publisher: ApplicationEventPublisher,
+) {
     private val logger = KotlinLogging.logger {}
 
     val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
@@ -40,13 +41,13 @@ class EventPublisher(private val publisher: ApplicationEventPublisher) {
 
     suspend fun publishAfterCommit(event: Event) {
         val manager = TransactionSynchronizationManager.forCurrentTransaction().awaitSingle()
-        manager.registerSynchronization(object : TransactionSynchronization {
-            override fun afterCommit(): Mono<Void> {
-                return Mono.fromRunnable {
-                    publish(event)
-                }
-            }
-        })
+        manager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCommit(): Mono<Void> =
+                    Mono.fromRunnable {
+                        publish(event)
+                    }
+            },
+        )
     }
-
 }

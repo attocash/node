@@ -35,12 +35,11 @@ class TransactionController(
     val thisNode: atto.protocol.AttoNode,
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
-    val repository: TransactionRepository
+    val repository: TransactionRepository,
 ) {
     private val logger = KotlinLogging.logger {}
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
-
 
     /**
      * There's a small chance that during subscription a client may miss the entry in the database and in the transaction
@@ -62,12 +61,14 @@ class TransactionController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = AttoTransaction::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoTransaction::class),
+                    ),
+                ],
+            ),
+        ],
     )
     suspend fun stream(): Flow<AttoTransaction> {
         return transactionFlow
@@ -77,7 +78,9 @@ class TransactionController(
 
     @GetMapping("/transactions/{hash}")
     @Operation(description = "Get transaction")
-    suspend fun get(@PathVariable hash: AttoHash): ResponseEntity<AttoTransaction> {
+    suspend fun get(
+        @PathVariable hash: AttoHash,
+    ): ResponseEntity<AttoTransaction> {
         val transaction = repository.findById(hash)
         return ResponseEntity.ofNullable(transaction?.toAttoTransaction())
     }
@@ -88,23 +91,29 @@ class TransactionController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = AttoTransaction::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoTransaction::class),
+                    ),
+                ],
+            ),
+        ],
     )
-    suspend fun stream(@PathVariable hash: AttoHash): Flow<AttoTransaction> {
-        val transactionDatabaseFlow: Flow<AttoTransaction> = flow {
-            val transaction = repository.findById(hash)
-            if (transaction != null) {
-                emit(transaction.toAttoTransaction())
+    suspend fun stream(
+        @PathVariable hash: AttoHash,
+    ): Flow<AttoTransaction> {
+        val transactionDatabaseFlow: Flow<AttoTransaction> =
+            flow {
+                val transaction = repository.findById(hash)
+                if (transaction != null) {
+                    emit(transaction.toAttoTransaction())
+                }
             }
-        }
 
-        val transactionFlow = transactionFlow
-            .filter { it.hash == hash }
+        val transactionFlow =
+            transactionFlow
+                .filter { it.hash == hash }
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .onStart { logger.trace { "Started streaming $hash transaction" } }
@@ -118,18 +127,19 @@ class TransactionController(
         responses = [
             ApiResponse(
                 responseCode = "200",
-                content = [Content(
-                    mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                    schema = Schema(implementation = AttoTransaction::class)
-                )]
-            )
-        ]
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoTransaction::class),
+                    ),
+                ],
+            ),
+        ],
     )
-
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1") fromHeight: ULong,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: ULong
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: ULong,
     ): Flow<AttoTransaction> {
         if (fromHeight == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
@@ -139,61 +149,70 @@ class TransactionController(
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
         }
 
-        val transactionDatabaseFlow = repository.findAsc(publicKey, fromHeight, toHeight)
-            .map { it.toAttoTransaction() }
+        val transactionDatabaseFlow =
+            repository
+                .findAsc(publicKey, fromHeight, toHeight)
+                .map { it.toAttoTransaction() }
 
-        val transactionFlow = transactionFlow
-            .filter { it.block.publicKey == publicKey }
-            .takeWhile { it.height in fromHeight..toHeight }
+        val transactionFlow =
+            transactionFlow
+                .filter { it.block.publicKey == publicKey }
+                .takeWhile { it.height in fromHeight..toHeight }
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(fromHeight)
-            .onStart { logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" } }
-            .onCompletion { logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" } }
+            .onStart {
+                logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" }
+            }.onCompletion {
+                logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" }
+            }
     }
 
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
     @Operation(description = "Publish transaction")
-    suspend fun publish(@RequestBody transaction: AttoTransaction, request: ServerHttpRequest) {
+    suspend fun publish(
+        @RequestBody transaction: AttoTransaction,
+        request: ServerHttpRequest,
+    ) {
         if (!transaction.isValid(thisNode.network)) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction");
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction")
         }
 
         val ips = request.headers[useXForwardedForKey] ?: listOf()
         val remoteAddress = request.remoteAddress!!
 
-        val socketAddress = if (!applicationProperties.useXForwardedFor) {
-            remoteAddress
-        } else if (ips.isNotEmpty()) {
-            InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
-        } else {
-            throw ResponseStatusException(
-                HttpStatus.BAD_REQUEST,
-                "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?"
-            )
-        }
+        val socketAddress =
+            if (!applicationProperties.useXForwardedFor) {
+                remoteAddress
+            } else if (ips.isNotEmpty()) {
+                InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
+            } else {
+                throw ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?",
+                )
+            }
 
         messagePublisher.publish(
             InboundNetworkMessage(
                 MessageSource.REST,
                 thisNode.publicUri,
                 socketAddress,
-                AttoTransactionPush(transaction)
-            )
+                AttoTransactionPush(transaction),
+            ),
         )
     }
 
     @PostMapping(
         "/transactions/stream",
         consumes = [MediaType.APPLICATION_JSON_VALUE],
-        produces = [MediaType.APPLICATION_NDJSON_VALUE]
+        produces = [MediaType.APPLICATION_NDJSON_VALUE],
     )
     @Operation(description = "Publish transaction and stream")
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
-        request: ServerHttpRequest
-    ): Flow<AttoTransaction> {
-        return stream(transaction.hash)
+        request: ServerHttpRequest,
+    ): Flow<AttoTransaction> =
+        stream(transaction.hash)
             .onStart { publish(transaction, request) }
-    }
 }

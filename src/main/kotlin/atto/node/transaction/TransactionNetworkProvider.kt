@@ -17,7 +17,7 @@ import kotlin.time.Duration.Companion.milliseconds
 class TransactionNetworkProvider(
     private val thisNode: AttoNode,
     private val transactionRepository: TransactionRepository,
-    private val networkMessagePublisher: NetworkMessagePublisher
+    private val networkMessagePublisher: NetworkMessagePublisher,
 ) {
     @EventListener
     suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
@@ -32,18 +32,18 @@ class TransactionNetworkProvider(
         }
     }
 
-
     @EventListener
     suspend fun stream(message: InboundNetworkMessage<AttoTransactionStreamRequest>) {
         if (thisNode.isNotHistorical()) {
             return
         }
         val request = message.payload
-        val transactions = transactionRepository.findDesc(
-            request.publicKey,
-            request.startHeight,
-            request.endHeight - 1U
-        )
+        val transactions =
+            transactionRepository.findDesc(
+                request.publicKey,
+                request.startHeight,
+                request.endHeight - 1U,
+            )
 
         transactions.collect {
             val response = AttoTransactionStreamResponse(it.toAttoTransaction())

@@ -12,33 +12,39 @@ import java.net.URI
 
 interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
+
     override fun getResolvableType(): ResolvableType {
         return ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
     }
-
 }
 
 enum class MessageSource {
-    WEBSOCKET, REST
+    WEBSOCKET,
+    REST,
 }
 
 data class InboundNetworkMessage<T : AttoMessage>(
     val source: MessageSource,
     val publicUri: URI,
     val socketAddress: InetSocketAddress,
-    override val payload: T
+    override val payload: T,
 ) : NetworkMessage<T>
 
 interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
-    fun accepts(target: URI, node: AttoNode?): Boolean
-
+    fun accepts(
+        target: URI,
+        node: AttoNode?,
+    ): Boolean
 }
 
 data class DirectNetworkMessage<T : AttoMessage>(
     val publicUri: URI,
-    override val payload: T
+    override val payload: T,
 ) : OutboundNetworkMessage<T> {
-    override fun accepts(target: URI, node: AttoNode?): Boolean {
+    override fun accepts(
+        target: URI,
+        node: AttoNode?,
+    ): Boolean {
         return publicUri == target
     }
 }
@@ -53,7 +59,10 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
     val exceptions: Set<URI> = setOf(),
     override val payload: T,
 ) : OutboundNetworkMessage<T> {
-    override fun accepts(target: URI, node: AttoNode?): Boolean {
+    override fun accepts(
+        target: URI,
+        node: AttoNode?,
+    ): Boolean {
         if (exceptions.contains(target)) {
             return false
         }
@@ -71,11 +80,13 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
 }
 
 @Component
-class NetworkMessagePublisher(private val publisher: ApplicationEventPublisher) {
+class NetworkMessagePublisher(
+    private val publisher: ApplicationEventPublisher,
+) {
     private val logger = KotlinLogging.logger {}
+
     fun publish(message: NetworkMessage<*>) {
         logger.trace { "$message" }
         publisher.publishEvent(message)
     }
-
 }

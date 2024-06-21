@@ -8,18 +8,12 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
-
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-data class AttoTransactionPush(@ProtoNumber(0) val transaction: AttoTransaction) : AttoMessage {
+data class AttoTransactionPush(
+    @ProtoNumber(0) val transaction: AttoTransaction,
+) : AttoMessage {
+    override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_PUSH
 
-    override fun messageType(): AttoMessageType {
-        return AttoMessageType.TRANSACTION_PUSH
-    }
-
-    override fun isValid(network: AttoNetwork): Boolean {
-        return transaction.isValid(network)
-    }
-
+    override fun isValid(network: AttoNetwork): Boolean = transaction.isValid(network)
 }
-

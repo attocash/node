@@ -10,12 +10,11 @@ object NodeHolder {
         nodes.add(context)
     }
 
-    fun getAll(): List<Closeable> {
-        return Collections.unmodifiableList(nodes)
-    }
+    fun getAll(): List<Closeable> = Collections.unmodifiableList(nodes)
 
     fun clear(except: Closeable) {
-        nodes.asSequence()
+        nodes
+            .asSequence()
             .filter { it != except }
             .forEach { it.close() }
         nodes.clear()

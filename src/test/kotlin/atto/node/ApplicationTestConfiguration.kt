@@ -17,31 +17,35 @@ import org.testcontainers.containers.MySQLContainer
 import reactor.netty.http.client.HttpClient
 import reactor.netty.transport.logging.AdvancedByteBufFormat
 
-
 @Configuration
 class ApplicationTestConfiguration {
     @Bean
     fun exchangeStrategies(): ExchangeStrategies {
-        return ExchangeStrategies.builder()
+        return ExchangeStrategies
+            .builder()
             .codecs { configurer: ClientCodecConfigurer ->
-                configurer.defaultCodecs()
+                configurer
+                    .defaultCodecs()
                     .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder(AttoJson))
-                configurer.defaultCodecs()
+                configurer
+                    .defaultCodecs()
                     .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder(AttoJson))
-            }
-            .build()
+            }.build()
     }
 
     @Bean
     fun webClient(exchangeStrategies: ExchangeStrategies): WebClient {
-        val httpClient: HttpClient = HttpClient.create()
-            .wiretap(
-                this.javaClass.canonicalName,
-                LogLevel.DEBUG,
-                AdvancedByteBufFormat.TEXTUAL
-            )
+        val httpClient: HttpClient =
+            HttpClient
+                .create()
+                .wiretap(
+                    this.javaClass.canonicalName,
+                    LogLevel.DEBUG,
+                    AdvancedByteBufFormat.TEXTUAL,
+                )
         val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
-        return WebClient.builder()
+        return WebClient
+            .builder()
             .exchangeStrategies(exchangeStrategies)
             .clientConnector(connector)
             .build()
@@ -55,5 +59,4 @@ class ApplicationTestConfiguration {
         container.withUsername("root")
         return container
     }
-
 }

@@ -27,7 +27,8 @@ import kotlin.time.Duration.Companion.seconds
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<Transaction>(100.milliseconds), CacheSupport {
+) : AsynchronousQueueProcessor<Transaction>(100.milliseconds),
+    CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -44,9 +45,10 @@ class TransactionPrioritizer(
         super.stop()
     }
 
-    override suspend fun poll(): Transaction? = withContext(singleDispatcher) {
-        queue.poll()
-    }
+    override suspend fun poll(): Transaction? =
+        withContext(singleDispatcher) {
+            queue.poll()
+        }
 
     override suspend fun process(value: Transaction) {
         eventPublisher.publish(TransactionReceived(value))
@@ -65,47 +67,54 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
-        val hash = event.transaction.hash
+    suspend fun process(event: TransactionSaved) =
+        withContext(singleDispatcher) {
+            val hash = event.transaction.hash
 
-        activeElections.remove(hash)
+            activeElections.remove(hash)
 
-        val bufferedTransactions = buffer.remove(hash) ?: setOf()
+            val bufferedTransactions = buffer.remove(hash) ?: setOf()
 
-        bufferedTransactions.forEach {
-            logger.debug { "Unbuffered $it" }
-            add(it)
-        }
-    }
-
-    @EventListener
-    suspend fun process(event: ElectionStarted) = withContext(singleDispatcher) {
-        activeElections.add(event.transaction.hash)
-    }
-
-    @EventListener
-    suspend fun process(event: ElectionExpired) = withContext(singleDispatcher) {
-        val hash = event.transaction.hash
-        activeElections.remove(hash)
-        buffer.remove(hash)
-    }
-
-    suspend fun add(transaction: Transaction) = withContext(singleDispatcher) {
-        val block = transaction.block
-        if (block is PreviousSupport && activeElections.contains(block.previous)) {
-            buffer(block.previous, transaction)
-        } else if (block is ReceiveSupport && activeElections.contains(block.sendHash)) {
-            buffer(block.sendHash, transaction)
-        } else {
-            val droppedTransaction = queue.add(transaction)
-            if (droppedTransaction != null) {
-                eventPublisher.publish(TransactionDropped(droppedTransaction))
+            bufferedTransactions.forEach {
+                logger.debug { "Unbuffered $it" }
+                add(it)
             }
-            logger.debug { "Queued $transaction" }
         }
-    }
 
-    private fun buffer(hash: AttoHash, transaction: Transaction) {
+    @EventListener
+    suspend fun process(event: ElectionStarted) =
+        withContext(singleDispatcher) {
+            activeElections.add(event.transaction.hash)
+        }
+
+    @EventListener
+    suspend fun process(event: ElectionExpired) =
+        withContext(singleDispatcher) {
+            val hash = event.transaction.hash
+            activeElections.remove(hash)
+            buffer.remove(hash)
+        }
+
+    suspend fun add(transaction: Transaction) =
+        withContext(singleDispatcher) {
+            val block = transaction.block
+            if (block is PreviousSupport && activeElections.contains(block.previous)) {
+                buffer(block.previous, transaction)
+            } else if (block is ReceiveSupport && activeElections.contains(block.sendHash)) {
+                buffer(block.sendHash, transaction)
+            } else {
+                val droppedTransaction = queue.add(transaction)
+                if (droppedTransaction != null) {
+                    eventPublisher.publish(TransactionDropped(droppedTransaction))
+                }
+                logger.debug { "Queued $transaction" }
+            }
+        }
+
+    private fun buffer(
+        hash: AttoHash,
+        transaction: Transaction,
+    ) {
         buffer.compute(hash) { _, v ->
             val set = v ?: HashSet()
             set.add(transaction)
@@ -114,13 +123,9 @@ class TransactionPrioritizer(
         logger.debug { "Buffered until dependencies are confirmed. $transaction" }
     }
 
-    fun getQueueSize(): Int {
-        return queue.getSize()
-    }
+    fun getQueueSize(): Int = queue.getSize()
 
-    fun getBufferSize(): Int {
-        return buffer.size
-    }
+    fun getBufferSize(): Int = buffer.size
 
     override fun clear() {
         queue.clear()
@@ -128,5 +133,4 @@ class TransactionPrioritizer(
         buffer.clear()
         duplicateDetector.clear()
     }
-
 }

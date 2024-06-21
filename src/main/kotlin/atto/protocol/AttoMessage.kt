@@ -23,11 +23,14 @@ interface AttoMessage {
 @Serializable
 class AttoUnknown : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.UNKNOWN
+
     override fun isValid(network: AttoNetwork): Boolean = false
 }
 
-
-enum class AttoMessageType(val code: UByte, val public: Boolean) {
+enum class AttoMessageType(
+    val code: UByte,
+    val public: Boolean,
+) {
     HANDSHAKE_CHALLENGE(0u, true),
     HANDSHAKE_ANSWER(1u, true),
     HANDSHAKE_ACCEPTANCE(2u, true),
@@ -43,38 +46,36 @@ enum class AttoMessageType(val code: UByte, val public: Boolean) {
     VOTE_STREAM_CANCEL(12u, false),
     BOOTSTRAP_TRANSACTION_PUSH(13u, false),
 
-    UNKNOWN(UByte.MAX_VALUE, false);
+    UNKNOWN(UByte.MAX_VALUE, false),
+    ;
 
     val private = !public
 
     companion object {
         private val codeMap = entries.associateBy(AttoMessageType::code)
-        fun fromCode(code: UByte): AttoMessageType {
-            return codeMap.getOrDefault(code, UNKNOWN)
-        }
+
+        fun fromCode(code: UByte): AttoMessageType = codeMap.getOrDefault(code, UNKNOWN)
     }
 }
 
-
-val messageSerializerMap = mapOf(
-    AttoMessageType.HANDSHAKE_CHALLENGE to AttoHandshakeChallenge.serializer(),
-    AttoMessageType.HANDSHAKE_ANSWER to AttoHandshakeAnswer.serializer(),
-    AttoMessageType.HANDSHAKE_ACCEPTANCE to AttoHandshakeAcceptance.serializer(),
-    AttoMessageType.KEEP_ALIVE to AttoKeepAlive.serializer(),
-    AttoMessageType.TRANSACTION_PUSH to AttoTransactionPush.serializer(),
-    AttoMessageType.TRANSACTION_REQUEST to AttoTransactionRequest.serializer(),
-    AttoMessageType.TRANSACTION_RESPONSE to AttoTransactionResponse.serializer(),
-    AttoMessageType.TRANSACTION_STREAM_REQUEST to AttoTransactionStreamRequest.serializer(),
-    AttoMessageType.TRANSACTION_STREAM_RESPONSE to AttoTransactionStreamResponse.serializer(),
-    AttoMessageType.VOTE_PUSH to AttoVotePush.serializer(),
-    AttoMessageType.VOTE_STREAM_REQUEST to AttoVoteStreamRequest.serializer(),
-    AttoMessageType.VOTE_STREAM_RESPONSE to AttoVoteStreamResponse.serializer(),
-    AttoMessageType.VOTE_STREAM_CANCEL to AttoVoteStreamCancel.serializer(),
-    AttoMessageType.BOOTSTRAP_TRANSACTION_PUSH to AttoBootstrapTransactionPush.serializer(),
-    AttoMessageType.UNKNOWN to AttoUnknown.serializer(),
-)
+val messageSerializerMap =
+    mapOf(
+        AttoMessageType.HANDSHAKE_CHALLENGE to AttoHandshakeChallenge.serializer(),
+        AttoMessageType.HANDSHAKE_ANSWER to AttoHandshakeAnswer.serializer(),
+        AttoMessageType.HANDSHAKE_ACCEPTANCE to AttoHandshakeAcceptance.serializer(),
+        AttoMessageType.KEEP_ALIVE to AttoKeepAlive.serializer(),
+        AttoMessageType.TRANSACTION_PUSH to AttoTransactionPush.serializer(),
+        AttoMessageType.TRANSACTION_REQUEST to AttoTransactionRequest.serializer(),
+        AttoMessageType.TRANSACTION_RESPONSE to AttoTransactionResponse.serializer(),
+        AttoMessageType.TRANSACTION_STREAM_REQUEST to AttoTransactionStreamRequest.serializer(),
+        AttoMessageType.TRANSACTION_STREAM_RESPONSE to AttoTransactionStreamResponse.serializer(),
+        AttoMessageType.VOTE_PUSH to AttoVotePush.serializer(),
+        AttoMessageType.VOTE_STREAM_REQUEST to AttoVoteStreamRequest.serializer(),
+        AttoMessageType.VOTE_STREAM_RESPONSE to AttoVoteStreamResponse.serializer(),
+        AttoMessageType.VOTE_STREAM_CANCEL to AttoVoteStreamCancel.serializer(),
+        AttoMessageType.BOOTSTRAP_TRANSACTION_PUSH to AttoBootstrapTransactionPush.serializer(),
+        AttoMessageType.UNKNOWN to AttoUnknown.serializer(),
+    )
 
 @Suppress("UNCHECKED_CAST")
-inline fun <reified T : AttoMessage> AttoMessageType.messageSerializer(): KSerializer<T> {
-    return messageSerializerMap[this] as KSerializer<T>
-}
+inline fun <reified T : AttoMessage> AttoMessageType.messageSerializer(): KSerializer<T> = messageSerializerMap[this] as KSerializer<T>

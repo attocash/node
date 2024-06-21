@@ -7,17 +7,10 @@ import java.math.BigInteger
 
 @Component
 class ULongSerializerDBConverter : DBConverter<ULong, BigInteger> {
-
-    override fun convert(source: ULong): BigInteger {
-        return source.toBigInteger();
-    }
-
+    override fun convert(source: ULong): BigInteger = source.toBigInteger()
 }
 
 @Component
 class ULongDeserializerDBConverter : DBConverter<BigInteger, ULong> {
-    override fun convert(source: BigInteger): ULong {
-        return source.toULong()
-    }
-
+    override fun convert(source: BigInteger): ULong = source.toULong()
 }

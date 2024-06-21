@@ -30,7 +30,7 @@ class ElectionVoter(
     private val voteWeighter: VoteWeighter,
     private val transactionRepository: TransactionRepository,
     private val eventPublisher: EventPublisher,
-    private val messagePublisher: NetworkMessagePublisher
+    private val messagePublisher: NetworkMessagePublisher,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -46,17 +46,19 @@ class ElectionVoter(
     private val agreements = HashSet<PublicKeyHeight>()
 
     @EventListener
-    suspend fun process(event: ElectionStarted) = withContext(singleDispatcher) {
-        val transaction = event.transaction
-        if (transactions[transaction.toPublicKeyHeight()] == null) {
-            consensed(transaction)
+    suspend fun process(event: ElectionStarted) =
+        withContext(singleDispatcher) {
+            val transaction = event.transaction
+            if (transactions[transaction.toPublicKeyHeight()] == null) {
+                consensed(transaction)
+            }
         }
-    }
 
     @EventListener
-    suspend fun process(event: ElectionConsensusChanged) = withContext(singleDispatcher) {
-        consensed(event.transaction)
-    }
+    suspend fun process(event: ElectionConsensusChanged) =
+        withContext(singleDispatcher) {
+            consensed(event.transaction)
+        }
 
     private suspend fun consensed(transaction: Transaction) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
@@ -68,37 +70,40 @@ class ElectionVoter(
         }
     }
 
+    @EventListener
+    suspend fun process(event: ElectionConsensusReached) =
+        withContext(singleDispatcher) {
+            val transaction = event.transaction
+
+            val publicKeyHeight = transaction.toPublicKeyHeight()
+            if (!agreements.contains(publicKeyHeight)) {
+                agreements.add(publicKeyHeight)
+                vote(transaction, Instant.now())
+                remove(event.transaction)
+            } else {
+                logger.trace { "Consensus already reached for ${event.transaction}" }
+            }
+        }
 
     @EventListener
-    suspend fun process(event: ElectionConsensusReached) = withContext(singleDispatcher) {
-        val transaction = event.transaction
+    suspend fun process(event: ElectionExpiring) =
+        withContext(singleDispatcher) {
+            vote(event.transaction, Instant.now())
+        }
 
-        val publicKeyHeight = transaction.toPublicKeyHeight()
-        if (!agreements.contains(publicKeyHeight)) {
-            agreements.add(publicKeyHeight)
-            vote(transaction, Instant.now())
+    @EventListener
+    suspend fun process(event: ElectionExpired) =
+        withContext(singleDispatcher) {
             remove(event.transaction)
-        } else {
-            logger.trace { "Consensus already reached for ${event.transaction}" }
         }
-    }
 
     @EventListener
-    suspend fun process(event: ElectionExpiring) = withContext(singleDispatcher) {
-        vote(event.transaction, Instant.now())
-    }
-
-    @EventListener
-    suspend fun process(event: ElectionExpired) = withContext(singleDispatcher) {
-        remove(event.transaction)
-    }
-
-    @EventListener
-    suspend fun process(event: TransactionSaved) = withContext(singleDispatcher) {
-        if (event.source == TransactionSaveSource.ELECTION) {
-            vote(event.transaction, finalVoteTimestamp)
+    suspend fun process(event: TransactionSaved) =
+        withContext(singleDispatcher) {
+            if (event.source == TransactionSaveSource.ELECTION) {
+                vote(event.transaction, finalVoteTimestamp)
+            }
         }
-    }
 
     @EventListener
     suspend fun process(event: TransactionRejected) {
@@ -113,34 +118,41 @@ class ElectionVoter(
         }
     }
 
-    private fun vote(transaction: Transaction, timestamp: Instant) {
+    private fun vote(
+        transaction: Transaction,
+        timestamp: Instant,
+    ) {
         val weight = voteWeighter.get()
         if (!canVote(weight)) {
             logger.trace { "This $thisNode can't vote" }
             return
         }
 
-        val voteHash = AttoHash.hashVote(
-            transaction.hash,
-            AttoAlgorithm.V1,
-            timestamp.toKotlinInstant()
-        )
-        val attoVote = AttoVote(
-            timestamp = timestamp.toKotlinInstant(),
-            algorithm = thisNode.algorithm,
-            publicKey = thisNode.publicKey,
-            signature = privateKey.sign(voteHash)
-        )
-        val votePush = AttoVotePush(
-            blockHash = transaction.hash,
-            vote = attoVote
-        )
+        val voteHash =
+            AttoHash.hashVote(
+                transaction.hash,
+                AttoAlgorithm.V1,
+                timestamp.toKotlinInstant(),
+            )
+        val attoVote =
+            AttoVote(
+                timestamp = timestamp.toKotlinInstant(),
+                algorithm = thisNode.algorithm,
+                publicKey = thisNode.publicKey,
+                signature = privateKey.sign(voteHash),
+            )
+        val votePush =
+            AttoVotePush(
+                blockHash = transaction.hash,
+                vote = attoVote,
+            )
 
-        val strategy = if (attoVote.isFinal()) {
-            BroadcastStrategy.EVERYONE
-        } else {
-            BroadcastStrategy.VOTERS
-        }
+        val strategy =
+            if (attoVote.isFinal()) {
+                BroadcastStrategy.EVERYONE
+            } else {
+                BroadcastStrategy.VOTERS
+            }
 
         logger.debug { "Sending to $strategy $votePush" }
 
@@ -148,9 +160,7 @@ class ElectionVoter(
         eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, transaction.hash, attoVote)))
     }
 
-    private fun canVote(weight: AttoAmount): Boolean {
-        return thisNode.isVoter() && weight >= MIN_WEIGHT
-    }
+    private fun canVote(weight: AttoAmount): Boolean = thisNode.isVoter() && weight >= MIN_WEIGHT
 
     private suspend fun remove(transaction: Transaction) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
@@ -162,5 +172,4 @@ class ElectionVoter(
         transactions.clear()
         agreements.clear()
     }
-
 }

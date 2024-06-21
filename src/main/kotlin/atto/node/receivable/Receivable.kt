@@ -16,16 +16,12 @@ data class Receivable(
     val amount: AttoAmount,
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
-    override fun getId(): AttoHash {
-        return hash
-    }
+    override fun getId(): AttoHash = hash
 
-    override fun isNew(): Boolean {
-        return persistedAt == null
-    }
+    override fun isNew(): Boolean = persistedAt == null
 
-    fun toAttoReceivable(): AttoReceivable {
-        return AttoReceivable(
+    fun toAttoReceivable(): AttoReceivable =
+        AttoReceivable(
             hash = hash,
             version = version,
             algorithm = algorithm,
@@ -33,11 +29,10 @@ data class Receivable(
             receiverPublicKey = receiverPublicKey,
             amount = amount,
         )
-    }
 }
 
-fun AttoReceivable.toReceivable(): Receivable {
-    return Receivable(
+fun AttoReceivable.toReceivable(): Receivable =
+    Receivable(
         hash = hash,
         version = version,
         algorithm = algorithm,
@@ -45,8 +40,6 @@ fun AttoReceivable.toReceivable(): Receivable {
         receiverPublicKey = receiverPublicKey,
         amount = amount,
     )
-}
-
 
 data class ReceivableSaved(
     val receivable: Receivable,

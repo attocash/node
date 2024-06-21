@@ -29,8 +29,10 @@ import kotlin.time.Duration.Companion.milliseconds
  *
  */
 @Service
-class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePublisher) :
-    AsynchronousQueueProcessor<TransactionSocketAddressHolder>(100.milliseconds), CacheSupport {
+class TransactionRebroadcaster(
+    private val messagePublisher: NetworkMessagePublisher,
+) : AsynchronousQueueProcessor<TransactionSocketAddressHolder>(100.milliseconds),
+    CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -84,9 +86,10 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }
     }
 
-    override suspend fun poll(): TransactionSocketAddressHolder? = withContext(singleDispatcher) {
-        transactionQueue.poll()
-    }
+    override suspend fun poll(): TransactionSocketAddressHolder? =
+        withContext(singleDispatcher) {
+            transactionQueue.poll()
+        }
 
     override suspend fun process(value: TransactionSocketAddressHolder) {
         val transaction = value.transaction
@@ -95,19 +98,24 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
         broadcast(transaction, value.publicUris)
     }
 
-    private fun broadcast(transaction: AttoTransaction, exceptions: Set<URI>) {
+    private fun broadcast(
+        transaction: AttoTransaction,
+        exceptions: Set<URI>,
+    ) {
         val transactionPush = AttoTransactionPush(transaction)
-        val message = BroadcastNetworkMessage(
-            BroadcastStrategy.EVERYONE,
-            exceptions,
-            transactionPush,
-        )
+        val message =
+            BroadcastNetworkMessage(
+                BroadcastStrategy.EVERYONE,
+                exceptions,
+                transactionPush,
+            )
 
         messagePublisher.publish(message)
     }
 
-
-    class TransactionSocketAddressHolder(val transaction: AttoTransaction) {
+    class TransactionSocketAddressHolder(
+        val transaction: AttoTransaction,
+    ) {
         val publicUris = HashSet<URI>()
 
         fun add(publicUri: URI) {
@@ -119,5 +127,4 @@ class TransactionRebroadcaster(private val messagePublisher: NetworkMessagePubli
         holderMap.clear()
         transactionQueue.clear()
     }
-
 }

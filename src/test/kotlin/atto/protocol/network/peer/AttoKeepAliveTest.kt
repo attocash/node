@@ -8,7 +8,6 @@ import java.net.URI
 
 @OptIn(ExperimentalSerializationApi::class)
 class AttoKeepAliveTest {
-
     @Test
     fun `should serialize`() {
         // given

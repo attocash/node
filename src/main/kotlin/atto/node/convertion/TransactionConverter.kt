@@ -15,8 +15,9 @@ import org.springframework.stereotype.Component
 import java.time.Instant
 
 @Component
-class TransactionSerializerDBConverter(val properties: ApplicationProperties) : DBConverter<Transaction, OutboundRow> {
-
+class TransactionSerializerDBConverter(
+    val properties: ApplicationProperties,
+) : DBConverter<Transaction, OutboundRow> {
     override fun convert(transaction: Transaction): OutboundRow {
         val block = transaction.block
 
@@ -36,13 +37,12 @@ class TransactionSerializerDBConverter(val properties: ApplicationProperties) : 
             put("received_at", Parameter.from(transaction.receivedAt))
             put(
                 "persisted_at",
-                Parameter.fromOrEmpty(transaction.persistedAt, Instant::class.java)
+                Parameter.fromOrEmpty(transaction.persistedAt, Instant::class.java),
             )
         }
 
         return row
     }
-
 }
 
 @Component
@@ -59,5 +59,4 @@ class TransactionDeserializerDBConverter : DBConverter<Row, Transaction> {
             persistedAt = row.get("persisted_at", Instant::class.java)!!,
         )
     }
-
 }

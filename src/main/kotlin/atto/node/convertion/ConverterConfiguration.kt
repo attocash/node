@@ -8,7 +8,6 @@ import org.springframework.data.r2dbc.dialect.MySqlDialect
 @Configuration
 class ConverterConfiguration {
     @Bean
-    fun dbConverter(converters: List<DBConverter<*, *>>): R2dbcCustomConversions {
-        return R2dbcCustomConversions.of(MySqlDialect.INSTANCE, converters);
-    }
+    fun dbConverter(converters: List<DBConverter<*, *>>): R2dbcCustomConversions =
+        R2dbcCustomConversions.of(MySqlDialect.INSTANCE, converters)
 }

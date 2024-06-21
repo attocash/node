@@ -17,8 +17,6 @@ class UncheckedTransactionController(
     val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
     val uncheckedTransactionRepository: UncheckedTransactionRepository,
 ) {
-
-
     @PostMapping
     @Operation(description = "Process unchecked transactions")
     suspend fun process() {
@@ -26,8 +24,8 @@ class UncheckedTransactionController(
     }
 
     @GetMapping
-    suspend fun get(): Flow<AttoTransaction> {
-        return uncheckedTransactionRepository.findAll()
+    suspend fun get(): Flow<AttoTransaction> =
+        uncheckedTransactionRepository
+            .findAll()
             .map { it.toTransaction().toAttoTransaction() }
-    }
 }

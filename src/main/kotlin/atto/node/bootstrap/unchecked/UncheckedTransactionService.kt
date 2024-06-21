@@ -1,4 +1,4 @@
-package atto.node.bootstrap.unchecked;
+package atto.node.bootstrap.unchecked
 
 import cash.atto.commons.AttoHash
 import mu.KotlinLogging
@@ -7,7 +7,9 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
 @Service
-class UncheckedTransactionService(val uncheckedTransactionRepository: UncheckedTransactionRepository) {
+class UncheckedTransactionService(
+    val uncheckedTransactionRepository: UncheckedTransactionRepository,
+) {
     private val logger = KotlinLogging.logger {}
 
     @Transactional

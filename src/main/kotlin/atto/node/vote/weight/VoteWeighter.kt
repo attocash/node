@@ -42,18 +42,24 @@ class VoteWeighter(
     private lateinit var minimalConfirmationWeight: AttoAmount
 
     @PostConstruct
-    override fun init() = runBlocking {
-        val weights = accountRepository.findAllWeights()
-            .associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
-        weightMap.putAll(weights)
+    override fun init() =
+        runBlocking {
+            val weights =
+                accountRepository
+                    .findAllWeights()
+                    .associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
+            weightMap.putAll(weights)
 
-        val minTimestamp = getMinTimestamp()
-        val voteMap = voteRepository.findLatestAfter(minTimestamp).asSequence()
-            .map { it.publicKey to it }
-            .toMap()
-        latestVoteMap.putAll(voteMap)
-        calculateMinimalWeights()
-    }
+            val minTimestamp = getMinTimestamp()
+            val voteMap =
+                voteRepository
+                    .findLatestAfter(minTimestamp)
+                    .asSequence()
+                    .map { it.publicKey to it }
+                    .toMap()
+            latestVoteMap.putAll(voteMap)
+            calculateMinimalWeights()
+        }
 
     @EventListener
     fun listen(event: VoteValidated) {
@@ -101,7 +107,11 @@ class VoteWeighter(
         logger.trace { "Weight updated $weightMap" }
     }
 
-    private fun add(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {
+    private fun add(
+        publicKey: AttoPublicKey,
+        amount: AttoAmount,
+        defaultAmount: AttoAmount,
+    ) {
         weightMap.compute(publicKey) { _, weight ->
             if (weight == null) {
                 defaultAmount
@@ -111,7 +121,11 @@ class VoteWeighter(
         }
     }
 
-    private fun subtract(publicKey: AttoPublicKey, amount: AttoAmount, defaultAmount: AttoAmount) {
+    private fun subtract(
+        publicKey: AttoPublicKey,
+        amount: AttoAmount,
+        defaultAmount: AttoAmount,
+    ) {
         weightMap.compute(publicKey) { _, weight ->
             if (weight == null) {
                 defaultAmount
@@ -121,34 +135,26 @@ class VoteWeighter(
         }
     }
 
-    fun getAll(): Map<AttoPublicKey, AttoAmount> {
-        return weightMap.toMap()
-    }
+    fun getAll(): Map<AttoPublicKey, AttoAmount> = weightMap.toMap()
 
-    fun get(publicKey: AttoPublicKey): AttoAmount {
-        return weightMap[publicKey] ?: AttoAmount.MIN
-    }
+    fun get(publicKey: AttoPublicKey): AttoAmount = weightMap[publicKey] ?: AttoAmount.MIN
 
-    fun get(): AttoAmount {
-        return get(thisNode.publicKey)
-    }
+    fun get(): AttoAmount = get(thisNode.publicKey)
 
-    fun getMinimalConfirmationWeight(): AttoAmount {
-        return minimalConfirmationWeight
-    }
+    fun getMinimalConfirmationWeight(): AttoAmount = minimalConfirmationWeight
 
-    fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean {
-        return minimalRebroadcastWeight <= get(publicKey)
-    }
+    fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean = minimalRebroadcastWeight <= get(publicKey)
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     fun calculateMinimalWeights() {
         val minTimestamp = getMinTimestamp()
 
-        val onlineWeights = weightMap.asSequence()
-            .filter { minTimestamp < (latestVoteMap[it.key]?.timestamp ?: Instant.MIN) }
-            .sortedByDescending { it.value.raw }
-            .toList()
+        val onlineWeights =
+            weightMap
+                .asSequence()
+                .filter { minTimestamp < (latestVoteMap[it.key]?.timestamp ?: Instant.MIN) }
+                .sortedByDescending { it.value.raw }
+                .toList()
 
         val onlineWeight = onlineWeights.sumOf { it.value.raw }
 
@@ -158,9 +164,11 @@ class VoteWeighter(
 
         logger.info { "Minimal confirmation weight updated to ${this.minimalConfirmationWeight}" }
 
-        val minimalConfirmationVoteCount = onlineWeights.asSequence()
-            .takeWhile { it.value > this.minimalConfirmationWeight }
-            .count()
+        val minimalConfirmationVoteCount =
+            onlineWeights
+                .asSequence()
+                .takeWhile { it.value > this.minimalConfirmationWeight }
+                .count()
 
         val i = min(minimalConfirmationVoteCount * 2, onlineWeights.size - 1)
         if (onlineWeights.isNotEmpty()) {
@@ -172,13 +180,10 @@ class VoteWeighter(
         logger.info { "Minimal rebroadcast weight updated to ${this.minimalRebroadcastWeight}" }
     }
 
-    fun getMinTimestamp(): Instant {
-        return ZonedDateTime.now(ZoneOffset.UTC).minusDays(properties.samplePeriodInDays!!).toInstant()
-    }
+    fun getMinTimestamp(): Instant = ZonedDateTime.now(ZoneOffset.UTC).minusDays(properties.samplePeriodInDays!!).toInstant()
 
     override fun clear() {
         weightMap.clear()
         latestVoteMap.clear()
     }
-
 }

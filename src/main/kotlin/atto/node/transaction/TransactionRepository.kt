@@ -7,9 +7,9 @@ import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 
-
-interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>, AttoRepository {
-
+interface TransactionRepository :
+    CoroutineCrudRepository<Transaction, AttoHash>,
+    AttoRepository {
     suspend fun findFirstByPublicKey(publicKey: AttoPublicKey): Transaction?
 
     @Query(
@@ -18,18 +18,23 @@ interface TransactionRepository : CoroutineCrudRepository<Transaction, AttoHash>
             JOIN account a on t.hash = a.last_transaction_hash
             ORDER BY RAND()
             LIMIT :limit
-        """
+        """,
     )
     suspend fun getLastSample(limit: Long): Flow<Transaction>
 
     @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height ASC")
-    suspend fun findAsc(publicKey: AttoPublicKey, fromHeight: ULong, toHeight: ULong): Flow<Transaction>
+    suspend fun findAsc(
+        publicKey: AttoPublicKey,
+        fromHeight: ULong,
+        toHeight: ULong,
+    ): Flow<Transaction>
 
-    @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC")
+    @Query(
+        "SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height DESC",
+    )
     suspend fun findDesc(
         publicKey: AttoPublicKey,
         fromHeight: ULong,
-        toHeight: ULong
+        toHeight: ULong,
     ): Flow<Transaction>
-
 }
