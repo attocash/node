@@ -7,7 +7,7 @@ import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.protocol.network.peer.AttoKeepAlive
+import cash.atto.protocol.AttoKeepAlive
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled

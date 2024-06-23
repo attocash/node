@@ -6,8 +6,8 @@ import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteReceived
 import cash.atto.node.vote.weight.VoteWeighter
-import cash.atto.protocol.vote.AttoVote
-import cash.atto.protocol.vote.AttoVotePush
+import cash.atto.protocol.AttoVote
+import cash.atto.protocol.AttoVotePush
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 

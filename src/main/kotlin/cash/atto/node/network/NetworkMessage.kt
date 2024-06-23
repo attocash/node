@@ -10,7 +10,7 @@ import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.URI
 
-interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
+sealed interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
 
     override fun getResolvableType(): ResolvableType {

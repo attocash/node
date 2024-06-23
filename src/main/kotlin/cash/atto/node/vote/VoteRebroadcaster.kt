@@ -9,7 +9,7 @@ import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.vote.VoteRebroadcaster.VoteHolder
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.vote.AttoVotePush
+import cash.atto.protocol.AttoVotePush
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

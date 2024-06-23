@@ -57,7 +57,7 @@ class NetworkProcessor(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val MAX_MESSAGE_SIZE = 255
+        const val MAX_MESSAGE_SIZE = 261
         const val GENESIS_HEADER = "Atto-Genesis"
         const val PUBLIC_URI_HEADER = "Atto-Public-URI"
         const val PROTOCOL_VERSION_HEADER = "Atto-Protocol-Version"
@@ -306,7 +306,7 @@ class NetworkProcessor(
                     val dummySubscription = it.subscribe()
                     it.doOnTerminate { dummySubscription.dispose() }
                 }.map { serialize(it.payload) }
-                .doOnNext { checkBelowMaxMessageSize(it.serialized) }
+                .doOnNext { checkBelowMaxMessageSize(it) }
                 .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
                 .map { it.serialized }
 
@@ -351,7 +351,7 @@ class NetworkProcessor(
 
             if (byteArray.size > MAX_MESSAGE_SIZE) {
                 logger.error {
-                    "Message ${message.messageType()} is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
+                    "Message ${message.messageType()} has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
                         "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
                 }
                 exitProcess(-1)
@@ -389,10 +389,17 @@ class NetworkProcessor(
     /**
      * Just sanity test to avoid produce invalid data
      */
-    private fun checkBelowMaxMessageSize(byteArray: ByteArray) {
+    private fun checkBelowMaxMessageSize(serializeMessage: SerializedAttoMessage) {
+        val byteArray = serializeMessage.serialized
+        val message = serializeMessage.message
         if (byteArray.size > MAX_MESSAGE_SIZE) {
             logger.error {
-                "Message ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+                "Message has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
+                    "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+            }
+            logger.error {
+                "Message ${message.messageType()} has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
+                    "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
             }
             exitProcess(-1)
         }

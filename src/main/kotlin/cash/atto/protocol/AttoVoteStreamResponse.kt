@@ -1,15 +1,15 @@
-package cash.atto.protocol.vote
+package cash.atto.protocol
 
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
-import cash.atto.protocol.AttoMessage
-import cash.atto.protocol.AttoMessageType
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
+@SerialName("VOTE_STREAM_RESPONSE")
 data class AttoVoteStreamResponse(
     @ProtoNumber(0) val blockHash: AttoHash,
     @ProtoNumber(1) val vote: AttoVote,

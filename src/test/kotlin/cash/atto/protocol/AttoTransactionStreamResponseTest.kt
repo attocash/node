@@ -1,4 +1,4 @@
-package cash.atto.protocol.transaction
+package cash.atto.protocol
 
 import cash.atto.commons.*
 import cash.atto.commons.serialiazers.protobuf.AttoProtobuf

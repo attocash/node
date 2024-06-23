@@ -1,16 +1,16 @@
-package cash.atto.protocol.network.peer
+package cash.atto.protocol
 
 import cash.atto.commons.AttoNetwork
-import cash.atto.protocol.AttoMessage
-import cash.atto.protocol.AttoMessageType
 import cash.atto.protocol.serializer.URISerializer
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import java.net.URI
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
+@SerialName("KEEP_ALIVE")
 data class AttoKeepAlive(
     @ProtoNumber(0)
     val neighbour:

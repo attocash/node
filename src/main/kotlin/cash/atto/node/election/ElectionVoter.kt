@@ -17,8 +17,8 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.vote.AttoVote
-import cash.atto.protocol.vote.AttoVotePush
+import cash.atto.protocol.AttoVote
+import cash.atto.protocol.AttoVotePush
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.withContext

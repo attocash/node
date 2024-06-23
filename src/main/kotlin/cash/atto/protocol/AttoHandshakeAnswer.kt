@@ -1,17 +1,16 @@
-package cash.atto.protocol.network.handshake
+package cash.atto.protocol
 
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoSignature
-import cash.atto.protocol.AttoMessage
-import cash.atto.protocol.AttoMessageType
-import cash.atto.protocol.AttoNode
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
+@SerialName("HANDSHAKE_ANSWER")
 data class AttoHandshakeAnswer(
     @ProtoNumber(0)
     val node: AttoNode,

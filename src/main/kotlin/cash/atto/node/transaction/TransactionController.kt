@@ -11,7 +11,7 @@ import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.sortByHeight
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.transaction.AttoTransactionPush
+import cash.atto.protocol.AttoTransactionPush
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema

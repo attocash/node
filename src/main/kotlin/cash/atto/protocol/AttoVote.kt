@@ -1,4 +1,4 @@
-package cash.atto.protocol.vote
+package cash.atto.protocol
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash

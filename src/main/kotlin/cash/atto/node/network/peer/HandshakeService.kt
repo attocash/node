@@ -9,10 +9,10 @@ import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.network.NodeBanned
+import cash.atto.protocol.AttoHandshakeAcceptance
+import cash.atto.protocol.AttoHandshakeAnswer
+import cash.atto.protocol.AttoHandshakeChallenge
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.network.handshake.AttoHandshakeAcceptance
-import cash.atto.protocol.network.handshake.AttoHandshakeAnswer
-import cash.atto.protocol.network.handshake.AttoHandshakeChallenge
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener

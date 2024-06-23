@@ -10,13 +10,12 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.election.ElectionExpired
 import cash.atto.node.election.ElectionStarted
 import cash.atto.node.network.InboundNetworkMessage
-import cash.atto.node.transaction.*
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionDropped
 import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.transaction.toTransaction
-import cash.atto.protocol.transaction.AttoTransactionPush
+import cash.atto.protocol.AttoTransactionPush
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

@@ -10,8 +10,8 @@ import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.network.peer.PeerConnected
 import cash.atto.node.network.peer.PeerRemoved
 import cash.atto.node.transaction.toTransaction
-import cash.atto.protocol.transaction.AttoTransactionStreamRequest
-import cash.atto.protocol.transaction.AttoTransactionStreamResponse
+import cash.atto.protocol.AttoTransactionStreamRequest
+import cash.atto.protocol.AttoTransactionStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.reactive.asFlow
 import mu.KotlinLogging

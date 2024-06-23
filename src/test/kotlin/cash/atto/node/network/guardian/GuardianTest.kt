@@ -10,8 +10,8 @@ import cash.atto.node.network.peer.PeerConnected
 import cash.atto.node.network.peer.PeerRemoved
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
+import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.NodeFeature
-import cash.atto.protocol.vote.AttoVoteStreamRequest
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.RelaxedMockK

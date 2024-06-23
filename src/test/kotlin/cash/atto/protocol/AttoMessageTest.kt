@@ -5,6 +5,5 @@ import kotlinx.serialization.protobuf.schema.ProtoBufSchemaGenerator
 
 @OptIn(ExperimentalSerializationApi::class)
 fun main() {
-    val descriptors = messageSerializerMap.values.map { it.descriptor }
-    println(ProtoBufSchemaGenerator.generateSchemaText(descriptors))
+    println(ProtoBufSchemaGenerator.generateSchemaText(AttoMessage.serializer().descriptor))
 }

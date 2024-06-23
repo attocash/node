@@ -3,7 +3,7 @@ package cash.atto.node.vote
 import cash.atto.commons.*
 import cash.atto.node.Event
 import cash.atto.node.transaction.Transaction
-import cash.atto.protocol.vote.AttoVote
+import cash.atto.protocol.AttoVote
 import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id

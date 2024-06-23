@@ -1,4 +1,4 @@
-package cash.atto.protocol.network.peer
+package cash.atto.protocol
 
 import cash.atto.commons.serialiazers.protobuf.AttoProtobuf
 import kotlinx.serialization.ExperimentalSerializationApi

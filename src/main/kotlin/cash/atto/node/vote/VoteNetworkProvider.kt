@@ -5,9 +5,9 @@ import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.vote.AttoVoteStreamCancel
-import cash.atto.protocol.vote.AttoVoteStreamRequest
-import cash.atto.protocol.vote.AttoVoteStreamResponse
+import cash.atto.protocol.AttoVoteStreamCancel
+import cash.atto.protocol.AttoVoteStreamRequest
+import cash.atto.protocol.AttoVoteStreamResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.event.EventListener

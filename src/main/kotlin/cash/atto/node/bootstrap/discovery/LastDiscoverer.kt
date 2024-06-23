@@ -12,11 +12,11 @@ import cash.atto.node.transaction.TransactionRepository
 import cash.atto.node.transaction.toTransaction
 import cash.atto.node.vote.convertion.VoteConverter
 import cash.atto.node.vote.weight.VoteWeighter
+import cash.atto.protocol.AttoBootstrapTransactionPush
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.bootstrap.AttoBootstrapTransactionPush
-import cash.atto.protocol.vote.AttoVoteStreamCancel
-import cash.atto.protocol.vote.AttoVoteStreamRequest
-import cash.atto.protocol.vote.AttoVoteStreamResponse
+import cash.atto.protocol.AttoVoteStreamCancel
+import cash.atto.protocol.AttoVoteStreamRequest
+import cash.atto.protocol.AttoVoteStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.map
 import mu.KotlinLogging

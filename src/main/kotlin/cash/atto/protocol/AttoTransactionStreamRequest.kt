@@ -1,16 +1,16 @@
-package cash.atto.protocol.transaction
+package cash.atto.protocol
 
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
-import cash.atto.protocol.AttoMessage
-import cash.atto.protocol.AttoMessageType
 import kotlinx.serialization.Contextual
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
+@SerialName("TRANSACTION_STREAM_REQUEST")
 data class AttoTransactionStreamRequest(
     @ProtoNumber(0) @Contextual val publicKey: AttoPublicKey,
     @ProtoNumber(1) val startHeight: ULong,

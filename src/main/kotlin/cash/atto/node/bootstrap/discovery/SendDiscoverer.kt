@@ -15,8 +15,8 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.toTransaction
 import cash.atto.node.vote.Vote
-import cash.atto.protocol.transaction.AttoTransactionRequest
-import cash.atto.protocol.transaction.AttoTransactionResponse
+import cash.atto.protocol.AttoTransactionRequest
+import cash.atto.protocol.AttoTransactionResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
