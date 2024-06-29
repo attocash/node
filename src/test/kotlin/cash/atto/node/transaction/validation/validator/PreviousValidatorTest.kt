@@ -22,8 +22,8 @@ internal class PreviousValidatorTest {
         Account(
             publicKey = privateKey.toPublicKey(),
             algorithm = AttoAlgorithm.V1,
-            version = 0u,
-            height = 2u,
+            version = 0U.toAttoVersion(),
+            height = 2U.toAttoHeight(),
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),

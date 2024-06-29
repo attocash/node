@@ -1,9 +1,9 @@
 package cash.atto.node.convertion
 
 import cash.atto.commons.AttoBlock
-import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
+import cash.atto.commons.toBuffer
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.toBigInteger
 import cash.atto.node.transaction.Transaction
@@ -25,13 +25,13 @@ class TransactionSerializerDBConverter(
         with(row) {
             put("hash", Parameter.from(block.hash))
             put("type", Parameter.from(block.type))
-            put("version", Parameter.from(block.version))
+            put("version", Parameter.from(block.version.value))
             put("algorithm", Parameter.from(block.algorithm))
             put("public_key", Parameter.from(block.publicKey))
-            put("height", Parameter.from(block.height.toBigInteger()))
+            put("height", Parameter.from(block.height.value.toBigInteger()))
             put("balance", Parameter.from(block.balance.raw.toBigInteger()))
             put("timestamp", Parameter.from(block.timestamp.toJavaInstant()))
-            put("block", Parameter.from(block.toByteBuffer()))
+            put("block", Parameter.from(block.toBuffer()))
             put("signature", Parameter.from(transaction.signature))
             put("work", Parameter.from(transaction.work))
             put("received_at", Parameter.from(transaction.receivedAt))
@@ -48,8 +48,8 @@ class TransactionSerializerDBConverter(
 @Component
 class TransactionDeserializerDBConverter : DBConverter<Row, Transaction> {
     override fun convert(row: Row): Transaction {
-        val serializedBlock = AttoByteBuffer(row.get("block", ByteArray::class.java)!!)
-        val block = AttoBlock.fromByteBuffer(serializedBlock)!!
+        val serializedBlock = row.get("block", ByteArray::class.java)!!.toBuffer()
+        val block = AttoBlock.fromBuffer(serializedBlock)!!
 
         return Transaction(
             block = block,

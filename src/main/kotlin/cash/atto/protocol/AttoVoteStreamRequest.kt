@@ -10,7 +10,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("VOTE_STREAM_REQUEST")
+@SerialName("AttoVoteStreamRequest")
 data class AttoVoteStreamRequest(
     @ProtoNumber(0) @Contextual val blockHash: AttoHash,
 ) : AttoMessage {

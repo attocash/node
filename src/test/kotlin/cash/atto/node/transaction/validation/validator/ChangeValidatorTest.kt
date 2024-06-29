@@ -21,9 +21,9 @@ internal class ChangeValidatorTest {
     val account =
         Account(
             publicKey = privateKey.toPublicKey(),
-            version = 0u,
+            version = 0u.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            height = 2u,
+            height = 2u.toAttoHeight(),
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),

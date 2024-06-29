@@ -1,6 +1,12 @@
 package cash.atto.node.bootstrap.discovery
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoTransaction
+import cash.atto.commons.PreviousSupport
+import cash.atto.commons.toAttoHeight
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.GapView
@@ -88,8 +94,8 @@ class GapDiscoverer(
                     GapView(
                         AttoAlgorithm.valueOf(row.get("algorithm", String::class.javaObjectType)!!),
                         AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                        row.get("account_height", Long::class.javaObjectType)!!.toULong(),
-                        row.get("transaction_height", Long::class.javaObjectType)!!.toULong(),
+                        row.get("account_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
+                        row.get("transaction_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
                         AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!),
                     )
                 }.all()
@@ -146,19 +152,19 @@ class GapDiscoverer(
 }
 
 private data class TransactionPointer(
-    val initialHeight: ULong,
-    val currentHeight: ULong,
+    val initialHeight: AttoHeight,
+    val currentHeight: AttoHeight,
     val currentHash: AttoHash,
     val timestamp: Instant = Instant.now(),
 )
 
-private fun GapView.startHeight(): ULong {
+private fun GapView.startHeight(): AttoHeight {
     val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS
     val count = this.transactionHeight - this.accountHeight
-    if (count > maxCount) {
+    if (count.value > maxCount) {
         return this.transactionHeight - maxCount
     }
     return this.accountHeight + 1U
 }
 
-private fun GapView.endHeight(): ULong = this.transactionHeight
+private fun GapView.endHeight(): AttoHeight = this.transactionHeight

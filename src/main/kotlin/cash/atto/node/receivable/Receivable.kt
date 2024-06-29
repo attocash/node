@@ -9,7 +9,7 @@ import java.time.Instant
 data class Receivable(
     @Id
     val hash: AttoHash,
-    val version: UShort,
+    val version: AttoVersion,
     val algorithm: AttoAlgorithm,
     val receiverAlgorithm: AttoAlgorithm,
     val receiverPublicKey: AttoPublicKey,

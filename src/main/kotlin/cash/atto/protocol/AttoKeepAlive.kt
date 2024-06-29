@@ -10,7 +10,7 @@ import java.net.URI
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("KEEP_ALIVE")
+@SerialName("AttoKeepAlive")
 data class AttoKeepAlive(
     @ProtoNumber(0)
     val neighbour:

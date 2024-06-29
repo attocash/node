@@ -1,6 +1,7 @@
 package cash.atto.node.transaction
 
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.AttoRepository
 import kotlinx.coroutines.flow.Flow
@@ -25,8 +26,8 @@ interface TransactionRepository :
     @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height ASC")
     suspend fun findAsc(
         publicKey: AttoPublicKey,
-        fromHeight: ULong,
-        toHeight: ULong,
+        fromHeight: AttoHeight,
+        toHeight: AttoHeight,
     ): Flow<Transaction>
 
     @Query(
@@ -34,7 +35,7 @@ interface TransactionRepository :
     )
     suspend fun findDesc(
         publicKey: AttoPublicKey,
-        fromHeight: ULong,
-        toHeight: ULong,
+        fromHeight: AttoHeight,
+        toHeight: AttoHeight,
     ): Flow<Transaction>
 }

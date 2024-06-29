@@ -1,6 +1,14 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoSignature
+import cash.atto.commons.AttoWork
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.transaction.priotization.TransactionQueue
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.toKotlinInstant
@@ -73,10 +81,10 @@ internal class TransactionQueueTest {
     ): Transaction {
         val block =
             AttoReceiveBlock(
-                version = 0u,
+                version = 0U.toAttoVersion(),
                 algorithm = AttoAlgorithm.V1,
                 publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-                height = 2u,
+                height = 2U.toAttoHeight(),
                 balance = AttoAmount(amount),
                 timestamp = timestamp.toKotlinInstant(),
                 previous = AttoHash(Random.nextBytes(ByteArray(32))),

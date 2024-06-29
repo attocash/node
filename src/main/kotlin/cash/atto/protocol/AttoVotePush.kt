@@ -10,7 +10,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("VOTE_PUSH")
+@SerialName("AttoVotePush")
 data class AttoVotePush(
     @ProtoNumber(0) @Contextual val blockHash: AttoHash,
     @ProtoNumber(1) val vote: AttoVote,

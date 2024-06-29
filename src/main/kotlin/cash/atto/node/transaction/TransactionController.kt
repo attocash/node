@@ -1,8 +1,10 @@
 package cash.atto.node.transaction
 
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
 import cash.atto.node.NotVoterCondition
@@ -139,10 +141,10 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1") fromHeight: ULong,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: ULong,
+        @RequestParam(defaultValue = "1") fromHeight: AttoHeight,
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: AttoHeight,
     ): Flow<AttoTransaction> {
-        if (fromHeight == 0UL) {
+        if (fromHeight == 0UL.toAttoHeight()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
 

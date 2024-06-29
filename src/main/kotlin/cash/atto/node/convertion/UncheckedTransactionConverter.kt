@@ -17,12 +17,12 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put("hash", Parameter.from(uncheckedTransaction.hash))
             put("algorithm", Parameter.from(block.algorithm))
             put("public_key", Parameter.from(block.publicKey))
-            put("height", Parameter.from(block.height))
+            put("height", Parameter.from(block.height.value))
             put(
                 "previous",
                 Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java),
             )
-            put("block", Parameter.from(block.toByteBuffer()))
+            put("block", Parameter.from(block.toBuffer()))
             put("signature", Parameter.from(uncheckedTransaction.signature))
             put("work", Parameter.from(uncheckedTransaction.work))
             put("received_at", Parameter.from(uncheckedTransaction.receivedAt))
@@ -39,8 +39,8 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
 @Component
 class UncheckedTransactionDeserializerDBConverter : DBConverter<Row, UncheckedTransaction> {
     override fun convert(row: Row): UncheckedTransaction {
-        val serializedBlock = AttoByteBuffer(row.get("block", ByteArray::class.java)!!)
-        val block = AttoBlock.fromByteBuffer(serializedBlock)!!
+        val serializedBlock = row.get("block", ByteArray::class.java)!!.toBuffer()
+        val block = AttoBlock.fromBuffer(serializedBlock)!!
 
         return UncheckedTransaction(
             block = block,

@@ -4,6 +4,8 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.annotation.Primary
@@ -119,9 +121,9 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
 
     return Account(
         publicKey = publicKey,
-        version = 0u,
+        version = 0u.toAttoVersion(),
         algorithm = algorithm,
-        height = 0u,
+        height = 0U.toAttoHeight(),
         representative = AttoPublicKey(ByteArray(32)),
         balance = AttoAmount.MIN,
         lastTransactionHash = AttoHash(ByteArray(32)),

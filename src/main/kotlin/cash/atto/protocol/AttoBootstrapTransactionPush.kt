@@ -9,7 +9,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("BOOSTRAP_TRANSACTION_PUSH")
+@SerialName("AttoBootstrapTransactionPush")
 data class AttoBootstrapTransactionPush(
     @ProtoNumber(0) val transaction: AttoTransaction,
 ) : AttoMessage {

@@ -1,6 +1,16 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoOpenBlock
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoWork
+import cash.atto.commons.fromHexToByteArray
+import cash.atto.commons.sign
+import cash.atto.commons.toAttoVersion
+import cash.atto.commons.toBuffer
+import cash.atto.commons.toHex
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.protocol.AttoNode
@@ -34,7 +44,7 @@ class TransactionConfiguration(
             if (!genesis.isNullOrBlank()) {
                 val byteArray = genesis.fromHexToByteArray()
 
-                AttoTransaction.fromByteBuffer(thisNode.network, AttoByteBuffer.from(byteArray))?.toTransaction()
+                AttoTransaction.fromBuffer(thisNode.network, byteArray.toBuffer())?.toTransaction()
                     ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
             } else {
                 logger.info { "No genesis configured. Creating new genesis with this node private key..." }
@@ -90,7 +100,7 @@ class TransactionConfiguration(
     ): Transaction {
         val block =
             AttoOpenBlock(
-                version = 0u,
+                version = 0U.toAttoVersion(),
                 algorithm = thisNode.algorithm,
                 publicKey = privateKey.toPublicKey(),
                 balance = AttoAmount.MAX,
@@ -109,7 +119,7 @@ class TransactionConfiguration(
 
         logger.info {
             "Created ${thisNode.network} genesis transaction ${
-                transaction.toAttoTransaction().toByteBuffer().toHex()
+                transaction.toAttoTransaction().toBuffer().toHex()
             }"
         }
 

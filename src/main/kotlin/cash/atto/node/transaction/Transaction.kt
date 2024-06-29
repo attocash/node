@@ -9,7 +9,7 @@ import java.time.Instant
 
 data class PublicKeyHeight(
     val publicKey: AttoPublicKey,
-    val height: ULong,
+    val height: AttoHeight,
 )
 
 data class Transaction(

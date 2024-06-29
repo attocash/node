@@ -26,8 +26,8 @@ internal class ReceiveValidatorTest {
         Account(
             publicKey = privateKey.toPublicKey(),
             algorithm = AttoAlgorithm.V1,
-            version = 0u,
-            height = 2u,
+            version = 0U.toAttoVersion(),
+            height = 2U.toAttoHeight(),
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
@@ -70,7 +70,7 @@ internal class ReceiveValidatorTest {
             val receivable =
                 Receivable(
                     hash = block.sendHash,
-                    version = 0U,
+                    version = 0U.toAttoVersion(),
                     algorithm = block.algorithm,
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = block.publicKey,
@@ -114,7 +114,7 @@ internal class ReceiveValidatorTest {
             val receivable =
                 Receivable(
                     hash = block.sendHash,
-                    version = 0U,
+                    version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = AttoPublicKey(byteArray),
@@ -140,7 +140,7 @@ internal class ReceiveValidatorTest {
             val receivable =
                 Receivable(
                     hash = block.sendHash,
-                    version = 0U,
+                    version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = account.publicKey,

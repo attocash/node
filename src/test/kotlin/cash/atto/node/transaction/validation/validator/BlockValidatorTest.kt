@@ -21,9 +21,9 @@ internal class BlockValidatorTest {
     val account =
         Account(
             publicKey = privateKey.toPublicKey(),
-            version = 0u,
+            version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            height = 2u,
+            height = 2U.toAttoHeight(),
             balance = AttoAmount(100u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
@@ -96,7 +96,7 @@ internal class BlockValidatorTest {
     fun `should return INVALID_VERSION when account height is after transaction height`() =
         runBlocking {
             // when
-            val violation = validator.validate(account.copy(version = (account.version + 1U).toUShort()), transaction)
+            val violation = validator.validate(account.copy(version = account.version + 1U), transaction)
 
             // then
             assertEquals(TransactionRejectionReason.INVALID_VERSION, violation?.reason)

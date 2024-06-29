@@ -70,7 +70,7 @@ class NodeStepDefinition(
                         "--atto.node.public-uri=ws://localhost:$websocketPort",
                         "--websocket.port=$websocketPort",
                         "--atto.node.private-key=${privateKey.value.toHex()}",
-                        "--atto.transaction.genesis=${transaction.toAttoTransaction().toByteBuffer().toHex()}",
+                        "--atto.transaction.genesis=${transaction.toAttoTransaction().toBuffer().toHex()}",
                     )
                 val context =
                     springApplicationBuilder

@@ -16,10 +16,10 @@ class AttoTransactionStreamResponseTest {
         // given
         val block =
             AttoReceiveBlock(
-                version = 0u,
+                version = 0U.toAttoVersion(),
                 algorithm = AttoAlgorithm.V1,
                 publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-                height = 2u,
+                height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
                 timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
                 previous = AttoHash(Random.nextBytes(ByteArray(32))),

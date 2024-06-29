@@ -10,7 +10,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("HANDSHAKE_ANSWER")
+@SerialName("AttoHandshakeAnswer")
 data class AttoHandshakeAnswer(
     @ProtoNumber(0)
     val node: AttoNode,

@@ -10,7 +10,7 @@ import java.security.SecureRandom
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("HANDSHAKE_CHALLENGE")
+@SerialName("AttoHandshakeChallenge")
 data class AttoHandshakeChallenge(
     @ProtoNumber(0) val value: ByteArray,
 ) : AttoMessage {

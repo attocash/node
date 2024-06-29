@@ -5,7 +5,7 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
-@SerialName("HANDSHAKE_ACCEPTANCE")
+@SerialName("AttoHandshakeAcceptance")
 class AttoHandshakeAcceptance : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.HANDSHAKE_ACCEPTANCE
 

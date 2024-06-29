@@ -9,9 +9,9 @@ import java.time.Instant
 data class Account(
     @Id
     val publicKey: AttoPublicKey,
-    val version: UShort,
+    val version: AttoVersion,
     val algorithm: AttoAlgorithm,
-    val height: ULong,
+    val height: AttoHeight,
     val balance: AttoAmount,
     val lastTransactionTimestamp: Instant,
     val lastTransactionHash: AttoHash,

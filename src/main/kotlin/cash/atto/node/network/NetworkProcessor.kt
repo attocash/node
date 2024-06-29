@@ -1,6 +1,5 @@
 package cash.atto.node.network
 
-import cash.atto.commons.AttoByteBuffer
 import cash.atto.commons.toHex
 import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
@@ -11,6 +10,7 @@ import cash.atto.node.network.peer.PeerRemoved
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoMessage
 import cash.atto.protocol.AttoNode
+import io.netty.buffer.Unpooled
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioDatagramChannel
@@ -23,6 +23,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.reactor.asFlux
 import kotlinx.coroutines.runBlocking
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
+import kotlinx.io.write
 import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -57,7 +60,7 @@ class NetworkProcessor(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val MAX_MESSAGE_SIZE = 261
+        const val MAX_MESSAGE_SIZE = 272
         const val GENESIS_HEADER = "Atto-Genesis"
         const val PUBLIC_URI_HEADER = "Atto-Public-URI"
         const val PROTOCOL_VERSION_HEADER = "Atto-Protocol-Version"
@@ -264,16 +267,11 @@ class NetworkProcessor(
                 .flatMap {
                     val content = it.content()
                     if (!it.isFinalFragment) {
-                        wsOutbound.sendClose().cast(AttoByteBuffer::class.java)
-                    } else if (content.hasArray()) {
-                        Mono.just(AttoByteBuffer(content.array()))
+                        wsOutbound.sendClose().cast(Buffer::class.java)
                     } else {
-                        ByteArray(content.readableBytes())
-                            .also { byteArray ->
-                                content.getBytes(content.readerIndex(), byteArray)
-                            }.let { byteArray ->
-                                Mono.just(AttoByteBuffer(byteArray))
-                            }
+                        val buffer = Buffer()
+                        buffer.write(content.nioBuffer())
+                        Mono.just(buffer)
                     }
                 }.doOnNext { logger.debug { "Received from $publicUri ${it.toHex()}" } }
                 .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $publicUri" } }
@@ -308,11 +306,13 @@ class NetworkProcessor(
                 }.map { serialize(it.payload) }
                 .doOnNext { checkBelowMaxMessageSize(it) }
                 .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
-                .map { it.serialized }
+                .map {
+                    Unpooled.wrappedBuffer(it.serialized.readByteArray())
+                }
 
         val outboundThen =
             wsOutbound
-                .sendByteArray(outboundMessages)
+                .send(outboundMessages)
                 .then()
                 .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $publicUri" } }
                 .onErrorResume(AbortedException::class.java) { Mono.empty() }
@@ -345,19 +345,17 @@ class NetworkProcessor(
         try {
             val serialized = NetworkSerializer.serialize(message)
 
-            val byteArray = serialized.toByteArray()
-
             logger.trace { "Serialized $message into ${serialized.toHex()}" }
 
-            if (byteArray.size > MAX_MESSAGE_SIZE) {
+            if (serialized.size > MAX_MESSAGE_SIZE) {
                 logger.error {
-                    "Message ${message.messageType()} has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
-                        "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
+                    "Message ${message.messageType()} has ${serialized.size} which is ${serialized.size - MAX_MESSAGE_SIZE} bytes longer " +
+                        "than max size $MAX_MESSAGE_SIZE: ${serialized.toHex()}"
                 }
                 exitProcess(-1)
             }
 
-            return SerializedAttoMessage(message, byteArray)
+            return SerializedAttoMessage(message, serialized)
         } catch (e: Exception) {
             logger.error(e) { "Message couldn't be serialized. $message" }
             exitProcess(-1)
@@ -366,22 +364,22 @@ class NetworkProcessor(
 
     private fun deserializeOrDisconnect(
         publicUri: URI,
-        byteBuffer: AttoByteBuffer,
+        buffer: Buffer,
         disconnect: () -> Any,
     ): AttoMessage? {
-        val message = NetworkSerializer.deserialize(byteBuffer)
+        val message = NetworkSerializer.deserialize(buffer)
 
         if (message == null) {
-            logger.trace { "Received invalid message from $publicUri ${byteBuffer.toHex()}. Disconnecting..." }
+            logger.trace { "Received invalid message from $publicUri ${buffer.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message
         } else if (message.messageType().private && !peers.containsKey(publicUri)) {
-            logger.trace { "Received private message from the unknown $publicUri ${byteBuffer.toHex()}. Disconnecting..." }
+            logger.trace { "Received private message from the unknown $publicUri ${buffer.toHex()}. Disconnecting..." }
             disconnect.invoke()
             return message
         }
 
-        logger.trace { "Deserialized $message from ${byteBuffer.toHex()}" }
+        logger.trace { "Deserialized $message from ${buffer.toHex()}" }
 
         return message
     }
@@ -418,7 +416,7 @@ class NetworkProcessor(
 
     private data class SerializedAttoMessage(
         val message: AttoMessage,
-        val serialized: ByteArray,
+        val serialized: Buffer,
     )
 
     @Suppress("UNCHECKED_CAST")

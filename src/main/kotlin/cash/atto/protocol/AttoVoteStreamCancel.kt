@@ -10,7 +10,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
-@SerialName("VOTE_STREAM_CANCEL")
+@SerialName("AttoVoteStreamCancel")
 data class AttoVoteStreamCancel(
     @ProtoNumber(0) @Contextual val blockHash: AttoHash,
 ) : AttoMessage {

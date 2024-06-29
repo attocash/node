@@ -1,14 +1,16 @@
 package cash.atto.node.convertion
 
-import cash.atto.commons.AttoByteBuffer
+import cash.atto.commons.toBuffer
+import kotlinx.io.Buffer
+import kotlinx.io.readByteArray
 import org.springframework.stereotype.Component
 
 @Component
-class AttoByteBufferSerializerDBConverter : DBConverter<AttoByteBuffer, ByteArray> {
-    override fun convert(source: AttoByteBuffer): ByteArray = source.toByteArray()
+class AttoByteBufferSerializerDBConverter : DBConverter<Buffer, ByteArray> {
+    override fun convert(source: Buffer): ByteArray = source.readByteArray()
 }
 
 @Component
-class AttoByteBufferDeserializerDBConverter : DBConverter<ByteArray, AttoByteBuffer> {
-    override fun convert(source: ByteArray): AttoByteBuffer = AttoByteBuffer.from(source)
+class AttoByteBufferDeserializerDBConverter : DBConverter<ByteArray, Buffer> {
+    override fun convert(source: ByteArray): Buffer = source.toBuffer()
 }

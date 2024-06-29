@@ -1,6 +1,12 @@
 package cash.atto.node
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -25,7 +31,7 @@ class ExtensionsTest {
             runBlocking {
                 arrayOf(account3, account1, account2)
                     .asFlow()
-                    .sortByHeight(1U)
+                    .sortByHeight(1U.toAttoHeight())
                     .toList()
             }
 
@@ -46,7 +52,7 @@ class ExtensionsTest {
             runBlocking {
                 arrayOf(account3, account1, account1, account2, account3)
                     .asFlow()
-                    .sortByHeight(1U)
+                    .sortByHeight(1U.toAttoHeight())
                     .toList()
             }
 
@@ -67,7 +73,7 @@ class ExtensionsTest {
             runBlocking {
                 arrayOf(account3, account1, account2)
                     .asFlow()
-                    .sortByHeight(2U)
+                    .sortByHeight(2U.toAttoHeight())
                     .toList()
             }
 
@@ -99,9 +105,9 @@ class ExtensionsTest {
     private fun create(height: ULong): AttoAccount =
         AttoAccount(
             publicKey = publicKey,
-            version = 0U,
+            version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            height = height,
+            height = height.toAttoHeight(),
             balance = AttoAmount.MAX,
             lastTransactionHash = AttoHash(Random.Default.nextBytes(32)),
             lastTransactionTimestamp = Clock.System.now(),
