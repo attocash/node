@@ -114,6 +114,7 @@ graalvmNative {
             buildArgs.add("--libc=musl")
             buildArgs.add("--no-server")
             buildArgs.add("--gc=G1")
+            buildArgs.add("--strict-image-heap")
         }
     }
 }
