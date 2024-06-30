@@ -15,3 +15,13 @@ class AttoAmountToBigIntegerSerializerDBConverter : DBConverter<AttoAmount, BigI
 class BigIntegerToAttoAmountDeserializerDBConverter : DBConverter<BigInteger, AttoAmount> {
     override fun convert(source: BigInteger): AttoAmount = AttoAmount(source.toULong())
 }
+
+@Component
+class AttoAmountToStringSerializerDBConverter : DBConverter<AttoAmount, String> {
+    override fun convert(source: AttoAmount): String = source.raw.toString()
+}
+
+@Component
+class StringToAttoAmountDeserializerDBConverter : DBConverter<String, AttoAmount> {
+    override fun convert(source: String): AttoAmount = AttoAmount(source.toULong())
+}

@@ -1,6 +1,15 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoReceivable
+import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoWork
+import cash.atto.commons.sign
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
@@ -10,6 +19,7 @@ import io.cucumber.java.en.When
 import mu.KotlinLogging
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
+import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
 import java.time.Duration
@@ -60,19 +70,19 @@ class TransactionStepDefinition(
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
 
         val sendTransaction = PropertyHolder.get(Transaction::class.java, sendTransactionShortId)
-        val sendBlock = sendTransaction.block as AttoSendBlock
+        val receivable = streamReceivable(PropertyHolder[Neighbour::class.java, receiverShortId], publicKey, sendTransaction.hash)
 
         val account = getAccount(PropertyHolder[Neighbour::class.java, receiverShortId], publicKey)
         val transaction =
             if (account != null) {
-                val receiveBlock = account.receive(sendBlock.toReceivable())
+                val receiveBlock = account.receive(receivable)
                 Transaction(
                     block = receiveBlock,
                     signature = privateKey.sign(receiveBlock.hash),
                     work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash),
                 )
             } else {
-                val openBlock = AttoAccount.open(sendBlock.receiverPublicKey, sendBlock.toReceivable())
+                val openBlock = AttoAccount.open(receivable.receiverPublicKey, receivable)
                 Transaction(
                     block = openBlock,
                     signature = privateKey.sign(openBlock.hash),
@@ -153,6 +163,20 @@ class TransactionStepDefinition(
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToMono<AttoTransaction>()
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+
+    private fun streamReceivable(
+        neighbour: Neighbour,
+        publicKey: AttoPublicKey,
+        sendHash: AttoHash,
+    ): AttoReceivable =
+        webClient
+            .get()
+            .uri("http://localhost:${neighbour.httpPort}/accounts/{publicKey}/receivables/stream", publicKey.toString())
+            .retrieve()
+            .onStatus({ it.value() == 404 }, { Mono.empty() })
+            .bodyToFlux<AttoReceivable>()
+            .filter { it.hash == sendHash }
+            .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
 
     private fun publish(
         neighbourShortId: String,

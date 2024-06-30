@@ -59,7 +59,9 @@ class NodeConfiguration(
             publicKey = privateKey.toPublicKey(),
             publicUri = URI(nodeProperties.publicUri!!),
             features = features.toSet(),
-        )
+        ).apply {
+            logger.info { this }
+        }
     }
 
     @Bean
