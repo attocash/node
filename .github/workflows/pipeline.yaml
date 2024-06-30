@@ -17,6 +17,8 @@ jobs:
       security-events: write
     uses: ./.github/workflows/codeql.yaml
   build:
+    permissions:
+      packages: write
     if: "startsWith(github.ref, 'refs/heads/')"
     needs:
       - test
