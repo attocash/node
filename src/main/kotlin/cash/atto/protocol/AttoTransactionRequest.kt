@@ -2,7 +2,7 @@ package cash.atto.protocol
 
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
-import kotlinx.serialization.Contextual
+import cash.atto.commons.serialiazers.AttoHashAsByteArraySerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -12,7 +12,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 @SerialName("AttoTransactionRequest")
 data class AttoTransactionRequest(
-    @ProtoNumber(0) @Contextual val hash: AttoHash,
+    @ProtoNumber(0)
+    @Serializable(with = AttoHashAsByteArraySerializer::class)
+    val hash: AttoHash,
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_REQUEST
 

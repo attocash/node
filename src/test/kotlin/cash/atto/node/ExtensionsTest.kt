@@ -4,6 +4,7 @@ import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
@@ -105,6 +106,7 @@ class ExtensionsTest {
     private fun create(height: ULong): AttoAccount =
         AttoAccount(
             publicKey = publicKey,
+            network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
             height = height.toAttoHeight(),

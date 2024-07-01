@@ -1,6 +1,13 @@
 package cash.atto.node.account
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoVersion
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
@@ -9,6 +16,7 @@ import java.time.Instant
 data class Account(
     @Id
     val publicKey: AttoPublicKey,
+    val network: AttoNetwork,
     val version: AttoVersion,
     val algorithm: AttoAlgorithm,
     val height: AttoHeight,
@@ -26,6 +34,7 @@ data class Account(
     fun toAttoAccount(): AttoAccount =
         AttoAccount(
             publicKey = publicKey,
+            network = network,
             version = version,
             algorithm = algorithm,
             height = height,

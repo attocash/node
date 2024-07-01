@@ -56,9 +56,16 @@ class BlockValidator(
             )
         }
 
-        if (!transaction.toAttoTransaction().isValid(node.network)) {
+        if (!transaction.toAttoTransaction().isValid()) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_TRANSACTION,
+                "The transaction ${transaction.hash} is invalid. $transaction",
+            )
+        }
+
+        if (transaction.block.network != node.network) {
+            return TransactionViolation(
+                TransactionRejectionReason.INVALID_NETWORK,
                 "The transaction ${transaction.hash} is invalid for ${node.network}. $transaction",
             )
         }

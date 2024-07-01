@@ -1,6 +1,10 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoOpenBlock
+import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.ReceiveSupport
+import cash.atto.commons.RepresentativeSupport
+import cash.atto.commons.toReceivable
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
@@ -61,6 +65,7 @@ class TransactionService(
         if (block is AttoOpenBlock) {
             return Account(
                 publicKey = block.publicKey,
+                network = block.network,
                 version = block.version,
                 algorithm = block.algorithm,
                 height = block.height,

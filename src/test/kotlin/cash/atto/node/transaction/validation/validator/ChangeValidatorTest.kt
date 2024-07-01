@@ -21,6 +21,7 @@ internal class ChangeValidatorTest {
     val account =
         Account(
             publicKey = privateKey.toPublicKey(),
+            network = AttoNetwork.LOCAL,
             version = 0u.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
             height = 2u.toAttoHeight(),
@@ -31,6 +32,7 @@ internal class ChangeValidatorTest {
         )
     val block =
         AttoChangeBlock(
+            network = AttoNetwork.LOCAL,
             version = account.version,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
@@ -55,7 +57,7 @@ internal class ChangeValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(node.network, block.timestamp, block.previous),
+            AttoWork.work(block),
         )
 
     private val validator = ChangeValidator()

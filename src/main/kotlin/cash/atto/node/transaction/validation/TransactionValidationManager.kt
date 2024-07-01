@@ -28,7 +28,7 @@ class TransactionValidationManager(
     suspend fun process(event: TransactionReceived) {
         val transaction = event.transaction
         val block = transaction.block
-        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey)
+        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
         val violation = validate(account, event.transaction)
         if (violation != null) {
             logger.debug { "${violation.reason} ${violation.message}: $transaction" }

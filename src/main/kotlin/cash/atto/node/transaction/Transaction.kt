@@ -110,6 +110,7 @@ enum class TransactionRejectionReason(
     val recoverable: Boolean,
 ) {
     INVALID_TRANSACTION(false),
+    INVALID_NETWORK(false),
     INVALID_BALANCE(false),
     INVALID_AMOUNT(false),
     INVALID_RECEIVER(false),

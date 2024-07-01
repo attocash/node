@@ -44,12 +44,16 @@ class TransactionConfiguration(
             if (!genesis.isNullOrBlank()) {
                 val byteArray = genesis.fromHexToByteArray()
 
-                AttoTransaction.fromBuffer(thisNode.network, byteArray.toBuffer())?.toTransaction()
+                AttoTransaction.fromBuffer(byteArray.toBuffer())?.toTransaction()
                     ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
             } else {
                 logger.info { "No genesis configured. Creating new genesis with this node private key..." }
                 createGenesis(privateKey, thisNode)
             }
+
+        if (genesisTransaction.block.network != thisNode.network) {
+            throw IllegalStateException("${genesisTransaction.block.network} is an invalid genesis network: ${properties.genesis}")
+        }
 
         initializeDatabase(genesisTransaction, thisNode)
 
@@ -101,6 +105,7 @@ class TransactionConfiguration(
         val block =
             AttoOpenBlock(
                 version = 0U.toAttoVersion(),
+                network = thisNode.network,
                 algorithm = thisNode.algorithm,
                 publicKey = privateKey.toPublicKey(),
                 balance = AttoAmount.MAX,
@@ -114,7 +119,7 @@ class TransactionConfiguration(
             Transaction(
                 block = block,
                 signature = privateKey.sign(block.hash),
-                work = AttoWork.work(thisNode.network, block.timestamp, block.publicKey),
+                work = AttoWork.work(block),
             )
 
         logger.info {

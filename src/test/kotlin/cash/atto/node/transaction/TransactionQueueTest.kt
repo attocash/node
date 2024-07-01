@@ -3,6 +3,7 @@ package cash.atto.node.transaction
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
@@ -81,6 +82,7 @@ internal class TransactionQueueTest {
     ): Transaction {
         val block =
             AttoReceiveBlock(
+                network = AttoNetwork.LOCAL,
                 version = 0U.toAttoVersion(),
                 algorithm = AttoAlgorithm.V1,
                 publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),

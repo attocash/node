@@ -1,6 +1,5 @@
 package cash.atto.node
 
-import cash.atto.commons.serialiazers.json.AttoJson
 import io.netty.handler.logging.LogLevel
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
@@ -9,8 +8,6 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ClientHttpConnector
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import org.springframework.http.codec.ClientCodecConfigurer
-import org.springframework.http.codec.json.KotlinSerializationJsonDecoder
-import org.springframework.http.codec.json.KotlinSerializationJsonEncoder
 import org.springframework.web.reactive.function.client.ExchangeStrategies
 import org.springframework.web.reactive.function.client.WebClient
 import org.testcontainers.containers.MySQLContainer
@@ -26,10 +23,8 @@ class ApplicationTestConfiguration {
             .codecs { configurer: ClientCodecConfigurer ->
                 configurer
                     .defaultCodecs()
-                    .kotlinSerializationJsonEncoder(KotlinSerializationJsonEncoder(AttoJson))
                 configurer
                     .defaultCodecs()
-                    .kotlinSerializationJsonDecoder(KotlinSerializationJsonDecoder(AttoJson))
             }.build()
     }
 

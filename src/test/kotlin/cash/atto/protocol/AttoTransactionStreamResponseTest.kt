@@ -1,24 +1,37 @@
 package cash.atto.protocol
 
-import cash.atto.commons.*
-import cash.atto.commons.serialiazers.protobuf.AttoProtobuf
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoWork
+import cash.atto.commons.sign
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
+import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
 @OptIn(ExperimentalSerializationApi::class)
 class AttoTransactionStreamResponseTest {
+    private val privateKey = AttoPrivateKey.generate()
+
     @Test
     fun `should serialize and deserialize`() {
         // given
         val block =
             AttoReceiveBlock(
+                network = AttoNetwork.LOCAL,
                 version = 0U.toAttoVersion(),
                 algorithm = AttoAlgorithm.V1,
-                publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+                publicKey = privateKey.toPublicKey(),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
                 timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
@@ -29,14 +42,14 @@ class AttoTransactionStreamResponseTest {
         val transaction =
             AttoTransaction(
                 block = block,
-                signature = AttoSignature(Random.nextBytes(ByteArray(64))),
-                work = AttoWork(Random.nextBytes(ByteArray(8))),
+                signature = privateKey.sign(block.hash),
+                work = AttoWork.work(block),
             )
         val expectedResponse = AttoTransactionStreamResponse(transaction)
 
         // when
-        val byteArray = AttoProtobuf.encodeToByteArray(AttoTransactionStreamResponse.serializer(), expectedResponse)
-        val response = AttoProtobuf.decodeFromByteArray(AttoTransactionStreamResponse.serializer(), byteArray)
+        val byteArray = ProtoBuf.encodeToByteArray(AttoTransactionStreamResponse.serializer(), expectedResponse)
+        val response = ProtoBuf.decodeFromByteArray(AttoTransactionStreamResponse.serializer(), byteArray)
 
         // then
         assertEquals(expectedResponse, response)

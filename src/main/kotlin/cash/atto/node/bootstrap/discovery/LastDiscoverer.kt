@@ -7,7 +7,11 @@ import cash.atto.node.account.getByAlgorithmAndPublicKey
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.election.ElectionVoter
 import cash.atto.node.election.TransactionElection
-import cash.atto.node.network.*
+import cash.atto.node.network.BroadcastNetworkMessage
+import cash.atto.node.network.BroadcastStrategy
+import cash.atto.node.network.DirectNetworkMessage
+import cash.atto.node.network.InboundNetworkMessage
+import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.TransactionRepository
 import cash.atto.node.transaction.toTransaction
 import cash.atto.node.vote.convertion.VoteConverter
@@ -62,7 +66,7 @@ class LastDiscoverer(
         val transaction = response.transaction.toTransaction()
         val block = transaction.block
 
-        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey)
+        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
 
         if (account.height >= block.height) {
             return

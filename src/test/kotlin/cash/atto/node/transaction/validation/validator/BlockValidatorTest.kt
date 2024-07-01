@@ -1,6 +1,16 @@
 package cash.atto.node.transaction.validation.validator
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.AttoWork
+import cash.atto.commons.sign
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
@@ -21,6 +31,7 @@ internal class BlockValidatorTest {
     val account =
         Account(
             publicKey = privateKey.toPublicKey(),
+            network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
             height = 2U.toAttoHeight(),
@@ -32,6 +43,7 @@ internal class BlockValidatorTest {
     val block =
         AttoSendBlock(
             version = account.version,
+            network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
             height = account.height + 1U,
@@ -57,7 +69,7 @@ internal class BlockValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(node.network, block.timestamp, block.previous),
+            AttoWork.work(block),
         )
 
     private val validator = BlockValidator(node)

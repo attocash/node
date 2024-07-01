@@ -21,6 +21,7 @@ internal class SendValidatorTest {
     val account =
         Account(
             publicKey = privateKey.toPublicKey(),
+            network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
             version = 0U.toAttoVersion(),
             height = 2U.toAttoHeight(),
@@ -31,6 +32,7 @@ internal class SendValidatorTest {
         )
     val block =
         AttoSendBlock(
+            network = AttoNetwork.LOCAL,
             version = account.version,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
@@ -57,7 +59,7 @@ internal class SendValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(node.network, block.timestamp, block.previous),
+            AttoWork.work(block),
         )
 
     private val validator = SendValidator()

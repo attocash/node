@@ -20,6 +20,7 @@ internal class PreviousValidatorTest {
 
     val account =
         Account(
+            network = AttoNetwork.LOCAL,
             publicKey = privateKey.toPublicKey(),
             algorithm = AttoAlgorithm.V1,
             version = 0U.toAttoVersion(),
@@ -31,6 +32,7 @@ internal class PreviousValidatorTest {
         )
     val block =
         AttoChangeBlock(
+            network = AttoNetwork.LOCAL,
             version = account.version,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
@@ -55,7 +57,7 @@ internal class PreviousValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(node.network, block.timestamp, block.previous),
+            AttoWork.work(block),
         )
 
     private val validator = PreviousValidator()

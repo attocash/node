@@ -177,8 +177,12 @@ class TransactionController(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
     ) {
-        if (!transaction.isValid(thisNode.network)) {
+        if (!transaction.isValid()) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction")
+        }
+
+        if (transaction.block.network != thisNode.network) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction network")
         }
 
         val ips = request.headers[useXForwardedForKey] ?: listOf()

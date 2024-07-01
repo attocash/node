@@ -50,7 +50,7 @@ class TransactionStepDefinition(
             Transaction(
                 block = sendBlock,
                 signature = privateKey.sign(sendBlock.hash),
-                work = AttoWork.work(thisNode.network, sendBlock.timestamp, account.lastTransactionHash),
+                work = AttoWork.work(sendBlock),
             )
 
         logger.info { "Publishing $sendTransaction" }
@@ -79,14 +79,14 @@ class TransactionStepDefinition(
                 Transaction(
                     block = receiveBlock,
                     signature = privateKey.sign(receiveBlock.hash),
-                    work = AttoWork.work(thisNode.network, receiveBlock.timestamp, account.lastTransactionHash),
+                    work = AttoWork.work(receiveBlock),
                 )
             } else {
-                val openBlock = AttoAccount.open(receivable.receiverPublicKey, receivable)
+                val openBlock = AttoAccount.open(receivable.receiverPublicKey, receivable, sendTransaction.block.network)
                 Transaction(
                     block = openBlock,
                     signature = privateKey.sign(openBlock.hash),
-                    work = AttoWork.work(thisNode.network, openBlock.timestamp, openBlock.publicKey),
+                    work = AttoWork.work(openBlock),
                 )
             }
 
@@ -114,7 +114,7 @@ class TransactionStepDefinition(
             Transaction(
                 block = changeBlock,
                 signature = privateKey.sign(changeBlock.hash),
-                work = AttoWork.work(thisNode.network, changeBlock.timestamp, account.lastTransactionHash),
+                work = AttoWork.work(changeBlock),
             )
 
         publish(shortId, changeTransaction)

@@ -54,7 +54,13 @@ class UncheckedTransactionProcessor(
             transactionMap.forEach { (algorithmPublicKey, transactions) ->
                 logger.info { "Unchecked solving $algorithmPublicKey, ${transactions.map { it.hash }}" }
                 var account =
-                    accountRepository.getByAlgorithmAndPublicKey(algorithmPublicKey.algorithm, algorithmPublicKey.publicKey)
+                    transactions.first().let { transaction ->
+                        accountRepository.getByAlgorithmAndPublicKey(
+                            algorithmPublicKey.algorithm,
+                            algorithmPublicKey.publicKey,
+                            transaction.block.network,
+                        )
+                    }
                 for (transaction in transactions) {
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {

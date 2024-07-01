@@ -2,6 +2,7 @@ package cash.atto.protocol
 
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
+import cash.atto.commons.serialiazers.AttoHashAsByteArraySerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -11,8 +12,11 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 @SerialName("AttoVoteStreamResponse")
 data class AttoVoteStreamResponse(
-    @ProtoNumber(0) val blockHash: AttoHash,
-    @ProtoNumber(1) val vote: AttoVote,
+    @ProtoNumber(0)
+    @Serializable(with = AttoHashAsByteArraySerializer::class)
+    val blockHash: AttoHash,
+    @ProtoNumber(1)
+    val vote: AttoVote,
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.VOTE_STREAM_RESPONSE
 

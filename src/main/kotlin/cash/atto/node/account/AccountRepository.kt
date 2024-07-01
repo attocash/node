@@ -3,6 +3,7 @@ package cash.atto.node.account
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
@@ -113,6 +114,7 @@ class AccountCachedRepository(
 suspend fun AccountRepository.getByAlgorithmAndPublicKey(
     algorithm: AttoAlgorithm,
     publicKey: AttoPublicKey,
+    network: AttoNetwork,
 ): Account {
     val account = findByAlgorithmAndPublicKey(algorithm, publicKey)
     if (account != null) {
@@ -122,6 +124,7 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
     return Account(
         publicKey = publicKey,
         version = 0u.toAttoVersion(),
+        network = network,
         algorithm = algorithm,
         height = 0U.toAttoHeight(),
         representative = AttoPublicKey(ByteArray(32)),
