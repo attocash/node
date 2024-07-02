@@ -29,7 +29,6 @@ interface UncheckedTransactionRepository :
 }
 
 data class GapView(
-    val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
     val accountHeight: AttoHeight,
     val transactionHeight: AttoHeight,

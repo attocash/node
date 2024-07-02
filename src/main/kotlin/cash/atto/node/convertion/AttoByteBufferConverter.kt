@@ -6,11 +6,11 @@ import kotlinx.io.readByteArray
 import org.springframework.stereotype.Component
 
 @Component
-class AttoByteBufferSerializerDBConverter : DBConverter<Buffer, ByteArray> {
+class BufferSerializerDBConverter : DBConverter<Buffer, ByteArray> {
     override fun convert(source: Buffer): ByteArray = source.readByteArray()
 }
 
 @Component
-class AttoByteBufferDeserializerDBConverter : DBConverter<ByteArray, Buffer> {
+class BufferDeserializerDBConverter : DBConverter<ByteArray, Buffer> {
     override fun convert(source: ByteArray): Buffer = source.toBuffer()
 }

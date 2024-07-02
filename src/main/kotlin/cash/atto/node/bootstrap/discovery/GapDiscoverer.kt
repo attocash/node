@@ -77,22 +77,20 @@ class GapDiscoverer(
             databaseClient
                 .sql(
                     """
-                                SELECT algorithm, public_key, account_height, transaction_height, previous_transaction_hash FROM (
+                                SELECT public_key, account_height, transaction_height, previous_transaction_hash FROM (
                                         SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
-                                                ut.algorithm algorithm,
                                                 ut.public_key public_key,
-                                                COALESCE(a.height, 0) account_height,
+                                                a.height account_height,
                                                 ut.height transaction_height,
                                                 ut.previous previous_transaction_hash
                                         FROM unchecked_transaction ut
-                                        LEFT JOIN account a on ut.public_key = a.public_key and ut.height > a.height
+                                        JOIN account a on ut.public_key = a.public_key and ut.height > a.height
                                         ORDER BY ut.public_key, ut.height ) ready
                                 WHERE transaction_height > account_height + row_num
                                 AND row_num = 1
                 """,
                 ).map { row, _ ->
                     GapView(
-                        AttoAlgorithm.valueOf(row.get("algorithm", String::class.javaObjectType)!!),
                         AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
                         row.get("account_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
                         row.get("transaction_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
