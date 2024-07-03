@@ -44,10 +44,12 @@ class TransactionConfiguration(
             if (!genesis.isNullOrBlank()) {
                 val byteArray = genesis.fromHexToByteArray()
 
+                logger.info { "Found genesis transaction ${byteArray.toHex()}" }
+
                 AttoTransaction.fromBuffer(byteArray.toBuffer())?.toTransaction()
                     ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
             } else {
-                logger.info { "No genesis configured. Creating new genesis with this node private key..." }
+                logger.info { "No genesis found. Creating new genesis with this node private key..." }
                 createGenesis(privateKey, thisNode)
             }
 
@@ -122,11 +124,7 @@ class TransactionConfiguration(
                 work = AttoWork.work(block),
             )
 
-        logger.info {
-            "Created ${thisNode.network} genesis transaction ${
-                transaction.toAttoTransaction().toBuffer().toHex()
-            }"
-        }
+        logger.info { "Created ${thisNode.network} genesis transaction ${transaction.toAttoTransaction().toHex()}" }
 
         return transaction
     }
