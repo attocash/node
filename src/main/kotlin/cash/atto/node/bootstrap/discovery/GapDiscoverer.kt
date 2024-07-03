@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap.discovery
 
-import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
