@@ -2,9 +2,7 @@
 
 on:
   workflow_call:
-    secrets:
-      token:
-        required: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
