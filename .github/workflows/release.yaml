@@ -9,9 +9,6 @@ on:
       bump-version:
         default: false
         type: boolean
-    secrets:
-      token:
-        required: true
 
 jobs:
   release:
