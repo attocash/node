@@ -17,6 +17,9 @@ atto:
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 0
+  vote:
+    weight:
+      confirmation-threshold: ${ATTO_CONFIRMATION_THRESHOLD:65}
 
 server:
   error:
