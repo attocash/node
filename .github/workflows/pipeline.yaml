@@ -24,8 +24,6 @@ jobs:
       - test
       - codeql
     uses: ./.github/workflows/build.yaml
-    secrets:
-      token: ${{ secrets.TOKEN }}
   dev:
     if: "startsWith(github.ref, 'refs/heads/release/') && endsWith(github.ref, '.x')"
     needs: [ build ]
@@ -33,19 +31,13 @@ jobs:
     with:
       profile: dev
       bump-version: true
-    secrets:
-      token: ${{ secrets.TOKEN }}
   beta:
     needs: [ dev ]
     uses: ./.github/workflows/release.yaml
     with:
       profile: beta
-    secrets:
-      token: ${{ secrets.TOKEN }}
   live:
     needs: [ beta ]
     uses: ./.github/workflows/release.yaml
     with:
       profile: live
-    secrets:
-      token: ${{ secrets.TOKEN }}
