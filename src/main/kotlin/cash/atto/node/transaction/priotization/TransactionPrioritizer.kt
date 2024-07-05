@@ -41,7 +41,7 @@ class TransactionPrioritizer(
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
-    private val duplicateDetector = DuplicateDetector<AttoHash>(10.seconds)
+    private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
 
     @PreDestroy
     override fun stop() {

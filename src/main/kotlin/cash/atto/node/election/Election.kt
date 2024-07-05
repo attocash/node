@@ -167,7 +167,7 @@ class PublicKeyHeightElection(
 
     fun add(transaction: Transaction) {
         if (transactionElectionMap.containsKey(transaction.hash)) {
-            throw IllegalStateException("Transaction for block ${transaction.hash} already started")
+            return
         }
 
         transactionElectionMap[transaction.hash] =
