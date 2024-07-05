@@ -10,13 +10,14 @@ spring:
 
 atto:
   node:
-    force-voter: true
-    force-historical: true
     network: LOCAL
-    public-uri: ws://localhost:${websocket.port}
-  network:
-    broadcaster:
-      cache-expiration-time-in-seconds: 0
+  transaction:
+    genesis: ${ATTO_GENESIS:}
+  peer:
+    defaultNodes: ${ATTO_DEFAULT_NODES:}
+  vote:
+    weight:
+      confirmation-threshold: ${ATTO_CONFIRMATION_THRESHOLD:65}
 
 server:
   error:
@@ -27,8 +28,8 @@ logging:
   level:
     atto: INFO
     atto.node.network: INFO
-    atto.node.transaction.TransactionService: DEBUG
-    atto.node.transaction.priotization.TransactionPrioritizer: DEBUG
+    atto.node.transaction: DEBUG
+    atto.node.election: TRACE
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 
