@@ -6,9 +6,11 @@ on:
   pull_request:
 
 jobs:
-  pipeline:
+  test:
+    uses: ./.github/workflows/test.yaml
+  codeql:
     permissions:
       actions: read
       contents: read
       security-events: write
-    uses: ./.github/workflows/pipeline.yaml
+    uses: ./.github/workflows/codeql.yaml
