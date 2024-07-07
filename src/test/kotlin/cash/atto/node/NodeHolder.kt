@@ -1,7 +1,8 @@
 package cash.atto.node
 
 import java.io.Closeable
-import java.util.*
+import java.net.URLClassLoader
+import java.util.Collections
 
 object NodeHolder {
     private val nodes = ArrayList<Closeable>()
@@ -16,7 +17,10 @@ object NodeHolder {
         nodes
             .asSequence()
             .filter { it != except }
-            .forEach { it.close() }
+            .forEach {
+                it.close()
+                (it.javaClass.classLoader as URLClassLoader).close()
+            }
         nodes.clear()
     }
 }

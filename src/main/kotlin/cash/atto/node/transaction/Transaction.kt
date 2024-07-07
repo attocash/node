@@ -1,8 +1,15 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoBlock
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSignature
+import cash.atto.commons.AttoTransaction
+import cash.atto.commons.AttoWork
 import cash.atto.node.Event
 import cash.atto.node.account.Account
+import kotlinx.io.Buffer
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -13,8 +20,11 @@ data class PublicKeyHeight(
 )
 
 data class Transaction(
+    @Transient
     val block: AttoBlock,
+    @Transient
     val signature: AttoSignature,
+    @Transient
     val work: AttoWork,
     val receivedAt: Instant = Instant.now(),
     val persistedAt: Instant? = null,
@@ -22,8 +32,14 @@ data class Transaction(
     @Id
     val hash = block.hash
 
+    @Transient
     val algorithm = block.algorithm
+
     val publicKey = block.publicKey
+    val height = block.height
+
+    val serialized: Buffer
+        get() = this.toAttoTransaction().toBuffer()
 
     override fun getId(): AttoHash {
         return hash
