@@ -25,6 +25,9 @@ jobs:
       - codeql
     uses: ./.github/workflows/build.yaml
   dev:
+    permissions:
+      contents: write
+      packages: write
     if: "startsWith(github.ref, 'refs/heads/release/') && endsWith(github.ref, '.x')"
     needs: [ build ]
     uses: ./.github/workflows/release.yaml
@@ -32,11 +35,15 @@ jobs:
       profile: dev
       bump-version: true
   beta:
+    permissions:
+      packages: write
     needs: [ dev ]
     uses: ./.github/workflows/release.yaml
     with:
       profile: beta
   live:
+    permissions:
+      packages: write
     needs: [ beta ]
     uses: ./.github/workflows/release.yaml
     with:
