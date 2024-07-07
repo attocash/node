@@ -13,6 +13,7 @@ import kotlinx.io.Buffer
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
+import org.springframework.data.annotation.Transient
 
 data class PublicKeyHeight(
     val publicKey: AttoPublicKey,
