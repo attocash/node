@@ -37,6 +37,7 @@ jobs:
   beta:
     permissions:
       packages: write
+    environment: beta
     needs: [ dev ]
     uses: ./.github/workflows/release.yaml
     with:
@@ -44,6 +45,7 @@ jobs:
   live:
     permissions:
       packages: write
+    environment: live
     needs: [ beta ]
     uses: ./.github/workflows/release.yaml
     with:
