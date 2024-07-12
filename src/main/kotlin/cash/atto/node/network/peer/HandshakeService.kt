@@ -171,7 +171,20 @@ class HandshakeService(
         if (publicAddress == thisNode.publicUri) {
             return true
         }
-        val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port)
+        if (publicAddress.host == null) {
+            return false
+        }
+
+        val port =
+            if (publicAddress.port > 0) {
+                publicAddress.port
+            } else if (publicAddress.host.startsWith("wss://")) {
+                443
+            } else {
+                80
+            }
+
+        val socketAddress = InetSocketAddress(publicAddress.host, port)
         return handshakes.contains(publicAddress) ||
             peers.containsKey(publicAddress) ||
             bannedNodes.contains(socketAddress.address)
