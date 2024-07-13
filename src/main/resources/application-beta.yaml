@@ -5,6 +5,7 @@ atto:
     defaultNodes:
       - wss://node-adventurous.beta.core.atto.cash
       - wss://node-cautious.beta.core.atto.cash
+      - wss://node-prudent.beta.core.atto.cash
       - wss://node-conservative.beta.core.atto.cash
   transaction:
     genesis:
