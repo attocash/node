@@ -10,6 +10,7 @@ import cash.atto.node.network.peer.PeerRemoved
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoMessage
 import cash.atto.protocol.AttoNode
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.netty.buffer.Unpooled
 import io.netty.channel.EventLoopGroup
 import io.netty.channel.nio.NioEventLoopGroup
@@ -26,7 +27,6 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import kotlinx.io.write
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.stereotype.Service

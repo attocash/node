@@ -14,7 +14,7 @@ import cash.atto.protocol.AttoHandshakeAnswer
 import cash.atto.protocol.AttoHandshakeChallenge
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service

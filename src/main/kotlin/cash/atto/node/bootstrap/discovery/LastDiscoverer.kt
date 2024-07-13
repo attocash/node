@@ -22,8 +22,8 @@ import cash.atto.protocol.AttoVoteStreamCancel
 import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.AttoVoteStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component

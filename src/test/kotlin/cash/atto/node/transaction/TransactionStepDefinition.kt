@@ -16,7 +16,7 @@ import cash.atto.node.Waiter
 import cash.atto.protocol.AttoNode
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToFlux

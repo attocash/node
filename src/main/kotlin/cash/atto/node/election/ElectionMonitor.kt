@@ -8,7 +8,7 @@ import cash.atto.node.transaction.TransactionService
 import cash.atto.node.vote.VoteService
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 

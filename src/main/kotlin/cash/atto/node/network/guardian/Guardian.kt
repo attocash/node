@@ -8,7 +8,7 @@ import cash.atto.node.network.NodeBanned
 import cash.atto.node.network.peer.PeerConnected
 import cash.atto.node.network.peer.PeerRemoved
 import cash.atto.node.vote.weight.VoteWeighter
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service

@@ -18,7 +18,7 @@ import cash.atto.node.vote.Vote
 import cash.atto.protocol.AttoTransactionRequest
 import cash.atto.protocol.AttoTransactionResponse
 import com.github.benmanes.caffeine.cache.Caffeine
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI

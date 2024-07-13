@@ -5,11 +5,11 @@ package cash.atto.node.network
 import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
 import cash.atto.protocol.AttoMessage
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
-import mu.KotlinLogging
 
 @OptIn(ExperimentalSerializationApi::class)
 object NetworkSerializer {
