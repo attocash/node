@@ -4,11 +4,9 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CoroutineExceptionHandler
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
-import org.springframework.boot.task.ThreadPoolTaskSchedulerCustomizer
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.concurrent.ThreadPoolTaskScheduler
 import org.springframework.web.reactive.config.WebFluxConfigurer
 
 @Configuration
@@ -25,15 +23,7 @@ class ApplicationConfiguration : WebFluxConfigurer {
 @Configuration
 @EnableScheduling
 @ConditionalOnProperty(name = ["atto.scheduling.enabled"], havingValue = "true", matchIfMissing = true)
-class ScheduleConfiguration : ThreadPoolTaskSchedulerCustomizer {
-    private val logger = KotlinLogging.logger {}
-
-    override fun customize(taskScheduler: ThreadPoolTaskScheduler) {
-        taskScheduler.setErrorHandler {
-            logger.error(it) { "Scheduled task error" }
-        }
-    }
-}
+class ScheduleConfiguration
 
 val attoCoroutineExceptionHandler =
     CoroutineExceptionHandler { _, e ->

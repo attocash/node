@@ -88,8 +88,8 @@ class HandshakeService(
     }
 
     fun startHandshake(publicUri: URI) {
-        if (isKnown(publicUri)) {
-            logger.trace { "Ignoring handshake with $publicUri. This node is already known" }
+        if (shouldSkip(publicUri)) {
+            logger.trace { "Skipping handshake with $publicUri. This node is already known, blocked or host can't be resolved" }
             return
         }
 
@@ -167,7 +167,7 @@ class HandshakeService(
         }
     }
 
-    private fun isKnown(publicAddress: URI): Boolean {
+    private fun shouldSkip(publicAddress: URI): Boolean {
         if (publicAddress == thisNode.publicUri) {
             return true
         }
@@ -175,19 +175,17 @@ class HandshakeService(
             return false
         }
 
-        val port =
-            if (publicAddress.port > 0) {
-                publicAddress.port
-            } else if (publicAddress.host.startsWith("wss://")) {
-                443
-            } else {
-                80
+        val address =
+            try {
+                InetAddress.getByName(publicAddress.host)
+            } catch (e: Exception) {
+                logger.trace(e) { "Error while trying to resolve $publicAddress" }
+                return true
             }
 
-        val socketAddress = InetSocketAddress(publicAddress.host, port)
         return handshakes.contains(publicAddress) ||
             peers.containsKey(publicAddress) ||
-            bannedNodes.contains(socketAddress.address)
+            bannedNodes.contains(address)
     }
 
     override fun clear() {
