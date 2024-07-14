@@ -2,11 +2,11 @@ package cash.atto.node.network.peer
 
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
-import cash.atto.node.network.*
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoKeepAlive
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.event.EventListener
@@ -59,14 +59,6 @@ class PeerManager(
     }
 
     fun getPeers(): List<Peer> = peers.values.toList()
-
-    private fun peerSample(): URI =
-        peers
-            .values
-            .asSequence()
-            .map { it.node.publicUri }
-            .shuffled()
-            .first()
 
     override fun clear() {
         peers.clear()
