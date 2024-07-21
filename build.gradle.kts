@@ -36,7 +36,7 @@ configurations {
 }
 
 dependencies {
-    val cucumberVersion = "7.18.0"
+    val cucumberVersion = "7.18.1"
     val springdocVersion = "2.6.0"
 
     implementation("cash.atto:commons:2.11.1")
