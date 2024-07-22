@@ -8,7 +8,8 @@ import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWork
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
 import cash.atto.commons.sign
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
@@ -50,7 +51,7 @@ class TransactionStepDefinition(
             Transaction(
                 block = sendBlock,
                 signature = privateKey.sign(sendBlock.hash),
-                work = AttoWork.work(sendBlock),
+                work = AttoWorker.cpu().work(sendBlock),
             )
 
         logger.info { "Publishing $sendTransaction" }
@@ -79,14 +80,14 @@ class TransactionStepDefinition(
                 Transaction(
                     block = receiveBlock,
                     signature = privateKey.sign(receiveBlock.hash),
-                    work = AttoWork.work(receiveBlock),
+                    work = AttoWorker.cpu().work(receiveBlock),
                 )
             } else {
                 val openBlock = AttoAccount.open(receivable.receiverPublicKey, receivable, sendTransaction.block.network)
                 Transaction(
                     block = openBlock,
                     signature = privateKey.sign(openBlock.hash),
-                    work = AttoWork.work(openBlock),
+                    work = AttoWorker.cpu().work(openBlock),
                 )
             }
 
@@ -114,7 +115,7 @@ class TransactionStepDefinition(
             Transaction(
                 block = changeBlock,
                 signature = privateKey.sign(changeBlock.hash),
-                work = AttoWork.work(changeBlock),
+                work = AttoWorker.cpu().work(changeBlock),
             )
 
         publish(shortId, changeTransaction)

@@ -57,7 +57,7 @@ internal class PreviousValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(block),
+            AttoWorker.cpu().work(block),
         )
 
     private val validator = PreviousValidator()

@@ -62,7 +62,7 @@ internal class ReceiveValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(block),
+            AttoWorker.cpu().work(block),
         )
 
     @Test

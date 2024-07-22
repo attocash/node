@@ -5,7 +5,8 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWork
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.sign
 import cash.atto.commons.toAttoVersion
@@ -121,7 +122,7 @@ class TransactionConfiguration(
             Transaction(
                 block = block,
                 signature = privateKey.sign(block.hash),
-                work = AttoWork.work(block),
+                work = AttoWorker.cpu().work(block),
             )
 
         logger.info { "Created ${thisNode.network} genesis transaction ${transaction.toAttoTransaction().toHex()}" }
