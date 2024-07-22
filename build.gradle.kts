@@ -7,8 +7,8 @@ plugins {
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
 
-    id("org.springframework.boot") version "3.3.1"
-    id("io.spring.dependency-management") version "1.1.5"
+    id("org.springframework.boot") version "3.3.2"
+    id("io.spring.dependency-management") version "1.1.6"
     id("org.graalvm.buildtools.native") version "0.10.2"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
 }
@@ -36,7 +36,7 @@ configurations {
 }
 
 dependencies {
-    val cucumberVersion = "7.18.0"
+    val cucumberVersion = "7.18.1"
     val springdocVersion = "2.6.0"
 
     implementation("cash.atto:commons:2.12.0")
@@ -77,7 +77,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test") {
         exclude(group = "org.mockito")
     }
-    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("io.mockk:mockk:1.13.12")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 
