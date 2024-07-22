@@ -5,8 +5,8 @@ import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
-import mu.KotlinLogging
 import org.springframework.boot.web.server.WebServerFactoryCustomizer
 import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory
 import org.springframework.context.annotation.Bean

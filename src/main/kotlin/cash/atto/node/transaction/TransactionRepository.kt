@@ -11,6 +11,14 @@ import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 interface TransactionRepository :
     CoroutineCrudRepository<Transaction, AttoHash>,
     AttoRepository {
+    @Query(
+        """
+            SELECT t.* FROM transaction t
+            WHERE t.public_key = :publicKey
+            ORDER BY t.height ASC
+            LIMIT 1
+        """,
+    )
     suspend fun findFirstByPublicKey(publicKey: AttoPublicKey): Transaction?
 
     @Query(

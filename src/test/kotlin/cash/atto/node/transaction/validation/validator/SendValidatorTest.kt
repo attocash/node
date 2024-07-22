@@ -59,7 +59,7 @@ internal class SendValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(block),
+            AttoWorker.cpu().work(block),
         )
 
     private val validator = SendValidator()

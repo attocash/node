@@ -5,7 +5,8 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWork
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.sign
 import cash.atto.commons.toAttoVersion
@@ -14,10 +15,10 @@ import cash.atto.commons.toHex
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.protocol.AttoNode
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
-import mu.KotlinLogging
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
@@ -121,7 +122,7 @@ class TransactionConfiguration(
             Transaction(
                 block = block,
                 signature = privateKey.sign(block.hash),
-                work = AttoWork.work(block),
+                work = AttoWorker.cpu().work(block),
             )
 
         logger.info { "Created ${thisNode.network} genesis transaction ${transaction.toAttoTransaction().toHex()}" }

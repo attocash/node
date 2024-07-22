@@ -11,12 +11,12 @@ import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.TransactionRebroadcaster.TransactionSocketAddressHolder
 import cash.atto.protocol.AttoTransactionPush
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.URI

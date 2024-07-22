@@ -10,12 +10,12 @@ import cash.atto.node.vote.VoteRebroadcaster.VoteHolder
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.net.URI

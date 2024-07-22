@@ -57,7 +57,7 @@ internal class ChangeValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(block),
+            AttoWorker.cpu().work(block),
         )
 
     private val validator = ChangeValidator()

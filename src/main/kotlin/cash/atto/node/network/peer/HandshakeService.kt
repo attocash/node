@@ -14,7 +14,7 @@ import cash.atto.protocol.AttoHandshakeAnswer
 import cash.atto.protocol.AttoHandshakeChallenge
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -88,8 +88,8 @@ class HandshakeService(
     }
 
     fun startHandshake(publicUri: URI) {
-        if (isKnown(publicUri)) {
-            logger.trace { "Ignoring handshake with $publicUri. This node is already known" }
+        if (shouldSkip(publicUri)) {
+            logger.trace { "Skipping handshake with $publicUri. This node is already known, blocked or host can't be resolved" }
             return
         }
 
@@ -167,14 +167,25 @@ class HandshakeService(
         }
     }
 
-    private fun isKnown(publicAddress: URI): Boolean {
+    private fun shouldSkip(publicAddress: URI): Boolean {
         if (publicAddress == thisNode.publicUri) {
             return true
         }
-        val socketAddress = InetSocketAddress(publicAddress.host, publicAddress.port)
+        if (publicAddress.host == null) {
+            return false
+        }
+
+        val address =
+            try {
+                InetAddress.getByName(publicAddress.host)
+            } catch (e: Exception) {
+                logger.trace(e) { "Error while trying to resolve $publicAddress" }
+                return true
+            }
+
         return handshakes.contains(publicAddress) ||
             peers.containsKey(publicAddress) ||
-            bannedNodes.contains(socketAddress.address)
+            bannedNodes.contains(address)
     }
 
     override fun clear() {

@@ -7,7 +7,8 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWork
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
 import cash.atto.commons.sign
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
@@ -43,7 +44,7 @@ class AttoTransactionStreamResponseTest {
             AttoTransaction(
                 block = block,
                 signature = privateKey.sign(block.hash),
-                work = AttoWork.work(block),
+                AttoWorker.cpu().work(block),
             )
         val expectedResponse = AttoTransactionStreamResponse(transaction)
 

@@ -2,7 +2,7 @@ package cash.atto.node.receivable
 
 import cash.atto.commons.AttoHash
 import cash.atto.node.EventPublisher
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 

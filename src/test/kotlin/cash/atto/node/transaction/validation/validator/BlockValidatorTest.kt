@@ -8,6 +8,8 @@ import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.AttoWork
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
 import cash.atto.commons.sign
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
@@ -69,7 +71,7 @@ internal class BlockValidatorTest {
         Transaction(
             block,
             privateKey.sign(block.hash),
-            AttoWork.work(block),
+            AttoWorker.cpu().work(block),
         )
 
     private val validator = BlockValidator(node)

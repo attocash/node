@@ -14,12 +14,12 @@ import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service

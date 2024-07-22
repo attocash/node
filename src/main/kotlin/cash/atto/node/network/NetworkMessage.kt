@@ -2,7 +2,7 @@ package cash.atto.node.network
 
 import cash.atto.protocol.AttoMessage
 import cash.atto.protocol.AttoNode
-import mu.KotlinLogging
+import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.ApplicationEventPublisher
 import org.springframework.core.ResolvableType
 import org.springframework.core.ResolvableTypeProvider

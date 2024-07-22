@@ -18,8 +18,8 @@ import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.asFlow
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Scheduled

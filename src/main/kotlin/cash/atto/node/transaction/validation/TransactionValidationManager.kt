@@ -8,11 +8,11 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.TransactionValidated
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
-import mu.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 

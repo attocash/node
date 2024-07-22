@@ -10,9 +10,9 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteRepository
 import cash.atto.node.vote.VoteValidated
 import cash.atto.protocol.AttoNode
+import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.runBlocking
-import mu.KotlinLogging
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
