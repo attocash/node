@@ -39,7 +39,7 @@ dependencies {
     val cucumberVersion = "7.18.1"
     val springdocVersion = "2.6.0"
 
-    implementation("cash.atto:commons:2.12.0")
+    implementation("cash.atto:commons:2.14.0")
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
