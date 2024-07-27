@@ -77,7 +77,7 @@ dependencies {
     implementation("org.flywaydb:flyway-mysql")
 
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
-    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
+    implementation("io.github.oshai:kotlin-logging-jvm:7.0.0")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
