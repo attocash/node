@@ -36,10 +36,17 @@ configurations {
 }
 
 dependencies {
+    val commonsVersion = "2.14.0"
     val cucumberVersion = "7.18.1"
     val springdocVersion = "2.6.0"
 
-    implementation("cash.atto:commons:2.12.0")
+    implementation("cash.atto:commons:$commonsVersion")
+    implementation("cash.atto:commons:$commonsVersion") {
+        capabilities {
+            requireCapability("cash.atto:commons-json")
+        }
+    }
+
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
@@ -70,7 +77,7 @@ dependencies {
     implementation("org.flywaydb:flyway-mysql")
 
     implementation("net.logstash.logback:logstash-logback-encoder:7.4")
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.0")
+    implementation("io.github.microutils:kotlin-logging-jvm:3.0.5")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
