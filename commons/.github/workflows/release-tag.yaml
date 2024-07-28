@@ -1,0 +1,41 @@
+# Managed by management-terraform
+
+on:
+  workflow_call:
+    inputs:
+      profile:
+        required: true
+        type: string
+    outputs:
+      next-tag:
+        value: ${{ jobs.release.outputs.next-tag }}
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.profile }}
+    outputs:
+      next-tag: ${{ steps.set-next-tag.outputs.next-tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - run: git fetch --tags
+
+      - id: set-next-tag
+        run: |
+          RELEASE_BRANCH=$(echo "${{ github.ref_name }}" | sed 's/release\///')
+          MAJOR_VERSION=$(echo "$RELEASE_BRANCH" | awk -F. '{print $1}')
+          LATEST_TAG=$(git tag --list "v$MAJOR_VERSION.*" --sort=-v:refname | head -n1)
+
+          if [ -z "$LATEST_TAG" ]; then
+            MINOR=0
+          else
+            MINOR=$(( ${LATEST_TAG##*.} + 1 ))
+          fi
+
+          NEXT_TAG="$MAJOR_VERSION.$MINOR"
+
+          git tag v$NEXT_TAG
+          git push origin v$NEXT_TAG
+
+          echo "next-tag=$NEXT_TAG" >> $GITHUB_OUTPUT
