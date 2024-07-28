@@ -29,7 +29,7 @@ jobs:
     permissions:
       packages: write
     needs:
-      - build-tag
+      - release-tag
     uses: ./.github/workflows/build-image.yaml
     with:
       image: dev
@@ -37,7 +37,7 @@ jobs:
     permissions:
       packages: write
     needs:
-      - release-tag
+      - build-image-dev
     uses: ./.github/workflows/release.yaml
     with:
       image: dev
