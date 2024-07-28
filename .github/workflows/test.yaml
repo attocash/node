@@ -1,0 +1,26 @@
+# Managed by management-terraform
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: opencl
+        run: |
+          sudo apt-get install -y ocl-icd-opencl-dev pocl-opencl-icd clinfo
+          clinfo
+
+      - uses: gradle/actions/wrapper-validation@v3
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - uses: gradle/gradle-build-action@v3
+
+      - run: ./gradlew test --no-daemon --info --fail-fast
