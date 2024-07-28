@@ -10,7 +10,6 @@ on:
 jobs:
   build-image:
     runs-on: ubuntu-latest
-    environment: ${{ inputs.image }}
     steps:
       - uses: actions/checkout@v4
 
