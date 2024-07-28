@@ -1,0 +1,36 @@
+<!-- Managed by management-terraform -->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+    <include resource="org/springframework/boot/logging/logback/console-appender.xml"/>
+
+    <springProperty name="NODE_NAME" source="NODE_NAME"/>
+
+    <appender name="JSON_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+        </encoder>
+    </appender>
+
+    <appender name="PLAIN_CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <!-- @formatter:off -->
+            <pattern>
+                %clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr(${NODE_NAME:-THIS}){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}
+            </pattern>
+            <!-- @formatter:on -->
+            <charset>${CONSOLE_LOG_CHARSET}</charset>
+        </encoder>
+    </appender>
+
+    <springProfile name="json">
+        <root level="INFO">
+            <appender-ref ref="JSON_CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="!json">
+        <root level="INFO">
+            <appender-ref ref="PLAIN_CONSOLE"/>
+        </root>
+    </springProfile>
+
+</configuration>
