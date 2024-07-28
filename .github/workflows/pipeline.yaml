@@ -1,7 +1,6 @@
 name: Pipeline
 
 on:
-  workflow_call:
   push:
     branches:
       - 'release/[0-9]+.x'
@@ -10,41 +9,70 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/test.yaml
-  codeql:
-    permissions:
-      actions: read
-      contents: read
-      security-events: write
-    uses: ./.github/workflows/codeql.yaml
   build:
     permissions:
+      contents: read
       packages: write
-    if: "startsWith(github.ref, 'refs/heads/')"
     needs:
       - test
-      - codeql
     uses: ./.github/workflows/build.yaml
-  dev:
+  release-tag:
     permissions:
       contents: write
-      packages: write
     if: "startsWith(github.ref, 'refs/heads/release/') && endsWith(github.ref, '.x')"
-    needs: [ build ]
-    uses: ./.github/workflows/release.yaml
+    needs:
+      - build
+    uses: ./.github/workflows/release-tag.yaml
     with:
-      profile: dev
-      bump-version: true
-  beta:
+      profile: release
+  build-image-dev:
     permissions:
       packages: write
-    needs: [ dev ]
-    uses: ./.github/workflows/release.yaml
+    needs:
+      - build-tag
+    uses: ./.github/workflows/build-image.yaml
     with:
-      profile: beta
-  live:
+      image: dev
+  release-dev:
     permissions:
       packages: write
-    needs: [ beta ]
+    needs:
+      - release-tag
     uses: ./.github/workflows/release.yaml
     with:
-      profile: live
+      image: dev
+      next-tag: ${{ needs.release-tag.outputs.next-tag }}
+  build-image-beta:
+    permissions:
+      packages: write
+    needs:
+      - release-dev
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      image: beta
+  release-beta:
+    permissions:
+      packages: write
+    needs:
+      - build-image-beta
+    uses: ./.github/workflows/release.yaml
+    with:
+      image: beta
+      next-tag: ${{ needs.release-tag.outputs.next-tag }}
+  build-image-live:
+    permissions:
+      packages: write
+    needs:
+      - release-beta
+    uses: ./.github/workflows/build-image.yaml
+    with:
+      image: live
+  release-live:
+    permissions:
+      packages: write
+    needs:
+      - build-image-live
+    uses: ./.github/workflows/release.yaml
+    with:
+      image: live
+      next-tag: ${{ needs.release-tag.outputs.next-tag }}
