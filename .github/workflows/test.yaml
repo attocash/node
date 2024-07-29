@@ -1,0 +1,31 @@
+# Managed by management-terraform
+
+on:
+  workflow_call:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: opencl
+        run: |
+          sudo apt-get install -y ocl-icd-opencl-dev pocl-opencl-icd clinfo
+          clinfo
+
+      - uses: gradle/actions/wrapper-validation@v3
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          java-version: '21'
+
+      - uses: gradle/gradle-build-action@v3
+
+      - run: ./gradlew -Pagent test --no-daemon --info --fail-fast
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: native-image-metadata
+          path: build/native/agent-output/test
