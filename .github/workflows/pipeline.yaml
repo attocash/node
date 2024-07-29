@@ -24,7 +24,7 @@ jobs:
       - build
     uses: ./.github/workflows/release-tag.yaml
     with:
-      profile: release
+      profile: dev
   build-image-dev:
     permissions:
       packages: write
