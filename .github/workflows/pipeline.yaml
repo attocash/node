@@ -24,7 +24,7 @@ jobs:
       - build
     uses: ./.github/workflows/release-tag.yaml
     with:
-      profile: release
+      profile: dev
   build-image-dev:
     permissions:
       packages: write
@@ -37,6 +37,7 @@ jobs:
     permissions:
       packages: write
     needs:
+      - release-tag
       - build-image-dev
     uses: ./.github/workflows/release.yaml
     with:
@@ -54,6 +55,7 @@ jobs:
     permissions:
       packages: write
     needs:
+      - release-tag
       - build-image-beta
     uses: ./.github/workflows/release.yaml
     with:
@@ -71,6 +73,7 @@ jobs:
     permissions:
       packages: write
     needs:
+      - release-tag
       - build-image-live
     uses: ./.github/workflows/release.yaml
     with:
