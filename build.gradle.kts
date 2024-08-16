@@ -47,7 +47,7 @@ dependencies {
         }
     }
 
-    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
