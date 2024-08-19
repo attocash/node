@@ -155,32 +155,32 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1") fromHeight: ULong,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}") toHeight: ULong,
+        @RequestParam(defaultValue = "1", required = false) fromHeight: String,
+        @RequestParam(defaultValue = "18446744073709551615", required = false) toHeight: String,
     ): Flow<AttoTransaction> {
-        if (fromHeight == 0UL) {
+        val from = fromHeight.toULong()
+        val to = toHeight.toULong()
+
+        if (from == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
 
-        if (fromHeight > toHeight) {
+        if (from > to) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
         }
 
-        val from = fromHeight.toAttoHeight()
-        val to = toHeight.toAttoHeight()
-
         val transactionDatabaseFlow =
             repository
-                .findAsc(publicKey, from, to)
+                .findAsc(publicKey, from.toAttoHeight(), to.toAttoHeight())
                 .map { it.toAttoTransaction() }
 
         val transactionFlow =
             transactionFlow
                 .filter { it.block.publicKey == publicKey }
-                .takeWhile { it.height in from..to }
+                .takeWhile { it.height in from.toAttoHeight()..to.toAttoHeight() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .sortByHeight(from)
+            .sortByHeight(from.toAttoHeight())
             .onStart {
                 logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" }
             }.onCompletion {
