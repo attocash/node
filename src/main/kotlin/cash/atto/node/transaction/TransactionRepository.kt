@@ -7,6 +7,7 @@ import cash.atto.node.AttoRepository
 import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
+import java.math.BigInteger
 
 interface TransactionRepository :
     CoroutineCrudRepository<Transaction, AttoHash>,
@@ -34,8 +35,8 @@ interface TransactionRepository :
     @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height ASC")
     suspend fun findAsc(
         publicKey: AttoPublicKey,
-        fromHeight: AttoHeight,
-        toHeight: AttoHeight,
+        fromHeight: BigInteger,
+        toHeight: BigInteger,
     ): Flow<Transaction>
 
     @Query(

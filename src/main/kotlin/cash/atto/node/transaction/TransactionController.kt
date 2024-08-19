@@ -11,6 +11,7 @@ import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.sortByHeight
+import cash.atto.node.toBigInteger
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -156,7 +157,7 @@ class TransactionController(
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1", required = false) fromHeight: String,
-        @RequestParam(defaultValue = "18446744073709551615", required = false) toHeight: String,
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: String,
     ): Flow<AttoTransaction> {
         val from = fromHeight.toULong()
         val to = toHeight.toULong()
@@ -171,7 +172,7 @@ class TransactionController(
 
         val transactionDatabaseFlow =
             repository
-                .findAsc(publicKey, from.toAttoHeight(), to.toAttoHeight())
+                .findAsc(publicKey, from.toBigInteger(), to.toBigInteger())
                 .map { it.toAttoTransaction() }
 
         val transactionFlow =
