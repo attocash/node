@@ -83,7 +83,8 @@ class TransactionStepDefinition(
                     work = AttoWorker.cpu().work(receiveBlock),
                 )
             } else {
-                val openBlock = AttoAccount.open(receivable.receiverPublicKey, receivable, sendTransaction.block.network)
+                val openBlock =
+                    AttoAccount.open(receivable.receiverAlgorithm, receivable.receiverPublicKey, receivable, sendTransaction.block.network)
                 Transaction(
                     block = openBlock,
                     signature = privateKey.sign(openBlock.hash),
@@ -108,9 +109,9 @@ class TransactionStepDefinition(
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
         val account = getAccount(PropertyHolder[Neighbour::class.java, shortId], publicKey)!!
 
-        val representative = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
+        val representativePublicKey = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
 
-        val changeBlock = account.change(representative)
+        val changeBlock = account.change(AttoAlgorithm.V1, representativePublicKey)
         val changeTransaction =
             Transaction(
                 block = changeBlock,

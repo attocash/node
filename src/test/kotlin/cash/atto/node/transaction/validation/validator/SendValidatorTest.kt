@@ -1,6 +1,17 @@
 package cash.atto.node.transaction.validation.validator
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
+import cash.atto.commons.sign
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
@@ -28,7 +39,8 @@ internal class SendValidatorTest {
             balance = AttoAmount(100u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
-            representative = AttoPublicKey(ByteArray(32)),
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = AttoPublicKey(ByteArray(32)),
         )
     val block =
         AttoSendBlock(

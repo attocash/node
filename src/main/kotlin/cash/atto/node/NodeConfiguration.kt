@@ -23,7 +23,7 @@ class NodeConfiguration(
     @PostConstruct
     fun start() {
         require(nodeProperties.publicUri != null) { "`atto.node.public-uri` can't be null" }
-        require(URI(nodeProperties.publicUri).path != null) { "`atto.node.public-uri` can't contain path" }
+        require(URI(nodeProperties.publicUri).path != null) { "`atto.node.public-uri` invalid" }
     }
 
     @Bean

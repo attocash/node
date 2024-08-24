@@ -113,6 +113,7 @@ class ExtensionsTest {
             balance = AttoAmount.MAX,
             lastTransactionHash = AttoHash(Random.Default.nextBytes(32)),
             lastTransactionTimestamp = Clock.System.now(),
-            representative = publicKey,
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = publicKey,
         )
 }

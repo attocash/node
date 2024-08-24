@@ -115,7 +115,8 @@ class TransactionConfiguration(
                 timestamp = Clock.System.now(),
                 sendHashAlgorithm = thisNode.algorithm,
                 sendHash = AttoHash(ByteArray(32)),
-                representative = privateKey.toPublicKey(),
+                representativeAlgorithm = thisNode.algorithm,
+                representativePublicKey = privateKey.toPublicKey(),
             )
 
         val transaction =

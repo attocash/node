@@ -32,7 +32,8 @@ internal class ReceiveValidatorTest {
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
-            representative = AttoPublicKey(ByteArray(32)),
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = AttoPublicKey(ByteArray(32)),
         )
     val block =
         AttoReceiveBlock(

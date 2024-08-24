@@ -23,7 +23,8 @@ data class Account(
     val balance: AttoAmount,
     val lastTransactionTimestamp: Instant,
     val lastTransactionHash: AttoHash,
-    val representative: AttoPublicKey,
+    val representativeAlgorithm: AttoAlgorithm,
+    val representativePublicKey: AttoPublicKey,
     val persistedAt: Instant? = null,
     val updatedAt: Instant? = null,
 ) : Persistable<AttoPublicKey> {
@@ -41,6 +42,7 @@ data class Account(
             balance = balance,
             lastTransactionHash = lastTransactionHash,
             lastTransactionTimestamp = lastTransactionTimestamp.toKotlinInstant(),
-            representative = representative,
+            representativeAlgorithm = representativeAlgorithm,
+            representativePublicKey = representativePublicKey,
         )
 }

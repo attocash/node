@@ -28,7 +28,8 @@ internal class PreviousValidatorTest {
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
-            representative = AttoPublicKey(ByteArray(32)),
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = AttoPublicKey(ByteArray(32)),
         )
     val block =
         AttoChangeBlock(
@@ -40,7 +41,8 @@ internal class PreviousValidatorTest {
             balance = AttoAmount(0U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
             previous = account.lastTransactionHash,
-            representative = privateKey.toPublicKey(),
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = privateKey.toPublicKey(),
         )
 
     val node =

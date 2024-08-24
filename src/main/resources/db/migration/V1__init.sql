@@ -8,7 +8,8 @@ CREATE TABLE account
   balance                    BIGINT UNSIGNED                                                          NOT NULL,
   last_transaction_timestamp TIMESTAMP(3)                              NOT NULL,
   last_transaction_hash      VARBINARY(32)                                                            NOT NULl,
-  representative             VARBINARY(32)                                                            NOT NULL,
+  representative_algorithm   ENUM ('V1')                                                              NOT NULL,
+  representative_public_key  VARBINARY(32)                                                            NOT NULL,
 
   persisted_at               TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
   updated_at                 TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) NOT NULL

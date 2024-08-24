@@ -86,21 +86,21 @@ class VoteWeighter(
 
         when (block) {
             is AttoOpenBlock -> {
-                add(block.representative, block.balance, block.balance)
+                add(block.representativePublicKey, block.balance, block.balance)
             }
 
             is AttoReceiveBlock -> {
                 val amount = block.balance - previousAccount.balance
-                add(updatedAccount.representative, amount, block.balance)
+                add(updatedAccount.representativePublicKey, amount, block.balance)
             }
 
             is AttoSendBlock -> {
-                subtract(updatedAccount.representative, block.amount, block.balance)
+                subtract(updatedAccount.representativePublicKey, block.amount, block.balance)
             }
 
             is AttoChangeBlock -> {
-                subtract(previousAccount.representative, previousAccount.balance, AttoAmount.MIN)
-                add(block.representative, updatedAccount.balance, updatedAccount.balance)
+                subtract(previousAccount.representativePublicKey, previousAccount.balance, AttoAmount.MIN)
+                add(block.representativePublicKey, updatedAccount.balance, updatedAccount.balance)
             }
         }
 

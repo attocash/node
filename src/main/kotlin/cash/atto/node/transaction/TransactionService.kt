@@ -41,7 +41,20 @@ class TransactionService(
                 balance = block.balance,
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = block.timestamp.toJavaInstant(),
-                representative = if (block is RepresentativeSupport) block.representative else previousAccount.representative,
+                representativeAlgorithm =
+                    if (block is RepresentativeSupport) {
+                        block.representativeAlgorithm
+                    } else {
+                        previousAccount
+                            .representativeAlgorithm
+                    },
+                representativePublicKey =
+                    if (block is RepresentativeSupport) {
+                        block.representativePublicKey
+                    } else {
+                        previousAccount
+                            .representativePublicKey
+                    },
             )
 
         accountService.save(updatedAccount)
@@ -72,7 +85,8 @@ class TransactionService(
                 balance = block.balance,
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = block.timestamp.toJavaInstant(),
-                representative = block.representative,
+                representativeAlgorithm = block.representativeAlgorithm,
+                representativePublicKey = block.representativePublicKey,
             )
         }
         return accountRepository.findById(transaction.publicKey)!!
