@@ -89,7 +89,6 @@ class HandshakeService(
 
     fun startHandshake(publicUri: URI) {
         if (shouldSkip(publicUri)) {
-            logger.trace { "Skipping handshake with $publicUri. This node is already known, blocked or host can't be resolved" }
             return
         }
 
@@ -169,23 +168,39 @@ class HandshakeService(
 
     private fun shouldSkip(publicAddress: URI): Boolean {
         if (publicAddress == thisNode.publicUri) {
+            logger.trace { "Skipping handshake with $publicAddress. This peer it's current node" }
+
             return true
         }
         if (publicAddress.host == null) {
-            return false
+            logger.trace { "Skipping handshake with $publicAddress. Host is null" }
+            return true
         }
 
         val address =
             try {
                 InetAddress.getByName(publicAddress.host)
             } catch (e: Exception) {
-                logger.trace(e) { "Error while trying to resolve $publicAddress" }
+                logger.trace(e) { "Skipping handshake with $publicAddress. Can't resolve host" }
                 return true
             }
 
-        return handshakes.contains(publicAddress) ||
-            peers.containsKey(publicAddress) ||
-            bannedNodes.contains(address)
+        if (handshakes.contains(publicAddress)) {
+            logger.trace { "Skipping handshake with $publicAddress. Handshake already started" }
+            return true
+        }
+
+        if (peers.containsKey(publicAddress)) {
+            logger.trace { "Skipping handshake with $publicAddress. Already a peer" }
+            return true
+        }
+
+        if (bannedNodes.contains(address)) {
+            logger.trace { "Skipping handshake with $publicAddress. Node in the ban list" }
+            return true
+        }
+
+        return false
     }
 
     override fun clear() {
