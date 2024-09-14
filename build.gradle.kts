@@ -126,8 +126,6 @@ graalvmNative {
             buildArgs.add("--initialize-at-run-time=java.net.Inet4AddressImpl,java.net.Inet6AddressImpl,java.net.InetAddress")
             buildArgs.add("-Djava.net.preferIPv6Addresses=true")
             buildArgs.add("--enable-all-security-services")
-            buildArgs.add("-H:+TraceClassInitialization")
-            buildArgs.add("-H:+ReportExceptionStackTraces")
         }
     }
 }
