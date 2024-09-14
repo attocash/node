@@ -124,6 +124,7 @@ graalvmNative {
             buildArgs.add("--enable-http")
             buildArgs.add("--enable-https")
             buildArgs.add("--initialize-at-run-time=java.net.Inet6AddressImpl,java.net.InetAddress")
+            buildArgs.add("-Djava.net.preferIPv6Addresses=true")
         }
     }
 }
