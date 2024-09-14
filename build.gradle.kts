@@ -123,6 +123,7 @@ graalvmNative {
             buildArgs.add("--strict-image-heap")
             buildArgs.add("--enable-http")
             buildArgs.add("--enable-https")
+            buildArgs.add("--initialize-at-run-time=java.net.Inet6AddressImpl,java.net.InetAddress")
         }
     }
 }
