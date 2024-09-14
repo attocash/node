@@ -112,11 +112,18 @@ tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
+    jvmArgs(
+        "-Djava.net.preferIPv4Stack=false",
+        "-Djava.net.preferIPv6Stack=true",
+    )
 }
 
 graalvmNative {
     binaries {
         named("main") {
+            systemProperties.put("java.net.preferIPv6Addresses", "true")
+            systemProperties.put("java.net.preferIPv4Addresses", "false")
+
             buildArgs.add("--static")
             buildArgs.add("--libc=musl")
             buildArgs.add("--gc=G1")
