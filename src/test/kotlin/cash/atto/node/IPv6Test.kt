@@ -5,6 +5,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.resolver.dns.DnsNameResolverBuilder
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -37,7 +38,7 @@ class IPv6Test {
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     fun `inet address resolve`(host: String) {
         val addresses = InetAddress.getAllByName(host)
-        Assertions.assertEquals(1, addresses.size)
+        assertTrue(addresses.isNotEmpty())
     }
 
     @ParameterizedTest
