@@ -19,6 +19,8 @@ jobs:
           distribution: 'graalvm'
           java-version: '21'
           native-image-musl: true
+          components: 'native-image'
+          cache: 'gradle'
 
       - uses: gradle/gradle-build-action@v3
 
