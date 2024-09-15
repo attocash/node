@@ -2,10 +2,10 @@ package cash.atto.node
 
 import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.nio.NioDatagramChannel
+import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.resolver.dns.DnsNameResolverBuilder
 import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.Assertions
-import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.assertNotNull
 import org.junit.jupiter.api.Timeout
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
@@ -37,8 +37,8 @@ class IPv6Test {
     @MethodSource("hosts")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     fun `inet address resolve`(host: String) {
-        val addresses = InetAddress.getAllByName(host)
-        assertTrue(addresses.isNotEmpty())
+        val address = InetAddress.getByName(host)
+        assertNotNull(address)
     }
 
     @ParameterizedTest
@@ -48,6 +48,7 @@ class IPv6Test {
         val resolver =
             DnsNameResolverBuilder(eventLoopGroup.next())
                 .channelType(NioDatagramChannel::class.java)
+                .socketChannelType(NioSocketChannel::class.java, true)
                 .build()
 
         val addressFuture = resolver.resolve(host)
