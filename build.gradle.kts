@@ -112,27 +112,15 @@ tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
-    jvmArgs(
-        "-Djava.net.preferIPv4Stack=false",
-        "-Djava.net.preferIPv6Stack=true",
-    )
 }
 
 graalvmNative {
     binaries {
         named("main") {
-            systemProperties.put("java.net.preferIPv6Addresses", "true")
-            systemProperties.put("java.net.preferIPv4Addresses", "false")
-
             buildArgs.add("--static")
             buildArgs.add("--libc=musl")
             buildArgs.add("--gc=G1")
             buildArgs.add("--strict-image-heap")
-            buildArgs.add("--enable-http")
-            buildArgs.add("--enable-https")
-            buildArgs.add("--initialize-at-run-time=java.net.Inet4AddressImpl,java.net.Inet6AddressImpl,java.net.InetAddress")
-            buildArgs.add("-Djava.net.preferIPv6Addresses=true")
-            buildArgs.add("--enable-all-security-services")
         }
     }
 }
