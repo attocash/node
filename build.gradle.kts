@@ -112,14 +112,11 @@ tasks.withType<Test> {
     environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
-    jvmArgs.add("-Dio.netty.transport.noNative=true")
 }
 
 graalvmNative {
     binaries {
         named("main") {
-            jvmArgs.add("-Dio.netty.transport.noNative=true")
-
             buildArgs.add("--static")
             buildArgs.add("--libc=musl")
             buildArgs.add("--gc=G1")
