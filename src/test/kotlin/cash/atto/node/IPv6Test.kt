@@ -50,7 +50,7 @@ class IPv6Test {
                 .channelType(NioDatagramChannel::class.java)
                 .build()
 
-        val addressFuture = resolver.resolve(ipv6Host)
+        val addressFuture = resolver.resolve(host)
 
         addressFuture.get()
     }
