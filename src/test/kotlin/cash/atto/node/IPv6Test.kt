@@ -45,6 +45,8 @@ class IPv6Test {
     @MethodSource("hosts")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     fun `netty should resolve`(host: String) {
+        System.setProperty("io.netty.transport.noNative" , "true");
+
         val resolver =
             DnsNameResolverBuilder(eventLoopGroup.next())
                 .channelType(NioDatagramChannel::class.java)
