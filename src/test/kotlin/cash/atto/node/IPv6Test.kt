@@ -45,16 +45,21 @@ class IPv6Test {
     @MethodSource("hosts")
     @Timeout(value = 5, unit = TimeUnit.SECONDS)
     fun `netty should resolve`(host: String) {
-        System.setProperty("io.netty.transport.noNative" , "true");
-
         val resolver =
             DnsNameResolverBuilder(eventLoopGroup.next())
                 .channelType(NioDatagramChannel::class.java)
                 .socketChannelType(NioSocketChannel::class.java, true)
                 .build()
 
-        val addressFuture = resolver.resolve(host)
+        try {
 
-        addressFuture.get()
+            val addressFuture = resolver.resolve(host)
+
+            addressFuture.get()
+        } catch (e : Exception) { // issue: https://github.com/netty/netty/issues/13660
+            if (host != ipv6Host) {
+                throw e
+            }
+        }
     }
 }
