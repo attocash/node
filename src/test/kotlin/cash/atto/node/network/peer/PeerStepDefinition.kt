@@ -8,6 +8,7 @@ import cash.atto.node.Waiter.waitUntilNonNull
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
+import kotlinx.coroutines.runBlocking
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 
@@ -21,7 +22,9 @@ class PeerStepDefinition(
     fun startPeer(shortId: String) {
         nodeStepDefinition.startNeighbour(shortId)
         nodeStepDefinition.setAsDefaultNode()
-        handshakeService.startDefaultHandshake()
+        runBlocking {
+            handshakeService.startDefaultHandshake()
+        }
 
         checkPeer("THIS", shortId)
         checkPeer(shortId, "THIS")
@@ -31,7 +34,9 @@ class PeerStepDefinition(
 
     @When("default handshake starts")
     fun startDefaultHandshake() {
-        handshakeService.startDefaultHandshake()
+        runBlocking {
+            handshakeService.startDefaultHandshake()
+        }
     }
 
     @Then("^(\\w+) node is (\\w+) node peer$")

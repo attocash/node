@@ -15,6 +15,8 @@ import cash.atto.protocol.AttoHandshakeChallenge
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -73,18 +75,20 @@ class HandshakeService(
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    fun startDefaultHandshake() {
+    suspend fun startDefaultHandshake() {
         if (peers.size > properties.defaultNodes.size) {
             return
         }
 
-        properties
-            .defaultNodes
-            .asSequence()
-            .map { URI(it) }
-            .forEach {
-                startHandshake(it)
-            }
+        withContext(Dispatchers.IO) {
+            properties
+                .defaultNodes
+                .asSequence()
+                .map { URI(it) }
+                .forEach {
+                    startHandshake(it)
+                }
+        }
     }
 
     fun startHandshake(publicUri: URI) {

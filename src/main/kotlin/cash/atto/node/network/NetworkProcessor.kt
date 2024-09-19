@@ -42,6 +42,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
 import kotlinx.io.Buffer
 import kotlinx.io.readByteArray
 import org.springframework.context.event.EventListener
@@ -96,7 +97,13 @@ class NetworkProcessor(
             .build<String, String>()
             .asMap()
 
-    private val client = HttpClient(CIO)
+    private val httpClient = HttpClient(CIO)
+
+    private val websocketClient = HttpClient(CIO) {
+        install(io.ktor.client.plugins.websocket.WebSockets) {
+            maxFrameSize = MAX_MESSAGE_SIZE.toLong()
+        }
+    }
 
     private val server = embeddedServer(Netty, port = port) {
         install(io.ktor.server.websocket.WebSockets) {
@@ -122,7 +129,7 @@ class NetworkProcessor(
                         .replaceFirst("wss://", "https://")
                         .replaceFirst("ws://", "http://")
 
-                    val response = client.post("$httpUri/challenges/$challenge")
+                    val response = httpClient.post("$httpUri/challenges/$challenge")
 
                     val genesisMatches = genesis == genesisTransaction.hash.toString()
                     val protocolVersionMatches =
@@ -179,11 +186,13 @@ class NetworkProcessor(
     @EventListener
     suspend fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
-        connections
-            .keys
-            .asSequence()
-            .filter { InetAddress.getByName(it.host) == event.address }
-            .forEach { disconnectFlow.emit(it) }
+        withContext(Dispatchers.IO) {
+            connections
+                .keys
+                .asSequence()
+                .filter { InetAddress.getByName(it.host) == event.address }
+                .forEach { disconnectFlow.emit(it) }
+        }
     }
 
     @EventListener
@@ -203,15 +212,9 @@ class NetworkProcessor(
                     }
                 challenges[challenge] = challenge
 
-                val client = HttpClient(CIO) {
-                    install(io.ktor.client.plugins.websocket.WebSockets) {
-                        maxFrameSize = MAX_MESSAGE_SIZE.toLong()
-                    }
-                }
-
                 defaultScope.launch {
                     try {
-                        client.webSocket(
+                        websocketClient.webSocket(
                             method = HttpMethod.Get,
                             host = publicUri.host,
                             port = if (publicUri.port == -1) 80 else publicUri.port,
@@ -229,8 +232,6 @@ class NetworkProcessor(
                         }
                     } catch (e: Exception) {
                         logger.error(e) { "Failed to connect to $publicUri" }
-                    } finally {
-                        client.close()
                     }
                 }
             }
@@ -249,7 +250,9 @@ class NetworkProcessor(
         session: WebSocketSession,
         initialMessage: OutboundNetworkMessage<*>? = null,
     ) {
-        val remoteAddress = InetAddress.getByName(remoteHost)
+        val remoteAddress = withContext(Dispatchers.IO) {
+            InetAddress.getByName(remoteHost)
+        }
         if (bannedNodes.contains(remoteAddress)) {
             session.close(CloseReason(CloseReason.Codes.NORMAL, "Banned"))
             return
