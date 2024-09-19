@@ -67,6 +67,10 @@ class NetworkProcessor(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
+    init {
+        logger.info { "NetworkProcessor initialized." }
+    }
+
     companion object {
         const val MAX_MESSAGE_SIZE = 272
         const val GENESIS_HEADER = "Atto-Genesis"
@@ -113,23 +117,30 @@ class NetworkProcessor(
             post("/challenges/{challenge}") {
                 val challenge = call.parameters["challenge"] ?: ""
                 if (challenges.remove(challenge) == null) {
+                    logger.trace { "Received invalid challenge request: $challenge" }
                     call.respond(HttpStatusCode.NotFound)
                 } else {
+                    logger.trace { "Challenge $challenge validated successfully" }
                     call.respond(HttpStatusCode.OK)
                 }
             }
             webSocket("/") {
                 try {
+                    logger.info { "New websocket connection attempt from ${call.request.origin.remoteHost}" }
                     val genesis = call.request.headers[GENESIS_HEADER]
                     val publicUri = URI(call.request.headers[PUBLIC_URI_HEADER])
                     val protocolVersion = call.request.headers[PROTOCOL_VERSION_HEADER]?.toUShort() ?: 0U
                     val challenge = call.request.headers[CHALLENGE_HEADER]
+
+                    logger.trace { "Headers received: genesis=$genesis, publicUri=$publicUri, protocolVersion=$protocolVersion, challenge=$challenge" }
 
                     val httpUri = publicUri.toString()
                         .replaceFirst("wss://", "https://")
                         .replaceFirst("ws://", "http://")
 
                     val response = httpClient.post("$httpUri/challenges/$challenge")
+
+                    logger.trace { "Challenge response status from $httpUri: ${response.status}" }
 
                     val genesisMatches = genesis == genesisTransaction.hash.toString()
                     val protocolVersionMatches =
@@ -152,10 +163,12 @@ class NetworkProcessor(
                         }
                         close(CloseReason(CloseReason.Codes.NORMAL, "Protocol version not supported"))
                     } else {
+                        logger.trace { "Connection from $publicUri accepted, preparing connection..." }
                         connections[publicUri] = publicUri
                         prepareConnection(publicUri, call.request.origin.remoteHost, this)
                     }
                 } catch (e: Exception) {
+                    logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                     close(CloseReason(CloseReason.Codes.NORMAL, "Exception during handshake"))
                 }
             }
@@ -164,6 +177,7 @@ class NetworkProcessor(
 
     @PreDestroy
     fun stop() {
+        logger.trace { "Stopping NetworkProcessor, clearing resources and stopping server." }
         clear()
         server.stop(1000, 5000)
     }
@@ -186,6 +200,7 @@ class NetworkProcessor(
     @EventListener
     suspend fun ban(event: NodeBanned) {
         bannedNodes.add(event.address)
+        logger.info { "Node banned: ${event.address}, disconnecting associated connections." }
         withContext(Dispatchers.IO) {
             connections
                 .keys
@@ -198,10 +213,12 @@ class NetworkProcessor(
     @EventListener
     suspend fun outbound(message: DirectNetworkMessage<*>) {
         val publicUri = message.publicUri
+        logger.trace { "Processing outbound message to $publicUri: ${message.payload}" }
 
         connections.compute(publicUri) { _, v ->
             if (v != null) {
                 defaultScope.launch {
+                    logger.trace { "Emitting message to existing connection $publicUri" }
                     outboundFlow.emit(message)
                 }
             } else {
@@ -211,6 +228,8 @@ class NetworkProcessor(
                         it.toHex()
                     }
                 challenges[challenge] = challenge
+
+                logger.debug { "No existing connection to $publicUri, initiating new connection with challenge $challenge" }
 
                 defaultScope.launch {
                     try {
@@ -250,10 +269,13 @@ class NetworkProcessor(
         session: WebSocketSession,
         initialMessage: OutboundNetworkMessage<*>? = null,
     ) {
+        logger.trace { "Preparing connection with $publicUri (remoteHost=$remoteHost)" }
+
         val remoteAddress = withContext(Dispatchers.IO) {
             InetAddress.getByName(remoteHost)
         }
         if (bannedNodes.contains(remoteAddress)) {
+            logger.info { "Connection attempt from banned address $remoteAddress ($publicUri), closing session." }
             session.close(CloseReason(CloseReason.Codes.NORMAL, "Banned"))
             return
         }
@@ -268,10 +290,12 @@ class NetworkProcessor(
                         logger.debug { "Received from $publicUri ${buffer.toHex()}" }
                         val message = deserializeOrDisconnect(publicUri, buffer) {
                             defaultScope.launch {
+                                logger.trace { "Invalid message from $publicUri, closing session." }
                                 session.close(CloseReason(CloseReason.Codes.NORMAL, "Invalid message"))
                             }
                         }
                         if (message != null) {
+                            logger.trace { "Received message $message from $publicUri" }
                             if (message == AttoReady && initialMessage != null) {
                                 outboundFlow.emit(initialMessage)
                             } else {
@@ -285,6 +309,7 @@ class NetworkProcessor(
                             }
                         }
                     } else {
+                        logger.trace { "Received non-binary frame from $publicUri, closing session." }
                         session.close(CloseReason(CloseReason.Codes.NORMAL, "Invalid frame type"))
                     }
                 }
@@ -293,6 +318,7 @@ class NetworkProcessor(
             } finally {
                 connections.remove(publicUri)
                 eventPublisher.publish(NodeDisconnected(publicUri))
+                logger.trace { "Connection with $publicUri closed." }
             }
         }
 
@@ -326,6 +352,7 @@ class NetworkProcessor(
             } finally {
                 connections.remove(publicUri)
                 eventPublisher.publish(NodeDisconnected(publicUri))
+                logger.trace { "Outbound job with $publicUri terminated." }
             }
         }
 
@@ -333,6 +360,7 @@ class NetworkProcessor(
             disconnectFlow
                 .filter { it == publicUri }
                 .collect {
+                    logger.trace { "Disconnect signal received for $publicUri, closing session." }
                     session.close(CloseReason(CloseReason.Codes.NORMAL, "Disconnected"))
                 }
         }
@@ -368,21 +396,27 @@ class NetworkProcessor(
         buffer: Buffer,
         disconnect: () -> Any,
     ): AttoMessage? {
-        val message = NetworkSerializer.deserialize(buffer)
+        try {
+            val message = NetworkSerializer.deserialize(buffer)
 
-        if (message == null) {
-            logger.trace { "Received invalid message from $publicUri ${buffer.toHex()}. Disconnecting..." }
-            disconnect.invoke()
-            return null
-        } else if (message.messageType().private && !peers.containsKey(publicUri)) {
-            logger.trace { "Received private message from the unknown $publicUri ${buffer.toHex()}. Disconnecting..." }
+            if (message == null) {
+                logger.trace { "Received invalid message from $publicUri ${buffer.toHex()}. Disconnecting..." } // Changed log level
+                disconnect.invoke()
+                return null
+            } else if (message.messageType().private && !peers.containsKey(publicUri)) {
+                logger.trace { "Received private message from unknown $publicUri ${buffer.toHex()}. Disconnecting..." } // Changed log level
+                disconnect.invoke()
+                return null
+            }
+
+            logger.trace { "Deserialized $message from ${buffer.toHex()}" }
+
+            return message
+        } catch (e: Exception) {
+            logger.trace(e) { "Error during deserialization from $publicUri" }
             disconnect.invoke()
             return null
         }
-
-        logger.trace { "Deserialized $message from ${buffer.toHex()}" }
-
-        return message
     }
 
     /**
@@ -405,6 +439,7 @@ class NetworkProcessor(
     }
 
     override fun clear() {
+        logger.info { "Clearing NetworkProcessor caches and disconnecting peers." }
         peers.clear()
         bannedNodes.clear()
 
