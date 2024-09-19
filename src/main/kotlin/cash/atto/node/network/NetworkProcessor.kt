@@ -1,7 +1,6 @@
 package cash.atto.node.network
 
 import cash.atto.commons.toHex
-import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.attoCoroutineExceptionHandler
@@ -53,11 +52,9 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.security.SecureRandom
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
 import java.util.concurrent.TimeUnit
 import kotlin.collections.set
 import kotlin.system.exitProcess
-import kotlin.time.Duration.Companion.milliseconds
 
 @Service
 class NetworkProcessor(
@@ -66,8 +63,7 @@ class NetworkProcessor(
     private val genesisTransaction: Transaction,
     private val thisNode: AttoNode,
     environment: Environment,
-) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds),
-    CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
@@ -84,10 +80,9 @@ class NetworkProcessor(
 
     private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
 
-    private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
     private val connections = ConcurrentHashMap<URI, URI>()
-    private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>()
     private val disconnectFlow = MutableSharedFlow<URI>()
+    private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>(10_000)
 
     private val port = environment.getRequiredProperty("websocket.port", Int::class.java)
 
@@ -161,10 +156,9 @@ class NetworkProcessor(
     }.start(wait = false)
 
     @PreDestroy
-    override fun stop() {
+    fun stop() {
         clear()
         server.stop(1000, 5000)
-        this.stop()
     }
 
     @EventListener
@@ -198,7 +192,9 @@ class NetworkProcessor(
 
         connections.compute(publicUri) { _, v ->
             if (v != null) {
-                messageQueue.add(message)
+                defaultScope.launch {
+                    outboundFlow.emit(message)
+                }
             } else {
                 val challenge =
                     ByteArray(128).let {
@@ -244,15 +240,7 @@ class NetworkProcessor(
 
     @EventListener
     suspend fun outbound(message: BroadcastNetworkMessage<*>) {
-        messageQueue.add(message)
-    }
-
-    override suspend fun poll(): OutboundNetworkMessage<*>? {
-        return messageQueue.poll()
-    }
-
-    override suspend fun process(value: OutboundNetworkMessage<*>) {
-        outboundFlow.emit(value)
+        outboundFlow.emit(message)
     }
 
     private suspend fun prepareConnection(
@@ -282,7 +270,7 @@ class NetworkProcessor(
                         }
                         if (message != null) {
                             if (message == AttoReady && initialMessage != null) {
-                                messageQueue.add(initialMessage)
+                                outboundFlow.emit(initialMessage)
                             } else {
                                 val inboundMessage = InboundNetworkMessage(
                                     MessageSource.WEBSOCKET,
@@ -310,7 +298,7 @@ class NetworkProcessor(
                 outboundFlow
                     .onSubscription {
                         if (initialMessage == null) {
-                            messageQueue.add(DirectNetworkMessage(publicUri, AttoReady))
+                            outboundFlow.emit(DirectNetworkMessage(publicUri, AttoReady))
                         }
                     }
                     .filter {
@@ -416,7 +404,6 @@ class NetworkProcessor(
     override fun clear() {
         peers.clear()
         bannedNodes.clear()
-        messageQueue.clear()
 
         connections.forEach {
             runBlocking { disconnectFlow.emit(it.key) }
