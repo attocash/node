@@ -12,8 +12,8 @@ import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.peer.PeerConnected
-import cash.atto.node.network.peer.PeerRemoved
+import cash.atto.node.network.NodeConnected
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
@@ -50,18 +50,18 @@ class GapDiscoverer(
             .asMap()
 
     @EventListener
-    fun add(peerEvent: PeerConnected) {
-        val peer = peerEvent.peer
-        if (!peer.node.isHistorical()) {
+    fun add(nodeEvent: NodeConnected) {
+        val node = nodeEvent.node
+        if (!node.isHistorical()) {
             return
         }
-        peers.add(peer.node.publicUri)
+        peers.add(node.publicUri)
     }
 
     @EventListener
-    fun remove(peerEvent: PeerRemoved) {
-        val peer = peerEvent.peer
-        peers.remove(peer.node.publicUri)
+    fun remove(nodeEvent: NodeDisconnected) {
+        val node = nodeEvent.node
+        peers.remove(node.publicUri)
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)

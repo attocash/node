@@ -58,12 +58,18 @@ dependencies {
 
     implementation("io.ktor:ktor-server-netty:$ktorVersion")
     implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+
     implementation("io.ktor:ktor-server-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+
     implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
 
     implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:$springdocVersion")
 
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("dev.hsbrysk:caffeine-coroutines:1.2.0")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 

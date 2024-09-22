@@ -52,11 +52,11 @@ class IPv6Test {
                 .build()
 
         try {
-
             val addressFuture = resolver.resolve(host)
 
             addressFuture.get()
-        } catch (e : Exception) { // issue: https://github.com/netty/netty/issues/13660
+        } catch (e: Exception) {
+            // issue: https://github.com/netty/netty/issues/13660
             if (host != ipv6Host) {
                 throw e
             }

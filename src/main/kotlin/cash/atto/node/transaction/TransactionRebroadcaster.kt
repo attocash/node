@@ -111,7 +111,10 @@ private class BroadcastQueue {
     private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
     private val transactionQueue = Channel<TransactionSocketAddressHolder>(capacity = UNLIMITED)
 
-    fun seen(transaction: AttoTransaction, publicUri: URI) {
+    fun seen(
+        transaction: AttoTransaction,
+        publicUri: URI,
+    ) {
         holderMap.compute(transaction.hash) { _, v ->
             val holder = v ?: TransactionSocketAddressHolder(transaction)
             holder.add(publicUri)

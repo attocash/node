@@ -5,6 +5,7 @@ import cash.atto.node.Neighbour
 import cash.atto.node.NodeStepDefinition
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter.waitUntilNonNull
+import cash.atto.node.network.NetworkProcessor
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
@@ -14,8 +15,7 @@ import org.springframework.web.reactive.function.client.bodyToMono
 
 class PeerStepDefinition(
     private val nodeStepDefinition: NodeStepDefinition,
-    private val handshakeService: HandshakeService,
-    private val peerManager: PeerManager,
+    private val networkProcessor: NetworkProcessor,
     private val webClient: WebClient,
 ) {
     @Given("^the peer (\\w+)$")
@@ -23,19 +23,17 @@ class PeerStepDefinition(
         nodeStepDefinition.startNeighbour(shortId)
         nodeStepDefinition.setAsDefaultNode()
         runBlocking {
-            handshakeService.startDefaultHandshake()
+            networkProcessor.boostrap()
         }
 
         checkPeer("THIS", shortId)
         checkPeer(shortId, "THIS")
-
-        peerManager.sendKeepAlive()
     }
 
     @When("default handshake starts")
     fun startDefaultHandshake() {
         runBlocking {
-            handshakeService.startDefaultHandshake()
+            networkProcessor.boostrap()
         }
     }
 

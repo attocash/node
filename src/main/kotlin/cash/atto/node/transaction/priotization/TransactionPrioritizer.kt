@@ -53,7 +53,6 @@ class TransactionPrioritizer(
                 val transaction = queue.poll()
                 transaction?.let {
                     eventPublisher.publish(TransactionReceived(it))
-
                 }
             } while (transaction != null)
         }

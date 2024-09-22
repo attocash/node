@@ -2,7 +2,7 @@ package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
-import cash.atto.node.network.peer.PeerProperties
+import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration
 import cash.atto.protocol.AttoNode
@@ -19,7 +19,7 @@ class CucumberConfiguration(
     val context: ConfigurableApplicationContext,
     val genesisTransaction: Transaction,
     val thisNode: AttoNode,
-    val peerProperties: PeerProperties,
+    val networkProperties: NetworkProperties,
     val privateKey: AttoPrivateKey,
     val transactionConfiguration: TransactionConfiguration,
     val caches: List<CacheSupport>,
@@ -41,7 +41,7 @@ class CucumberConfiguration(
                 it.init()
             }
 
-            peerProperties.defaultNodes = mutableSetOf()
+            networkProperties.defaultNodes = mutableSetOf()
 
             PropertyHolder.clear()
             PropertyHolder.add("THIS", context)
