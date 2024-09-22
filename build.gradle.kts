@@ -69,7 +69,6 @@ dependencies {
     implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:$springdocVersion")
 
     implementation("com.github.ben-manes.caffeine:caffeine")
-    implementation("dev.hsbrysk:caffeine-coroutines:1.2.0")
 
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin")
 
