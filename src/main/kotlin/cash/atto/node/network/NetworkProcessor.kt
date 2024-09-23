@@ -132,49 +132,54 @@ class NetworkProcessor(
             }
             routing {
                 post("/handshakes") {
-                    val remoteHost = call.request.origin.remoteHost
-                    val counterResponse = call.receive<CounterChallengeResponse>()
-                    val node = counterResponse.node
-                    val publicUri = node.publicUri
-                    val challenge = counterResponse.challenge
+                    try {
+                        val remoteHost = call.request.origin.remoteHost
+                        val counterResponse = call.receive<CounterChallengeResponse>()
+                        val node = counterResponse.node
+                        val publicUri = node.publicUri
+                        val challenge = counterResponse.challenge
 
-                    if (!ChallengeStore.remove(publicUri, challenge)) {
-                        logger.trace { "Received invalid challenge request from $publicUri $remoteHost $counterResponse" }
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                        if (!ChallengeStore.remove(publicUri, challenge)) {
+                            logger.trace { "Received invalid challenge request from $publicUri $remoteHost $counterResponse" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
 
-                    val nonce = counterResponse.nonce
-                    val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
+                        val nonce = counterResponse.nonce
+                        val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
 
-                    val signature = counterResponse.signature
-                    if (!signature.isValid(node.publicKey, hash)) {
-                        logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
-                        call.respond(HttpStatusCode.BadRequest)
-                        return@post
-                    }
+                        val signature = counterResponse.signature
+                        if (!signature.isValid(node.publicKey, hash)) {
+                            logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
 
-                    logger.trace { "Challenge $challenge validated successfully" }
+                        logger.trace { "Challenge $challenge validated successfully" }
 
-                    val counterHash = AttoHash.hash(64, counterResponse.counterChallenge.fromHexToByteArray(), nonce.toByteArray())
+                        val counterHash = AttoHash.hash(64, counterResponse.counterChallenge.fromHexToByteArray(), nonce.toByteArray())
 
-                    val response =
-                        ChallengeResponse(
-                            thisNode,
-                            privateKey.sign(counterHash),
-                        )
+                        val response =
+                            ChallengeResponse(
+                                thisNode,
+                                privateKey.sign(counterHash),
+                            )
 
-                    val connectingFlow = connectingMap[publicUri]
+                        val connectingFlow = connectingMap[publicUri]
 
-                    if (connectingFlow == null) {
-                        logger.trace { "Received valid handshake but connection already expired" }
+                        if (connectingFlow == null) {
+                            logger.trace { "Received valid handshake but connection already expired" }
+                            call.respond(HttpStatusCode.InternalServerError)
+                            return@post
+                        }
+
+                        connectingFlow.emit(node)
+
+                        call.respond(HttpStatusCode.OK, response)
+                    } catch (e: Exception) {
+                        logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                         call.respond(HttpStatusCode.InternalServerError)
-                        return@post
                     }
-
-                    connectingFlow.emit(node)
-
-                    call.respond(HttpStatusCode.OK, response)
                 }
                 webSocket(path = "/") {
                     try {
@@ -256,8 +261,12 @@ class NetworkProcessor(
 
     @PostConstruct
     fun start() {
-        runBlocking {
-            boostrap()
+        try {
+            runBlocking {
+                boostrap()
+            }
+        } catch (e : Exception) {
+            logger.trace { "Failed initial bootstrap. Retrying later... " }
         }
     }
 
