@@ -337,6 +337,7 @@ class NetworkProcessor(
             }
         } catch (e: Exception) {
             logger.trace(e) { "Exception while trying to connect to $publicUri" }
+        } finally {
             connectingMap.remove(publicUri)
         }
     }
