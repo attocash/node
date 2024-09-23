@@ -43,7 +43,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -261,12 +260,8 @@ class NetworkProcessor(
 
     @PostConstruct
     fun start() {
-        try {
-            runBlocking {
-                boostrap()
-            }
-        } catch (e : Exception) {
-            logger.trace { "Failed initial bootstrap. Retrying later... " }
+        runBlocking {
+            boostrap()
         }
     }
 
@@ -296,50 +291,53 @@ class NetworkProcessor(
     }
 
     private suspend fun connection(publicUri: URI) {
-        if (connectionManager.isConnected(publicUri)) {
+        if (connectionManager.isConnected(publicUri) || connectingMap.containsKey(publicUri)) {
             return
         }
 
         logger.trace { "Connecting to $publicUri" }
 
-        val connectingFlow = MutableSharedFlow<AttoNode>(1)
+        try {
+            val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
-        connectingMap[publicUri] = connectingFlow
+            connectingMap[publicUri] = connectingFlow
 
-        val session =
-            websocketClient.webSocketSession(publicUri.toString()) {
-                header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
-                header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
+            val session =
+                websocketClient.webSocketSession(publicUri.toString()) {
+                    header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
+                    header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
+                }
+
+            val connectionSocketAddress =
+                InetSocketAddress(
+                    session
+                        .call
+                        .request
+                        .url
+                        .host,
+                    session
+                        .call
+                        .request
+                        .url
+                        .port,
+                )
+
+            val node =
+                withTimeoutOrNull(5_000) {
+                    connectingFlow.first()
+                }
+
+            if (node == null) {
+                logger.trace { "Handshake timed out" }
+                return
             }
 
-        val connectionSocketAddress =
-            InetSocketAddress(
-                session
-                    .call
-                    .request
-                    .url
-                    .host,
-                session
-                    .call
-                    .request
-                    .url
-                    .port,
-            )
-
-        val node =
-            withTimeoutOrNull(5_000) {
-                connectingFlow
-                    .onCompletion { connectingMap.remove(publicUri) }
-                    .first()
+            defaultScope.launch {
+                connectionManager.manage(node, connectionSocketAddress, session)
             }
-
-        if (node == null) {
-            logger.trace { "Handshake timed out" }
-            return
-        }
-
-        defaultScope.launch {
-            connectionManager.manage(node, connectionSocketAddress, session)
+        } catch (e: Exception) {
+            logger.trace(e) { "Exception while trying to connect to $publicUri" }
+            connectingMap.remove(publicUri)
         }
     }
 }
@@ -359,9 +357,3 @@ private data class CounterChallengeResponse(
     val signature: AttoSignature,
     val counterChallenge: String,
 )
-
-private enum class NodeConnectionStatus {
-    CONNECTING,
-    CONNECTED,
-    DISCONNECTED,
-}
