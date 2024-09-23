@@ -15,7 +15,6 @@ import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -98,7 +97,7 @@ class NodeConnectionManager(
                     InboundNetworkMessage(
                         MessageSource.WEBSOCKET,
                         publicUri,
-                        InetSocketAddress(publicUri.host, publicUri.port),
+                        connectionSocketAddress,
                         message,
                     )
 
@@ -168,12 +167,6 @@ class NodeConnectionManager(
                 .incoming
                 .consumeAsFlow()
                 .map { it.readBytes() }
-                .filter {
-                    if (it.isEmpty()) {
-                        logger.trace { "Received empty frame from ${node.publicUri}" }
-                    }
-                    return@filter it.isNotEmpty()
-                }
         }
 
         suspend fun disconnected() {
