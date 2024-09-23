@@ -291,7 +291,7 @@ class NetworkProcessor(
     }
 
     private suspend fun connection(publicUri: URI) {
-        if (connectionManager.isConnected(publicUri) || connectingMap.containsKey(publicUri)) {
+        if (publicUri == thisNode.publicUri || connectionManager.isConnected(publicUri) || connectingMap.containsKey(publicUri)) {
             return
         }
 
