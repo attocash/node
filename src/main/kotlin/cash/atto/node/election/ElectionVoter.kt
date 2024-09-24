@@ -1,16 +1,21 @@
 package cash.atto.node.election
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoUnit
+import cash.atto.commons.sign
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.transaction.*
 import cash.atto.node.transaction.PublicKeyHeight
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.TransactionRejectionReason
+import cash.atto.node.transaction.TransactionRepository
 import cash.atto.node.transaction.TransactionSaveSource
 import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.vote.Vote
@@ -72,6 +77,7 @@ class ElectionVoter(
 
         val oldTransaction = transactions[publicKeyHeight]
         if (oldTransaction != transaction) {
+            logger.trace { "Consensus changed from ${oldTransaction?.hash} to ${transaction.hash}" }
             transactions[publicKeyHeight] = transaction
             vote(transaction, Instant.now())
         }
@@ -131,7 +137,7 @@ class ElectionVoter(
     ) {
         val weight = voteWeighter.get()
         if (!canVote(weight)) {
-            logger.trace { "This $thisNode can't vote" }
+            logger.trace { "This node can't vote yet" }
             return
         }
 
@@ -173,6 +179,7 @@ class ElectionVoter(
         val publicKeyHeight = transaction.toPublicKeyHeight()
         transactions.remove(publicKeyHeight)
         agreements.remove(publicKeyHeight)
+        logger.trace { "Removed ${transaction.hash} from the voter queue" }
     }
 
     override fun clear() {

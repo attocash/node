@@ -112,12 +112,14 @@ class Election(
         if (consensusTransactionElection != null) {
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
+            logger.trace { "Consensus reached. Transaction ${finalTransaction.hash} was chosen." }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withContext
         }
 
         val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
+        logger.trace { "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader." }
         eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
     }
 
