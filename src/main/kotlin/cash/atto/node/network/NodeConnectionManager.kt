@@ -136,6 +136,7 @@ class NodeConnectionManager(
                 .asSequence()
                 .filter { strategy.shouldBroadcast(it.node) }
                 .forEach {
+                    logger.trace { "Sending to ${it.node.publicUri} $message" }
                     launch {
                         send(it.node.publicUri, serialized)
                     }
@@ -166,12 +167,13 @@ class NodeConnectionManager(
             return session
                 .incoming
                 .consumeAsFlow()
+                .onStart { logger.info { "Connected to ${node.publicUri}" } }
+                .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
         }
 
         suspend fun disconnected() {
             if (session.isActive) {
-                logger.info { "Disconnected from $connectionInetSocketAddress" }
                 session.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Disconnecting..."))
             }
         }

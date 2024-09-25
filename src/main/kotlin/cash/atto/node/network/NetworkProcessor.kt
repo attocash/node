@@ -185,7 +185,7 @@ class NetworkProcessor(
                         val remoteHost = call.request.origin.remoteHost
                         val port = call.request.origin.localPort
 
-                        logger.info { "New websocket connection attempt from $remoteHost" }
+                        logger.trace { "New websocket connection attempt from $remoteHost" }
 
                         val publicUri = URI(call.request.headers[PUBLIC_URI_HEADER]!!)
                         val challenge = call.request.headers[CHALLENGE_HEADER]!!
