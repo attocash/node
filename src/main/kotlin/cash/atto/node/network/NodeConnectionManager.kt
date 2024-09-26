@@ -91,7 +91,7 @@ class NodeConnectionManager(
                     connectionMap.computeIfPresent(publicUri) { _, value -> value }
                 }
 
-                logger.trace { "Received from $publicUri $message ${it.toHex()}" }
+                logger.debug { "Received from $publicUri $message ${it.toHex()}" }
 
                 val networkMessage =
                     InboundNetworkMessage(
@@ -118,7 +118,7 @@ class NodeConnectionManager(
         val message = networkMessage.payload
         val serialized = NetworkSerializer.serialize(message)
 
-        logger.trace { "Sending to $publicUri $message ${serialized.toHex()}" }
+        logger.debug { "Sending to $publicUri $message ${serialized.toHex()}" }
         send(publicUri, serialized)
     }
 
@@ -128,7 +128,7 @@ class NodeConnectionManager(
         val message = networkMessage.payload
         val serialized = NetworkSerializer.serialize(message)
 
-        logger.trace { "Broadcasting peers $message ${serialized.toHex()}" }
+        logger.debug { "Broadcasting peers $message ${serialized.toHex()}" }
 
         withContext(Dispatchers.Default) {
             connectionMap
