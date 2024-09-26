@@ -97,9 +97,15 @@ class Election(
     ) = withContext(singleDispatcher) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight] ?: return@withContext
-
         logger.trace { "Processing $vote" }
+
+        val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight]
+
+        if (publicKeyHeightElection == null) {
+            logger.trace { "Election for $publicKeyHeight not found. Vote will be ignored" }
+            return@withContext
+        }
+
 
         if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
