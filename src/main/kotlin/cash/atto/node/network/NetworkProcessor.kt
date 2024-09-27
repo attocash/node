@@ -291,7 +291,18 @@ class NetworkProcessor(
     }
 
     private suspend fun connection(publicUri: URI) {
-        if (publicUri == thisNode.publicUri || connectionManager.isConnected(publicUri) || connectingMap.containsKey(publicUri)) {
+        if (publicUri == thisNode.publicUri) {
+            logger.trace { "Can't connect to $publicUri. This uri is this node." }
+            return
+        }
+
+        if (connectionManager.isConnected(publicUri)) {
+            logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
+            return
+        }
+
+        if (connectingMap.containsKey(publicUri)) {
+            logger.trace { "Can't connect to $publicUri. Connection already established." }
             return
         }
 
