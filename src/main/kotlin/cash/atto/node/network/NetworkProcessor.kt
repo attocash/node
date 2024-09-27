@@ -10,6 +10,7 @@ import cash.atto.node.attoCoroutineExceptionHandler
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -55,7 +56,7 @@ import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.URI
 import java.security.SecureRandom
-import java.util.concurrent.ConcurrentHashMap
+import java.time.Duration
 
 @Component
 class NetworkProcessor(
@@ -106,7 +107,12 @@ class NetworkProcessor(
 
     private val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
 
-    private val connectingMap = ConcurrentHashMap<URI, MutableSharedFlow<AttoNode>>()
+    private val connectingMap =
+        Caffeine
+            .newBuilder()
+            .expireAfterWrite(Duration.ofSeconds(5))
+            .build<URI, MutableSharedFlow<AttoNode>>()
+            .asMap()
 
     private val server =
         embeddedServer(Netty, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
