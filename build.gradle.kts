@@ -7,7 +7,7 @@ plugins {
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
 
-    id("org.springframework.boot") version "3.3.3"
+    id("org.springframework.boot") version "3.3.4"
     id("io.spring.dependency-management") version "1.1.6"
     id("org.graalvm.buildtools.native") version "0.10.3"
     id("org.jlleitschuh.gradle.ktlint") version "12.1.1"
@@ -37,7 +37,7 @@ configurations {
 
 dependencies {
     val commonsVersion = "2.19.0"
-    val cucumberVersion = "7.18.1"
+    val cucumberVersion = "7.19.0"
     val springdocVersion = "2.6.0"
     val ktorVersion = "2.3.12"
 
@@ -48,7 +48,7 @@ dependencies {
         }
     }
 
-    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.5.4")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
