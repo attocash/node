@@ -299,8 +299,9 @@ class NetworkProcessor(
     }
 
     @EventListener
-    suspend fun onKeepAlive(event: AttoKeepAlive) {
-        val neighbour = event.neighbour ?: return
+    suspend fun onKeepAlive(message: InboundNetworkMessage<AttoKeepAlive>) {
+        val keepAlive = message.payload
+        val neighbour = keepAlive.neighbour ?: return
         connectAsync(neighbour)
     }
 
