@@ -36,8 +36,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
-import io.ktor.websocket.CloseReason
-import io.ktor.websocket.close
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
@@ -295,7 +293,7 @@ class NetworkProcessor(
                 .asSequence()
                 .map { URI(it) }
                 .forEach {
-                    connection(it)
+                    connectAsync(it)
                 }
         }
     }
@@ -303,7 +301,14 @@ class NetworkProcessor(
     @EventListener
     suspend fun onKeepAlive(event: AttoKeepAlive) {
         val neighbour = event.neighbour ?: return
-        connection(neighbour)
+        connectAsync(neighbour)
+    }
+
+    private suspend fun connectAsync(publicUri: URI) {
+        defaultScope.launch {
+            logger.trace { "Start connection to $publicUri" }
+            connection(publicUri)
+        }
     }
 
     private suspend fun connection(publicUri: URI) {
@@ -321,8 +326,6 @@ class NetworkProcessor(
             logger.trace { "Can't connect as a client to $publicUri. Connection attempt in progress." }
             return
         }
-
-        logger.trace { "Connecting to $publicUri" }
 
         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
@@ -354,13 +357,7 @@ class NetworkProcessor(
                 return
             }
 
-            defaultScope.launch {
-                try {
-                    connectionManager.manage(node, connectionSocketAddress, session)
-                } catch (e: Exception) {
-                    logger.trace(e) { "Connection management threw an exception for $publicUri" }
-                }
-            }
+            connectionManager.manage(node, connectionSocketAddress, session)
         } catch (e: Exception) {
             logger.trace(e) { "Exception while trying to connect to $publicUri" }
         } finally {

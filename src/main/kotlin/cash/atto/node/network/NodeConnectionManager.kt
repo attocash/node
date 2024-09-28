@@ -70,10 +70,16 @@ class NodeConnectionManager(
         val publicUri = node.publicUri
         val connection = NodeConnection(node, connectionSocketAddress, session)
 
+        val existingConnection = connectionMap.putIfAbsent(publicUri, connection)
+
+        if (existingConnection != null) {
+            logger.trace { "Connection to ${node.publicUri} already managed. New connection will be ignored" }
+            connection.disconnected()
+        }
+
         connection
             .incomingFlow()
             .onStart {
-                connectionMap[publicUri] = connection
                 eventPublisher.publish(NodeConnected(connectionSocketAddress, node))
             }.onCompletion {
                 logger.trace(it) { "Inbound message stream from ${node.publicUri} completed" }
@@ -88,7 +94,7 @@ class NodeConnectionManager(
                 }
 
                 if (message is AttoKeepAlive) {
-                    connectionMap.computeIfPresent(publicUri) { _, value -> value }
+                    connectionMap[publicUri] = connection
                 }
 
                 logger.debug { "Received from $publicUri $message ${it.toHex()}" }
