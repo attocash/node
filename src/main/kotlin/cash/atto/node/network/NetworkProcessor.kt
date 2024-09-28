@@ -204,6 +204,14 @@ class NetworkProcessor(
 
                         logger.trace { "Headers received: publicUri=$publicUri, challenge=$challenge" }
 
+                        val connectingFlow = MutableSharedFlow<AttoNode>(1)
+
+                        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
+                        if (existingFlow != null) {
+                            logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
+                            return@webSocket
+                        }
+
                         val httpUri =
                             publicUri
                                 .toString()
@@ -314,6 +322,16 @@ class NetworkProcessor(
         }
 
         if (connectingMap.containsKey(publicUri)) {
+            logger.trace { "Can't connect as a client to $publicUri. Connection attempt in progress." }
+            return
+        }
+
+        logger.trace { "Connecting to $publicUri" }
+
+        val connectingFlow = MutableSharedFlow<AttoNode>(1)
+
+        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
+        if (existingFlow != null) {
             logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
             return
         }
@@ -321,34 +339,19 @@ class NetworkProcessor(
         logger.trace { "Connecting to $publicUri" }
 
         try {
-            val connectingFlow = MutableSharedFlow<AttoNode>(1)
+            val session = websocketClient.webSocketSession(publicUri.toString()) {
+                header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
+                header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
+            }
 
-            connectingMap[publicUri] = connectingFlow
+            val connectionSocketAddress = InetSocketAddress(
+                session.call.request.url.host,
+                session.call.request.url.port
+            )
 
-            val session =
-                websocketClient.webSocketSession(publicUri.toString()) {
-                    header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
-                    header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
-                }
-
-            val connectionSocketAddress =
-                InetSocketAddress(
-                    session
-                        .call
-                        .request
-                        .url
-                        .host,
-                    session
-                        .call
-                        .request
-                        .url
-                        .port,
-                )
-
-            val node =
-                withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
-                    connectingFlow.first()
-                }
+            val node = withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
+                connectingFlow.first()
+            }
 
             if (node == null) {
                 logger.trace { "Handshake timed out" }
@@ -359,7 +362,7 @@ class NetworkProcessor(
                 try {
                     connectionManager.manage(node, connectionSocketAddress, session)
                 } catch (e: Exception) {
-                    logger.trace(e) { "Connection management thrown exception for $publicUri" }
+                    logger.trace(e) { "Connection management threw an exception for $publicUri" }
                 }
             }
         } catch (e: Exception) {
