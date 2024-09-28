@@ -309,12 +309,12 @@ class NetworkProcessor(
         }
 
         if (connectionManager.isConnected(publicUri)) {
-            logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
+            logger.trace { "Can't connect to $publicUri. Connection already established." }
             return
         }
 
         if (connectingMap.containsKey(publicUri)) {
-            logger.trace { "Can't connect to $publicUri. Connection already established." }
+            logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
             return
         }
 
