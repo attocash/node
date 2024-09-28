@@ -246,7 +246,6 @@ class NetworkProcessor(
                         logger.trace { "Challenge response status from $httpUri: ${result.status}" }
 
                         if (!result.status.isSuccess()) {
-                            outgoing.close()
                             return@webSocket
                         }
 
@@ -254,7 +253,6 @@ class NetworkProcessor(
 
                         if (!ChallengeStore.remove(publicUri, counterChallenge)) {
                             logger.trace { "Received invalid challenge request from $publicUri $remoteHost $response" }
-                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
@@ -263,7 +261,6 @@ class NetworkProcessor(
                         val signature = response.signature
                         if (!signature.isValid(response.node.publicKey, counterHash)) {
                             logger.trace { "Received invalid signature from client $remoteHost $response" }
-                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
@@ -272,7 +269,6 @@ class NetworkProcessor(
                         connectionManager.manage(response.node, connectionSocketAddress, this)
                     } catch (e: Exception) {
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
-                        close(CloseReason(CloseReason.Codes.PROTOCOL_ERROR, "Exception during handshake"))
                     }
                 }
             }
