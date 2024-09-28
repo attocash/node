@@ -94,7 +94,7 @@ class NetworkProcessor(
             }
 
             install(HttpTimeout) {
-                requestTimeoutMillis = CONNECTION_TIMEOUT_IN_SECONDS
+                requestTimeoutMillis = CONNECTION_TIMEOUT_IN_SECONDS.seconds.inWholeMilliseconds
             }
         }
 

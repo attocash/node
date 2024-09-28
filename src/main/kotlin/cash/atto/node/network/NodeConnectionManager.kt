@@ -144,7 +144,7 @@ class NodeConnectionManager(
         }
     }
 
-    @Scheduled(fixedRate = 2_000)
+    @Scheduled(fixedRate = 10_000)
     suspend fun keepAlive() {
         val sample = connectionMap.values.randomOrNull()
         val message = AttoKeepAlive(sample?.node?.publicUri)
