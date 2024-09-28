@@ -15,6 +15,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
 import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.header
 import io.ktor.client.request.post
@@ -57,6 +58,7 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.security.SecureRandom
 import java.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 @Component
 class NetworkProcessor(
@@ -73,6 +75,7 @@ class NetworkProcessor(
         const val MAX_MESSAGE_SIZE = 272
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
+        const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
     }
 
     val random = SecureRandom.getInstanceStrong()!!
@@ -88,6 +91,10 @@ class NetworkProcessor(
                     .ContentNegotiation,
             ) {
                 json()
+            }
+
+            install(HttpTimeout) {
+                requestTimeoutMillis = CONNECTION_TIMEOUT_IN_SECONDS
             }
         }
 
@@ -110,7 +117,7 @@ class NetworkProcessor(
     private val connectingMap =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(Duration.ofSeconds(5))
+            .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
             .build<URI, MutableSharedFlow<AttoNode>>()
             .asMap()
 
@@ -189,7 +196,6 @@ class NetworkProcessor(
                 webSocket(path = "/") {
                     try {
                         val remoteHost = call.request.origin.remoteHost
-                        val port = call.request.origin.localPort
 
                         logger.trace { "New websocket connection attempt from $remoteHost" }
 
@@ -340,7 +346,7 @@ class NetworkProcessor(
                 )
 
             val node =
-                withTimeoutOrNull(5_000) {
+                withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
                     connectingFlow.first()
                 }
 
@@ -350,7 +356,11 @@ class NetworkProcessor(
             }
 
             defaultScope.launch {
-                connectionManager.manage(node, connectionSocketAddress, session)
+                try {
+                    connectionManager.manage(node, connectionSocketAddress, session)
+                } catch (e: Exception) {
+                    logger.trace(e) { "Connection management thrown exception for $publicUri" }
+                }
             }
         } catch (e: Exception) {
             logger.trace(e) { "Exception while trying to connect to $publicUri" }
