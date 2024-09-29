@@ -134,7 +134,7 @@ class NodeConnectionManager(
         val message = networkMessage.payload
         val serialized = NetworkSerializer.serialize(message)
 
-        logger.debug { "Broadcasting peers $message ${serialized.toHex()}" }
+        logger.trace { "Broadcasting peers $message ${serialized.toHex()}" }
 
         withContext(Dispatchers.Default) {
             connectionMap
