@@ -97,7 +97,7 @@ class NodeConnectionManager(
                     connectionMap[publicUri] = connection
                 }
 
-                logger.debug { "Received from $publicUri $message ${it.toHex()}" }
+                logger.trace { "Received from $publicUri $message ${it.toHex()}" }
 
                 val networkMessage =
                     InboundNetworkMessage(
