@@ -2,12 +2,9 @@
 
 package cash.atto.node.network
 
-import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
 import cash.atto.protocol.AttoMessage
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
 
@@ -15,14 +12,14 @@ import kotlinx.serialization.protobuf.ProtoBuf
 object NetworkSerializer {
     private val logger = KotlinLogging.logger {}
 
-    inline fun <reified T : AttoMessage> serialize(message: T): Buffer =
-        ProtoBuf.encodeToByteArray(AttoMessage.serializer(), message).toBuffer()
+    inline fun <reified T : AttoMessage> serialize(message: T): ByteArray =
+        ProtoBuf.encodeToByteArray(AttoMessage.serializer(), message)
 
-    fun deserialize(buffer: Buffer): AttoMessage? =
+    fun deserialize(serialized: ByteArray): AttoMessage? =
         try {
-            ProtoBuf.decodeFromByteArray(AttoMessage.serializer(), buffer.readByteArray())
+            ProtoBuf.decodeFromByteArray(AttoMessage.serializer(), serialized)
         } catch (e: Exception) {
-            logger.trace(e) { "Invalid message ${buffer.toHex()}" }
+            logger.trace(e) { "Invalid message ${serialized.toHex()}" }
             null
         }
 }

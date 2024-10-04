@@ -5,9 +5,8 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NodeBanned
-import cash.atto.node.network.peer.Peer
-import cash.atto.node.network.peer.PeerConnected
-import cash.atto.node.network.peer.PeerRemoved
+import cash.atto.node.network.NodeConnected
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVoteStreamRequest
@@ -55,15 +54,16 @@ class GuardianTest {
         every { guardianProperties.minimalMedian } returns minimalMedian
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
-        val peer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerConnected(peer))
-        guardian.count(inboundMessage(peer.node.publicUri, peer.connectionSocketAddress))
+        val node = createNode(AttoAmount.MAX)
+        val event = NodeConnected(randomSocketAddress(), node)
+        guardian.add(NodeConnected(randomSocketAddress(), node))
+        guardian.count(inboundMessage(node.publicUri, event.connectionSocketAddress))
 
         // when
         guardian.guard()
 
         // then
-        assertEquals(mapOf(peer.connectionSocketAddress to 1UL), guardian.getSnapshot())
+        assertEquals(mapOf(event.connectionSocketAddress to 1UL), guardian.getSnapshot())
         verify(exactly = 0) { eventPublisher.publish(any()) }
     }
 
@@ -73,23 +73,25 @@ class GuardianTest {
         every { guardianProperties.minimalMedian } returns minimalMedian
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
-        val votePeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerConnected(votePeer))
-        guardian.count(inboundMessage(votePeer.node.publicUri, votePeer.connectionSocketAddress))
+        val voteNode = createNode(AttoAmount.MAX)
+        val voterEvent = NodeConnected(randomSocketAddress(), voteNode)
+        guardian.add(voterEvent)
+        guardian.count(inboundMessage(voterEvent.node.publicUri, voterEvent.connectionSocketAddress))
 
-        val normalPeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerConnected(normalPeer))
+        val normalPeer = createNode(AttoAmount.MAX)
+        val normalEvent = NodeConnected(randomSocketAddress(), normalPeer)
+        guardian.add(normalEvent)
         for (i in 0UL..toleranceMultiplier) {
-            guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
+            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.connectionSocketAddress))
         }
 
-        every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer.node.publicKey) } returns true
+        every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent.node.publicKey) } returns true
 
         // when
         guardian.guard()
 
         // then
-        verify { eventPublisher.publish(NodeBanned(normalPeer.connectionSocketAddress.address)) }
+        verify { eventPublisher.publish(NodeBanned(normalEvent.connectionSocketAddress.address)) }
     }
 
     @Test
@@ -98,50 +100,52 @@ class GuardianTest {
         every { guardianProperties.minimalMedian } returns minimalMedian
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
 
-        val votePeer1 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
-        guardian.add(PeerConnected(votePeer1))
-        guardian.count(inboundMessage(votePeer1.node.publicUri, votePeer1.connectionSocketAddress))
+        val votePeer1 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
+        val voterEvent1 = NodeConnected(randomSocketAddress(), votePeer1)
+        guardian.add(voterEvent1)
+        guardian.count(inboundMessage(voterEvent1.node.publicUri, voterEvent1.connectionSocketAddress))
 
-        val votePeer2 = createPeer(AttoAmount(ULong.MAX_VALUE / 2U))
-        guardian.add(PeerConnected(votePeer2))
-        guardian.count(inboundMessage(votePeer2.node.publicUri, votePeer2.connectionSocketAddress))
+        val votePeer2 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
+        val voterEvent2 = NodeConnected(randomSocketAddress(), votePeer2)
+        guardian.add(voterEvent2)
+        guardian.count(inboundMessage(voterEvent2.node.publicUri, voterEvent2.connectionSocketAddress))
 
-        val normalPeer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerConnected(normalPeer))
+        val normalPeer = createNode(AttoAmount.MAX)
+        val normalEvent = NodeConnected(randomSocketAddress(), normalPeer)
+        guardian.add(normalEvent)
         for (i in 0UL..toleranceMultiplier) {
-            guardian.count(inboundMessage(normalPeer.node.publicUri, normalPeer.connectionSocketAddress))
+            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.connectionSocketAddress))
         }
 
-        every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer1.node.publicKey) } returns true
-        every { voteWeighter.isAboveMinimalRebroadcastWeight(votePeer2.node.publicKey) } returns true
+        every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent1.node.publicKey) } returns true
+        every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent1.node.publicKey) } returns true
 
         // when
         guardian.guard()
 
         // then
-        verify { eventPublisher.publish(NodeBanned(normalPeer.connectionSocketAddress.address)) }
+        verify { eventPublisher.publish(NodeBanned(normalEvent.connectionSocketAddress.address)) }
     }
 
     @Test
     fun `should remove voter when disconnected`() {
         // given
-        val peer = createPeer(AttoAmount.MAX)
-        guardian.add(PeerConnected(peer))
+        val node = createNode(AttoAmount.MAX)
+        val event = NodeConnected(randomSocketAddress(), node)
+        guardian.add(event)
 
         // when
-        guardian.remove(PeerRemoved(peer))
+        guardian.remove(NodeDisconnected(event.connectionSocketAddress, node))
 
         // then
         assertThat(guardian.getVoters()).isEmpty()
     }
 
-    private fun createPeer(weight: AttoAmount): Peer {
-        val socketAddress = randomSocketAddress()
+    private fun createNode(weight: AttoAmount): AttoNode {
         val publicUri = randomURI()
         val node = createNode(publicUri)
-        val peer = Peer(socketAddress, node)
-        every { voteWeighter.get(peer.node.publicKey) } returns weight
-        return peer
+        every { voteWeighter.get(node.publicKey) } returns weight
+        return node
     }
 
     private fun createNode(publicUri: URI): AttoNode {

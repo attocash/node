@@ -3,7 +3,6 @@ package cash.atto.node.transaction.priotization
 import cash.atto.commons.AttoHash
 import cash.atto.commons.PreviousSupport
 import cash.atto.commons.ReceiveSupport
-import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
@@ -23,16 +22,15 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
 @Service
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<Transaction>(100.milliseconds),
-    CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -44,18 +42,20 @@ class TransactionPrioritizer(
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
 
     @PreDestroy
-    override fun stop() {
+    fun stop() {
         singleDispatcher.cancel()
-        super.stop()
     }
 
-    override suspend fun poll(): Transaction? =
+    @Scheduled(fixedRate = 100)
+    suspend fun process() {
         withContext(singleDispatcher) {
-            queue.poll()
+            do {
+                val transaction = queue.poll()
+                transaction?.let {
+                    eventPublisher.publish(TransactionReceived(it))
+                }
+            } while (transaction != null)
         }
-
-    override suspend fun process(value: Transaction) {
-        eventPublisher.publish(TransactionReceived(value))
     }
 
     @EventListener

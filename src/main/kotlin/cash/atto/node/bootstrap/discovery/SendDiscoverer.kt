@@ -8,9 +8,13 @@ import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.TransactionStuck
-import cash.atto.node.network.*
-import cash.atto.node.network.peer.PeerConnected
-import cash.atto.node.network.peer.PeerRemoved
+import cash.atto.node.network.BroadcastNetworkMessage
+import cash.atto.node.network.BroadcastStrategy
+import cash.atto.node.network.DirectNetworkMessage
+import cash.atto.node.network.InboundNetworkMessage
+import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.NodeConnected
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.toTransaction
@@ -46,13 +50,15 @@ class SendDiscoverer(
     private val duplicateDetector = DuplicateDetector<AttoHash>(1.minutes)
 
     @EventListener
-    fun add(peerEvent: PeerConnected) {
-        peers[peerEvent.peer.node.publicKey] = peerEvent.peer.node.publicUri
+    fun add(nodeEvent: NodeConnected) {
+        val node = nodeEvent.node
+        peers[node.publicKey] = node.publicUri
     }
 
     @EventListener
-    fun remove(peerEvent: PeerRemoved) {
-        peers.remove(peerEvent.peer.node.publicKey)
+    fun remove(nodeEvent: NodeDisconnected) {
+        val node = nodeEvent.node
+        peers.remove(node.publicKey)
     }
 
     @EventListener

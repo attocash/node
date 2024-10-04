@@ -53,7 +53,9 @@ class LastDiscoverer(
         if (thisNode.isNotHistorical()) {
             return
         }
+
         val transactions = transactionRepository.getLastSample(20)
+
         transactions
             .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
             .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
@@ -66,9 +68,13 @@ class LastDiscoverer(
         val transaction = response.transaction.toTransaction()
         val block = transaction.block
 
+        logger.trace { "Received bootstrap head transaction ${transaction.hash}" }
+
+
         val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
 
         if (account.height >= block.height) {
+            logger.trace { "Received ${transaction.hash} with height ${transaction.height} however ${account.publicKey} account already has ${account.height}" }
             return
         }
 
@@ -86,6 +92,8 @@ class LastDiscoverer(
                 ),
             )
 
+            logger.trace { "Bootstrap election for ${transaction.hash} started" }
+
             election
         }
     }
@@ -95,7 +103,11 @@ class LastDiscoverer(
         val blockHash = message.payload.blockHash
         val vote = voteConverter.convert(blockHash, message.payload.vote)
 
+        logger.trace { "Received bootstrap $vote" }
+
         if (vote.weight < ElectionVoter.MIN_WEIGHT) {
+            logger.trace { "Vote below ${ElectionVoter.MIN_WEIGHT} min vote weight" }
+
             return
         }
 
@@ -110,6 +122,8 @@ class LastDiscoverer(
 
                 null
             } else {
+                logger.trace { "Consensus not reached yet. Added to election queue" }
+
                 election
             }
         }

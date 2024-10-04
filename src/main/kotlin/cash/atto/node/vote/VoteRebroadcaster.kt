@@ -1,12 +1,10 @@
 package cash.atto.node.vote
 
 import cash.atto.commons.AttoSignature
-import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.vote.VoteRebroadcaster.VoteHolder
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
@@ -17,11 +15,11 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.URI
-import java.util.*
+import java.util.PriorityQueue
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -36,8 +34,7 @@ class VoteRebroadcaster(
     private val thisNode: AttoNode,
     private val voteWeighter: VoteWeighter,
     private val messagePublisher: NetworkMessagePublisher,
-) : AsynchronousQueueProcessor<VoteHolder>(100.milliseconds),
-    CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -47,9 +44,8 @@ class VoteRebroadcaster(
     private val voteQueue = PriorityQueue<VoteHolder>()
 
     @PreDestroy
-    override fun stop() {
+    fun stop() {
         singleDispatcher.cancel()
-        super.stop()
     }
 
     @EventListener
@@ -99,25 +95,28 @@ class VoteRebroadcaster(
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
-    override suspend fun poll(): VoteHolder? =
+    @Scheduled(fixedRate = 100)
+    suspend fun process() {
         withContext(singleDispatcher) {
-            voteQueue.poll()
+            do {
+                val voteHolder = voteQueue.poll()
+                voteHolder?.let {
+                    val vote = it.vote
+                    val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
+                    val exceptions = it.publicUris
+
+                    val message =
+                        BroadcastNetworkMessage(
+                            BroadcastStrategy.EVERYONE,
+                            exceptions,
+                            votePush,
+                        )
+
+                    logger.trace { "Vote dequeued and it will be rebroadcasted. $vote" }
+                    messagePublisher.publish(message)
+                }
+            } while (voteHolder != null)
         }
-
-    override suspend fun process(value: VoteHolder) {
-        val vote = value.vote
-        val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
-        val exceptions = value.publicUris
-
-        val message =
-            BroadcastNetworkMessage(
-                BroadcastStrategy.EVERYONE,
-                exceptions,
-                votePush,
-            )
-
-        logger.trace { "Vote dequeued and it will be rebroadcasted. $vote" }
-        messagePublisher.publish(message)
     }
 
     class VoteHolder(

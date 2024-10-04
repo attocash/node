@@ -13,7 +13,7 @@ atto:
     network: LOCAL
   transaction:
     genesis: ${ATTO_GENESIS:}
-  peer:
+  network:
     defaultNodes: ${ATTO_DEFAULT_NODES:}
   vote:
     weight:

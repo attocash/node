@@ -1,7 +1,7 @@
 atto:
   node:
     network: BETA
-  peer:
+  network:
     defaultNodes:
       - wss://node-adventurous.beta.core.atto.cash
       - wss://node-cautious.beta.core.atto.cash

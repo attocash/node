@@ -1,7 +1,7 @@
 package cash.atto.node
 
 import cash.atto.commons.*
-import cash.atto.node.network.peer.PeerProperties
+import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import io.cucumber.java.en.Given
 import io.r2dbc.spi.Option
@@ -16,7 +16,7 @@ import java.util.*
 import java.util.concurrent.FutureTask
 
 class NodeStepDefinition(
-    private val peerProperties: PeerProperties,
+    private val networkProperties: NetworkProperties,
     private val transaction: Transaction,
     private val connectionDetails: R2dbcConnectionDetails,
     private val databaseClient: DatabaseClient,
@@ -99,7 +99,7 @@ class NodeStepDefinition(
     @Given("is a default node")
     fun setAsDefaultNode() {
         val neighbour = PropertyHolder[Neighbour::class.java]
-        peerProperties.defaultNodes.add("ws://localhost:${neighbour.websocketPort}")
+        networkProperties.defaultNodes.add("ws://localhost:${neighbour.websocketPort}")
     }
 
     private fun randomPort(): UShort {

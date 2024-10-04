@@ -97,9 +97,15 @@ class Election(
     ) = withContext(singleDispatcher) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight] ?: return@withContext
-
         logger.trace { "Processing $vote" }
+
+        val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight]
+
+        if (publicKeyHeightElection == null) {
+            logger.trace { "Election for $publicKeyHeight not found. Vote will be ignored" }
+            return@withContext
+        }
+
 
         if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
@@ -112,12 +118,14 @@ class Election(
         if (consensusTransactionElection != null) {
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
+            logger.trace { "Consensus reached. Transaction ${finalTransaction.hash} was chosen." }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withContext
         }
 
         val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
+        logger.trace { "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader." }
         eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
     }
 

@@ -1,475 +1,384 @@
 package cash.atto.node.network
 
-import cash.atto.commons.toHex
-import cash.atto.node.AsynchronousQueueProcessor
-import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
-import cash.atto.node.network.peer.PeerAuthorized
-import cash.atto.node.network.peer.PeerConnected
-import cash.atto.node.network.peer.PeerRemoved
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoSignature
+import cash.atto.commons.fromHexToByteArray
+import cash.atto.commons.sign
+import cash.atto.commons.toByteArray
+import cash.atto.node.attoCoroutineExceptionHandler
 import cash.atto.node.transaction.Transaction
-import cash.atto.protocol.AttoMessage
+import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.AttoReady
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.netty.buffer.Unpooled
-import io.netty.channel.EventLoopGroup
-import io.netty.channel.nio.NioEventLoopGroup
-import io.netty.handler.codec.http.HttpResponseStatus
-import io.netty.util.concurrent.Future
+import io.ktor.client.HttpClient
+import io.ktor.client.call.body
+import io.ktor.client.engine.cio.CIO
+import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.websocket.webSocketSession
+import io.ktor.client.request.header
+import io.ktor.client.request.post
+import io.ktor.client.request.setBody
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.contentType
+import io.ktor.http.isSuccess
+import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.call
+import io.ktor.server.application.install
+import io.ktor.server.engine.embeddedServer
+import io.ktor.server.netty.Netty
+import io.ktor.server.plugins.origin
+import io.ktor.server.request.host
+import io.ktor.server.request.port
+import io.ktor.server.request.receive
+import io.ktor.server.response.respond
+import io.ktor.server.routing.post
+import io.ktor.server.routing.routing
+import io.ktor.server.websocket.webSocket
+import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.reactor.asFlux
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.io.Buffer
-import kotlinx.io.readByteArray
-import kotlinx.io.write
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
-import org.springframework.stereotype.Service
-import reactor.core.publisher.Flux
-import reactor.core.publisher.Mono
-import reactor.netty.channel.AbortedException
-import reactor.netty.http.client.HttpClient
-import reactor.netty.http.client.WebsocketClientSpec
-import reactor.netty.http.server.HttpServer
-import reactor.netty.http.server.WebsocketServerSpec
-import reactor.netty.http.websocket.WebsocketInbound
-import reactor.netty.http.websocket.WebsocketOutbound
-import java.net.InetAddress
+import org.springframework.scheduling.annotation.Scheduled
+import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.URI
 import java.security.SecureRandom
-import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ConcurrentLinkedQueue
-import java.util.concurrent.TimeUnit
-import kotlin.system.exitProcess
-import kotlin.time.Duration.Companion.milliseconds
+import java.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
-@Service
+@Component
 class NetworkProcessor(
-    private val eventPublisher: EventPublisher,
-    private val messagePublisher: NetworkMessagePublisher,
     private val genesisTransaction: Transaction,
     private val thisNode: AttoNode,
+    private val privateKey: AttoPrivateKey,
     environment: Environment,
-) : AsynchronousQueueProcessor<OutboundNetworkMessage<*>>(1.milliseconds),
-    CacheSupport {
+    private val networkProperties: NetworkProperties,
+    private val connectionManager: NodeConnectionManager,
+) {
     private val logger = KotlinLogging.logger {}
 
     companion object {
         const val MAX_MESSAGE_SIZE = 272
-        const val GENESIS_HEADER = "Atto-Genesis"
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
-        const val PROTOCOL_VERSION_HEADER = "Atto-Protocol-Version"
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
-
-        val random = SecureRandom.getInstanceStrong()!!
-        val serverSpec = WebsocketServerSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
-        val clientSpec = WebsocketClientSpec.builder().maxFramePayloadLength(MAX_MESSAGE_SIZE).build()
+        const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
     }
 
-    private val peers = ConcurrentHashMap<URI, PeerHolder>()
+    val random = SecureRandom.getInstanceStrong()!!
 
-    private val bannedNodes = ConcurrentHashMap.newKeySet<InetAddress>()
+    private val httpClient =
+        HttpClient(CIO) {
+            install(
+                io
+                    .ktor
+                    .client
+                    .plugins
+                    .contentnegotiation
+                    .ContentNegotiation,
+            ) {
+                json()
+            }
 
-    private val messageQueue = ConcurrentLinkedQueue<OutboundNetworkMessage<*>>()
-    private val connections = ConcurrentHashMap<URI, URI>()
-    private val outboundFlow = MutableSharedFlow<OutboundNetworkMessage<*>>()
-    private val disconnectFlow = MutableSharedFlow<URI>()
+            install(HttpTimeout) {
+                requestTimeoutMillis = CONNECTION_TIMEOUT_IN_SECONDS.seconds.inWholeMilliseconds
+            }
+        }
 
-    private val port = environment.getRequiredProperty("websocket.port", Int::class.java)
+    private val websocketClient =
+        HttpClient(CIO) {
+            install(
+                io
+                    .ktor
+                    .client
+                    .plugins
+                    .websocket
+                    .WebSockets,
+            ) {
+                maxFrameSize = MAX_MESSAGE_SIZE.toLong()
+            }
+        }
 
-    private val eventLoopGroup: EventLoopGroup = NioEventLoopGroup(Thread.ofVirtual().factory())
+    private val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
 
-    private val challenges =
+    private val connectingMap =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(5, TimeUnit.SECONDS)
-            .maximumSize(100_000)
-            .build<String, String>()
+            .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
+            .build<URI, MutableSharedFlow<AttoNode>>()
             .asMap()
 
     private val server =
-        HttpServer
-            .create()
-            .port(port)
-            .runOn(eventLoopGroup)
-            .doOnBind {
-                logger.info { "WebSocket started on port $port" }
-            }.doOnConnection {
-                val socketAddress = (it.channel().remoteAddress() as InetSocketAddress)
-                logger.info { "Connected as a server to $socketAddress" }
-            }.route { routes ->
-                routes.post("/challenges/{challenge}") { request, response ->
-                    val challenge = request.param("challenge") ?: ""
+        embeddedServer(Netty, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
+            install(
+                io
+                    .ktor
+                    .server
+                    .websocket
+                    .WebSockets,
+            ) {
+                maxFrameSize = MAX_MESSAGE_SIZE.toLong()
+            }
+            install(
+                io
+                    .ktor
+                    .server
+                    .plugins
+                    .contentnegotiation
+                    .ContentNegotiation,
+            ) {
+                json()
+            }
+            routing {
+                post("/handshakes") {
+                    try {
+                        val remoteHost = call.request.origin.remoteHost
+                        val counterResponse = call.receive<CounterChallengeResponse>()
+                        val node = counterResponse.node
+                        val publicUri = node.publicUri
+                        val challenge = counterResponse.challenge
 
-                    if (challenges.remove(challenge) == null) {
-                        response.status(HttpResponseStatus.NOT_FOUND).send()
-                    } else {
-                        response.status(HttpResponseStatus.OK).send()
+                        if (!ChallengeStore.remove(publicUri, challenge)) {
+                            logger.trace { "Received invalid challenge request from $publicUri $remoteHost $counterResponse" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+
+                        val nonce = counterResponse.nonce
+                        val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
+
+                        val signature = counterResponse.signature
+                        if (!signature.isValid(node.publicKey, hash)) {
+                            logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+
+                        logger.trace { "Challenge $challenge validated successfully" }
+
+                        val counterHash = AttoHash.hash(64, counterResponse.counterChallenge.fromHexToByteArray(), nonce.toByteArray())
+
+                        val response =
+                            ChallengeResponse(
+                                thisNode,
+                                privateKey.sign(counterHash),
+                            )
+
+                        val connectingFlow = connectingMap[publicUri]
+
+                        if (connectingFlow == null) {
+                            logger.trace { "Received valid handshake but connection already expired" }
+                            call.respond(HttpStatusCode.InternalServerError)
+                            return@post
+                        }
+
+                        connectingFlow.emit(node)
+
+                        call.respond(HttpStatusCode.OK, response)
+                    } catch (e: Exception) {
+                        logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
+                        call.respond(HttpStatusCode.InternalServerError)
                     }
                 }
-                routes.ws(
-                    "/",
-                    { wsInbound, wsOutbound ->
-                        try {
-                            val connection = getConnection(wsInbound)
+                webSocket(path = "/") {
+                    try {
+                        val remoteHost = call.request.origin.remoteHost
 
-                            val headers = wsInbound.headers()
+                        logger.trace { "New websocket connection attempt from $remoteHost" }
 
-                            val genesis = headers.get(GENESIS_HEADER)
-                            val publicUri = URI(headers.get(PUBLIC_URI_HEADER))
-                            val protocolVersion = headers.get(PROTOCOL_VERSION_HEADER)?.toUShort() ?: 0U
-                            val challenge = headers.get(CHALLENGE_HEADER)
+                        val publicUri = URI(call.request.headers[PUBLIC_URI_HEADER]!!)
+                        val challenge = call.request.headers[CHALLENGE_HEADER]!!
 
-                            val httpUri =
-                                headers
-                                    .get(PUBLIC_URI_HEADER)
-                                    .replaceFirst("wss://", "https://")
-                                    .replaceFirst("ws://", "http://")
+                        logger.trace { "Headers received: publicUri=$publicUri, challenge=$challenge" }
 
-                            HttpClient
-                                .create()
-                                .runOn(eventLoopGroup)
-                                .post()
-                                .uri("$httpUri/challenges/$challenge")
-                                .send { _, outbound -> outbound }
-                                .response { response, _ ->
-                                    val genesisMatches = genesis == genesisTransaction.hash.toString()
-                                    val protocolVersionMatches =
-                                        thisNode.minProtocolVersion <= protocolVersion && protocolVersion <= thisNode.maxProtocolVersion
+                        val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
-                                    if (connection == null) {
-                                        logger.debug {
-                                            "Unable to resolve $publicUri"
-                                        }
-                                        wsOutbound.sendClose()
-                                    } else if (!genesisMatches) {
-                                        logger.debug {
-                                            "Received from $connection genesis $genesis. " +
-                                                "This is different from this node ${genesisTransaction.hash} genesis"
-                                        }
-                                        wsOutbound.sendClose()
-                                    } else if (response.status() != HttpResponseStatus.OK) {
-                                        logger.debug {
-                                            "Attempt connection from $connection however client returned ${response.status()}"
-                                        }
-                                        wsOutbound.sendClose()
-                                    } else if (!protocolVersionMatches) {
-                                        logger.debug {
-                                            "Received from $connection $protocolVersion which is not supported"
-                                        }
-                                        wsOutbound.sendClose()
-                                    } else {
-                                        connections[publicUri] = publicUri
-                                        prepareConnection(publicUri, connection, wsInbound, wsOutbound)
-                                    }
-                                }.then()
-                        } catch (e: Exception) {
-                            wsOutbound.sendClose()
+                        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
+                        if (existingFlow != null) {
+                            logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
+                            return@webSocket
                         }
-                    },
-                    serverSpec,
-                )
-            }.bindNow()
+
+                        val httpUri =
+                            publicUri
+                                .toString()
+                                .replaceFirst("wss://", "https://")
+                                .replaceFirst("ws://", "http://")
+
+                        val nonce = random.nextLong().toULong()
+                        val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
+                        val counterChallenge = ChallengeStore.generate(publicUri)
+                        val counterResponse =
+                            CounterChallengeResponse(
+                                challenge,
+                                genesisTransaction.hash,
+                                thisNode,
+                                nonce,
+                                privateKey.sign(hash),
+                                counterChallenge,
+                            )
+                        val result =
+                            httpClient.post("$httpUri/handshakes") {
+                                contentType(
+                                    io
+                                        .ktor
+                                        .http
+                                        .ContentType
+                                        .Application
+                                        .Json,
+                                )
+                                setBody(counterResponse)
+                            }
+
+                        logger.trace { "Challenge response status from $httpUri: ${result.status}" }
+
+                        if (!result.status.isSuccess()) {
+                            return@webSocket
+                        }
+
+                        val response = result.body<ChallengeResponse>()
+
+                        if (!ChallengeStore.remove(publicUri, counterChallenge)) {
+                            logger.trace { "Received invalid challenge request from $publicUri $remoteHost $response" }
+                            return@webSocket
+                        }
+
+                        val counterHash = AttoHash.hash(64, counterChallenge.fromHexToByteArray(), nonce.toByteArray())
+
+                        val signature = response.signature
+                        if (!signature.isValid(response.node.publicKey, counterHash)) {
+                            logger.trace { "Received invalid signature from client $remoteHost $response" }
+                            return@webSocket
+                        }
+
+                        val connectionSocketAddress = InetSocketAddress(call.request.host(), call.request.port())
+
+                        connectionManager.manage(response.node, connectionSocketAddress, this)
+                    } catch (e: Exception) {
+                        logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
+                    }
+                }
+            }
+        }.start(wait = false)
+
+    @PostConstruct
+    fun start() {
+        runBlocking {
+            boostrap()
+        }
+    }
 
     @PreDestroy
-    override fun stop() {
-        clear()
-        server.disposeNow()
-        eventLoopGroup.shutdownGracefully().await().get()
-        this.stop()
+    fun stop() {
+        server.stop()
+        defaultScope.cancel()
     }
 
-    @EventListener
-    fun add(event: PeerAuthorized) {
-        peers[event.peer.node.publicUri] = PeerHolder(PeerStatus.AUTHORIZED, event.peer.node)
-    }
-
-    @EventListener
-    fun add(event: PeerConnected) {
-        peers[event.peer.node.publicUri] = PeerHolder(PeerStatus.CONNECTED, event.peer.node)
-    }
-
-    @EventListener
-    fun remove(event: PeerRemoved) {
-        peers.remove(event.peer.node.publicUri)
-    }
-
-    @EventListener
-    suspend fun ban(event: NodeBanned) {
-        bannedNodes.add(event.address)
-        connections
-            .keys()
-            .asSequence()
-            .filter { InetAddress.getByName(it.host) == event.address }
-            .forEach { disconnectFlow.emit(it) }
-    }
-
-    @EventListener
-    suspend fun outbound(message: DirectNetworkMessage<*>) {
-        val publicUri = message.publicUri
-
-        connections.compute(publicUri) { _, v ->
-            if (v != null) {
-                messageQueue.add(message)
-            } else {
-                val challenge =
-                    ByteArray(128).let {
-                        random.nextBytes(it)
-                        it.toHex()
-                    }
-                challenges[challenge] = challenge
-
-                HttpClient
-                    .create()
-                    .runOn(eventLoopGroup)
-                    .headers {
-                        it.add(GENESIS_HEADER, genesisTransaction.hash.toString())
-                        it.add(PUBLIC_URI_HEADER, thisNode.publicUri)
-                        it.add(PROTOCOL_VERSION_HEADER, thisNode.protocolVersion)
-                        it.add(CHALLENGE_HEADER, challenge)
-                    }.websocket(clientSpec)
-                    .uri(publicUri)
-                    .handle { inbound, outbound ->
-                        var socketAddress: InetSocketAddress? = null
-
-                        outbound.withConnection {
-                            socketAddress = it.channel().remoteAddress() as InetSocketAddress
-                        }
-
-                        prepareConnection(publicUri, socketAddress!!, inbound, outbound, message)
-                    }.doOnSubscribe {
-                        logger.info { "Connected as a client to $publicUri" }
-                    }.subscribe()
-            }
-            publicUri
-        }
-    }
-
-    @EventListener
-    suspend fun outbound(message: BroadcastNetworkMessage<*>) {
-        messageQueue.add(message)
-    }
-
-    override suspend fun poll(): OutboundNetworkMessage<*>? {
-        return messageQueue.poll()
-    }
-
-    override suspend fun process(value: OutboundNetworkMessage<*>) {
-        outboundFlow.emit(value)
-    }
-
-    private fun getConnection(wsInbound: WebsocketInbound): InetSocketAddress? {
-        var socketAddress: InetSocketAddress? = null
-
-        wsInbound.withConnection {
-            socketAddress = it.channel().remoteAddress() as InetSocketAddress
-        }
-
-        return socketAddress
-    }
-
-    private fun prepareConnection(
-        publicUri: URI,
-        socketAddress: InetSocketAddress,
-        wsInbound: WebsocketInbound,
-        wsOutbound: WebsocketOutbound,
-        initialMessage: OutboundNetworkMessage<*>? = null,
-    ): Mono<Void> {
-        if (bannedNodes.contains(socketAddress.address)) {
-            return wsOutbound.sendClose()
-        }
-
-        val inboundThen =
-            wsInbound
-                .receiveFrames()
-                .flatMap {
-                    val content = it.content()
-                    if (!it.isFinalFragment) {
-                        wsOutbound.sendClose().cast(Buffer::class.java)
-                    } else {
-                        val buffer = Buffer()
-                        buffer.write(content.nioBuffer())
-                        Mono.just(buffer)
-                    }
-                }.doOnNext { logger.debug { "Received from $publicUri ${it.toHex()}" } }
-                .doOnSubscribe { logger.debug { "Subscribed to inbound messages from $publicUri" } }
-                .mapNotNull { deserializeOrDisconnect(publicUri, it) { wsOutbound.sendClose().subscribe() } }
-                .filter {
-                    if (it == AttoReady && initialMessage != null) {
-                        messageQueue.add(initialMessage)
-                        false
-                    } else {
-                        true
-                    }
-                }.map { InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, it!!) }
-                .doOnNext { messagePublisher.publish(it!!) }
-                .onErrorResume(AbortedException::class.java) { Mono.empty() }
-                .doOnError { t -> logger.info(t) { "Failed to process inbound message from $publicUri" } }
-                .doOnTerminate {
-                    connections.remove(publicUri)
-                    eventPublisher.publish(NodeDisconnected(publicUri))
-                }.then()
-
-        val outboundMessages =
-            outboundFlow
-                .asFlux(Dispatchers.Default)
-                .filter {
-                    val connectedNode =
-                        peers[publicUri]?.let {
-                            if (it.peerStatus == PeerStatus.CONNECTED) {
-                                it.node
-                            } else {
-                                null
-                            }
-                        }
-                    it.accepts(publicUri, connectedNode)
-                }.replay(1)
-                .refCount()
-                .let {
-                    val dummySubscription = it.subscribe()
-                    it.doOnTerminate { dummySubscription.dispose() }
-                }.map { serialize(it.payload) }
-                .doOnNext { checkBelowMaxMessageSize(it) }
-                .doOnNext { logger.debug { "Sending to $publicUri ${it.message} ${it.serialized.toHex()}" } }
-                .map {
-                    Unpooled.wrappedBuffer(it.serialized.readByteArray())
-                }.doOnSubscribe {
-                    if (initialMessage == null) {
-                        messageQueue.add(DirectNetworkMessage(publicUri, AttoReady))
-                    }
+    @Scheduled(fixedRate = 60_000)
+    suspend fun boostrap() {
+        withContext(Dispatchers.Default) {
+            networkProperties
+                .defaultNodes
+                .asSequence()
+                .map { URI(it) }
+                .forEach {
+                    connectAsync(it)
                 }
-
-        val outboundThen =
-            wsOutbound
-                .send(outboundMessages)
-                .then()
-                .doOnSubscribe { logger.debug { "Subscribed to outbound messages from $publicUri" } }
-                .onErrorResume(AbortedException::class.java) { Mono.empty() }
-                .doOnError { t -> logger.info(t) { "Failed to send to $publicUri. Retrying..." } }
-                .retry(3)
-                .doOnTerminate {
-                    connections.remove(publicUri)
-                    eventPublisher.publish(NodeDisconnected(publicUri))
-                }.then()
-
-        val disconnectionThen =
-            disconnectFlow
-                .filter { it == publicUri }
-                .asFlux(Dispatchers.Default)
-                .next()
-                .flatMap { wsOutbound.sendClose() }
-                .onErrorComplete()
-
-        return Flux
-            .merge(inboundThen, outboundThen, disconnectionThen)
-            .then()
+        }
     }
 
-    private fun serialize(message: AttoMessage): SerializedAttoMessage {
+    @EventListener
+    suspend fun onKeepAlive(message: InboundNetworkMessage<AttoKeepAlive>) {
+        val keepAlive = message.payload
+        val neighbour = keepAlive.neighbour ?: return
+        connectAsync(neighbour)
+    }
+
+    private suspend fun connectAsync(publicUri: URI) {
+        defaultScope.launch {
+            logger.trace { "Start connection to $publicUri" }
+            connection(publicUri)
+        }
+    }
+
+    private suspend fun connection(publicUri: URI) {
+        if (publicUri == thisNode.publicUri) {
+            logger.trace { "Can't connect to $publicUri. This uri is this node." }
+            return
+        }
+
+        if (connectionManager.isConnected(publicUri)) {
+            logger.trace { "Can't connect to $publicUri. Connection already established." }
+            return
+        }
+
+        if (connectingMap.containsKey(publicUri)) {
+            logger.trace { "Can't connect as a client to $publicUri. Connection attempt in progress." }
+            return
+        }
+
+        val connectingFlow = MutableSharedFlow<AttoNode>(1)
+
+        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
+        if (existingFlow != null) {
+            logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
+            return
+        }
+
+        logger.trace { "Connecting to $publicUri" }
+
         try {
-            val serialized = NetworkSerializer.serialize(message)
-
-            logger.trace { "Serialized $message into ${serialized.toHex()}" }
-
-            if (serialized.size > MAX_MESSAGE_SIZE) {
-                logger.error {
-                    "Message ${message.messageType()} has ${serialized.size} which is ${serialized.size - MAX_MESSAGE_SIZE} bytes longer " +
-                        "than max size $MAX_MESSAGE_SIZE: ${serialized.toHex()}"
-                }
-                exitProcess(-1)
+            val session = websocketClient.webSocketSession(publicUri.toString()) {
+                header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
+                header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
             }
 
-            return SerializedAttoMessage(message, serialized)
+            val connectionSocketAddress = InetSocketAddress(
+                session.call.request.url.host,
+                session.call.request.url.port
+            )
+
+            val node = withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
+                connectingFlow.first()
+            }
+
+            if (node == null) {
+                logger.trace { "Handshake timed out" }
+                return
+            }
+
+            connectionManager.manage(node, connectionSocketAddress, session)
         } catch (e: Exception) {
-            logger.error(e) { "Message couldn't be serialized. $message" }
-            exitProcess(-1)
+            logger.trace(e) { "Exception while trying to connect to $publicUri" }
+        } finally {
+            connectingMap.remove(publicUri)
         }
     }
-
-    private fun deserializeOrDisconnect(
-        publicUri: URI,
-        buffer: Buffer,
-        disconnect: () -> Any,
-    ): AttoMessage? {
-        val message = NetworkSerializer.deserialize(buffer)
-
-        if (message == null) {
-            logger.trace { "Received invalid message from $publicUri ${buffer.toHex()}. Disconnecting..." }
-            disconnect.invoke()
-            return message
-        } else if (message.messageType().private && !peers.containsKey(publicUri)) {
-            logger.trace { "Received private message from the unknown $publicUri ${buffer.toHex()}. Disconnecting..." }
-            disconnect.invoke()
-            return message
-        }
-
-        logger.trace { "Deserialized $message from ${buffer.toHex()}" }
-
-        return message
-    }
-
-    /**
-     * Just sanity test to avoid produce invalid data
-     */
-    private fun checkBelowMaxMessageSize(serializeMessage: SerializedAttoMessage) {
-        val byteArray = serializeMessage.serialized
-        val message = serializeMessage.message
-        if (byteArray.size > MAX_MESSAGE_SIZE) {
-            logger.error {
-                "Message has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
-                    "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
-            }
-            logger.error {
-                "Message ${message.messageType()} has ${byteArray.size} which is ${byteArray.size - MAX_MESSAGE_SIZE} bytes longer " +
-                    "than max size $MAX_MESSAGE_SIZE: ${byteArray.toHex()}"
-            }
-            exitProcess(-1)
-        }
-    }
-
-    override fun clear() {
-        peers.clear()
-        bannedNodes.clear()
-        messageQueue.clear()
-
-        connections.forEach {
-            runBlocking { disconnectFlow.emit(it.key) }
-        }
-        connections.clear()
-    }
-
-    private data class SerializedAttoMessage(
-        val message: AttoMessage,
-        val serialized: Buffer,
-    )
-
-    @Suppress("UNCHECKED_CAST")
-    private fun <T> Future<T>.toMono(): Mono<T> {
-        val future = this
-        return Mono.create { sink ->
-            future.addListener {
-                if (it.isSuccess) {
-                    sink.success(it.now as T)
-                } else {
-                    sink.error(it.cause())
-                }
-            }
-        }
-    }
-
-    private enum class PeerStatus {
-        CONNECTED,
-        AUTHORIZED,
-    }
-
-    private data class PeerHolder(
-        val peerStatus: PeerStatus,
-        val node: AttoNode,
-    )
 }
+
+@Serializable
+private data class ChallengeResponse(
+    val node: AttoNode,
+    val signature: AttoSignature,
+)
+
+@Serializable
+private data class CounterChallengeResponse(
+    val challenge: String,
+    val genesis: AttoHash,
+    val node: AttoNode,
+    val nonce: ULong,
+    val signature: AttoSignature,
+    val counterChallenge: String,
+)
