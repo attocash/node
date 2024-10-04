@@ -39,6 +39,7 @@ dependencies {
     val commonsVersion = "2.19.2"
     val cucumberVersion = "7.19.0"
     val springdocVersion = "2.6.0"
+    val ktorVersion = "2.3.12"
 
     implementation("cash.atto:commons:$commonsVersion")
     implementation("cash.atto:commons:$commonsVersion") {
@@ -54,6 +55,16 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
+
+    implementation("io.ktor:ktor-server-netty:$ktorVersion")
+    implementation("io.ktor:ktor-client-cio:$ktorVersion")
+    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
+
+    implementation("io.ktor:ktor-server-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
+
+    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
+    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
 
     implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:$springdocVersion")
 

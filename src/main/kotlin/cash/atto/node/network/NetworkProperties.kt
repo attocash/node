@@ -4,7 +4,8 @@ import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
 
 @Configuration
-@ConfigurationProperties(prefix = "atto.network.broadcaster")
-class NetworkBroadcasterProperties {
-    var cacheExpirationTimeInSeconds: Long? = null
+@ConfigurationProperties(prefix = "atto.network")
+class NetworkProperties {
+    var expirationTimeInSeconds: Long = 300
+    var defaultNodes: MutableSet<String> = HashSet()
 }

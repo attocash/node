@@ -4,8 +4,11 @@ import cash.atto.commons.AttoSendBlock
 import cash.atto.node.transaction.Transaction
 import kotlinx.datetime.toJavaInstant
 import java.time.temporal.ChronoUnit
-import java.util.*
 import java.util.Comparator.comparing
+import java.util.SortedMap
+import java.util.TreeMap
+import java.util.TreeSet
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.min
 
 class TransactionQueue(
@@ -41,9 +44,9 @@ class TransactionQueue(
 
     private val comparator = versionComparator.thenComparing(dateComparator)
 
-    private var currentGroup = 0
     private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
-    private var size = 0
+    private val currentGroup = AtomicInteger(0)
+    private val size = AtomicInteger(0)
 
     private fun getGroup(transaction: Transaction): Int {
         val block = transaction.block
@@ -60,11 +63,11 @@ class TransactionQueue(
         val transactions = groups[group]
 
         if (transactions.add(transaction)) {
-            size++
+            size.addAndGet(1)
         }
 
         if (transactions.size > groupMaxSize) {
-            size--
+            size.addAndGet(-1)
             return transactions.pollFirst()
         }
 
@@ -72,8 +75,8 @@ class TransactionQueue(
     }
 
     internal fun poll(): Transaction? {
-        val groupInitial = currentGroup
-        var groupIndex = currentGroup
+        val groupInitial = currentGroup.get()
+        var groupIndex = currentGroup.get()
 
         do {
             val transactions = groups[groupIndex]
@@ -82,8 +85,8 @@ class TransactionQueue(
             groupIndex = ++groupIndex % groupMap.size
 
             if (transaction != null) {
-                currentGroup = groupIndex
-                size--
+                currentGroup.set(groupIndex)
+                size.addAndGet(-1)
                 return transaction
             }
         } while (groupInitial != groupIndex)
@@ -91,7 +94,7 @@ class TransactionQueue(
         return null
     }
 
-    fun getSize(): Int = size
+    fun getSize(): Int = size.get()
 
     fun clear() {
         groups.forEach { it.clear() }

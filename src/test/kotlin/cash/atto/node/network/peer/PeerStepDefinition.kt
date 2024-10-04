@@ -5,33 +5,36 @@ import cash.atto.node.Neighbour
 import cash.atto.node.NodeStepDefinition
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter.waitUntilNonNull
+import cash.atto.node.network.NetworkProcessor
 import io.cucumber.java.en.Given
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
+import kotlinx.coroutines.runBlocking
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
 
 class PeerStepDefinition(
     private val nodeStepDefinition: NodeStepDefinition,
-    private val handshakeService: HandshakeService,
-    private val peerManager: PeerManager,
+    private val networkProcessor: NetworkProcessor,
     private val webClient: WebClient,
 ) {
     @Given("^the peer (\\w+)$")
     fun startPeer(shortId: String) {
         nodeStepDefinition.startNeighbour(shortId)
         nodeStepDefinition.setAsDefaultNode()
-        handshakeService.startDefaultHandshake()
+        runBlocking {
+            networkProcessor.boostrap()
+        }
 
         checkPeer("THIS", shortId)
         checkPeer(shortId, "THIS")
-
-        peerManager.sendKeepAlive()
     }
 
     @When("default handshake starts")
     fun startDefaultHandshake() {
-        handshakeService.startDefaultHandshake()
+        runBlocking {
+            networkProcessor.boostrap()
+        }
     }
 
     @Then("^(\\w+) node is (\\w+) node peer$")

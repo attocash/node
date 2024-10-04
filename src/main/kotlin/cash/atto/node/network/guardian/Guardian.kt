@@ -5,8 +5,8 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NodeBanned
-import cash.atto.node.network.peer.PeerConnected
-import cash.atto.node.network.peer.PeerRemoved
+import cash.atto.node.network.NodeConnected
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.weight.VoteWeighter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
@@ -39,20 +39,17 @@ class Guardian(
     }
 
     @EventListener
-    fun add(peerEvent: PeerConnected) {
-        val peer = peerEvent.peer
-
-        if (peer.node.isNotVoter()) {
+    fun add(nodeEvent: NodeConnected) {
+        if (nodeEvent.node.isNotVoter()) {
             return
         }
 
-        voterMap[peer.connectionSocketAddress] = peer.node.publicKey
+        voterMap[nodeEvent.connectionSocketAddress] = nodeEvent.node.publicKey
     }
 
     @EventListener
-    fun remove(peerEvent: PeerRemoved) {
-        val peer = peerEvent.peer
-        voterMap.remove(peer.connectionSocketAddress)
+    fun remove(nodeEvent: NodeDisconnected) {
+        voterMap.remove(nodeEvent.connectionSocketAddress)
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)

@@ -2,27 +2,21 @@ package cash.atto.node.transaction
 
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoTransaction
-import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.transaction.TransactionRebroadcaster.TransactionSocketAddressHolder
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.URI
-import java.util.*
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -35,21 +29,10 @@ import kotlin.time.Duration.Companion.milliseconds
 @Service
 class TransactionRebroadcaster(
     private val messagePublisher: NetworkMessagePublisher,
-) : AsynchronousQueueProcessor<TransactionSocketAddressHolder>(100.milliseconds),
-    CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-
-    private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
-    private val transactionQueue: Deque<TransactionSocketAddressHolder> = LinkedList()
-
-    @PreDestroy
-    override fun stop() {
-        singleDispatcher.cancel()
-        super.stop()
-    }
+    private val broadcastQueue = BroadcastQueue()
 
     @EventListener
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
@@ -60,46 +43,38 @@ class TransactionRebroadcaster(
             return
         }
 
-        holderMap.compute(transaction.hash) { _, v ->
-            val holder = v ?: TransactionSocketAddressHolder(transaction)
-            holder.add(message.publicUri)
-            holder
-        }
+        broadcastQueue.seen(transaction, message.publicUri)
 
         logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
     }
 
     @EventListener
     suspend fun process(event: TransactionValidated) {
-        val transactionHolder = holderMap.remove(event.transaction.hash) ?: return
-        withContext(singleDispatcher) {
-            transactionQueue.add(transactionHolder)
+        if (broadcastQueue.enqueue(event.transaction.hash)) {
             logger.trace { "Transaction queued for rebroadcast. ${event.transaction}" }
         }
     }
 
     @EventListener
     fun process(event: TransactionRejected) {
-        holderMap.remove(event.transaction.hash)
+        broadcastQueue.drop(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because it was rejected due to ${event.reason}. ${event.transaction}" }
     }
 
     @EventListener
     fun process(event: TransactionDropped) {
-        holderMap.remove(event.transaction.hash)
+        broadcastQueue.drop(event.transaction.hash)
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }
     }
 
-    override suspend fun poll(): TransactionSocketAddressHolder? =
-        withContext(singleDispatcher) {
-            transactionQueue.poll()
-        }
-
-    override suspend fun process(value: TransactionSocketAddressHolder) {
-        val transaction = value.transaction
-        logger.trace { "Transaction dequeued. $transaction" }
-
-        broadcast(transaction, value.publicUris)
+    @Scheduled(fixedRate = 100)
+    fun dequeue() {
+        do {
+            val (transaction, publicUris) = broadcastQueue.poll()
+            transaction?.let {
+                broadcast(it, publicUris)
+            }
+        } while (transaction != null)
     }
 
     private fun broadcast(
@@ -117,18 +92,61 @@ class TransactionRebroadcaster(
         messagePublisher.publish(message)
     }
 
-    class TransactionSocketAddressHolder(
-        val transaction: AttoTransaction,
-    ) {
-        val publicUris = HashSet<URI>()
+    override fun clear() {
+        broadcastQueue.clear()
+    }
+}
 
-        fun add(publicUri: URI) {
-            publicUris.add(publicUri)
+private class TransactionSocketAddressHolder(
+    val transaction: AttoTransaction,
+) {
+    val publicUris = HashSet<URI>()
+
+    fun add(publicUri: URI) {
+        publicUris.add(publicUri)
+    }
+}
+
+private class BroadcastQueue {
+    private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
+    private val transactionQueue = Channel<TransactionSocketAddressHolder>(capacity = UNLIMITED)
+
+    fun seen(
+        transaction: AttoTransaction,
+        publicUri: URI,
+    ) {
+        holderMap.compute(transaction.hash) { _, v ->
+            val holder = v ?: TransactionSocketAddressHolder(transaction)
+            holder.add(publicUri)
+            holder
         }
     }
 
-    override fun clear() {
+    fun drop(hash: AttoHash) {
+        holderMap.remove(hash)
+    }
+
+    suspend fun enqueue(hash: AttoHash): Boolean {
+        val holder = holderMap.remove(hash) ?: return false
+        transactionQueue.send(holder)
+        return true
+    }
+
+    fun poll(): Pair<AttoTransaction?, Set<URI>> {
+        val result = transactionQueue.tryReceive()
+
+        if (result.isSuccess) {
+            val holder = result.getOrThrow()
+            return holder.transaction to holder.publicUris
+        }
+
+        return null to emptySet()
+    }
+
+    fun clear() {
         holderMap.clear()
-        transactionQueue.clear()
+        do {
+            val (transaction, _) = poll()
+        } while (transaction != null)
     }
 }

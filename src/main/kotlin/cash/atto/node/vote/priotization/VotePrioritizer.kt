@@ -4,7 +4,6 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
-import cash.atto.node.AsynchronousQueueProcessor
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
@@ -13,27 +12,30 @@ import cash.atto.node.election.ElectionStarted
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.TransactionSaved
-import cash.atto.node.vote.*
+import cash.atto.node.vote.Vote
+import cash.atto.node.vote.VoteDropReason
+import cash.atto.node.vote.VoteDropped
+import cash.atto.node.vote.VoteReceived
+import cash.atto.node.vote.VoteRejected
+import cash.atto.node.vote.VoteRejectionReason
+import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.priotization.VoteQueue.TransactionVote
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
+import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
 
 @Service
 class VotePrioritizer(
     properties: VotePrioritizationProperties,
     private val eventPublisher: EventPublisher,
-) : AsynchronousQueueProcessor<TransactionVote>(100.milliseconds),
-    CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -63,12 +65,6 @@ class VotePrioritizer(
                 }
             }.build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
             .asMap()
-
-    @PreDestroy
-    override fun stop() {
-        singleDispatcher.cancel()
-        super.stop()
-    }
 
     fun getQueueSize(): Int {
         return queue.getSize()
@@ -165,16 +161,16 @@ class VotePrioritizer(
         }
     }
 
-    override suspend fun poll(): TransactionVote? =
+    @Scheduled(fixedRate = 100)
+    suspend fun process() {
         withContext(singleDispatcher) {
-            queue.poll()
+            do {
+                val transactionVote = queue.poll()
+                transactionVote?.let {
+                    eventPublisher.publish(VoteValidated(it.transaction, it.vote))
+                }
+            } while (transactionVote != null)
         }
-
-    override suspend fun process(value: TransactionVote) {
-        val transaction = value.transaction
-        val vote = value.vote
-
-        eventPublisher.publish(VoteValidated(transaction, vote))
     }
 
     private fun validate(vote: Vote): VoteRejectionReason? {
