@@ -1,6 +1,17 @@
 package cash.atto.node.transaction.validation.validator
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoWorker
+import cash.atto.commons.cpu
+import cash.atto.commons.sign
+import cash.atto.commons.toAttoHeight
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.account.Account
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableRepository
@@ -75,6 +86,7 @@ internal class ReceiveValidatorTest {
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = block.algorithm,
+                    timestamp = block.timestamp.toJavaInstant(),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = block.publicKey,
                     amount = block.balance - account.balance,
@@ -119,6 +131,7 @@ internal class ReceiveValidatorTest {
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
+                    timestamp = block.timestamp.toJavaInstant(),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = AttoPublicKey(byteArray),
                     amount = block.balance - account.balance,
@@ -145,6 +158,7 @@ internal class ReceiveValidatorTest {
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
+                    timestamp = block.timestamp.toJavaInstant(),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = account.publicKey,
                     amount = AttoAmount(2UL),

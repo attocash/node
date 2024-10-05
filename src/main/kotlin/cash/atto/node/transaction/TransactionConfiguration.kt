@@ -19,6 +19,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
+import kotlinx.datetime.toJavaInstant
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
@@ -84,6 +85,7 @@ class TransactionConfiguration(
                     hash = block.sendHash,
                     version = block.version,
                     algorithm = block.algorithm,
+                    timestamp = block.timestamp.toJavaInstant(),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = block.publicKey,
                     amount = block.balance,

@@ -36,7 +36,7 @@ configurations {
 }
 
 dependencies {
-    val commonsVersion = "2.19.2"
+    val commonsVersion = "2.20.0"
     val cucumberVersion = "7.19.0"
     val springdocVersion = "2.6.0"
     val ktorVersion = "2.3.12"
