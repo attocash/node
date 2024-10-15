@@ -88,7 +88,7 @@ class Election(
 
         logger.trace { "Started election for $transaction" }
 
-        eventPublisher.publish(ElectionStarted(account, transaction))
+        eventPublisher.publishSync(ElectionStarted(account, transaction))
     }
 
     private suspend fun process(
@@ -105,7 +105,6 @@ class Election(
             logger.trace { "Election for $publicKeyHeight not found. Vote will be ignored" }
             return@withContext
         }
-
 
         if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }

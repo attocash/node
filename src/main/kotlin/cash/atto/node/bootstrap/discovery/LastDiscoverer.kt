@@ -70,11 +70,13 @@ class LastDiscoverer(
 
         logger.trace { "Received bootstrap head transaction ${transaction.hash}" }
 
-
         val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
 
         if (account.height >= block.height) {
-            logger.trace { "Received ${transaction.hash} with height ${transaction.height} however ${account.publicKey} account already has ${account.height}" }
+            logger.trace {
+                "Received ${transaction.hash} with height ${transaction.height} however ${account.publicKey} " +
+                    "account already has ${account.height}"
+            }
             return
         }
 

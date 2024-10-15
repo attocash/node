@@ -157,26 +157,24 @@ class NodeConnectionManager(
         send(BroadcastNetworkMessage(strategy = BroadcastStrategy.EVERYONE, payload = message))
     }
 
-    private fun BroadcastStrategy.shouldBroadcast(node: AttoNode): Boolean {
-        return when (this) {
+    private fun BroadcastStrategy.shouldBroadcast(node: AttoNode): Boolean =
+        when (this) {
             BroadcastStrategy.EVERYONE -> true
             BroadcastStrategy.VOTERS -> node.isVoter()
         }
-    }
 
     private inner class NodeConnection(
         val node: AttoNode,
         val connectionInetSocketAddress: InetSocketAddress,
         val session: WebSocketSession,
     ) {
-        fun incomingFlow(): Flow<ByteArray> {
-            return session
+        fun incomingFlow(): Flow<ByteArray> =
+            session
                 .incoming
                 .consumeAsFlow()
                 .onStart { logger.info { "Connected to ${node.publicUri}" } }
                 .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
-        }
 
         suspend fun disconnected() {
             if (session.isActive) {

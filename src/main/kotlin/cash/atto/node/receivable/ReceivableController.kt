@@ -89,9 +89,7 @@ class ReceivableController(
                 } else {
                     flowOf(it)
                 }
-
-            }
-            .onStart { logger.trace { "Started streaming receivable for $publicKey account" } }
+            }.onStart { logger.trace { "Started streaming receivable for $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming transactions for $publicKey account" } }
     }
 }

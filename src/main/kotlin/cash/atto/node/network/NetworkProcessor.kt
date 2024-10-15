@@ -339,19 +339,30 @@ class NetworkProcessor(
         logger.trace { "Connecting to $publicUri" }
 
         try {
-            val session = websocketClient.webSocketSession(publicUri.toString()) {
-                header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
-                header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
-            }
+            val session =
+                websocketClient.webSocketSession(publicUri.toString()) {
+                    header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
+                    header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
+                }
 
-            val connectionSocketAddress = InetSocketAddress(
-                session.call.request.url.host,
-                session.call.request.url.port
-            )
+            val connectionSocketAddress =
+                InetSocketAddress(
+                    session
+                        .call
+                        .request
+                        .url
+                        .host,
+                    session
+                        .call
+                        .request
+                        .url
+                        .port,
+                )
 
-            val node = withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
-                connectingFlow.first()
-            }
+            val node =
+                withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
+                    connectingFlow.first()
+                }
 
             if (node == null) {
                 logger.trace { "Handshake timed out" }
