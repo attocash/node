@@ -195,11 +195,15 @@ class TransactionController(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
     ) {
+        logger.debug { "Received $transaction" }
+
         if (!transaction.isValid()) {
+            logger.debug { "Invalid! $transaction" }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction")
         }
 
         if (transaction.block.network != thisNode.network) {
+            logger.debug { "Invalid network! $transaction" }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction network")
         }
 
@@ -212,6 +216,7 @@ class TransactionController(
             } else if (ips.isNotEmpty()) {
                 InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
             } else {
+                logger.debug { "X-Forwarded-For header is empty. Are you sure you are behind a load balancer? $transaction" }
                 throw ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
                     "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?",
