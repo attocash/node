@@ -174,7 +174,7 @@ class VoteWeighter(
         if (onlineWeights.isNotEmpty()) {
             this.minimalRebroadcastWeight = onlineWeights[i].value
         } else {
-            this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.toAttoAmount()
+            this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.toString().toAttoAmount()
         }
 
         logger.info { "Minimal rebroadcast weight updated to ${this.minimalRebroadcastWeight}" }

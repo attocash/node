@@ -47,7 +47,7 @@ class ElectionVoter(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        val MIN_WEIGHT = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000)) // 1M
+        val MIN_WEIGHT = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000).toString()) // 1M
         val finalVoteTimestamp = AttoVote.finalTimestamp.toJavaInstant()
     }
 
@@ -131,7 +131,7 @@ class ElectionVoter(
         }
     }
 
-    private fun vote(
+    private suspend fun vote(
         transaction: Transaction,
         timestamp: Instant,
     ) {

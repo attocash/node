@@ -5,13 +5,14 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWorker
-import cash.atto.commons.cpu
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.sign
+import cash.atto.commons.signer.AttoWorker
+import cash.atto.commons.signer.cpu
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
+import cash.atto.commons.toPublicKey
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.protocol.AttoNode
@@ -124,8 +125,8 @@ class TransactionConfiguration(
         val transaction =
             Transaction(
                 block = block,
-                signature = privateKey.sign(block.hash),
-                work = AttoWorker.cpu().work(block),
+                signature = runBlocking { privateKey.sign(block.hash) },
+                work = runBlocking { AttoWorker.cpu().work(block) },
             )
 
         logger.info { "Created ${thisNode.network} genesis transaction ${transaction.toAttoTransaction().toHex()}" }

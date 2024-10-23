@@ -4,6 +4,7 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
+import cash.atto.commons.isValid
 import cash.atto.commons.serialiazers.AttoPublicKeyAsByteArraySerializer
 import cash.atto.commons.serialiazers.AttoSignatureAsByteArraySerializer
 import kotlinx.datetime.Clock

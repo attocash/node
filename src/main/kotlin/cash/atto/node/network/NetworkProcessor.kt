@@ -4,6 +4,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.fromHexToByteArray
+import cash.atto.commons.isValid
 import cash.atto.commons.sign
 import cash.atto.commons.toByteArray
 import cash.atto.node.attoCoroutineExceptionHandler

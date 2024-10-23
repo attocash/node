@@ -2,6 +2,7 @@ package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.toPublicKey
 import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration

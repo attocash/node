@@ -24,7 +24,7 @@ internal object ChallengeStore {
         return challenges.remove(publicUri, challenge)
     }
 
-    fun generate(publicUri: URI): String {
+    fun generate(publicUri: URI): String { // TOOD: Make sure challenge prefix publicUri so no one can pretend to be US
         val challenge =
             ByteArray(128).let {
                 random.nextBytes(it)

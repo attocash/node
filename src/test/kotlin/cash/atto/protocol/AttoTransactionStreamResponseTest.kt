@@ -7,11 +7,13 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWorker
-import cash.atto.commons.cpu
 import cash.atto.commons.sign
+import cash.atto.commons.signer.AttoWorker
+import cash.atto.commons.signer.cpu
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
+import cash.atto.commons.toPublicKey
+import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
@@ -43,8 +45,8 @@ class AttoTransactionStreamResponseTest {
         val transaction =
             AttoTransaction(
                 block = block,
-                signature = privateKey.sign(block.hash),
-                AttoWorker.cpu().work(block),
+                signature = runBlocking { privateKey.sign(block.hash) },
+                runBlocking { AttoWorker.cpu().work(block) },
             )
         val expectedResponse = AttoTransactionStreamResponse(transaction)
 

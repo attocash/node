@@ -8,9 +8,9 @@ import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.AttoWorker
-import cash.atto.commons.cpu
 import cash.atto.commons.sign
+import cash.atto.commons.signer.AttoWorker
+import cash.atto.commons.signer.cpu
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
@@ -18,6 +18,7 @@ import cash.atto.protocol.AttoNode
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.runBlocking
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToFlux
@@ -46,12 +47,13 @@ class TransactionStepDefinition(
         val receiverPublicKeyAlgorithm = PropertyHolder[AttoAlgorithm::class.java, receiverShortId]
         val receiverPublicKey = PropertyHolder[AttoPublicKey::class.java, receiverShortId]
 
-        val sendBlock = account.send(receiverPublicKeyAlgorithm, receiverPublicKey, defaultSendAmount)
+        val send = account.send(receiverPublicKeyAlgorithm, receiverPublicKey, defaultSendAmount)
+        val sendBlock = send.first
         val sendTransaction =
             Transaction(
                 block = sendBlock,
-                signature = privateKey.sign(sendBlock.hash),
-                work = AttoWorker.cpu().work(sendBlock),
+                signature = runBlocking { privateKey.sign(sendBlock.hash) },
+                work = runBlocking { AttoWorker.cpu().work(sendBlock) },
             )
 
         logger.info { "Publishing $sendTransaction" }
@@ -76,19 +78,21 @@ class TransactionStepDefinition(
         val account = getAccount(PropertyHolder[Neighbour::class.java, receiverShortId], publicKey)
         val transaction =
             if (account != null) {
-                val receiveBlock = account.receive(receivable)
+                val receive = account.receive(receivable)
+                val receiveBlock = receive.first
                 Transaction(
                     block = receiveBlock,
-                    signature = privateKey.sign(receiveBlock.hash),
-                    work = AttoWorker.cpu().work(receiveBlock),
+                    signature = runBlocking { privateKey.sign(receiveBlock.hash) },
+                    work = runBlocking { AttoWorker.cpu().work(receiveBlock) },
                 )
             } else {
-                val openBlock =
+                val open =
                     AttoAccount.open(receivable.receiverAlgorithm, receivable.receiverPublicKey, receivable, sendTransaction.block.network)
+                val openBlock = open.first
                 Transaction(
                     block = openBlock,
-                    signature = privateKey.sign(openBlock.hash),
-                    work = AttoWorker.cpu().work(openBlock),
+                    signature = runBlocking { privateKey.sign(openBlock.hash) },
+                    work = runBlocking { AttoWorker.cpu().work(openBlock) },
                 )
             }
 
@@ -111,12 +115,13 @@ class TransactionStepDefinition(
 
         val representativePublicKey = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
 
-        val changeBlock = account.change(AttoAlgorithm.V1, representativePublicKey)
+        val change = account.change(AttoAlgorithm.V1, representativePublicKey)
+        val changeBlock = change.first
         val changeTransaction =
             Transaction(
                 block = changeBlock,
-                signature = privateKey.sign(changeBlock.hash),
-                work = AttoWorker.cpu().work(changeBlock),
+                signature = runBlocking { privateKey.sign(changeBlock.hash) },
+                work = runBlocking { AttoWorker.cpu().work(changeBlock) },
             )
 
         publish(shortId, changeTransaction)

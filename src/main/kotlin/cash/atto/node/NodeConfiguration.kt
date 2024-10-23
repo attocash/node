@@ -3,6 +3,7 @@ package cash.atto.node
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
+import cash.atto.commons.toPublicKey
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
