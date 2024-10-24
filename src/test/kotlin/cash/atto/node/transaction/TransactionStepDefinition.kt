@@ -4,13 +4,12 @@ import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.sign
-import cash.atto.commons.signer.AttoWorker
-import cash.atto.commons.signer.cpu
+import cash.atto.commons.InMemorySigner
+import cash.atto.commons.worker.AttoWorker
+import cash.atto.commons.worker.cpu
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
@@ -40,7 +39,7 @@ class TransactionStepDefinition(
         senderShortId: String,
         receiverShortId: String,
     ) {
-        val privateKey = PropertyHolder[AttoPrivateKey::class.java, senderShortId]
+        val signer = PropertyHolder[InMemorySigner::class.java, senderShortId]
         val publicKey = PropertyHolder[AttoPublicKey::class.java, senderShortId]
         val account = getAccount(PropertyHolder[Neighbour::class.java, senderShortId], publicKey)!!
 
@@ -52,7 +51,7 @@ class TransactionStepDefinition(
         val sendTransaction =
             Transaction(
                 block = sendBlock,
-                signature = runBlocking { privateKey.sign(sendBlock.hash) },
+                signature = runBlocking { signer.sign(sendBlock.hash) },
                 work = runBlocking { AttoWorker.cpu().work(sendBlock) },
             )
 
@@ -69,7 +68,7 @@ class TransactionStepDefinition(
         sendTransactionShortId: String,
         receiverShortId: String,
     ) {
-        val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, receiverShortId)
+        val signer = PropertyHolder.get(InMemorySigner::class.java, receiverShortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
 
         val sendTransaction = PropertyHolder.get(Transaction::class.java, sendTransactionShortId)
@@ -82,7 +81,7 @@ class TransactionStepDefinition(
                 val receiveBlock = receive.first
                 Transaction(
                     block = receiveBlock,
-                    signature = runBlocking { privateKey.sign(receiveBlock.hash) },
+                    signature = runBlocking { signer.sign(receiveBlock.hash) },
                     work = runBlocking { AttoWorker.cpu().work(receiveBlock) },
                 )
             } else {
@@ -91,7 +90,7 @@ class TransactionStepDefinition(
                 val openBlock = open.first
                 Transaction(
                     block = openBlock,
-                    signature = runBlocking { privateKey.sign(openBlock.hash) },
+                    signature = runBlocking { signer.sign(openBlock.hash) },
                     work = runBlocking { AttoWorker.cpu().work(openBlock) },
                 )
             }
@@ -109,7 +108,7 @@ class TransactionStepDefinition(
         shortId: String,
         representativeShortId: String,
     ) {
-        val privateKey = PropertyHolder.get(AttoPrivateKey::class.java, shortId)
+        val signer = PropertyHolder.get(InMemorySigner::class.java, shortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, shortId)
         val account = getAccount(PropertyHolder[Neighbour::class.java, shortId], publicKey)!!
 
@@ -120,7 +119,7 @@ class TransactionStepDefinition(
         val changeTransaction =
             Transaction(
                 block = changeBlock,
-                signature = runBlocking { privateKey.sign(changeBlock.hash) },
+                signature = runBlocking { signer.sign(changeBlock.hash) },
                 work = runBlocking { AttoWorker.cpu().work(changeBlock) },
             )
 

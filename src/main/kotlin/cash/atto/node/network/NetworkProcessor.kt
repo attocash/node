@@ -1,11 +1,11 @@
 package cash.atto.node.network
 
+import cash.atto.commons.AttoChallenge
 import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSignature
+import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.isValid
-import cash.atto.commons.sign
 import cash.atto.commons.toByteArray
 import cash.atto.node.attoCoroutineExceptionHandler
 import cash.atto.node.transaction.Transaction
@@ -25,7 +25,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.call
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.netty.Netty
@@ -48,6 +47,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -63,7 +64,7 @@ import kotlin.time.Duration.Companion.seconds
 class NetworkProcessor(
     private val genesisTransaction: Transaction,
     private val thisNode: AttoNode,
-    private val privateKey: AttoPrivateKey,
+    private val signer: AttoSigner,
     environment: Environment,
     private val networkProperties: NetworkProperties,
     private val connectionManager: NodeConnectionManager,
@@ -156,8 +157,8 @@ class NetworkProcessor(
                             return@post
                         }
 
-                        val nonce = counterResponse.nonce
-                        val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
+                        val counterTimestamp = counterResponse.timestamp
+                        val hash = AttoHash.hash(64, node.publicKey.value, challenge.fromHexToByteArray(), counterTimestamp.toByteArray())
 
                         val signature = counterResponse.signature
                         if (!signature.isValid(node.publicKey, hash)) {
@@ -168,12 +169,12 @@ class NetworkProcessor(
 
                         logger.trace { "Challenge $challenge validated successfully" }
 
-                        val counterHash = AttoHash.hash(64, counterResponse.counterChallenge.fromHexToByteArray(), nonce.toByteArray())
-
+                        val timestamp = Clock.System.now()
                         val response =
                             ChallengeResponse(
                                 thisNode,
-                                privateKey.sign(counterHash),
+                                timestamp,
+                                signer.sign(AttoChallenge(counterResponse.counterChallenge.fromHexToByteArray()), timestamp),
                             )
 
                         val connectingFlow = connectingMap[publicUri]
@@ -217,16 +218,15 @@ class NetworkProcessor(
                                 .replaceFirst("wss://", "https://")
                                 .replaceFirst("ws://", "http://")
 
-                        val nonce = random.nextLong().toULong()
-                        val hash = AttoHash.hash(64, challenge.fromHexToByteArray(), nonce.toByteArray())
+                        val timestamp = Clock.System.now()
                         val counterChallenge = ChallengeStore.generate(publicUri)
                         val counterResponse =
                             CounterChallengeResponse(
                                 challenge,
                                 genesisTransaction.hash,
                                 thisNode,
-                                nonce,
-                                privateKey.sign(hash),
+                                timestamp,
+                                signer.sign(AttoChallenge(challenge.fromHexToByteArray()), timestamp),
                                 counterChallenge,
                             )
                         val result =
@@ -255,17 +255,20 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val counterHash = AttoHash.hash(64, counterChallenge.fromHexToByteArray(), nonce.toByteArray())
+                        val node = response.node
+
+                        val counterHash =
+                            AttoHash.hash(64, node.publicKey.value, counterChallenge.fromHexToByteArray(), response.timestamp.toByteArray())
 
                         val signature = response.signature
-                        if (!signature.isValid(response.node.publicKey, counterHash)) {
+                        if (!signature.isValid(node.publicKey, counterHash)) {
                             logger.trace { "Received invalid signature from client $remoteHost $response" }
                             return@webSocket
                         }
 
                         val connectionSocketAddress = InetSocketAddress(call.request.host(), call.request.port())
 
-                        connectionManager.manage(response.node, connectionSocketAddress, this)
+                        connectionManager.manage(node, connectionSocketAddress, this)
                     } catch (e: Exception) {
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                     }
@@ -382,6 +385,7 @@ class NetworkProcessor(
 @Serializable
 private data class ChallengeResponse(
     val node: AttoNode,
+    val timestamp: Instant,
     val signature: AttoSignature,
 )
 
@@ -390,7 +394,7 @@ private data class CounterChallengeResponse(
     val challenge: String,
     val genesis: AttoHash,
     val node: AttoNode,
-    val nonce: ULong,
+    val timestamp: Instant,
     val signature: AttoSignature,
     val counterChallenge: String,
 )

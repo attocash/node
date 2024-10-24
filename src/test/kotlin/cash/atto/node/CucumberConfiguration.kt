@@ -1,8 +1,7 @@
 package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoPrivateKey
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.AttoSigner
 import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration
@@ -21,7 +20,7 @@ class CucumberConfiguration(
     val genesisTransaction: Transaction,
     val thisNode: AttoNode,
     val networkProperties: NetworkProperties,
-    val privateKey: AttoPrivateKey,
+    val signer: AttoSigner,
     val transactionConfiguration: TransactionConfiguration,
     val caches: List<CacheSupport>,
     val repositories: List<AttoRepository>,
@@ -47,9 +46,9 @@ class CucumberConfiguration(
             PropertyHolder.clear()
             PropertyHolder.add("THIS", context)
             PropertyHolder.add("THIS", thisNode)
-            PropertyHolder.add("THIS", privateKey)
+            PropertyHolder.add("THIS", signer)
             PropertyHolder.add("THIS", AttoAlgorithm.V1)
-            PropertyHolder.add("THIS", privateKey.toPublicKey())
+            PropertyHolder.add("THIS", signer.publicKey)
             PropertyHolder.add("THIS", Neighbour(8082U, 8080U))
 
             NodeHolder.clear(context)

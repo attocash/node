@@ -172,7 +172,7 @@ class NodeConnectionManager(
             session
                 .incoming
                 .consumeAsFlow()
-                .onStart { logger.info { "Connected to ${node.publicUri}" } }
+                .onStart { logger.info { "Connected to ${node.publicUri} ${node.publicKey}" } }
                 .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
 

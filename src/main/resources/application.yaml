@@ -26,9 +26,13 @@ spring:
 
 atto:
   use-x-forwarded-for: ${ATTO_USE_X_FORWARDED_FOR:false}
+  signer:
+    backend: ${ATTO_SIGNER_BACKEND:local}
+    remote-url: ${ATTO_SIGNER_REMOTE_URL:}
+    token: ${ATTO_SIGNER_REMOTE_TOKEN:}
+    key: ${ATTO_PRIVATE_KEY:}
   node:
     public-uri: ${ATTO_PUBLIC_URI}
-    private-key: ${ATTO_PRIVATE_KEY:}
   network:
     broadcaster:
       cache-expiration-time-in-seconds: 10

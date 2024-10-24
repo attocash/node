@@ -3,16 +3,14 @@ package cash.atto.node.transaction
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoOpenBlock
-import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.sign
-import cash.atto.commons.signer.AttoWorker
-import cash.atto.commons.signer.cpu
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.worker.AttoWorker
+import cash.atto.commons.worker.cpu
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.protocol.AttoNode
@@ -38,7 +36,7 @@ class TransactionConfiguration(
     @DependsOn("flywayInitializer")
     fun genesisTransaction(
         properties: TransactionProperties,
-        privateKey: AttoPrivateKey,
+        signer: AttoSigner,
         thisNode: AttoNode,
     ): Transaction {
         val genesis = properties.genesis
@@ -53,7 +51,7 @@ class TransactionConfiguration(
                     ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
             } else {
                 logger.info { "No genesis found. Creating new genesis with this node private key..." }
-                createGenesis(privateKey, thisNode)
+                createGenesis(signer, thisNode)
             }
 
         if (genesisTransaction.block.network != thisNode.network) {
@@ -105,7 +103,7 @@ class TransactionConfiguration(
     }
 
     internal fun createGenesis(
-        privateKey: AttoPrivateKey,
+        signer: AttoSigner,
         thisNode: AttoNode,
     ): Transaction {
         val block =
@@ -113,19 +111,19 @@ class TransactionConfiguration(
                 version = 0U.toAttoVersion(),
                 network = thisNode.network,
                 algorithm = thisNode.algorithm,
-                publicKey = privateKey.toPublicKey(),
+                publicKey = signer.publicKey,
                 balance = AttoAmount.MAX,
                 timestamp = Clock.System.now(),
                 sendHashAlgorithm = thisNode.algorithm,
                 sendHash = AttoHash(ByteArray(32)),
                 representativeAlgorithm = thisNode.algorithm,
-                representativePublicKey = privateKey.toPublicKey(),
+                representativePublicKey = signer.publicKey,
             )
 
         val transaction =
             Transaction(
                 block = block,
-                signature = runBlocking { privateKey.sign(block.hash) },
+                signature = runBlocking { signer.sign(block.hash) },
                 work = runBlocking { AttoWorker.cpu().work(block) },
             )
 

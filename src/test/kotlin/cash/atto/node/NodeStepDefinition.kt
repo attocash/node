@@ -69,7 +69,7 @@ class NodeStepDefinition(
                         "--spring.flyway.password=$password",
                         "--atto.node.public-uri=ws://localhost:$websocketPort",
                         "--websocket.port=$websocketPort",
-                        "--atto.node.private-key=${privateKey.value.toHex()}",
+                        "--atto.signer.key=${privateKey.value.toHex()}",
                         "--atto.transaction.genesis=${transaction.toAttoTransaction().toBuffer().toHex()}",
                     )
                 val context =
@@ -80,7 +80,7 @@ class NodeStepDefinition(
                 NodeHolder.add(context)
 
                 PropertyHolder.add(shortId, context)
-                PropertyHolder.add(shortId, privateKey)
+                PropertyHolder.add(shortId, privateKey.toSigner())
                 PropertyHolder.add(shortId, privateKey.toPublicKey())
                 PropertyHolder.add(shortId, AttoAlgorithm.V1)
                 PropertyHolder.add(shortId, Neighbour(websocketPort, httpPort))

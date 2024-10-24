@@ -41,13 +41,14 @@ configurations {
 ext["kotlin-coroutines.version"] = "1.9.0"
 
 dependencies {
-    val commonsVersion = "25092d1-SNAPSHOT"
+    val commonsVersion = "38fffa3-SNAPSHOT"
     val cucumberVersion = "7.20.1"
     val springdocVersion = "2.6.0"
     val ktorVersion = "3.0.0"
 
     implementation("cash.atto:commons-core:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
+    implementation("cash.atto:commons-signer-remote:$commonsVersion")
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 

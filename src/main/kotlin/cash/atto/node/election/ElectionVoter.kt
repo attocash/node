@@ -3,7 +3,7 @@ package cash.atto.node.election
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPrivateKey
+import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit
 import cash.atto.commons.sign
 import cash.atto.node.CacheSupport
@@ -38,7 +38,7 @@ import java.time.Instant
 @Service
 class ElectionVoter(
     private val thisNode: AttoNode,
-    private val privateKey: AttoPrivateKey,
+    private val signer: AttoSigner,
     private val voteWeighter: VoteWeighter,
     private val transactionRepository: TransactionRepository,
     private val eventPublisher: EventPublisher,
@@ -152,7 +152,7 @@ class ElectionVoter(
                 timestamp = timestamp.toKotlinInstant(),
                 algorithm = thisNode.algorithm,
                 publicKey = thisNode.publicKey,
-                signature = privateKey.sign(voteHash),
+                signature = signer.sign(voteHash),
             )
         val votePush =
             AttoVotePush(
