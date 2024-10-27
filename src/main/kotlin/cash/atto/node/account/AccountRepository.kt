@@ -62,10 +62,11 @@ class AccountCachedRepository(
     override suspend fun save(entity: Account): Account {
         val saved = accountCrudRepository.save(entity)
 
-        cache[entity.publicKey] = saved.copy(
-            persistedAt = entity.persistedAt ?: Instant.now(),
-            updatedAt = Instant.now(),
-        )
+        cache[entity.publicKey] =
+            saved.copy(
+                persistedAt = entity.persistedAt ?: Instant.now(),
+                updatedAt = Instant.now(),
+            )
 
         executeAfterCompletion { status ->
             if (status != TransactionSynchronization.STATUS_COMMITTED) {

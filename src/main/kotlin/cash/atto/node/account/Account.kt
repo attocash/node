@@ -52,20 +52,6 @@ data class Account(
         )
 }
 
-// data class AccountEntry(
-//    @Id
-//    val publicKey: AttoPublicKey,
-//    val algorithm: AttoAlgorithm,
-//    val subjectAlgorithm: AttoAlgorithm,
-//    val subjectPublicKey: AttoPublicKey,
-//    val previousBalance: AttoAmount,
-//    val balance: AttoAmount,
-// )
-//
-// // RECEIVE = amount + sender address
-// // SEND = amount + receiver address
-// // CHANGE = 0 amount + representative address
-
 data class AccountUpdated(
     val source: TransactionSource,
     val previousAccount: Account,

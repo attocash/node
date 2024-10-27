@@ -85,6 +85,7 @@ class TransactionConfiguration(
                     hash = block.sendHash,
                     version = block.version,
                     algorithm = block.algorithm,
+                    publicKey = block.publicKey,
                     timestamp = block.timestamp.toJavaInstant(),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = block.publicKey,

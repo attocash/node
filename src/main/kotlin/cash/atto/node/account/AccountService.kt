@@ -1,8 +1,15 @@
 package cash.atto.node.account
 
+import cash.atto.commons.AttoChangeBlock
 import cash.atto.commons.AttoOpenBlock
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.ReceiveSupport
 import cash.atto.commons.RepresentativeSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.account.entry.AccountEntry
+import cash.atto.node.account.entry.AccountEntryService
+import cash.atto.node.receivable.ReceivableRepository
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionService
 import cash.atto.node.transaction.TransactionSource
@@ -14,7 +21,9 @@ import org.springframework.transaction.annotation.Transactional
 @Service
 class AccountService(
     private val accountRepository: AccountRepository,
+    private val accountEntryService: AccountEntryService,
     private val transactionService: TransactionService,
+    private val receivableRepository: ReceivableRepository,
     private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -78,6 +87,33 @@ class AccountService(
         val updatedAccount = update(account, transaction)
 
         require(updatedAccount.height == transaction.height) { "Sanity check for account height failed. $account $transaction" }
+
+        val block = transaction.block
+        val (subjectAlgorithm, subjectPublicKey) =
+            when (block) {
+                is AttoChangeBlock -> block.representativeAlgorithm to block.representativePublicKey
+                is AttoSendBlock -> block.receiverAlgorithm to block.receiverPublicKey
+                is AttoReceiveBlock, is AttoOpenBlock -> {
+                    block as ReceiveSupport
+                    val receivable = receivableRepository.findById(block.sendHash)!!
+                    receivable.algorithm to receivable.publicKey
+                }
+            }
+
+        val entry =
+            AccountEntry(
+                hash = transaction.hash,
+                algorithm = transaction.algorithm,
+                publicKey = transaction.publicKey,
+                height = transaction.height,
+                blockType = block.type,
+                subjectAlgorithm = subjectAlgorithm,
+                subjectPublicKey = subjectPublicKey,
+                previousBalance = account.balance,
+                balance = account.balance,
+            )
+
+        accountEntryService.save(entry)
 
         transactionService.save(source, transaction)
 

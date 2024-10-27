@@ -15,10 +15,31 @@ CREATE TABLE account
   updated_at                 TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) NOT NULL
 );
 
+
+CREATE TABLE account_entry
+(
+  hash               VARBINARY(32) PRIMARY KEY,
+
+  algorithm          ENUM ('V1')                                                              NOT NULL,
+  public_key         VARBINARY(32)                                                            NOT NULL,
+  height             BIGINT UNSIGNED                                                          NOT NULL,
+  block_type         ENUM ('OPEN','SEND','RECEIVE','CHANGE')                                  NOT NULL,
+  subject_algorithm  ENUM ('V1')                                                              NOT NULL,
+  subject_public_key VARBINARY(32)                                                            NOT NULL,
+
+  previous_balance   BIGINT UNSIGNED                                                          NOT NULL,
+  balance            BIGINT UNSIGNED                                                          NOT NULL,
+
+
+  persisted_at       TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
+  updated_at         TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) NOT NULL
+);
+
 CREATE TABLE transaction
 (
   hash         VARBINARY(32) PRIMARY KEY,
 
+  algorithm    ENUM ('V1')                                                              NOT NULL,
   public_key   VARBINARY(32)                              NOT NULL,
   height       BIGINT UNSIGNED                            NOT NULL,
 
@@ -35,6 +56,7 @@ CREATE TABLE receivable
   hash                VARBINARY(32) PRIMARY KEY,
   version             SMALLINT UNSIGNED                         NOT NULl,
   algorithm           ENUM ('V1')                               NOT NULL,
+  public_key          VARBINARY(32)                             NOT NULL,
   timestamp           TIMESTAMP(3)                              NOT NULL,
   receiver_algorithm  ENUM ('V1')                               NOT NULL,
   receiver_public_key VARBINARY(32)                             NOT NULL,
