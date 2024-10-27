@@ -4,6 +4,7 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoChangeBlock
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
@@ -36,7 +37,7 @@ internal class ChangeValidatorTest {
             network = AttoNetwork.LOCAL,
             version = 0u.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            height = 2u.toAttoHeight(),
+            height = 2,
             balance = AttoAmount(0u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
@@ -49,7 +50,7 @@ internal class ChangeValidatorTest {
             version = account.version,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
-            height = account.height + 1U,
+            height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(0U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
             previous = account.lastTransactionHash,

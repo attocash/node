@@ -3,13 +3,13 @@ package cash.atto.node.transaction.validation.validator
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.AttoWork
 import cash.atto.commons.sign
-import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toPublicKey
 import cash.atto.commons.worker.AttoWorker
@@ -37,7 +37,7 @@ internal class BlockValidatorTest {
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            height = 2U.toAttoHeight(),
+            height = 2,
             balance = AttoAmount(100u),
             lastTransactionHash = AttoHash(ByteArray(32)),
             lastTransactionTimestamp = AttoNetwork.INITIAL_INSTANT.toJavaInstant(),
@@ -50,7 +50,7 @@ internal class BlockValidatorTest {
             network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
             publicKey = privateKey.toPublicKey(),
-            height = account.height + 1U,
+            height = AttoHeight(account.height.toULong() + 1U),
             balance = AttoAmount(0u),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toKotlinInstant(),
             previous = account.lastTransactionHash,
@@ -92,7 +92,7 @@ internal class BlockValidatorTest {
     fun `should return PREVIOUS_NOT_FOUND when account height is not immediately before`() =
         runBlocking {
             // when
-            val violation = validator.validate(account.copy(height = account.height - 1U), transaction)
+            val violation = validator.validate(account.copy(height = account.height - 1), transaction)
 
             // then
             assertEquals(TransactionRejectionReason.PREVIOUS_NOT_FOUND, violation?.reason)
@@ -102,7 +102,7 @@ internal class BlockValidatorTest {
     fun `should return OLD_TRANSACTION when account height is after transaction height`() =
         runBlocking {
             // when
-            val violation = validator.validate(account.copy(height = account.height + 1U), transaction)
+            val violation = validator.validate(account.copy(height = account.height + 1), transaction)
 
             // then
             assertEquals(TransactionRejectionReason.OLD_TRANSACTION, violation?.reason)
