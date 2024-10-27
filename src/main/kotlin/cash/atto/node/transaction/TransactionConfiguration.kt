@@ -50,7 +50,7 @@ class TransactionConfiguration(
                 AttoTransaction.fromBuffer(byteArray.toBuffer())?.toTransaction()
                     ?: throw IllegalStateException("Invalid genesis: ${properties.genesis}")
             } else {
-                logger.info { "No genesis found. Creating new genesis with this node private key..." }
+                logger.info { "No genesis found. Creating new genesis with this node signer..." }
                 createGenesis(signer, thisNode)
             }
 
@@ -123,7 +123,7 @@ class TransactionConfiguration(
         val transaction =
             Transaction(
                 block = block,
-                signature = runBlocking { signer.sign(block.hash) },
+                signature = runBlocking { signer.sign(block) },
                 work = runBlocking { AttoWorker.cpu().work(block) },
             )
 
