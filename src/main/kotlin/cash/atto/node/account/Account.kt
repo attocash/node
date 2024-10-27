@@ -8,8 +8,12 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoVersion
+import cash.atto.node.Event
+import cash.atto.node.transaction.Transaction
+import cash.atto.node.transaction.TransactionSource
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
+import org.springframework.data.annotation.Version
 import org.springframework.data.domain.Persistable
 import java.time.Instant
 
@@ -19,6 +23,7 @@ data class Account(
     val network: AttoNetwork,
     val version: AttoVersion,
     val algorithm: AttoAlgorithm,
+    @Version
     val height: AttoHeight,
     val balance: AttoAmount,
     val lastTransactionTimestamp: Instant,
@@ -46,3 +51,24 @@ data class Account(
             representativePublicKey = representativePublicKey,
         )
 }
+
+// data class AccountEntry(
+//    @Id
+//    val publicKey: AttoPublicKey,
+//    val algorithm: AttoAlgorithm,
+//    val subjectAlgorithm: AttoAlgorithm,
+//    val subjectPublicKey: AttoPublicKey,
+//    val previousBalance: AttoAmount,
+//    val balance: AttoAmount,
+// )
+//
+// // RECEIVE = amount + sender address
+// // SEND = amount + receiver address
+// // CHANGE = 0 amount + representative address
+
+data class AccountUpdated(
+    val source: TransactionSource,
+    val previousAccount: Account,
+    val updatedAccount: Account,
+    val transaction: Transaction,
+) : Event

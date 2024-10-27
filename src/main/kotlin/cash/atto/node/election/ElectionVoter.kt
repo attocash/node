@@ -5,9 +5,9 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit
-import cash.atto.commons.sign
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
@@ -16,8 +16,7 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.TransactionRepository
-import cash.atto.node.transaction.TransactionSaveSource
-import cash.atto.node.transaction.TransactionSaved
+import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
@@ -111,9 +110,9 @@ class ElectionVoter(
         }
 
     @EventListener
-    suspend fun process(event: TransactionSaved) =
+    suspend fun process(event: AccountUpdated) =
         withContext(singleDispatcher) {
-            if (event.source == TransactionSaveSource.ELECTION) {
+            if (event.source == TransactionSource.ELECTION) {
                 vote(event.transaction, finalVoteTimestamp)
             }
         }

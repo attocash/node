@@ -1,10 +1,10 @@
 package cash.atto.node.election
 
+import cash.atto.node.account.AccountService
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.transaction.TransactionSaveSource
-import cash.atto.node.transaction.TransactionService
+import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.vote.VoteService
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
@@ -16,7 +16,7 @@ import org.springframework.stereotype.Service
 class ElectionMonitor(
     private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
-    private val transactionService: TransactionService,
+    private val accountService: AccountService,
     private val voteService: VoteService,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -26,7 +26,7 @@ class ElectionMonitor(
         val transaction = event.transaction
         val votes = event.votes
 
-        transactionService.save(TransactionSaveSource.ELECTION, transaction)
+        accountService.add(TransactionSource.ELECTION, transaction)
         if (thisNode.isHistorical()) {
             voteService.saveAll(votes)
         }

@@ -5,7 +5,6 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.node.EventPublisher
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.forwardHeight
-import cash.atto.node.transaction.TransactionSaved
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
@@ -42,8 +41,8 @@ class AccountController(
     private val accountFlow = MutableSharedFlow<AttoAccount>(100_000)
 
     @EventListener
-    suspend fun process(transactionSaved: TransactionSaved) {
-        accountFlow.emit(transactionSaved.updatedAccount.toAttoAccount())
+    suspend fun process(accountUpdated: AccountUpdated) {
+        accountFlow.emit(accountUpdated.updatedAccount.toAttoAccount())
     }
 
     @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])

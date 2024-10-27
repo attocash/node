@@ -1,18 +1,19 @@
 package cash.atto.node.bootstrap.unchecked
 
-import cash.atto.commons.AttoAlgorithmPublicKey
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPublicKey
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
+import cash.atto.node.account.AccountService
 import cash.atto.node.account.getByAlgorithmAndPublicKey
 import cash.atto.node.bootstrap.TransactionResolved
 import cash.atto.node.bootstrap.TransactionStuck
-import cash.atto.node.transaction.TransactionSaveSource
-import cash.atto.node.transaction.TransactionService
+import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
@@ -27,13 +28,12 @@ class UncheckedTransactionProcessor(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val accountRepository: AccountRepository,
     private val transactionValidationManager: TransactionValidationManager,
-    private val transactionService: TransactionService,
+    private val accountService: AccountService,
     private val uncheckedTransactionService: UncheckedTransactionService,
     private val eventPublisher: EventPublisher,
 ) {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     @PreDestroy
@@ -49,18 +49,16 @@ class UncheckedTransactionProcessor(
                     .findReadyToValidate(10_000L)
                     .map { it.toTransaction() }
                     .toList()
-                    .groupBy { AttoAlgorithmPublicKey(it.block.algorithm, it.publicKey) }
+                    .groupBy { Key(it.block.network, it.block.algorithm, it.publicKey) }
 
-            transactionMap.forEach { (algorithmPublicKey, transactions) ->
-                logger.info { "Unchecked solving $algorithmPublicKey, ${transactions.map { it.hash }}" }
+            transactionMap.forEach { (key, transactions) ->
+                logger.info { "Unchecked solving $key, ${transactions.map { it.hash }}" }
                 var account =
-                    transactions.first().let { transaction ->
-                        accountRepository.getByAlgorithmAndPublicKey(
-                            algorithmPublicKey.algorithm,
-                            algorithmPublicKey.publicKey,
-                            transaction.block.network,
-                        )
-                    }
+                    accountRepository.getByAlgorithmAndPublicKey(
+                        key.algorithm,
+                        key.publicKey,
+                        key.network,
+                    )
                 for (transaction in transactions) {
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {
@@ -69,14 +67,19 @@ class UncheckedTransactionProcessor(
                     }
 
                     uncheckedTransactionService.delete(transaction.hash)
-                    val response = transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
-                    account = response.updatedAccount
+                    account = accountService.add(TransactionSource.BOOTSTRAP, transaction)
 
                     logger.debug { "Resolved $transaction" }
                     eventPublisher.publish(TransactionResolved(transaction))
                 }
             }
         }
+
+    private data class Key(
+        val network: AttoNetwork,
+        val algorithm: AttoAlgorithm,
+        val publicKey: AttoPublicKey,
+    )
 }
 
 @Component

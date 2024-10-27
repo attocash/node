@@ -19,4 +19,16 @@ interface AttoRepository {
             },
         )
     }
+
+    suspend fun executeAfterCompletion(callback: (Int) -> Unit) {
+        val manager = TransactionSynchronizationManager.forCurrentTransaction().awaitSingle()
+        manager.registerSynchronization(
+            object : TransactionSynchronization {
+                override fun afterCompletion(status: Int): Mono<Void> =
+                    Mono.fromRunnable {
+                        callback.invoke(status)
+                    }
+            },
+        )
+    }
 }

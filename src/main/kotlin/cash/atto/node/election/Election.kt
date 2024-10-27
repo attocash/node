@@ -7,9 +7,9 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.Event
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.transaction.PublicKeyHeight
 import cash.atto.node.transaction.Transaction
-import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
@@ -65,7 +65,7 @@ class Election(
     }
 
     @EventListener
-    suspend fun process(event: TransactionSaved) =
+    suspend fun process(event: AccountUpdated) =
         withContext(singleDispatcher) {
             val transaction = event.transaction
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {

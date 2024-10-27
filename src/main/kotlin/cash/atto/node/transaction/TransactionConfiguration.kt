@@ -11,6 +11,7 @@ import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
 import cash.atto.commons.worker.AttoWorker
 import cash.atto.commons.worker.cpu
+import cash.atto.node.account.AccountService
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.protocol.AttoNode
@@ -28,7 +29,7 @@ import java.time.Instant
 class TransactionConfiguration(
     private val transactionRepository: TransactionRepository,
     private val receivableService: ReceivableService,
-    private val transactionService: TransactionService,
+    private val accountService: AccountService,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -92,7 +93,7 @@ class TransactionConfiguration(
 
             receivableService.save(receivable)
 
-            transactionService.save(TransactionSaveSource.BOOTSTRAP, transaction)
+            accountService.add(TransactionSource.BOOTSTRAP, transaction)
 
             val network = thisNode.network
             val hash = genesisTransaction.hash

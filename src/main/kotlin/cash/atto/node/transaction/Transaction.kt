@@ -111,17 +111,10 @@ data class TransactionValidated(
     val transaction: Transaction,
 ) : Event
 
-enum class TransactionSaveSource {
+enum class TransactionSource {
     BOOTSTRAP,
     ELECTION,
 }
-
-data class TransactionSaved(
-    val source: TransactionSaveSource,
-    val previousAccount: Account,
-    val updatedAccount: Account,
-    val transaction: Transaction,
-) : Event
 
 enum class TransactionRejectionReason(
     val recoverable: Boolean,

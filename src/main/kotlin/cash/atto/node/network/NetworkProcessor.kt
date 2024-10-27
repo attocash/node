@@ -7,7 +7,6 @@ import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.isValid
 import cash.atto.commons.toByteArray
-import cash.atto.node.attoCoroutineExceptionHandler
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
@@ -112,7 +111,7 @@ class NetworkProcessor(
             }
         }
 
-    private val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
+    private val defaultScope = CoroutineScope(Dispatchers.Default)
 
     private val connectingMap =
         Caffeine
@@ -324,8 +323,12 @@ class NetworkProcessor(
 
     private suspend fun connectAsync(publicUri: URI) {
         defaultScope.launch {
-            logger.trace { "Start connection to $publicUri" }
-            connection(publicUri)
+            try {
+                logger.trace { "Start connection to $publicUri" }
+                connection(publicUri)
+            } catch (e: Exception) {
+                logger.trace(e) { "Exception during connection to $publicUri" }
+            }
         }
     }
 
@@ -394,7 +397,7 @@ class NetworkProcessor(
         }
     }
 
-    private fun String.isChallengePrefixValid() : Boolean {
+    private fun String.isChallengePrefixValid(): Boolean {
         val challenge = this.fromHexToByteArray()
 
         if (challenge.size <= ChallengeStore.CHALLENGE_SIZE) {
@@ -405,7 +408,6 @@ class NetworkProcessor(
         val url = challenge.sliceArray(0 until prefixEnd).toString(Charsets.UTF_8)
 
         return url == thisNode.publicUri.toString()
-
     }
 
     @Serializable
@@ -425,5 +427,3 @@ class NetworkProcessor(
         val counterChallenge: String,
     )
 }
-
-

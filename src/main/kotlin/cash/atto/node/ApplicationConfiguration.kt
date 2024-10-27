@@ -1,7 +1,5 @@
 package cash.atto.node
 
-import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.CoroutineExceptionHandler
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.codec.ServerCodecConfigurer
@@ -19,9 +17,3 @@ class ApplicationConfiguration : WebFluxConfigurer {
             .defaultCodecs()
     }
 }
-
-val attoCoroutineExceptionHandler =
-    CoroutineExceptionHandler { _, e ->
-        val logger = KotlinLogging.logger {}
-        logger.error(e) { "Unexpected internal error" }
-    }

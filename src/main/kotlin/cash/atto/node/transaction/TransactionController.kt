@@ -7,6 +7,7 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
 import cash.atto.node.NotVoterCondition
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
@@ -69,8 +70,8 @@ class TransactionController(
     private val transactionFlow = MutableSharedFlow<AttoTransaction>(100_000)
 
     @EventListener
-    suspend fun process(transactionSaved: TransactionSaved) {
-        transactionFlow.emit(transactionSaved.transaction.toAttoTransaction())
+    suspend fun process(accountUpdated: AccountUpdated) {
+        transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
     }
 
     @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])

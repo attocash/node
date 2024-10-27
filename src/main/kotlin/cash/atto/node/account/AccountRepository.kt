@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Primary
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionSynchronization
 import java.math.BigInteger
 import java.time.Instant
 
@@ -59,14 +60,20 @@ class AccountCachedRepository(
             .asMap()
 
     override suspend fun save(entity: Account): Account {
-        executeAfterCommit {
-            cache[entity.publicKey] =
-                entity.copy(
-                    persistedAt = entity.persistedAt ?: Instant.now(),
-                    updatedAt = Instant.now(),
-                )
+        val saved = accountCrudRepository.save(entity)
+
+        cache[entity.publicKey] = saved.copy(
+            persistedAt = entity.persistedAt ?: Instant.now(),
+            updatedAt = Instant.now(),
+        )
+
+        executeAfterCompletion { status ->
+            if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                cache.remove(entity.publicKey)
+            }
         }
-        return accountCrudRepository.save(entity)
+
+        return saved
     }
 
     override suspend fun findById(id: AttoPublicKey): Account? {

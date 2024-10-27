@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Primary
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionSynchronization
 import java.time.Instant
 
 interface ReceivableRepository : AttoRepository {
@@ -55,16 +56,21 @@ class ReceivableCachedRepository(
             .asMap()
 
     override suspend fun save(entity: Receivable): Receivable {
-        executeAfterCommit {
-            cache[entity.hash] = entity.copy(persistedAt = Instant.now())
+        val saved = receivableCrudRepository.save(entity)
+
+        cache[entity.hash] = saved.copy(persistedAt = Instant.now())
+
+        executeAfterCompletion { status ->
+            if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                cache.remove(entity.hash)
+            }
         }
-        return receivableCrudRepository.save(entity)
+
+        return saved
     }
 
     override suspend fun delete(entity: Receivable) {
-        executeAfterCommit {
-            cache.remove(entity.hash)
-        }
+        cache.remove(entity.hash)
         return receivableCrudRepository.delete(entity)
     }
 

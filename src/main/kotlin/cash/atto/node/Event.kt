@@ -22,7 +22,7 @@ class EventPublisher(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    val defaultScope = CoroutineScope(Dispatchers.Default + attoCoroutineExceptionHandler)
+    val defaultScope = CoroutineScope(Dispatchers.Default)
 
     @PreDestroy
     fun destroy() {
@@ -35,7 +35,11 @@ class EventPublisher(
             return
         }
         defaultScope.launch {
-            publishSync(event)
+            try {
+                publishSync(event)
+            } catch (e: Exception) {
+                logger.error(e) { "Exception while publishing $event" }
+            }
         }
     }
 

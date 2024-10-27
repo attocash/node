@@ -7,11 +7,11 @@ import cash.atto.commons.AttoSignature
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionExpired
 import cash.atto.node.election.ElectionStarted
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejected
-import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteDropReason
 import cash.atto.node.vote.VoteDropped
@@ -100,7 +100,7 @@ class VotePrioritizer(
     }
 
     @EventListener
-    fun process(event: TransactionSaved) {
+    fun process(event: AccountUpdated) {
         activeElections.remove(event.transaction.hash)
     }
 

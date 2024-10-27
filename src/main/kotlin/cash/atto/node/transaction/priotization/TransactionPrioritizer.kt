@@ -6,13 +6,13 @@ import cash.atto.commons.ReceiveSupport
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionExpired
 import cash.atto.node.election.ElectionStarted
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionDropped
 import cash.atto.node.transaction.TransactionReceived
-import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -71,7 +71,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    suspend fun process(event: TransactionSaved) =
+    suspend fun process(event: AccountUpdated) =
         withContext(singleDispatcher) {
             val hash = event.transaction.hash
 

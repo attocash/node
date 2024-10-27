@@ -1,11 +1,17 @@
 package cash.atto.node.vote.weight
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoChangeBlock
+import cash.atto.commons.AttoOpenBlock
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoReceiveBlock
+import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.toAttoAmount
 import cash.atto.node.CacheSupport
 import cash.atto.node.account.AccountRepository
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.toULong
 import cash.atto.node.transaction.Transaction
-import cash.atto.node.transaction.TransactionSaved
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteRepository
 import cash.atto.node.vote.VoteValidated
@@ -74,7 +80,7 @@ class VoteWeighter(
     }
 
     @EventListener
-    fun listen(event: TransactionSaved) {
+    fun listen(event: AccountUpdated) {
         val previousAccount = event.previousAccount
         val updatedAccount = event.updatedAccount
         val transaction = event.transaction
