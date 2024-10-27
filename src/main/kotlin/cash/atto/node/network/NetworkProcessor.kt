@@ -167,6 +167,13 @@ class NetworkProcessor(
                             return@post
                         }
 
+                        val counterChallenge = counterResponse.counterChallenge
+                        if (!counterChallenge.isChallengePrefixValid()) {
+                            logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost $counterResponse" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@post
+                        }
+
                         logger.trace { "Challenge $challenge validated successfully" }
 
                         val timestamp = Clock.System.now()
@@ -174,7 +181,7 @@ class NetworkProcessor(
                             ChallengeResponse(
                                 thisNode,
                                 timestamp,
-                                signer.sign(AttoChallenge(counterResponse.counterChallenge.fromHexToByteArray()), timestamp),
+                                signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
                             )
 
                         val connectingFlow = connectingMap[publicUri]
@@ -203,6 +210,12 @@ class NetworkProcessor(
                         val challenge = call.request.headers[CHALLENGE_HEADER]!!
 
                         logger.trace { "Headers received: publicUri=$publicUri, challenge=$challenge" }
+
+                        if (!challenge.isChallengePrefixValid()) {
+                            logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@webSocket
+                        }
 
                         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
@@ -380,21 +393,37 @@ class NetworkProcessor(
             connectingMap.remove(publicUri)
         }
     }
+
+    private fun String.isChallengePrefixValid() : Boolean {
+        val challenge = this.fromHexToByteArray()
+
+        if (challenge.size <= ChallengeStore.CHALLENGE_SIZE) {
+            return false
+        }
+
+        val prefixEnd = challenge.size - ChallengeStore.CHALLENGE_SIZE
+        val url = challenge.sliceArray(0 until prefixEnd).toString(Charsets.UTF_8)
+
+        return url == thisNode.publicUri.toString()
+
+    }
+
+    @Serializable
+    private data class ChallengeResponse(
+        val node: AttoNode,
+        val timestamp: Instant,
+        val signature: AttoSignature,
+    )
+
+    @Serializable
+    private data class CounterChallengeResponse(
+        val challenge: String,
+        val genesis: AttoHash,
+        val node: AttoNode,
+        val timestamp: Instant,
+        val signature: AttoSignature,
+        val counterChallenge: String,
+    )
 }
 
-@Serializable
-private data class ChallengeResponse(
-    val node: AttoNode,
-    val timestamp: Instant,
-    val signature: AttoSignature,
-)
 
-@Serializable
-private data class CounterChallengeResponse(
-    val challenge: String,
-    val genesis: AttoHash,
-    val node: AttoNode,
-    val timestamp: Instant,
-    val signature: AttoSignature,
-    val counterChallenge: String,
-)

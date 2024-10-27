@@ -56,7 +56,6 @@ class PeerStepDefinition(
                 .uri("http://localhost:${sourceNeighbour.httpPort}/nodes/peers")
                 .retrieve()
                 .bodyToMono<List<AttoPublicKey>>()
-                .doOnNext { println("felipe $it") }
                 .flatMapIterable { it }
                 .filter { it == peerPublicKey }
                 .blockFirst()

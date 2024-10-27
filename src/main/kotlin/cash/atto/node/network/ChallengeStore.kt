@@ -7,6 +7,7 @@ import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
 
 internal object ChallengeStore {
+    const val CHALLENGE_SIZE = 128
     private val random = SecureRandom.getInstanceStrong()!!
 
     private val challenges =
@@ -24,13 +25,19 @@ internal object ChallengeStore {
         return challenges.remove(publicUri, challenge)
     }
 
-    fun generate(publicUri: URI): String { // TOOD: Make sure challenge prefix publicUri so no one can pretend to be US
+    fun generate(publicUri: URI): String {
+        val challengePrefix = publicUri.toString().toByteArray()
         val challenge =
-            ByteArray(128).let {
+            ByteArray(CHALLENGE_SIZE).let {
                 random.nextBytes(it)
-                it.toHex()
+                (challengePrefix + it).toHex()
             }
+
         challenges[publicUri] = challenge
         return challenge
+    }
+
+    fun clear() {
+        challenges.clear()
     }
 }

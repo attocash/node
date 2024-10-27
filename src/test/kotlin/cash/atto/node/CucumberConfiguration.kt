@@ -2,6 +2,7 @@ package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoSigner
+import cash.atto.node.network.ChallengeStore
 import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration
@@ -53,6 +54,8 @@ class CucumberConfiguration(
 
             NodeHolder.clear(context)
             NodeHolder.add(context)
+
+            ChallengeStore.clear()
         }
 
     @After
