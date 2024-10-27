@@ -23,8 +23,13 @@ data class Account(
     val network: AttoNetwork,
     val version: AttoVersion,
     val algorithm: AttoAlgorithm,
+    /**
+     * graalvm seems to have issue with @Version + value class. This issue is not triggered locally
+     *
+     * Revisit java 25
+     * **/
     @Version
-    val height: AttoHeight,
+    val height: Long,
     val balance: AttoAmount,
     val lastTransactionTimestamp: Instant,
     val lastTransactionHash: AttoHash,
@@ -43,7 +48,7 @@ data class Account(
             network = network,
             version = version,
             algorithm = algorithm,
-            height = height,
+            height = AttoHeight(height.toULong()),
             balance = balance,
             lastTransactionHash = lastTransactionHash,
             lastTransactionTimestamp = lastTransactionTimestamp.toKotlinInstant(),

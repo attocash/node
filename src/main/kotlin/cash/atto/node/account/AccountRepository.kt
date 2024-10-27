@@ -112,7 +112,7 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
         version = 0u.toAttoVersion(),
         network = network,
         algorithm = algorithm,
-        height = 0U.toAttoHeight(),
+        height = 0,
         representativeAlgorithm = algorithm,
         representativePublicKey = AttoPublicKey(ByteArray(32)),
         balance = AttoAmount.MIN,

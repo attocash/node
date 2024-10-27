@@ -24,7 +24,7 @@ class BlockValidator(
     ): TransactionViolation? {
         val block = transaction.block
 
-        if (account.height < block.height - 1u) {
+        if (account.height.toULong() < block.height.value - 1U) {
             return TransactionViolation(
                 TransactionRejectionReason.PREVIOUS_NOT_FOUND,
                 "The last known transaction is ${account.lastTransactionHash} with height ${account.height}. " +
@@ -32,7 +32,7 @@ class BlockValidator(
             )
         }
 
-        if (account.height >= block.height) {
+        if (account.height.toULong() >= block.height.value) {
             return TransactionViolation(
                 TransactionRejectionReason.OLD_TRANSACTION,
                 "The last known transaction is ${account.lastTransactionHash} with height ${account.height}. " +
