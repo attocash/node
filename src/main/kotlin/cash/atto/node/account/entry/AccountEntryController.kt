@@ -45,9 +45,30 @@ class AccountEntryController(
         entryFlow.emit(event.entry.toAtto())
     }
 
+    @GetMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(
+        summary = "Stream all latest account entries",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoAccountEntry::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun stream(): Flow<AttoAccountEntry> {
+        return entryFlow
+            .onStart { logger.trace { "Started streaming latest account entries" } }
+            .onCompletion { logger.trace { "Stopped streaming latest account entries" } }
+    }
+
     @GetMapping("/accounts/{publicKey}/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
-        summary = "Stream transactions by height",
+        summary = "Stream account entries by height",
         responses = [
             ApiResponse(
                 responseCode = "200",
