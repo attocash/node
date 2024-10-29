@@ -14,7 +14,7 @@ jobs:
           name: native-image-metadata
           path: src/main/resources/META-INF/native-image
 
-      - uses: graalvm/setup-graalvm@v1
+      - uses: graalvm/setup-graalvm@v1.2.4.1
         with:
           distribution: 'graalvm'
           java-version: '21'
