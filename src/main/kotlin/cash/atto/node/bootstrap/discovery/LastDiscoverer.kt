@@ -102,8 +102,13 @@ class LastDiscoverer(
 
     @EventListener
     suspend fun processVoteResponse(message: InboundNetworkMessage<AttoVoteStreamResponse>) {
-        val blockHash = message.payload.blockHash
-        val vote = voteConverter.convert(blockHash, message.payload.vote)
+        val blockHash =
+            message
+                .payload
+                .vote
+                .vote
+                .blockHash
+        val vote = voteConverter.convert(message.payload.vote)
 
         logger.trace { "Received bootstrap $vote" }
 

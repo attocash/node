@@ -3,7 +3,7 @@ package cash.atto.protocol
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.serialiazers.AttoPublicKeyAsByteArraySerializer
+import cash.atto.commons.serialiazer.AttoPublicKeyAsByteArraySerializer
 import cash.atto.commons.toAttoHeight
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName

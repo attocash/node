@@ -102,7 +102,7 @@ class VoteRebroadcaster(
                 val voteHolder = voteQueue.poll()
                 voteHolder?.let {
                     val vote = it.vote
-                    val votePush = AttoVotePush(vote.blockHash, vote.toAttoVote())
+                    val votePush = AttoVotePush(vote.toAtto())
                     val exceptions = it.publicUris
 
                     val message =

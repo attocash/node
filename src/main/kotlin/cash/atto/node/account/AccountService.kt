@@ -60,18 +60,18 @@ class AccountService(
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = block.timestamp.toJavaInstant(),
                 representativeAlgorithm =
-                if (block is RepresentativeSupport) {
-                    block.representativeAlgorithm
-                } else {
-                    account
-                        .representativeAlgorithm
-                },
+                    if (block is RepresentativeSupport) {
+                        block.representativeAlgorithm
+                    } else {
+                        account
+                            .representativeAlgorithm
+                    },
                 representativePublicKey =
-                if (block is RepresentativeSupport) {
-                    block.representativePublicKey
-                } else {
-                    account.representativePublicKey
-                },
+                    if (block is RepresentativeSupport) {
+                        block.representativePublicKey
+                    } else {
+                        account.representativePublicKey
+                    },
             )
         return accountRepository.save(newAccount).also {
             logger.debug { "Saved $account" }
@@ -86,7 +86,9 @@ class AccountService(
         val account = getAccount(transaction)
         val updatedAccount = update(account, transaction)
 
-        require(updatedAccount.height.toULong() == transaction.height.value) { "Sanity check for account height failed. $account $transaction" }
+        require(
+            updatedAccount.height.toULong() == transaction.height.value,
+        ) { "Sanity check for account height failed. $account $transaction" }
 
         val block = transaction.block
         val (subjectAlgorithm, subjectPublicKey) =

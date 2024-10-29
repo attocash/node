@@ -1,9 +1,15 @@
 package cash.atto.node.vote
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSignature
+import cash.atto.commons.AttoSignedVote
+import cash.atto.commons.AttoVersion
+import cash.atto.commons.AttoVote
 import cash.atto.node.Event
 import cash.atto.node.transaction.Transaction
-import cash.atto.protocol.AttoVote
 import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
@@ -17,11 +23,14 @@ data class PublicKeyHash(
 )
 
 data class Vote(
-    val blockHash: AttoHash,
+    @Id
+    val hash: AttoHash,
+    val version: AttoVersion,
     val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
+    val blockAlgorithm: AttoAlgorithm,
+    val blockHash: AttoHash,
     val timestamp: Instant,
-    @Id
     val signature: AttoSignature,
     val weight: AttoAmount,
     val receivedAt: Instant = Instant.now(),
@@ -30,17 +39,21 @@ data class Vote(
     companion object {
         fun from(
             weight: AttoAmount,
-            hash: AttoHash,
-            attoVote: AttoVote,
-        ): Vote =
-            Vote(
-                blockHash = hash,
+            attoSignedVote: AttoSignedVote,
+        ): Vote {
+            val attoVote = attoSignedVote.vote
+            return Vote(
+                hash = attoSignedVote.hash,
+                version = attoVote.version,
                 algorithm = attoVote.algorithm,
                 publicKey = attoVote.publicKey,
+                blockAlgorithm = attoVote.blockAlgorithm,
+                blockHash = attoVote.blockHash,
                 timestamp = attoVote.timestamp.toJavaInstant(),
-                signature = attoVote.signature,
+                signature = attoSignedVote.signature,
                 weight = weight,
             )
+        }
     }
 
     override fun getId(): AttoSignature = signature
@@ -51,11 +64,17 @@ data class Vote(
 
     fun toPublicKeyHash(): PublicKeyHash = PublicKeyHash(publicKey, blockHash)
 
-    fun toAttoVote(): AttoVote =
-        AttoVote(
-            timestamp = timestamp.toKotlinInstant(),
-            algorithm = algorithm,
-            publicKey = publicKey,
+    fun toAtto(): AttoSignedVote =
+        AttoSignedVote(
+            vote =
+            AttoVote(
+                version = version,
+                algorithm = algorithm,
+                publicKey = publicKey,
+                blockAlgorithm = blockAlgorithm,
+                blockHash = blockHash,
+                timestamp = timestamp.toKotlinInstant(),
+            ),
             signature = signature,
         )
 }

@@ -44,11 +44,11 @@ class VoteNetworkProvider(
             return
         }
 
-        val votes = voteRepository.findByHash(request.blockHash)
+        val votes = voteRepository.findByBlockHash(request.blockHash)
         votes
             .takeWhile { voteStreams.contains(stream) }
             .collect {
-                val response = AttoVoteStreamResponse(request.blockHash, it.toAttoVote())
+                val response = AttoVoteStreamResponse(it.toAtto())
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
                 delay(10.milliseconds)
             }

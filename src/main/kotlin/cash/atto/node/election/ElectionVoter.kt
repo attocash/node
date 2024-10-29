@@ -3,8 +3,11 @@ package cash.atto.node.election
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit
+import cash.atto.commons.AttoVote
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
@@ -21,7 +24,6 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.AttoVote
 import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.Dispatchers
@@ -148,15 +150,22 @@ class ElectionVoter(
             )
         val attoVote =
             AttoVote(
-                timestamp = timestamp.toKotlinInstant(),
+                version = 0U.toAttoVersion(),
                 algorithm = thisNode.algorithm,
                 publicKey = thisNode.publicKey,
+                blockAlgorithm = transaction.algorithm,
+                blockHash = transaction.hash,
+                timestamp = timestamp.toKotlinInstant(),
+            )
+        val attoSignedVote =
+            AttoSignedVote(
+                vote = attoVote,
                 signature = signer.sign(voteHash),
             )
+
         val votePush =
             AttoVotePush(
-                blockHash = transaction.hash,
-                vote = attoVote,
+                vote = attoSignedVote,
             )
 
         val strategy =
@@ -169,7 +178,7 @@ class ElectionVoter(
         logger.debug { "Sending to $strategy $votePush" }
 
         messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
-        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, transaction.hash, attoVote)))
+        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
     }
 
     private fun canVote(weight: AttoAmount): Boolean = thisNode.isVoter() && weight >= MIN_WEIGHT

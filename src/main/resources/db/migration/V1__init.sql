@@ -35,6 +35,8 @@ CREATE TABLE account_entry
   updated_at         TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3) NOT NULL
 );
 
+CREATE UNIQUE INDEX account_entry_public_key_height ON account_entry (public_key, height);
+
 CREATE TABLE transaction
 (
   hash         VARBINARY(32) PRIMARY KEY,
@@ -64,18 +66,25 @@ CREATE TABLE receivable
   persisted_at        TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 );
 
+CREATE INDEX receivable_public_key ON receivable (public_key);
+
 CREATE TABLE vote
 (
-  hash         VARBINARY(32)                             NOT NULL,
-  algorithm    ENUM ('V1')                               NOT NULL,
-  public_key   VARBINARY(32)                             NOT NULL,
-  timestamp    BIGINT                                    NOT NULL,
-  signature    VARBINARY(64) PRIMARY KEY,
-  weight       BIGINT UNSIGNED                           NOT NULL,
+  hash            VARBINARY(32)                             NOT NULL,
+  version         SMALLINT UNSIGNED                         NOT NULl,
+  algorithm       ENUM ('V1')                               NOT NULL,
+  public_key      VARBINARY(32)                             NOT NULL,
+  block_algorithm ENUM ('V1')                               NOT NULL,
+  block_hash      VARBINARY(32)                             NOT NULL,
+  timestamp       BIGINT                                    NOT NULL,
+  signature       VARBINARY(64) PRIMARY KEY,
+  weight          BIGINT UNSIGNED                           NOT NULL,
 
-  received_at  TIMESTAMP(3)                              NOT NULL,
-  persisted_at TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
+  received_at     TIMESTAMP(3)                              NOT NULL,
+  persisted_at    TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL
 );
+
+CREATE INDEX vote_hash ON vote (hash);
 
 
 CREATE TABLE unchecked_transaction

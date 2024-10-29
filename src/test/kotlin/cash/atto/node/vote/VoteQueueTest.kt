@@ -1,6 +1,11 @@
 package cash.atto.node.vote
 
-import cash.atto.commons.*
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoAmount
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.AttoSignature
+import cash.atto.commons.toAttoVersion
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.priotization.VoteQueue
 import io.mockk.mockk
@@ -43,9 +48,12 @@ internal class VoteQueueTest {
 
     private fun createVote(weight: ULong): Vote =
         Vote(
-            blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
+            hash = AttoHash(Random.nextBytes(ByteArray(32))),
+            version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+            blockAlgorithm = AttoAlgorithm.V1,
+            blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
             timestamp = Instant.now(),
             signature = AttoSignature(Random.nextBytes(ByteArray(64))),
             weight = AttoAmount(weight),
