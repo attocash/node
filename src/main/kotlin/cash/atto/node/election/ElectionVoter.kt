@@ -142,12 +142,6 @@ class ElectionVoter(
             return
         }
 
-        val voteHash =
-            AttoHash.hashVote(
-                transaction.hash,
-                AttoAlgorithm.V1,
-                timestamp.toKotlinInstant(),
-            )
         val attoVote =
             AttoVote(
                 version = 0U.toAttoVersion(),
@@ -160,7 +154,7 @@ class ElectionVoter(
         val attoSignedVote =
             AttoSignedVote(
                 vote = attoVote,
-                signature = signer.sign(voteHash),
+                signature = signer.sign(attoVote),
             )
 
         val votePush =
