@@ -38,7 +38,7 @@ class NodeConfiguration(
             features.add(NodeFeature.VOTING)
         }
 
-        if (signerProperties.key.isNullOrEmpty() || nodeProperties.forceHistorical) {
+        if (!features.contains(NodeFeature.VOTING) || nodeProperties.forceHistorical) {
             features.add(NodeFeature.HISTORICAL)
         }
 
