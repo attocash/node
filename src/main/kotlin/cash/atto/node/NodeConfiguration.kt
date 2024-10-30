@@ -31,7 +31,10 @@ class NodeConfiguration(
     fun node(signer: AttoSigner): AttoNode {
         val features = HashSet<NodeFeature>()
 
-        if (!signerProperties.key.isNullOrEmpty() || nodeProperties.forceVoter) {
+        if (signerProperties.backend == SignerProperties.Backend.REMOTE ||
+            !signerProperties.key.isNullOrEmpty() ||
+            nodeProperties.forceVoter
+        ) {
             features.add(NodeFeature.VOTING)
         }
 

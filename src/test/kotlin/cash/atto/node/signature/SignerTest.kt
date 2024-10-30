@@ -42,7 +42,6 @@ import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
 import kotlin.random.Random
 
-
 class SignerTest {
     companion object {
         val signerServer = MocktRemoteSigner(9999)
@@ -60,50 +59,54 @@ class SignerTest {
         }
     }
 
-   val signer =  AttoSigner.remote("http://localhost:9999") {
-        mapOf("Authorization" to "mock_test")
-    }
+    val signer =
+        AttoSigner.remote("http://localhost:9999") {
+            mapOf("Authorization" to "mock_test")
+        }
 
     @Test
-    fun `should sign block`(): Unit = runBlocking {
-        // given
-        val block = AttoBlock.sample()
+    fun `should sign block`(): Unit =
+        runBlocking {
+            // given
+            val block = AttoBlock.sample()
 
-        // when
-        val signature = signer.sign(block)
+            // when
+            val signature = signer.sign(block)
 
-        // then
-        assertTrue { signature.isValid(signer.publicKey, block.hash) }
-    }
-
-    @Test
-    fun `should sign vote`(): Unit = runBlocking {
-        // given
-        val block = AttoVote.sample()
-
-        // when
-        val signature = signer.sign(block)
-
-        // then
-        assertTrue { signature.isValid(signer.publicKey, block.hash) }
-    }
+            // then
+            assertTrue { signature.isValid(signer.publicKey, block.hash) }
+        }
 
     @Test
-    fun `should sign challenge`(): Unit = runBlocking {
-        // given
-        val challenge = AttoChallenge.generate()
-        val timestamp = Clock.System.now()
+    fun `should sign vote`(): Unit =
+        runBlocking {
+            // given
+            val block = AttoVote.sample()
 
-        // when
-        val signature = signer.sign(challenge, timestamp)
+            // when
+            val signature = signer.sign(block)
 
-        // then
-        val hash = AttoHash.hash(64, signer.publicKey.value, challenge.value, timestamp.toByteArray())
-        assertTrue { signature.isValid(signer.publicKey, hash) }
-    }
+            // then
+            assertTrue { signature.isValid(signer.publicKey, block.hash) }
+        }
 
-    private fun AttoVote.Companion.sample(): AttoVote {
-        return AttoVote(
+    @Test
+    fun `should sign challenge`(): Unit =
+        runBlocking {
+            // given
+            val challenge = AttoChallenge.generate()
+            val timestamp = Clock.System.now()
+
+            // when
+            val signature = signer.sign(challenge, timestamp)
+
+            // then
+            val hash = AttoHash.hash(64, signer.publicKey.value, challenge.value, timestamp.toByteArray())
+            assertTrue { signature.isValid(signer.publicKey, hash) }
+        }
+
+    private fun AttoVote.Companion.sample(): AttoVote =
+        AttoVote(
             version = AttoVersion(0U),
             algorithm = AttoAlgorithm.V1,
             publicKey = signer.publicKey,
@@ -111,10 +114,9 @@ class SignerTest {
             blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
             timestamp = Clock.System.now(),
         )
-    }
 
-    private fun AttoBlock.Companion.sample(): AttoBlock {
-        return AttoReceiveBlock(
+    private fun AttoBlock.Companion.sample(): AttoBlock =
+        AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
@@ -126,10 +128,9 @@ class SignerTest {
             sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(Random.Default.nextBytes(ByteArray(32))),
         )
-    }
 
-    private fun AttoReceivable.Companion.sample(): AttoReceivable {
-        return AttoReceivable(
+    private fun AttoReceivable.Companion.sample(): AttoReceivable =
+        AttoReceivable(
             hash = AttoHash(Random.Default.nextBytes(32)),
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
@@ -137,44 +138,45 @@ class SignerTest {
             timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
             receiverAlgorithm = AttoAlgorithm.V1,
             receiverPublicKey = signer.publicKey,
-            amount = 1000UL.toAttoAmount()
+            amount = 1000UL.toAttoAmount(),
         )
-    }
 
-    class MocktRemoteSigner(port: Int) {
+    class MocktRemoteSigner(
+        port: Int,
+    ) {
         val signer = AttoPrivateKey.generate().toSigner()
 
-        val server = embeddedServer(Netty, port = port) {
-            install(ContentNegotiation) {
-                json()
+        val server =
+            embeddedServer(Netty, port = port) {
+                install(ContentNegotiation) {
+                    json()
+                }
+
+                routing {
+                    get("/public-keys") {
+                        val response = PublicKeyResponse(signer.publicKey)
+                        call.respond(response)
+                    }
+
+                    post("/blocks") {
+                        val request = call.request.call.receive<BlockSignatureRequest>()
+                        val signature = signer.sign(request.target)
+                        call.respond(SignatureResponse(signature))
+                    }
+
+                    post("/votes") {
+                        val request = call.request.call.receive<VoteSignatureRequest>()
+                        val signature = signer.sign(request.target)
+                        call.respond(SignatureResponse(signature))
+                    }
+
+                    post("/challenges") {
+                        val request = call.request.call.receive<ChallengeSignatureRequest>()
+                        val signature = signer.sign(request.target, request.timestamp)
+                        call.respond(SignatureResponse(signature))
+                    }
+                }
             }
-
-            routing {
-                get("/public-keys") {
-                    val response = PublicKeyResponse(signer.publicKey)
-                    call.respond(response)
-                }
-
-                post("/blocks") {
-                    val request = call.request.call.receive<BlockSignatureRequest>()
-                    val signature = signer.sign(request.target)
-                    call.respond(SignatureResponse(signature))
-                }
-
-
-                post("/votes") {
-                    val request = call.request.call.receive<VoteSignatureRequest>()
-                    val signature = signer.sign(request.target)
-                    call.respond(SignatureResponse(signature))
-                }
-
-                post("/challenges") {
-                    val request = call.request.call.receive<ChallengeSignatureRequest>()
-                    val signature = signer.sign(request.target, request.timestamp)
-                    call.respond(SignatureResponse(signature))
-                }
-            }
-        }
 
         fun start() {
             server.start()

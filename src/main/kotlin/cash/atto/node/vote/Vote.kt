@@ -67,14 +67,14 @@ data class Vote(
     fun toAtto(): AttoSignedVote =
         AttoSignedVote(
             vote =
-            AttoVote(
-                version = version,
-                algorithm = algorithm,
-                publicKey = publicKey,
-                blockAlgorithm = blockAlgorithm,
-                blockHash = blockHash,
-                timestamp = timestamp.toKotlinInstant(),
-            ),
+                AttoVote(
+                    version = version,
+                    algorithm = algorithm,
+                    publicKey = publicKey,
+                    blockAlgorithm = blockAlgorithm,
+                    blockHash = blockHash,
+                    timestamp = timestamp.toKotlinInstant(),
+                ),
             signature = signature,
         )
 }
