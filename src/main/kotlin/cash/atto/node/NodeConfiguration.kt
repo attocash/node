@@ -1,12 +1,8 @@
 package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSigner
-import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.signer.remote
-import cash.atto.commons.toHex
-import cash.atto.commons.toSigner
+import cash.atto.node.signature.SignerProperties
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -29,26 +25,6 @@ class NodeConfiguration(
     fun start() {
         require(nodeProperties.publicUri != null) { "`atto.node.public-uri` can't be null" }
         require(URI(nodeProperties.publicUri).path != null) { "`atto.node.public-uri` invalid" }
-    }
-
-    @Bean
-    fun signer(): AttoSigner {
-        if (signerProperties.backend == SignerProperties.Backend.REMOTE) {
-            return AttoSigner.remote(signerProperties.remoteUrl!!) {
-                mapOf("Authorization" to signerProperties.token!!)
-            }
-        }
-
-        val privateKey =
-            if (!signerProperties.key.isNullOrEmpty()) {
-                AttoPrivateKey(signerProperties.key!!.fromHexToByteArray())
-            } else {
-                val temporaryPrivateKey = AttoPrivateKey.generate()
-                logger.info { "No private key configured. Created TEMPORARY private key ${temporaryPrivateKey.value.toHex()}" }
-                temporaryPrivateKey
-            }
-
-        return privateKey.toSigner()
     }
 
     @Bean

@@ -136,7 +136,6 @@ graalvmNative {
             buildArgs.add("--libc=musl")
             buildArgs.add("--gc=G1")
             buildArgs.add("--strict-image-heap")
-            buildArgs.add("--initialize-at-build-time=cash.atto.commons,kotlinx.serialization")
         }
     }
 }

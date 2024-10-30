@@ -1,4 +1,4 @@
-package cash.atto.node
+package cash.atto.node.signature
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration
