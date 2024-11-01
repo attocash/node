@@ -9,7 +9,6 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.Event
 import org.springframework.data.annotation.Id
-import org.springframework.data.annotation.Transient
 import org.springframework.data.domain.Persistable
 import java.time.Instant
 
@@ -26,8 +25,6 @@ data class AccountEntry(
     val balance: AttoAmount,
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
-    @Transient
-    val amount = balance - previousBalance
 
     override fun getId(): AttoHash = hash
 
