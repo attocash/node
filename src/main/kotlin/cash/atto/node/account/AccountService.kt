@@ -112,7 +112,7 @@ class AccountService(
                 subjectAlgorithm = subjectAlgorithm,
                 subjectPublicKey = subjectPublicKey,
                 previousBalance = account.balance,
-                balance = account.balance,
+                balance = updatedAccount.balance,
             )
 
         accountEntryService.save(entry)
