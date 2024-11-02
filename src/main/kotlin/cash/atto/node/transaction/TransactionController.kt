@@ -5,6 +5,7 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.account.AccountUpdated
@@ -20,6 +21,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -55,7 +57,7 @@ class TransactionController(
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
@@ -184,9 +186,9 @@ class TransactionController(
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(from.toAttoHeight())
             .onStart {
-                logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" }
+                logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {
-                logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $fromHeight" }
+                logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
             }
     }
 
@@ -246,4 +248,9 @@ class TransactionController(
     ): Flow<AttoTransaction> =
         stream(transaction.hash)
             .onStart { publish(transaction, request) }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun clear() {
+        transactionFlow.resetReplayCache()
+    }
 }

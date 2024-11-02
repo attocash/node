@@ -1,6 +1,7 @@
 package cash.atto.node.transaction
 
 import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -133,6 +134,7 @@ class TransactionStepDefinition(
         val expectedTransaction = PropertyHolder[Transaction::class.java, transactionShortId]
         for (neighbour in PropertyHolder.getAll(Neighbour::class.java)) {
             streamTransaction(neighbour, expectedTransaction.hash)
+            streamAccountEntries(neighbour, expectedTransaction.publicKey, expectedTransaction.hash)
         }
     }
 
@@ -169,6 +171,23 @@ class TransactionStepDefinition(
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToMono<AttoTransaction>()
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+
+    private fun streamAccountEntries(
+        neighbour: Neighbour,
+        publicKey: AttoPublicKey,
+        hash: AttoHash,
+    ): AttoAccountEntry {
+        val url = "http://localhost:${neighbour.httpPort}/accounts/${publicKey}/entries/stream"
+        println("felipe $url")
+        return webClient
+            .get()
+            .uri(url)
+            .retrieve()
+            .onStatus({ it.value() == 404 }, { Mono.empty() })
+            .bodyToFlux<AttoAccountEntry>()
+            .filter { it.hash == hash }
+            .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+    }
 
     private fun streamReceivable(
         neighbour: Neighbour,

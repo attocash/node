@@ -3,6 +3,7 @@ package cash.atto.node.account.entry
 import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
+import cash.atto.node.CacheSupport
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.sortByHeight
 import cash.atto.node.toBigInteger
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -35,7 +37,7 @@ import org.springframework.web.server.ResponseStatusException
 @Conditional(NotVoterCondition::class)
 class AccountEntryController(
     val repository: AccountEntryRepository,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val entryFlow = MutableSharedFlow<AttoAccountEntry>(100_000)
@@ -110,9 +112,14 @@ class AccountEntryController(
         return merge(entryFlow, databaseFlow)
             .sortByHeight(from.toAttoHeight())
             .onStart {
-                logger.trace { "Started streaming entries from $publicKey account and height between $fromHeight and $fromHeight" }
+                logger.trace { "Started streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {
-                logger.trace { "Stopped streaming entries from $publicKey account and height between $fromHeight and $fromHeight" }
+                logger.trace { "Stopped streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
             }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun clear() {
+        entryFlow.resetReplayCache()
     }
 }
