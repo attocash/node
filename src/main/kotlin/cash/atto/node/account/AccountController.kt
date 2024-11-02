@@ -2,6 +2,7 @@ package cash.atto.node.account
 
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoPublicKey
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.forwardHeight
@@ -11,6 +12,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.*
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
@@ -28,7 +30,7 @@ class AccountController(
     val node: AttoNode,
     val eventPublisher: EventPublisher,
     val repository: AccountRepository,
-) {
+)  : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     /**
@@ -107,5 +109,10 @@ class AccountController(
             .forwardHeight()
             .onStart { logger.trace { "Started streaming $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming $publicKey account" } }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    override fun clear() {
+        accountFlow.resetReplayCache()
     }
 }
