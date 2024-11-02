@@ -44,7 +44,7 @@ dependencies {
     val commonsVersion = "c09d830-SNAPSHOT"
     val cucumberVersion = "7.20.1"
     val springdocVersion = "2.6.0"
-    val ktorVersion = "3.0.1"
+    val ktorVersion = "3.0.0"
 
     implementation("cash.atto:commons-core:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
@@ -136,7 +136,6 @@ graalvmNative {
             buildArgs.add("--libc=musl")
             buildArgs.add("--gc=G1")
             buildArgs.add("--strict-image-heap")
-            buildArgs.add("--initialize-at-build-time=cash.atto.commons")
         }
     }
 }

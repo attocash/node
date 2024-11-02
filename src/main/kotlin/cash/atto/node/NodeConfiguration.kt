@@ -1,12 +1,8 @@
 package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSigner
-import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.signer.remote
-import cash.atto.commons.toHex
-import cash.atto.commons.toSigner
+import cash.atto.node.signature.SignerProperties
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -32,34 +28,17 @@ class NodeConfiguration(
     }
 
     @Bean
-    fun signer(): AttoSigner {
-        if (signerProperties.backend == SignerProperties.Backend.REMOTE) {
-            return AttoSigner.remote(signerProperties.remoteUrl!!) {
-                mapOf("Authorization" to signerProperties.token!!)
-            }
-        }
-
-        val privateKey =
-            if (!signerProperties.key.isNullOrEmpty()) {
-                AttoPrivateKey(signerProperties.key!!.fromHexToByteArray())
-            } else {
-                val temporaryPrivateKey = AttoPrivateKey.generate()
-                logger.info { "No private key configured. Created TEMPORARY private key ${temporaryPrivateKey.value.toHex()}" }
-                temporaryPrivateKey
-            }
-
-        return privateKey.toSigner()
-    }
-
-    @Bean
     fun node(signer: AttoSigner): AttoNode {
         val features = HashSet<NodeFeature>()
 
-        if (!signerProperties.key.isNullOrEmpty() || nodeProperties.forceVoter) {
+        if (signerProperties.backend == SignerProperties.Backend.REMOTE ||
+            !signerProperties.key.isNullOrEmpty() ||
+            nodeProperties.forceVoter
+        ) {
             features.add(NodeFeature.VOTING)
         }
 
-        if (signerProperties.key.isNullOrEmpty() || nodeProperties.forceHistorical) {
+        if (!features.contains(NodeFeature.VOTING) || nodeProperties.forceHistorical) {
             features.add(NodeFeature.HISTORICAL)
         }
 
