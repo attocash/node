@@ -41,7 +41,7 @@ configurations {
 ext["kotlin-coroutines.version"] = "1.9.0"
 
 dependencies {
-    val commonsVersion = "c09d830-SNAPSHOT"
+    val commonsVersion = "3.0.0"
     val cucumberVersion = "7.20.1"
     val springdocVersion = "2.6.0"
     val ktorVersion = "3.0.0"
