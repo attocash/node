@@ -1,5 +1,6 @@
 package cash.atto.node.account
 
+import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoChangeBlock
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoReceiveBlock
@@ -37,7 +38,7 @@ class AccountService(
                 version = block.version,
                 algorithm = block.algorithm,
                 height = block.height.value.toLong() - 1,
-                balance = block.balance,
+                balance = AttoAmount.MIN,
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = block.timestamp.toJavaInstant(),
                 representativeAlgorithm = block.representativeAlgorithm,
