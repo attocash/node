@@ -178,7 +178,6 @@ class TransactionStepDefinition(
         hash: AttoHash,
     ): AttoAccountEntry {
         val url = "http://localhost:${neighbour.httpPort}/accounts/${publicKey}/entries/stream"
-        println("felipe $url")
         return webClient
             .get()
             .uri(url)

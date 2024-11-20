@@ -114,6 +114,7 @@ class AccountService(
                 subjectPublicKey = subjectPublicKey,
                 previousBalance = account.balance,
                 balance = updatedAccount.balance,
+                timestamp = block.timestamp.toJavaInstant(),
             )
 
         accountEntryService.save(entry)

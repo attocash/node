@@ -8,6 +8,8 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.Event
+import kotlinx.datetime.toJavaInstant
+import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -23,6 +25,7 @@ data class AccountEntry(
     val subjectPublicKey: AttoPublicKey,
     val previousBalance: AttoAmount,
     val balance: AttoAmount,
+    val timestamp: Instant,
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
 
@@ -42,6 +45,7 @@ fun AccountEntry.toAtto(): AttoAccountEntry =
         subjectPublicKey = subjectPublicKey,
         previousBalance = previousBalance,
         balance = balance,
+        timestamp = timestamp.toKotlinInstant(),
     )
 
 fun AttoAccountEntry.toEntity(): AccountEntry =
@@ -55,6 +59,7 @@ fun AttoAccountEntry.toEntity(): AccountEntry =
         subjectPublicKey = subjectPublicKey,
         previousBalance = previousBalance,
         balance = balance,
+        timestamp = timestamp.toJavaInstant(),
     )
 
 data class AccountEntrySaved(

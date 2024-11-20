@@ -29,6 +29,7 @@ CREATE TABLE account_entry
 
   previous_balance   BIGINT UNSIGNED                                                          NOT NULL,
   balance            BIGINT UNSIGNED                                                          NOT NULL,
+  timestamp          TIMESTAMP(3)                              NOT NULL,
 
 
   persisted_at       TIMESTAMP(3) DEFAULT CURRENT_TIMESTAMP(3) NOT NULL,
