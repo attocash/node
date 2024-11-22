@@ -3,4 +3,4 @@ FROM ghcr.io/attocash/node:${BASE_IMAGE_TAG}
 
 LABEL org.opencontainers.image.source https://github.com/attocash/node
 
-ENV SPRING_PROFILES_ACTIVE=prod,json
+ENV SPRING_PROFILES_ACTIVE=live,json
