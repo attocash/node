@@ -43,29 +43,29 @@ jobs:
     with:
       image: dev
       next-tag: ${{ needs.release-tag.outputs.next-tag }}
-  build-image-beta:
-    permissions:
-      packages: write
-    needs:
-      - release-dev
-    uses: ./.github/workflows/build-image.yaml
-    with:
-      image: beta
-  release-beta:
-    permissions:
-      packages: write
-    needs:
-      - release-tag
-      - build-image-beta
-    uses: ./.github/workflows/release.yaml
-    with:
-      image: beta
-      next-tag: ${{ needs.release-tag.outputs.next-tag }}
+#  build-image-beta:
+#    permissions:
+#      packages: write
+#    needs:
+#      - release-dev
+#    uses: ./.github/workflows/build-image.yaml
+#    with:
+#      image: beta
+#  release-beta:
+#    permissions:
+#      packages: write
+#    needs:
+#      - release-tag
+#      - build-image-beta
+#    uses: ./.github/workflows/release.yaml
+#    with:
+#      image: beta
+#      next-tag: ${{ needs.release-tag.outputs.next-tag }}
   build-image-live:
     permissions:
       packages: write
     needs:
-      - release-beta
+      - release-dev
     uses: ./.github/workflows/build-image.yaml
     with:
       image: live
