@@ -6,15 +6,7 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
 object Waiter {
-    var timeoutInSeconds = 30L
-
-    init {
-        val isGradle = System.getenv("GRADLE")?.toBoolean() ?: false
-
-        if (!isGradle) {
-            timeoutInSeconds = 600L
-        }
-    }
+    val timeoutInSeconds = 10L // CHANGE ME DURING TESTS
 
     fun <T> waitUntilNonNull(callable: Callable<T>): T =
         Awaitility

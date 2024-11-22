@@ -124,7 +124,6 @@ tasks.withType<KotlinCompile> {
 }
 
 tasks.withType<Test> {
-    environment("GRADLE", "true")
     useJUnitPlatform()
     maxHeapSize = "1g"
 }
