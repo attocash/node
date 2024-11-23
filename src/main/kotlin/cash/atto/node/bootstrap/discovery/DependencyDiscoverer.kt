@@ -30,7 +30,6 @@ class DependencyDiscoverer(
 
     private val transactionHolderMap = FixedSizeHashMap<AttoHash, TransactionHolder>(50_000)
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     @PreDestroy

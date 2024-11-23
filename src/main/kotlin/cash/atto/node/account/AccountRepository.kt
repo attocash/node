@@ -39,7 +39,7 @@ interface AccountCrudRepository :
 
     @Query(
         """
-        SELECT representative_algorithm as algorithm, representative_public_key AS public_key, CAST(SUM(balance) AS UNSIGNED) AS weight
+        SELECT representative_algorithm as representative_algorithm, representative_public_key AS representative_public_key, CAST(SUM(balance) AS UNSIGNED) AS weight
         FROM account GROUP BY representative_algorithm, representative_public_key
         """,
     )
@@ -121,8 +121,8 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
 }
 
 data class WeightView(
-    val algorithm: AttoAlgorithm,
-    val publicKey: AttoPublicKey,
+    val representativeAlgorithm: AttoAlgorithm,
+    val representativePublicKey: AttoPublicKey,
     // r2dbc doesn't seem to respect the DBConverter
     val weight: BigInteger,
 )

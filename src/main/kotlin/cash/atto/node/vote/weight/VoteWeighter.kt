@@ -53,7 +53,7 @@ class VoteWeighter(
             val weights =
                 accountRepository
                     .findAllWeights()
-                    .associateBy({ it.publicKey }, { AttoAmount(it.weight.toULong()) })
+                    .associateBy({ it.representativePublicKey }, { AttoAmount(it.weight.toULong()) })
             weightMap.putAll(weights)
 
             val minTimestamp = getMinTimestamp()
