@@ -4,6 +4,8 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.HeightSupport
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.math.BigInteger
 import java.util.TreeSet
 
@@ -16,16 +18,20 @@ fun BigInteger.toULong(): ULong = this.toString().toULong()
  */
 fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: AttoHeight): Flow<T> =
     flow {
+        val mutex = Mutex()
+
         var currentHeight = initialHeight
         val sortedSet = TreeSet<T>(Comparator.comparing { it.height })
         collect {
-            if (currentHeight <= it.height) {
-                sortedSet.add(it)
-            }
-            while (sortedSet.isNotEmpty() && sortedSet.first().height == currentHeight) {
-                val currentAccount = sortedSet.pollFirst()!!
-                currentHeight = currentAccount.height + 1U
-                emit(currentAccount)
+            mutex.withLock {
+                if (currentHeight <= it.height) {
+                    sortedSet.add(it)
+                }
+                while (sortedSet.isNotEmpty() && sortedSet.first().height == currentHeight) {
+                    val currentAccount = sortedSet.pollFirst()!!
+                    currentHeight = currentAccount.height + 1U
+                    emit(currentAccount)
+                }
             }
         }
     }
@@ -35,11 +41,15 @@ fun <T : HeightSupport> Flow<T>.sortByHeight(initialHeight: AttoHeight): Flow<T>
  */
 fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> =
     flow {
+        val mutex = Mutex()
+
         var lastHeight = AttoHeight(0UL)
         collect {
-            if (lastHeight < it.height) {
-                emit(it)
-                lastHeight = it.height
+            mutex.withLock {
+                if (lastHeight < it.height) {
+                    emit(it)
+                    lastHeight = it.height
+                }
             }
         }
     }
