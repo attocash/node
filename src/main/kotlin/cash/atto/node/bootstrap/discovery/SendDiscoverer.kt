@@ -42,8 +42,8 @@ class SendDiscoverer(
     private val unknownHashCache =
         Caffeine
             .newBuilder()
-            .maximumSize(100_000)
             .expireAfterWrite(Duration.ofMinutes(5))
+            .maximumSize(100_000)
             .build<AttoHash, AttoHash>()
             .asMap()
 
