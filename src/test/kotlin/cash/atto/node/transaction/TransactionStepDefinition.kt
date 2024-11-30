@@ -5,6 +5,7 @@ import cash.atto.commons.AttoAccountEntry
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
@@ -134,7 +135,7 @@ class TransactionStepDefinition(
         val expectedTransaction = PropertyHolder[Transaction::class.java, transactionShortId]
         for (neighbour in PropertyHolder.getAll(Neighbour::class.java)) {
             streamTransaction(neighbour, expectedTransaction.hash)
-            streamAccountEntries(neighbour, expectedTransaction.publicKey, expectedTransaction.hash)
+            streamAccountEntries(neighbour, expectedTransaction.publicKey, expectedTransaction.hash, expectedTransaction.height)
         }
     }
 
@@ -176,8 +177,9 @@ class TransactionStepDefinition(
         neighbour: Neighbour,
         publicKey: AttoPublicKey,
         hash: AttoHash,
+        height: AttoHeight,
     ): AttoAccountEntry {
-        val url = "http://localhost:${neighbour.httpPort}/accounts/${publicKey}/entries/stream"
+        val url = "http://localhost:${neighbour.httpPort}/accounts/${publicKey}/entries/stream?fromHeight=$height&toHeight=$height"
         return webClient
             .get()
             .uri(url)

@@ -97,7 +97,7 @@ class SendDiscoverer(
             if (socketAddress != null) {
                 DirectNetworkMessage(socketAddress, request)
             } else {
-                BroadcastNetworkMessage(BroadcastStrategy.VOTERS, setOf(), request)
+                BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), request)
             }
 
         networkMessagePublisher.publish(message)
