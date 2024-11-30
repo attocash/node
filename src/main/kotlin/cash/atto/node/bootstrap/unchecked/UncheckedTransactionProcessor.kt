@@ -52,7 +52,7 @@ class UncheckedTransactionProcessor(
                     .groupBy { Key(it.block.network, it.block.algorithm, it.publicKey) }
 
             transactionMap.forEach { (key, transactions) ->
-                logger.info { "Unchecked solving $key, ${transactions.map { it.hash }}" }
+                logger.debug { "Unchecked solving $key, ${transactions.map { it.hash }}" }
                 var account =
                     accountRepository.getByAlgorithmAndPublicKey(
                         key.algorithm,
