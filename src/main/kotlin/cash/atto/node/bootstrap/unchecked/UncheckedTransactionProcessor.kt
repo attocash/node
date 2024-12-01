@@ -59,7 +59,7 @@ class UncheckedTransactionProcessor(
                         key.publicKey,
                         key.network,
                     )
-                for (transaction in transactions) {
+                for (transaction in transactions.sortedBy { it.height }) {
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {
                         eventPublisher.publish(TransactionStuck(violation.reason, transaction))
