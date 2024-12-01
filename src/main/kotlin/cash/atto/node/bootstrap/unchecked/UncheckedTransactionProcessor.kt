@@ -46,7 +46,7 @@ class UncheckedTransactionProcessor(
         withContext(singleDispatcher) {
             val transactionMap =
                 uncheckedTransactionRepository
-                    .findReadyToValidate(10_000L)
+                    .findReadyToValidate(1_000L)
                     .map { it.toTransaction() }
                     .toList()
                     .groupBy { Key(it.block.network, it.block.algorithm, it.publicKey) }
@@ -87,7 +87,7 @@ class UncheckedTransactionProcessor(
 class UncheckedTransactionProcessorStarter(
     val processor: UncheckedTransactionProcessor,
 ) {
-    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
         processor.process()
     }
