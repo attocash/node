@@ -8,6 +8,7 @@ import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.toUncheckedTransaction
 import cash.atto.node.transaction.toTransaction
 import io.r2dbc.spi.Row
+import kotlinx.datetime.toJavaInstant
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
 import org.springframework.stereotype.Component
@@ -25,6 +26,10 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
             put(
                 "previous",
                 Parameter.fromOrEmpty(if (block is PreviousSupport) block.previous else null, AttoHash::class.java),
+            )
+            put(
+                "timestamp",
+                Parameter.from(block.timestamp.toJavaInstant()),
             )
             put("serialized", Parameter.from(uncheckedTransaction.toTransaction().toAttoTransaction().toBuffer()))
             put("received_at", Parameter.from(uncheckedTransaction.receivedAt))
