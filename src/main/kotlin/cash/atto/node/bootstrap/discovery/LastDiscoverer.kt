@@ -73,11 +73,19 @@ class LastDiscoverer(
 
         val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
 
-        if (account.height.toULong() >= block.height.value) {
+        if (account.height.toULong() == block.height.value) {
+            return
+        }
+
+        if (account.height.toULong() > block.height.value) {
             logger.trace {
-                "Received ${transaction.hash} with height ${transaction.height} however ${account.publicKey} " +
-                    "account already has ${account.height}"
+                "Received ${transaction.hash} with height ${transaction.height} however ${account.publicKey} has height ${account.height}"
             }
+
+            val lastTransaction = transactionRepository.findById(account.lastTransactionHash) ?: return
+            val transactionPush = AttoBootstrapTransactionPush(lastTransaction.toAttoTransaction())
+            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, transactionPush))
+
             return
         }
 
