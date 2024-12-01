@@ -41,7 +41,7 @@ class GapDiscoverer(
 
     private val peers = ConcurrentHashMap.newKeySet<URI>()
 
-    private val maxSize = 100_000L
+    private val maxSize = 1_000L
     private val pointerMap =
         Caffeine
             .newBuilder()
