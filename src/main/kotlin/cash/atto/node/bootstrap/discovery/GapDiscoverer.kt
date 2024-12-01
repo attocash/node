@@ -79,17 +79,29 @@ class GapDiscoverer(
             databaseClient
                 .sql(
                     """
-                        SELECT public_key, start_height, end_height, expected_end_hash
-                        FROM (
-                            SELECT ut.public_key AS public_key,
-                                   COALESCE(LAG(ut.height) OVER (PARTITION BY ut.public_key ORDER BY ut.height ASC), 0) + 1 AS start_height,
-                                   ut.height - 1 AS end_height,
-                                   ut.previous AS expected_end_hash,
-                                   ut.timestamp
+                        WITH max_transaction_height AS (
+                            SELECT public_key, COALESCE(MAX(height), 0) AS max_height
+                            FROM transaction
+                            GROUP BY public_key
+                        ),
+                        calculated_gaps AS (
+                            SELECT
+                                ut.public_key,
+                                GREATEST(
+                                    COALESCE(mth.max_height, 0),
+                                    COALESCE(LAG(ut.height) OVER (PARTITION BY ut.public_key ORDER BY ut.height ASC), 0)
+                                ) + 1 AS start_height,
+                                ut.height - 1 AS end_height,
+                                ut.previous AS expected_end_hash,
+                                ut.timestamp AS transaction_timestamp
                             FROM unchecked_transaction ut
-                        ) ready
+                            LEFT JOIN max_transaction_height mth
+                                ON ut.public_key = mth.public_key
+                        )
+                        SELECT public_key, start_height, end_height, expected_end_hash
+                        FROM calculated_gaps
                         WHERE start_height <= end_height
-                        ORDER BY timestamp
+                        ORDER BY transaction_timestamp
                         LIMIT ${limit};
                 """,
                 ).map { row, _ ->
@@ -165,7 +177,7 @@ private fun GapView.startHeight(): AttoHeight {
     if (count.value > maxCount) {
         return this.endHeight - maxCount
     }
-    return this.startHeight + 1U
+    return this.startHeight
 }
 
 private fun GapView.endHeight(): AttoHeight = this.endHeight
