@@ -21,6 +21,7 @@ interface UncheckedTransactionRepository :
                     LEFT JOIN account a on ut.public_key = a.public_key and ut.height > a.height
                     ORDER BY ut.public_key, ut.height ) ready
             WHERE height = account_height + row_num
+            ORDER BY timestamp
             LIMIT :limit
         """,
     )
@@ -29,7 +30,7 @@ interface UncheckedTransactionRepository :
 
 data class GapView(
     val publicKey: AttoPublicKey,
-    val accountHeight: AttoHeight,
-    val transactionHeight: AttoHeight,
-    val previousTransactionHash: AttoHash,
+    val startHeight: AttoHeight,
+    val endHeight: AttoHeight,
+    val expectedEndHash: AttoHash,
 )

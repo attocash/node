@@ -41,11 +41,12 @@ class GapDiscoverer(
 
     private val peers = ConcurrentHashMap.newKeySet<URI>()
 
+    private val maxSize = 100_000L
     private val pointerMap =
         Caffeine
             .newBuilder()
             .expireAfterWrite(Duration.ofMinutes(1))
-            .maximumSize(100_000)
+            .maximumSize(maxSize)
             .build<AttoPublicKey, TransactionPointer>()
             .asMap()
 
@@ -72,28 +73,31 @@ class GapDiscoverer(
             return
         }
 
+        val limit = maxSize - pointerMap.size
+
         val gaps =
             databaseClient
                 .sql(
                     """
-                                SELECT public_key, account_height, transaction_height, previous_transaction_hash FROM (
-                                        SELECT  ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height DESC) AS row_num,
-                                                ut.public_key public_key,
-                                                a.height account_height,
-                                                ut.height transaction_height,
-                                                ut.previous previous_transaction_hash
-                                        FROM unchecked_transaction ut
-                                        JOIN account a on ut.public_key = a.public_key and ut.height > a.height
-                                        ORDER BY ut.public_key, ut.height ) ready
-                                WHERE transaction_height > account_height + row_num
-                                AND row_num = 1
+                        SELECT public_key, start_height, end_height, expected_end_hash
+                        FROM (
+                            SELECT ut.public_key AS public_key,
+                                   COALESCE(LAG(ut.height) OVER (PARTITION BY ut.public_key ORDER BY ut.height ASC), 0) + 1 AS start_height,
+                                   ut.height - 1 AS end_height,
+                                   ut.previous AS expected_end_hash,
+                                   ut.timestamp
+                            FROM unchecked_transaction ut
+                        ) ready
+                        WHERE start_height <= end_height
+                        ORDER BY timestamp
+                        LIMIT ${limit};
                 """,
                 ).map { row, _ ->
                     GapView(
                         AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                        row.get("account_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                        row.get("transaction_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                        AttoHash(row.get("previous_transaction_hash", ByteArray::class.java)!!),
+                        row.get("start_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
+                        row.get("end_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
+                        AttoHash(row.get("expected_end_hash", ByteArray::class.java)!!),
                     )
                 }.all()
                 .asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
@@ -103,7 +107,7 @@ class GapDiscoverer(
                 val request = AttoTransactionStreamRequest(view.publicKey, view.startHeight(), view.endHeight())
                 val message = DirectNetworkMessage(peers[Random.nextInt(peers.size)], request)
                 networkMessagePublisher.publish(message)
-                TransactionPointer(view.startHeight(), view.endHeight(), view.previousTransactionHash)
+                TransactionPointer(view.startHeight(), view.endHeight(), view.expectedEndHash)
             }
         }
     }
@@ -157,11 +161,11 @@ private data class TransactionPointer(
 
 private fun GapView.startHeight(): AttoHeight {
     val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS
-    val count = this.transactionHeight - this.accountHeight
+    val count = this.endHeight - this.startHeight
     if (count.value > maxCount) {
-        return this.transactionHeight - maxCount
+        return this.endHeight - maxCount
     }
-    return this.accountHeight + 1U
+    return this.startHeight + 1U
 }
 
-private fun GapView.endHeight(): AttoHeight = this.transactionHeight
+private fun GapView.endHeight(): AttoHeight = this.endHeight
