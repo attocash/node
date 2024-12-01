@@ -26,8 +26,10 @@ data class AttoTransactionStreamRequest(
 
     init {
         require(startHeight <= endHeight) { "End height must be greater than or equal to start height" }
-        require(MAX_TRANSACTIONS >= (endHeight - startHeight + 1UL.toAttoHeight()).value) {
-            "The number of transactions must not exceed the maximum limit of $MAX_TRANSACTIONS."
+
+        val count = endHeight.value - startHeight.value + 1UL
+        require(MAX_TRANSACTIONS >= count) {
+            "The number of transactions must not exceed the maximum limit of $MAX_TRANSACTIONS. Requested $count"
         }
     }
 
