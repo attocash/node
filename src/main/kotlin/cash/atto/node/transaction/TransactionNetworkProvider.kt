@@ -42,7 +42,7 @@ class TransactionNetworkProvider(
             transactionRepository.findDesc(
                 request.publicKey,
                 request.startHeight,
-                request.endHeight - 1U,
+                request.endHeight,
             )
 
         transactions.collect {
