@@ -45,7 +45,7 @@ class GapDiscoverer(
     private val pointerMap =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(Duration.ofMinutes(1))
+            .expireAfterWrite(Duration.ofSeconds(10))
             .maximumSize(maxSize)
             .build<AttoPublicKey, TransactionPointer>()
             .asMap()
@@ -140,6 +140,7 @@ class GapDiscoverer(
         transaction: AttoTransaction,
     ): TransactionPointer? {
         if (transaction.hash != pointer.currentHash) {
+            logger.debug { "Expecting transaction with hash ${transaction.hash} but received hash $transaction" }
             return pointer
         }
 
@@ -147,16 +148,17 @@ class GapDiscoverer(
 
         val nextPointer =
             if (pointer.initialHeight == block.height) {
+                logger.debug { "End of the gap reached for account ${transaction.block.publicKey}" }
                 null
             } else {
                 TransactionPointer(
                     pointer.initialHeight,
-                    pointer.currentHeight - 1UL,
+                    block.height - 1UL,
                     (block as PreviousSupport).previous,
                 )
             }
 
-        logger.debug { "Discovered gap transaction ${transaction.hash}" }
+        logger.debug { "Discovered gap transaction ${transaction.hash} with height ${block.height}. New pointer: $nextPointer" }
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
 
