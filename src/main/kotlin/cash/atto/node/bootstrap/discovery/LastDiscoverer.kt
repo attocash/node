@@ -5,6 +5,7 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.getByAlgorithmAndPublicKey
 import cash.atto.node.bootstrap.TransactionDiscovered
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.election.ElectionVoter
 import cash.atto.node.election.TransactionElection
 import cash.atto.node.network.BroadcastNetworkMessage
@@ -34,6 +35,7 @@ class LastDiscoverer(
     private val thisNode: AttoNode,
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
+    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
     private val voteConverter: VoteConverter,
@@ -55,7 +57,11 @@ class LastDiscoverer(
             return
         }
 
-        val transactions = transactionRepository.getLastSample(20)
+        if (uncheckedTransactionRepository.count() > 0) {
+            return
+        }
+
+        val transactions = transactionRepository.getLastSample(100)
 
         transactions
             .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
