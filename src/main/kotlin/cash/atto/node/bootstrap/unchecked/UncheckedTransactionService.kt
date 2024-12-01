@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap.unchecked
 
-import cash.atto.commons.AttoHash
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
@@ -23,8 +22,8 @@ class UncheckedTransactionService(
     }
 
     @Transactional
-    suspend fun delete(hash: AttoHash) {
-        uncheckedTransactionRepository.deleteById(hash)
-        logger.debug { "Deleted unchecked $hash" }
+    suspend fun cleanUp() {
+        val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
+        logger.debug { "Deleted $deletedCount unchecked transactions" }
     }
 }

@@ -66,13 +66,14 @@ class UncheckedTransactionProcessor(
                         break
                     }
 
-                    uncheckedTransactionService.delete(transaction.hash)
                     account = accountService.add(TransactionSource.BOOTSTRAP, transaction)
 
                     logger.debug { "Resolved $transaction" }
                     eventPublisher.publish(TransactionResolved(transaction))
                 }
             }
+
+            uncheckedTransactionService.cleanUp()
         }
 
     private data class Key(
