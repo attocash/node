@@ -21,14 +21,14 @@ Feature: Bootstrap
     And send transaction 1 from THIS account to A account
     And transaction 1 is confirmed
 
-    And send transaction 2 from THIS account to A account
+    And receive transaction 2 from 1 send transaction to A account
     And transaction 2 is confirmed
 
     And the peer B
 
-    And receive transaction 3 from 2 send transaction to A account
+    And send transaction 3 from A account to THIS account
 
-    When peer B finds 2 unchecked transactions
+    When peer B finds 1 unchecked transactions
     And peer B look for missing transactions
     And peer B finds 3 unchecked transactions
     And peer B unchecked transactions are processed

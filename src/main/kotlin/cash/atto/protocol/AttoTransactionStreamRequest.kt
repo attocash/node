@@ -24,6 +24,13 @@ data class AttoTransactionStreamRequest(
         const val MAX_TRANSACTIONS = 1000UL
     }
 
+    init {
+        require(startHeight <= endHeight) { "End height must be greater than or equal to start height" }
+        require(MAX_TRANSACTIONS >= (endHeight - startHeight + 1UL.toAttoHeight()).value) {
+            "The number of transactions must not exceed the maximum limit of $MAX_TRANSACTIONS."
+        }
+    }
+
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_REQUEST
 
     override fun isValid(network: AttoNetwork): Boolean =
