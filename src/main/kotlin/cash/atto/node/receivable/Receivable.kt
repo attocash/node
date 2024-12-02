@@ -57,7 +57,3 @@ fun AttoReceivable.toReceivable(): Receivable =
 data class ReceivableSaved(
     val receivable: Receivable,
 ) : Event
-
-data class ReceivableDeleted(
-    val receivable: Receivable,
-) : Event

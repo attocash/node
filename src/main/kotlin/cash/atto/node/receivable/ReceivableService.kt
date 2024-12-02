@@ -22,9 +22,8 @@ class ReceivableService(
 
     @Transactional
     suspend fun delete(hash: AttoHash) {
-        val receivable = receivableRepository.findById(hash)!!
-        receivableRepository.delete(receivable)
+        val deleted = receivableRepository.delete(hash)
+        require(deleted > 0) { "Receivable does not exist." }
         logger.debug { "Deleted receivable $hash" }
-        eventPublisher.publishAfterCommit(ReceivableDeleted(receivable))
     }
 }

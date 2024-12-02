@@ -7,6 +7,7 @@ import cash.atto.node.AttoRepository
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import org.springframework.context.annotation.Primary
+import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
@@ -16,7 +17,7 @@ import java.time.Instant
 interface ReceivableRepository : AttoRepository {
     suspend fun save(entity: Receivable): Receivable
 
-    suspend fun delete(entity: Receivable)
+    suspend fun delete(hash: AttoHash): Int
 
     suspend fun findById(id: AttoHash): Receivable?
 
@@ -29,6 +30,11 @@ interface ReceivableRepository : AttoRepository {
 interface ReceivableCrudRepository :
     CoroutineCrudRepository<Receivable, AttoHash>,
     ReceivableRepository {
+
+    @Modifying
+    @Query("DELETE FROM receivable r WHERE r.hash = :hash")
+    override suspend fun delete(hash: AttoHash): Int
+
     @Query(
         """
             SELECT * FROM receivable t
@@ -69,10 +75,11 @@ class ReceivableCachedRepository(
         return saved
     }
 
-    override suspend fun delete(entity: Receivable) {
-        cache.remove(entity.hash)
-        return receivableCrudRepository.delete(entity)
+    override suspend fun delete(hash: AttoHash): Int {
+        cache.remove(hash)
+        return receivableCrudRepository.delete(hash)
     }
+
 
     override suspend fun findById(id: AttoHash): Receivable? = cache[id] ?: receivableCrudRepository.findById(id)
 
