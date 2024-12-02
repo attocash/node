@@ -177,7 +177,7 @@ private fun GapView.startHeight(): AttoHeight {
     val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS
     val count = this.endHeight - this.startHeight + 1U
     if (count.value > maxCount) {
-        return this.endHeight - maxCount - 2U
+        return this.endHeight - maxCount + 1U
     }
     return this.startHeight
 }
