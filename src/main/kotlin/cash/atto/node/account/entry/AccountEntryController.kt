@@ -1,6 +1,7 @@
 package cash.atto.node.account.entry
 
 import cash.atto.commons.AttoAccountEntry
+import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
@@ -16,10 +17,12 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
@@ -66,6 +69,42 @@ class AccountEntryController(
         return entryFlow
             .onStart { logger.trace { "Started streaming latest account entries" } }
             .onCompletion { logger.trace { "Stopped streaming latest account entries" } }
+    }
+
+    @GetMapping("/accounts/entries/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(
+        summary = "Stream a single account entry",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoAccountEntry::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun stream(
+        @PathVariable hash: AttoHash,
+    ): Flow<AttoAccountEntry> {
+        val entryDatabaseFlow: Flow<AttoAccountEntry> =
+            flow {
+                val transaction = repository.findById(hash)
+                if (transaction != null) {
+                    emit(transaction.toAtto())
+                }
+            }
+
+        val entryFlow =
+            entryFlow
+                .filter { it.hash == hash }
+
+        return merge(entryFlow, entryDatabaseFlow)
+            .onStart { logger.trace { "Started streaming $hash account entry" } }
+            .onCompletion { logger.trace { "Stopped streaming $hash account entry" } }
+            .take(1)
     }
 
     @GetMapping("/accounts/{publicKey}/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
