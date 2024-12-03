@@ -35,7 +35,7 @@ class IPv6Test {
 
     @ParameterizedTest
     @MethodSource("hosts")
-    @Timeout(value = 5, unit = TimeUnit.SECONDS)
+    @Timeout(value = 10, unit = TimeUnit.SECONDS)
     fun `inet address resolve`(host: String) {
         val address = InetAddress.getByName(host)
         assertNotNull(address)
