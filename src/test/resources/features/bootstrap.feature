@@ -10,9 +10,9 @@ Feature: Bootstrap
 
     And receive transaction 2 from 1 send transaction to A account
 
-    When peer B finds 2 unchecked transactions
-    And peer B unchecked transactions are processed
+    When peer B unchecked transactions are processed
 
+    Then transaction 1 is confirmed
     Then transaction 2 is confirmed
 
   Scenario: Missing transaction should be requested when gap exists
