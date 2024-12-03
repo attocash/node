@@ -161,7 +161,7 @@ class VotePrioritizer(
         }
     }
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedDelay = 10)
     suspend fun process() {
         withContext(singleDispatcher) {
             do {

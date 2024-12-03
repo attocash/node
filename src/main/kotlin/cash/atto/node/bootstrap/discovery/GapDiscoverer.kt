@@ -65,7 +65,7 @@ class GapDiscoverer(
         peers.remove(node.publicUri)
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun resolve() {
         val peers = peers.toList()
 

@@ -67,7 +67,7 @@ class TransactionRebroadcaster(
         logger.trace { "Stopped monitoring transaction because event was dropped. ${event.transaction}" }
     }
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedDelay = 10)
     fun dequeue() {
         do {
             val (transaction, publicUris) = broadcastQueue.poll()

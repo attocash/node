@@ -46,7 +46,7 @@ class TransactionPrioritizer(
         singleDispatcher.cancel()
     }
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedDelay = 100)
     suspend fun process() {
         withContext(singleDispatcher) {
             do {

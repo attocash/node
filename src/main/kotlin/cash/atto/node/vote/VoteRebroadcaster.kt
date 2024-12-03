@@ -95,7 +95,7 @@ class VoteRebroadcaster(
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
-    @Scheduled(fixedRate = 100)
+    @Scheduled(fixedDelay = 10)
     suspend fun process() {
         withContext(singleDispatcher) {
             do {

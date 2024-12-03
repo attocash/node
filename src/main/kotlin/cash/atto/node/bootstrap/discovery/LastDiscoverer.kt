@@ -51,7 +51,7 @@ class LastDiscoverer(
             .build<AttoHash, TransactionElection>()
             .asMap()
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
         if (thisNode.isNotHistorical()) {
             return

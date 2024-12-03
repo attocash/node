@@ -87,7 +87,7 @@ class UncheckedTransactionProcessor(
 class UncheckedTransactionProcessorStarter(
     val processor: UncheckedTransactionProcessor,
 ) {
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
         processor.process()
     }
