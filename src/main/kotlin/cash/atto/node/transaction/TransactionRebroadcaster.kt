@@ -38,11 +38,6 @@ class TransactionRebroadcaster(
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
-        if (message.source == MessageSource.REST) {
-            broadcast(transaction, emptySet())
-            return
-        }
-
         broadcastQueue.seen(transaction, message.publicUri)
 
         logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
