@@ -12,12 +12,15 @@ class UncheckedTransactionService(
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(uncheckedTransaction: UncheckedTransaction) {
-        try {
-            uncheckedTransactionRepository.save(uncheckedTransaction)
-            logger.debug { "Saved $uncheckedTransaction" }
-        } catch (e: DuplicateKeyException) {
-            logger.debug { "Already exist $uncheckedTransaction" }
+    suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>) {
+        // TODO: save as batch
+        uncheckedTransactions.forEach {
+            try {
+                uncheckedTransactionRepository.save(it)
+                logger.debug { "Saved $it" }
+            } catch (e: DuplicateKeyException) {
+                logger.debug { "Already exist $it" }
+            }
         }
     }
 
