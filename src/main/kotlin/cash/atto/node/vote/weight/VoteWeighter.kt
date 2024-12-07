@@ -71,7 +71,7 @@ class VoteWeighter(
     fun listen(event: VoteValidated) {
         val vote = event.vote
         latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
-            if (previousHashVote == null || vote.timestamp > previousHashVote.timestamp) {
+            if (previousHashVote == null || vote.receivedAt > previousHashVote.receivedAt) {
                 vote
             } else {
                 previousHashVote
@@ -111,6 +111,14 @@ class VoteWeighter(
         }
 
         logger.trace { "Weight updated $weightMap" }
+    }
+
+
+    fun getMap(): LinkedHashMap<AttoPublicKey, AttoAmount> {
+        return weightMap.entries.asSequence()
+            .sortedByDescending { it.value }
+            .associate { it.key to it.value }
+            .toMap(LinkedHashMap())
     }
 
     private fun add(
@@ -164,21 +172,16 @@ class VoteWeighter(
 
         val onlineWeight = onlineWeights.sumOf { it.value.raw }
 
-        val minimalConfirmationWeight = onlineWeight * properties.confirmationThreshold!!.toUByte() / 100U
+        val minimalConfirmationWeight = (onlineWeight / 100UL) * properties.confirmationThreshold!!.toULong() / 100UL
         val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.toString().toULong()
         this.minimalConfirmationWeight = max(minimalConfirmationWeight, defaultMinimalConfirmationWeight).toAttoAmount()
 
         logger.info { "Minimal confirmation weight updated to ${this.minimalConfirmationWeight}" }
 
-        val minimalConfirmationVoteCount =
-            onlineWeights
-                .asSequence()
-                .takeWhile { it.value > this.minimalConfirmationWeight }
-                .count()
-
-        val i = min(minimalConfirmationVoteCount * 2, onlineWeights.size - 1)
-        if (onlineWeights.isNotEmpty()) {
-            this.minimalRebroadcastWeight = onlineWeights[i].value
+        if (onlineWeights.size >= 10) {
+            this.minimalRebroadcastWeight = onlineWeights[9].value
+        } else if (onlineWeights.isNotEmpty()) {
+            this.minimalRebroadcastWeight = onlineWeights.last().value
         } else {
             this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.toString().toAttoAmount()
         }
