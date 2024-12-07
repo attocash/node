@@ -23,13 +23,11 @@ import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.lang.Integer.min
 import java.time.Instant
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
+import kotlin.time.Duration.Companion.days
 
 @Component
 @DependsOn("genesisTransaction")
@@ -172,7 +170,13 @@ class VoteWeighter(
 
         val onlineWeight = onlineWeights.sumOf { it.value.raw }
 
-        val minimalConfirmationWeight = onlineWeight * properties.confirmationThreshold!!.toULong() / 100UL
+        logger.info { "Total online vote weight $onlineWeight" }
+
+        val confirmationThreshold = properties.confirmationThreshold!!.toULong()
+
+        logger.info { "Confirmation threshold $confirmationThreshold" }
+
+        val minimalConfirmationWeight = onlineWeight * confirmationThreshold / 100UL
         val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.toString().toULong()
         this.minimalConfirmationWeight = max(minimalConfirmationWeight, defaultMinimalConfirmationWeight).toAttoAmount()
 
@@ -189,7 +193,7 @@ class VoteWeighter(
         logger.info { "Minimal rebroadcast weight updated to ${this.minimalRebroadcastWeight}" }
     }
 
-    fun getMinTimestamp(): Instant = ZonedDateTime.now(ZoneOffset.UTC).minusDays(properties.samplePeriodInDays!!).toInstant()
+    fun getMinTimestamp(): Instant = Instant.now().minusSeconds(properties.samplePeriodInDays!!.days.inWholeSeconds)
 
     override fun clear() {
         weightMap.clear()
