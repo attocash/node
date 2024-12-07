@@ -166,13 +166,13 @@ class VoteWeighter(
         val onlineWeights =
             weightMap
                 .asSequence()
-                .filter { minTimestamp < (latestVoteMap[it.key]?.timestamp ?: Instant.MIN) }
+                .filter { minTimestamp < (latestVoteMap[it.key]?.receivedAt ?: Instant.MIN) }
                 .sortedByDescending { it.value.raw }
                 .toList()
 
         val onlineWeight = onlineWeights.sumOf { it.value.raw }
 
-        val minimalConfirmationWeight = (onlineWeight / 100UL) * properties.confirmationThreshold!!.toULong() / 100UL
+        val minimalConfirmationWeight = onlineWeight * properties.confirmationThreshold!!.toULong() / 100UL
         val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.toString().toULong()
         this.minimalConfirmationWeight = max(minimalConfirmationWeight, defaultMinimalConfirmationWeight).toAttoAmount()
 
