@@ -176,7 +176,7 @@ class VoteWeighter(
 
         logger.info { "Confirmation threshold $confirmationThreshold" }
 
-        val minimalConfirmationWeight = onlineWeight * confirmationThreshold / 100UL
+        val minimalConfirmationWeight = (onlineWeight / 100UL) * confirmationThreshold
         val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.toString().toULong()
         this.minimalConfirmationWeight = max(minimalConfirmationWeight, defaultMinimalConfirmationWeight).toAttoAmount()
 
