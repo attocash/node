@@ -172,6 +172,10 @@ class VoteWeighter(
 
         logger.info { "Total online vote weight $onlineWeight" }
 
+        onlineWeights.asSequence()
+            .take(10)
+            .forEach { logger.info { "Top accounts ${it.key} ${it.value}" } }
+
         val confirmationThreshold = properties.confirmationThreshold!!.toULong()
 
         val minimalConfirmationWeight = (onlineWeight / 100UL) * confirmationThreshold
