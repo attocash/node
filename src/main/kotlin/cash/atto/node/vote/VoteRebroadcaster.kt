@@ -11,7 +11,6 @@ import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
@@ -37,7 +36,6 @@ class VoteRebroadcaster(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
 
     private val holderMap = ConcurrentHashMap<AttoSignature, VoteHolder>()
@@ -105,9 +103,15 @@ class VoteRebroadcaster(
                     val votePush = AttoVotePush(vote.toAtto())
                     val exceptions = it.publicUris
 
+                    val strategy = if (vote.isFinal()) {
+                        BroadcastStrategy.EVERYONE
+                    } else {
+                        BroadcastStrategy.VOTERS
+                    }
+
                     val message =
                         BroadcastNetworkMessage(
-                            BroadcastStrategy.EVERYONE,
+                            strategy,
                             exceptions,
                             votePush,
                         )
