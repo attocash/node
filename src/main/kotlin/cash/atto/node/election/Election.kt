@@ -117,7 +117,7 @@ class Election(
         if (consensusTransactionElection != null) {
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
-            logger.trace { "Consensus reached. Transaction ${finalTransaction.hash} was chosen." }
+            logger.trace { "Consensus reached. Transaction ${finalTransaction.hash} was chosen by ${votes.map { it.publicKey }}." }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withContext
