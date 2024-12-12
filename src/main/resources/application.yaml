@@ -50,7 +50,7 @@ atto:
       cache-max-size: 20_000
     weight:
       minimal-rebroadcast-weight: 180_000_000_000_000_000 #180m
-      minimal-confirmation-weight: 9_000_000_000_000_000_000 #9b
+      minimal-confirmation-weight: 10_000_000_000_000_000_000 #10b
       confirmation-threshold: 65
       sample-period-in-days: 14
     election:
