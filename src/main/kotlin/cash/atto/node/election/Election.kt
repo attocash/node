@@ -115,9 +115,14 @@ class Election(
 
         val consensusTransactionElection = publicKeyHeightElection.getConsensus()
         if (consensusTransactionElection != null) {
+            val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
+            val totalWeight = consensusTransactionElection.totalWeight
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
-            logger.trace { "Consensus reached. Transaction ${finalTransaction.hash} was chosen by ${votes.map { it.publicKey }}." }
+            logger.trace {
+                "Consensus reached because totalWeight($totalWeight) > minimalConfirmationWeight($minimalConfirmationWeight). " +
+                    "Transaction ${finalTransaction.hash} was chosen by ${votes.map { "${it.publicKey}=${it.weight}" }}."
+            }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withContext
