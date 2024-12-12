@@ -60,7 +60,7 @@ class ElectionProcessor(
             accountService.add(TransactionSource.ELECTION, transaction)
 
             if (thisNode.isHistorical()) {
-                voteService.saveAll(votes)
+                voteService.saveAll(votes.filter { it.isFinal() })
             }
         }
     }
