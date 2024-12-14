@@ -31,7 +31,6 @@ class VoteSerializerDBConverter(
             put("block_hash", Parameter.from(vote.blockHash))
             put("timestamp", Parameter.from(vote.timestamp.toEpochMilli()))
             put("signature", Parameter.from(vote.signature))
-            put("weight", Parameter.from(vote.weight))
             put("received_at", Parameter.from(vote.receivedAt))
             put(
                 "persisted_at",
