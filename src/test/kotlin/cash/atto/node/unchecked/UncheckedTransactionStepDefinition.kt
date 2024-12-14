@@ -5,7 +5,6 @@ import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
 import io.cucumber.java.en.When
-import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
@@ -13,7 +12,6 @@ import org.springframework.web.reactive.function.client.bodyToMono
 class UncheckedTransactionStepDefinition(
     private val webClient: WebClient,
 ) {
-    private val logger = KotlinLogging.logger {}
 
     @When("^peer (\\w+) finds (\\w+) unchecked transactions$")
     fun assertUncheckedCount(

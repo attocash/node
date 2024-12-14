@@ -9,11 +9,9 @@ import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
 import com.github.benmanes.caffeine.cache.Caffeine
 import org.springframework.context.annotation.Primary
-import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
-import java.math.BigInteger
 import java.time.Instant
 
 interface AccountRepository : AttoRepository {
@@ -25,8 +23,6 @@ interface AccountRepository : AttoRepository {
         algorithm: AttoAlgorithm,
         publicKey: AttoPublicKey,
     ): Account?
-
-    suspend fun findAllWeights(): List<WeightView>
 }
 
 interface AccountCrudRepository :
@@ -36,14 +32,6 @@ interface AccountCrudRepository :
         algorithm: AttoAlgorithm,
         publicKey: AttoPublicKey,
     ): Account?
-
-    @Query(
-        """
-        SELECT representative_algorithm as representative_algorithm, representative_public_key AS representative_public_key, CAST(SUM(balance) AS UNSIGNED) AS weight
-        FROM account GROUP BY representative_algorithm, representative_public_key
-        """,
-    )
-    override suspend fun findAllWeights(): List<WeightView>
 }
 
 @Primary
@@ -87,10 +75,6 @@ class AccountCachedRepository(
         return accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
     }
 
-    override suspend fun findAllWeights(): List<WeightView> {
-        return accountCrudRepository.findAllWeights()
-    }
-
     override suspend fun deleteAll() {
         accountCrudRepository.deleteAll()
     }
@@ -119,10 +103,3 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
         lastTransactionTimestamp = Instant.MIN,
     )
 }
-
-data class WeightView(
-    val representativeAlgorithm: AttoAlgorithm,
-    val representativePublicKey: AttoPublicKey,
-    // r2dbc doesn't seem to respect the DBConverter
-    val weight: BigInteger,
-)

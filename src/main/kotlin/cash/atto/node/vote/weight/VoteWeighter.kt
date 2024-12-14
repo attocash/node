@@ -18,6 +18,8 @@ import cash.atto.node.vote.VoteValidated
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
@@ -34,7 +36,7 @@ import kotlin.time.Duration.Companion.days
 class VoteWeighter(
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
-    val accountRepository: AccountRepository,
+    val weightRepository: WeightRepository,
     val voteRepository: VoteRepository,
     val genesisTransaction: Transaction,
 ) : CacheSupport {
@@ -48,10 +50,13 @@ class VoteWeighter(
     @PostConstruct
     override fun init() =
         runBlocking {
-            val weights =
-                accountRepository
-                    .findAllWeights()
-                    .associateBy({ it.representativePublicKey }, { AttoAmount(it.weight.toULong()) })
+            weightRepository.deleteAll()
+            weightRepository.refreshWeights()
+            val weights = weightRepository.findAll()
+                .map { it.representativePublicKey to it.weight }
+                .toList()
+                .toMap()
+
             weightMap.putAll(weights)
 
             val minTimestamp = getMinTimestamp()

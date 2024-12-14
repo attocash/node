@@ -28,7 +28,6 @@ import reactor.core.publisher.Mono
 import java.time.Duration
 
 class TransactionStepDefinition(
-    private val thisNode: AttoNode,
     private val webClient: WebClient,
 ) {
     private val logger = KotlinLogging.logger {}

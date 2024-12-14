@@ -23,15 +23,17 @@ class DiscoveryProcessor(
 
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun flush() {
-        val batch = mutableListOf<UncheckedTransaction>()
-
         do {
-            val transaction = buffer.tryReceive().getOrNull()
-            transaction?.let { batch.add(it) }
-        } while (batch.size < 1000 && transaction != null)
+            val batch = mutableListOf<UncheckedTransaction>()
 
-        if (batch.isNotEmpty()) {
-            uncheckedTransactionService.save(batch)
-        }
+            do {
+                val transaction = buffer.tryReceive().getOrNull()
+                transaction?.let { batch.add(it) }
+            } while (batch.size < 1000 && transaction != null)
+
+            if (batch.isNotEmpty()) {
+                uncheckedTransactionService.save(batch)
+            }
+        } while (batch.isNotEmpty())
     }
 }
