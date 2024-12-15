@@ -18,6 +18,7 @@ import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.AttoVoteStreamResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -91,6 +92,7 @@ class VoteNetworkProvider(
 
         votes
             .takeWhile { voteStreams.contains(stream) }
+            .onCompletion { voteStreams.contains(stream) }
             .collect {
                 val response = AttoVoteStreamResponse(it)
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
