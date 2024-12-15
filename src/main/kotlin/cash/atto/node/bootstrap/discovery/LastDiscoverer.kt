@@ -46,7 +46,7 @@ class LastDiscoverer(
     private val transactionElectionMap =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(1, TimeUnit.MINUTES)
+            .expireAfterWrite(10, TimeUnit.MINUTES)
             .maximumSize(100_000)
             .build<AttoHash, TransactionElection>()
             .asMap()
