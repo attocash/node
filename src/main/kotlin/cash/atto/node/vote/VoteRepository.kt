@@ -14,11 +14,12 @@ interface VoteRepository :
     AttoRepository {
     @Query(
         """
-        SELECT * FROM (
+        SELECT *, w.weight FROM (
             SELECT *, ROW_NUMBER() OVER(PARTITION BY public_key ORDER BY received_at DESC) as num
             FROM vote v
             WHERE received_at > :receivedAt
-        ) TEMP
+        ) temp
+        JOIN weight w on temp.public_key = w.representative_public_key
         WHERE num = 1
         """,
     )
