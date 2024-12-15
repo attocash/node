@@ -8,9 +8,7 @@ import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.toAttoAmount
 import cash.atto.node.CacheSupport
-import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountUpdated
-import cash.atto.node.toULong
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteRepository
@@ -36,7 +34,7 @@ import kotlin.time.Duration.Companion.days
 class VoteWeighter(
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
-    val weightRepository: WeightRepository,
+    val weightService: WeightService,
     val voteRepository: VoteRepository,
     val genesisTransaction: Transaction,
 ) : CacheSupport {
@@ -50,12 +48,11 @@ class VoteWeighter(
     @PostConstruct
     override fun init() =
         runBlocking {
-            weightRepository.deleteAll()
-            weightRepository.refreshWeights()
-            val weights = weightRepository.findAll()
+            val weights = weightService.refresh()
                 .map { it.representativePublicKey to it.weight }
                 .toList()
                 .toMap()
+
 
             weightMap.putAll(weights)
 
