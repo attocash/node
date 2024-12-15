@@ -92,7 +92,7 @@ class VoteNetworkProvider(
 
         votes
             .takeWhile { voteStreams.contains(stream) }
-            .onCompletion { voteStreams.contains(stream) }
+            .onCompletion { voteStreams.remove(stream) }
             .collect {
                 val response = AttoVoteStreamResponse(it)
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
