@@ -50,7 +50,7 @@ dependencies {
     implementation("cash.atto:commons-worker:$commonsVersion")
     implementation("cash.atto:commons-signer-remote:$commonsVersion")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.6.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
