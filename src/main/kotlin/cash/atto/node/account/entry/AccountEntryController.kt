@@ -146,10 +146,11 @@ class AccountEntryController(
         val entryFlow =
             entryFlow
                 .filter { it.publicKey == publicKey }
-                .takeWhile { it.height in from.toAttoHeight()..to.toAttoHeight() }
+                .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
 
         return merge(entryFlow, databaseFlow)
             .sortByHeight(from.toAttoHeight())
+            .takeWhile { it.height <= to.toAttoHeight() }
             .onStart {
                 logger.trace { "Started streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {

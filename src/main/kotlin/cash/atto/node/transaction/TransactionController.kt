@@ -181,10 +181,11 @@ class TransactionController(
         val transactionFlow =
             transactionFlow
                 .filter { it.block.publicKey == publicKey }
-                .takeWhile { it.height in from.toAttoHeight()..to.toAttoHeight() }
+                .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(from.toAttoHeight())
+            .takeWhile { it.height <= to.toAttoHeight() }
             .onStart {
                 logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {
