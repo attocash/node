@@ -12,6 +12,7 @@ import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
+import java.time.Duration
 import java.time.Instant
 
 interface ReceivableRepository : AttoRepository {
@@ -58,6 +59,7 @@ class ReceivableCachedRepository(
         Caffeine
             .newBuilder()
             .maximumSize(100_000)
+            .expireAfterWrite(Duration.ofMinutes(10))
             .build<AttoHash, Receivable>()
             .asMap()
 

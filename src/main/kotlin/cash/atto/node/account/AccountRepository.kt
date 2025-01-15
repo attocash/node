@@ -12,6 +12,7 @@ import org.springframework.context.annotation.Primary
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
+import java.time.Duration
 import java.time.Instant
 
 interface AccountRepository : AttoRepository {
@@ -43,6 +44,7 @@ class AccountCachedRepository(
         Caffeine
             .newBuilder()
             .maximumSize(100_000)
+            .expireAfterWrite(Duration.ofMinutes(10))
             .build<AttoPublicKey, Account>()
             .asMap()
 
