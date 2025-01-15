@@ -45,7 +45,7 @@ interface VoteRepository :
             );
         """,
     )
-    fun deleteOld(): Int
+    suspend fun deleteOld() : Int
 
 
     @Query(
