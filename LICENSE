@@ -1,6 +1,6 @@
-BSD 3-Clause License with Additional Export Control Clause
+BSD 3-Clause License with Additional Export Control Clause and Additional Fork Allocation Requirement
 
-Copyright (c) 2022, Atto
+Copyright (c) 2025, Atto
 All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
@@ -17,7 +17,11 @@ modification, are permitted provided that the following conditions are met:
    contributors may be used to endorse or promote products derived from
    this software without specific prior written permission.
 
-4. You must comply with all U.S. and applicable export control and economic
+4. Any fork, derivative, or variation of this software that produces a new or
+   modified public token or public cryptocurrency must transfer 1% of the total
+   supply of that token or cryptocurrency to the atto project.
+
+5. You must comply with all U.S. and applicable export control and economic
    sanctions laws and regulations that govern your use of the
    programs (including technical data).
 
