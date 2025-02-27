@@ -52,7 +52,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.6.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
