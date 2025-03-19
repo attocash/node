@@ -30,7 +30,7 @@ class AccountController(
     val node: AttoNode,
     val eventPublisher: EventPublisher,
     val repository: AccountRepository,
-)  : CacheSupport {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     /**
@@ -62,11 +62,10 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(): Flow<AttoAccount> {
-        return accountFlow
+    suspend fun stream(): Flow<AttoAccount> =
+        accountFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
-    }
 
     @GetMapping("/{publicKey}")
     @Operation(description = "Get account")

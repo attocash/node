@@ -1,8 +1,6 @@
 package cash.atto.node.election
 
-import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit

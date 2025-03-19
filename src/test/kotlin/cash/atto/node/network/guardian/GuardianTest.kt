@@ -148,8 +148,8 @@ class GuardianTest {
         return node
     }
 
-    private fun createNode(publicUri: URI): AttoNode {
-        return AttoNode(
+    private fun createNode(publicUri: URI): AttoNode =
+        AttoNode(
             network = AttoNetwork.LOCAL,
             protocolVersion = 0u,
             algorithm = AttoAlgorithm.V1,
@@ -157,7 +157,6 @@ class GuardianTest {
             publicUri = publicUri,
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
-    }
 
     private fun randomSocketAddress(): InetSocketAddress {
         val address = Random.Default.nextBytes(ByteArray(4))

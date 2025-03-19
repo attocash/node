@@ -32,21 +32,13 @@ data class AttoNode(
     @Transient
     val maxProtocolVersion = (protocolVersion + 2u).toUShort()
 
-    fun isVoter(): Boolean {
-        return features.contains(NodeFeature.VOTING)
-    }
+    fun isVoter(): Boolean = features.contains(NodeFeature.VOTING)
 
-    fun isNotVoter(): Boolean {
-        return !isVoter()
-    }
+    fun isNotVoter(): Boolean = !isVoter()
 
-    fun isHistorical(): Boolean {
-        return features.contains(NodeFeature.HISTORICAL)
-    }
+    fun isHistorical(): Boolean = features.contains(NodeFeature.HISTORICAL)
 
-    fun isNotHistorical(): Boolean {
-        return !isHistorical()
-    }
+    fun isNotHistorical(): Boolean = !isHistorical()
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

@@ -10,9 +10,7 @@ import org.springframework.stereotype.Component
 
 @Component
 class PreviousValidator : TransactionValidator {
-    override fun supports(transaction: Transaction): Boolean {
-        return transaction.block is PreviousSupport
-    }
+    override fun supports(transaction: Transaction): Boolean = transaction.block is PreviousSupport
 
     override suspend fun validate(
         account: Account,

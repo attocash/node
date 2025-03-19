@@ -94,8 +94,14 @@ class AccountService(
         val block = transaction.block
         val (subjectAlgorithm, subjectPublicKey) =
             when (block) {
-                is AttoChangeBlock -> block.representativeAlgorithm to block.representativePublicKey
-                is AttoSendBlock -> block.receiverAlgorithm to block.receiverPublicKey
+                is AttoChangeBlock -> {
+                    block.representativeAlgorithm to block.representativePublicKey
+                }
+
+                is AttoSendBlock -> {
+                    block.receiverAlgorithm to block.receiverPublicKey
+                }
+
                 is AttoReceiveBlock, is AttoOpenBlock -> {
                     block as ReceiveSupport
                     val receivable = receivableRepository.findById(block.sendHash)!!

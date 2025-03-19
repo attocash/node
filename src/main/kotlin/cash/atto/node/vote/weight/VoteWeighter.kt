@@ -48,11 +48,12 @@ class VoteWeighter(
     @PostConstruct
     override fun init() =
         runBlocking {
-            val weights = weightService.refresh()
-                .map { it.representativePublicKey to it.weight }
-                .toList()
-                .toMap()
-
+            val weights =
+                weightService
+                    .refresh()
+                    .map { it.representativePublicKey to it.weight }
+                    .toList()
+                    .toMap()
 
             weightMap.putAll(weights)
 
@@ -113,13 +114,12 @@ class VoteWeighter(
         logger.trace { "Weight updated $weightMap" }
     }
 
-
-    fun getMap(): LinkedHashMap<AttoPublicKey, AttoAmount> {
-        return weightMap.entries.asSequence()
+    fun getMap(): LinkedHashMap<AttoPublicKey, AttoAmount> =
+        weightMap.entries
+            .asSequence()
             .sortedByDescending { it.value }
             .associate { it.key to it.value }
             .toMap(LinkedHashMap())
-    }
 
     private fun add(
         publicKey: AttoPublicKey,
@@ -174,7 +174,8 @@ class VoteWeighter(
 
         logger.info { "Total online vote weight $onlineWeight" }
 
-        onlineWeights.asSequence()
+        onlineWeights
+            .asSequence()
             .take(10)
             .forEach { logger.info { "Top accounts ${it.key} ${it.value}" } }
 

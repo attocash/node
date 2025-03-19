@@ -30,9 +30,7 @@ object PropertyHolder {
     fun <T> contains(
         clazz: Class<T>,
         key: String,
-    ): Boolean {
-        return properties.containsKey(createKey(clazz, key))
-    }
+    ): Boolean = properties.containsKey(createKey(clazz, key))
 
     operator fun <T> get(
         clazz: Class<T>,
@@ -44,9 +42,7 @@ object PropertyHolder {
         return clazz.cast(value)
     }
 
-    fun getActiveKey(clazz: Class<*>): String? {
-        return activeKeys[clazz]
-    }
+    fun getActiveKey(clazz: Class<*>): String? = activeKeys[clazz]
 
     operator fun <T> get(clazz: Class<T>): T {
         val activeKey = getActiveKey(clazz) ?: throw IllegalStateException("No active key for type $clazz")

@@ -31,7 +31,6 @@ interface ReceivableRepository : AttoRepository {
 interface ReceivableCrudRepository :
     CoroutineCrudRepository<Receivable, AttoHash>,
     ReceivableRepository {
-
     @Modifying
     @Query("DELETE FROM receivable r WHERE r.hash = :hash")
     override suspend fun delete(hash: AttoHash): Int
@@ -81,7 +80,6 @@ class ReceivableCachedRepository(
         cache.remove(hash)
         return receivableCrudRepository.delete(hash)
     }
-
 
     override suspend fun findById(id: AttoHash): Receivable? = cache[id] ?: receivableCrudRepository.findById(id)
 

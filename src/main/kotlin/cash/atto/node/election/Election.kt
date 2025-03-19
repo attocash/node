@@ -44,13 +44,9 @@ class Election(
         singleDispatcher.cancel()
     }
 
-    fun getSize(): Int {
-        return publicKeyHeightElectionMap.size
-    }
+    fun getSize(): Int = publicKeyHeightElectionMap.size
 
-    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> {
-        return publicKeyHeightElectionMap
-    }
+    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> = publicKeyHeightElectionMap
 
     @EventListener
     suspend fun start(event: TransactionValidated) {
@@ -204,17 +200,15 @@ class PublicKeyHeightElection(
         return true
     }
 
-    fun getProvisionalLeader(): TransactionElection {
-        return transactionElectionMap
+    fun getProvisionalLeader(): TransactionElection =
+        transactionElectionMap
             .values
             .maxBy { it.totalWeight }
-    }
 
-    fun getConsensus(): TransactionElection? {
-        return transactionElectionMap
+    fun getConsensus(): TransactionElection? =
+        transactionElectionMap
             .values
             .firstOrNull { it.isConsensusReached() }
-    }
 }
 
 class TransactionElection(

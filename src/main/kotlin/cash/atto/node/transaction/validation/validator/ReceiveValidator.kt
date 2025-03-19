@@ -13,9 +13,7 @@ import org.springframework.stereotype.Component
 class ReceiveValidator(
     private val receivableRepository: ReceivableRepository,
 ) : TransactionValidator {
-    override fun supports(transaction: Transaction): Boolean {
-        return transaction.block is ReceiveSupport
-    }
+    override fun supports(transaction: Transaction): Boolean = transaction.block is ReceiveSupport
 
     override suspend fun validate(
         account: Account,

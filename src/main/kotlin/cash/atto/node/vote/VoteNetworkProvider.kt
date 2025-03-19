@@ -32,7 +32,7 @@ class VoteNetworkProvider(
     private val voteRepository: VoteRepository,
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
-    private val signer: AttoSigner
+    private val signer: AttoSigner,
 ) {
     private val voteStreams = ConcurrentHashMap.newKeySet<VoteStream>()
 

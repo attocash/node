@@ -66,16 +66,12 @@ class AccountCachedRepository(
         return saved
     }
 
-    override suspend fun findById(id: AttoPublicKey): Account? {
-        return cache[id] ?: accountCrudRepository.findById(id)
-    }
+    override suspend fun findById(id: AttoPublicKey): Account? = cache[id] ?: accountCrudRepository.findById(id)
 
     override suspend fun findByAlgorithmAndPublicKey(
         algorithm: AttoAlgorithm,
         publicKey: AttoPublicKey,
-    ): Account? {
-        return accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
-    }
+    ): Account? = accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
 
     override suspend fun deleteAll() {
         accountCrudRepository.deleteAll()

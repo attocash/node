@@ -15,7 +15,6 @@ import cash.atto.commons.worker.cpu
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
-import cash.atto.protocol.AttoNode
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -178,7 +177,7 @@ class TransactionStepDefinition(
         hash: AttoHash,
         height: AttoHeight,
     ): AttoAccountEntry {
-        val url = "http://localhost:${neighbour.httpPort}/accounts/${publicKey}/entries/stream?fromHeight=$height&toHeight=$height"
+        val url = "http://localhost:${neighbour.httpPort}/accounts/$publicKey/entries/stream?fromHeight=$height&toHeight=$height"
         return webClient
             .get()
             .uri(url)

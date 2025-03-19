@@ -55,7 +55,6 @@ class VoteKeeper(
 
     private val voteBuffer = Channel<Vote>(Channel.UNLIMITED)
 
-
     @EventListener
     fun add(nodeEvent: NodeConnected) {
         val node = nodeEvent.node
@@ -82,7 +81,6 @@ class VoteKeeper(
         }
 
         voteBuffer.send(Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote))
-
     }
 
     @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.MINUTES)
@@ -94,7 +92,6 @@ class VoteKeeper(
             keep(it)
         }
     }
-
 
     private suspend fun keep(missingVote: MissingVote) {
         if (missingVote.representativePublicKey == thisNode.publicKey) {
@@ -122,14 +119,14 @@ class VoteKeeper(
                 blockHash = blockHash,
                 timestamp = AttoVote.finalTimestamp,
             )
-        val signedVote = AttoSignedVote(
-            vote = attoVote,
-            signature = signer.sign(attoVote),
-        )
+        val signedVote =
+            AttoSignedVote(
+                vote = attoVote,
+                signature = signer.sign(attoVote),
+            )
 
         return Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote)
     }
-
 
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun flush() {

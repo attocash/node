@@ -15,7 +15,6 @@ import cash.atto.node.vote.weight.VoteWeighter
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener

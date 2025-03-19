@@ -45,8 +45,7 @@ interface VoteRepository :
             );
         """,
     )
-    suspend fun deleteOld() : Int
-
+    suspend fun deleteOld(): Int
 
     @Query(
         """
@@ -76,9 +75,12 @@ interface VoteRepository :
             SELECT last_transaction_hash, representative_public_key
             FROM missing_reps
             WHERE rk between 1 and 2;
-        """
+        """,
     )
     suspend fun findMissingVote(onlineWeight: BigInteger): List<MissingVote>
 }
 
-data class MissingVote(val lastTransactionHash: AttoHash, val representativePublicKey: AttoPublicKey)
+data class MissingVote(
+    val lastTransactionHash: AttoHash,
+    val representativePublicKey: AttoPublicKey,
+)

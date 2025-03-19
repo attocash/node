@@ -66,13 +66,9 @@ class VotePrioritizer(
             }.build<AttoHash, MutableMap<AttoPublicKey, Vote>>()
             .asMap()
 
-    fun getQueueSize(): Int {
-        return queue.getSize()
-    }
+    fun getQueueSize(): Int = queue.getSize()
 
-    fun getBufferSize(): Int {
-        return voteBuffer.size
-    }
+    fun getBufferSize(): Int = voteBuffer.size
 
     @EventListener
     suspend fun process(event: ElectionStarted) {
