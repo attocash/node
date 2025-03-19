@@ -12,7 +12,7 @@ import java.net.URI
 @Serializable
 @SerialName("AttoKeepAlive")
 data class AttoKeepAlive(
-    @ProtoNumber(0)
+    @ProtoNumber(1)
     val neighbour:
         @Serializable(with = URISerializer::class)
         URI? = null,

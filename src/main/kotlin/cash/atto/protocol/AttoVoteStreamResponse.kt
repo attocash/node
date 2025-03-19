@@ -12,7 +12,7 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 @SerialName("AttoVoteStreamResponse")
 data class AttoVoteStreamResponse(
-    @ProtoNumber(0)
+    @ProtoNumber(1)
     @Serializable(with = AttoSignedVoteAsByteArraySerializer::class)
     val vote: AttoSignedVote,
 ) : AttoMessage {

@@ -14,12 +14,12 @@ import java.net.URI
 
 @Serializable
 data class AttoNode(
-    @ProtoNumber(0) val network: AttoNetwork,
-    @ProtoNumber(1) val protocolVersion: UShort,
-    @ProtoNumber(2) val algorithm: AttoAlgorithm,
-    @ProtoNumber(3) val publicKey: AttoPublicKey,
-    @ProtoNumber(4) @Serializable(with = URISerializer::class) val publicUri: URI,
-    @ProtoNumber(5) val features: Set<NodeFeature>,
+    @ProtoNumber(1) val network: AttoNetwork,
+    @ProtoNumber(2) val protocolVersion: UShort,
+    @ProtoNumber(3) val algorithm: AttoAlgorithm,
+    @ProtoNumber(4) val publicKey: AttoPublicKey,
+    @ProtoNumber(5) @Serializable(with = URISerializer::class) val publicUri: URI,
+    @ProtoNumber(6) val features: Set<NodeFeature>,
 ) {
     @Transient
     val minProtocolVersion: UShort =
@@ -73,10 +73,10 @@ enum class NodeFeature(
     @ProtoNumber(255)
     UNKNOWN(UByte.MAX_VALUE),
 
-    @ProtoNumber(0)
+    @ProtoNumber(1)
     VOTING(0u),
 
-    @ProtoNumber(1)
+    @ProtoNumber(2)
     HISTORICAL(1u),
     ;
 
