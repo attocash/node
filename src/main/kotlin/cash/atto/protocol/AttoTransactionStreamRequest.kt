@@ -14,11 +14,11 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 @SerialName("AttoTransactionStreamRequest")
 data class AttoTransactionStreamRequest(
-    @ProtoNumber(0)
+    @ProtoNumber(1)
     @Serializable(with = AttoPublicKeyAsByteArraySerializer::class)
     val publicKey: AttoPublicKey,
-    @ProtoNumber(1) val startHeight: AttoHeight,
-    @ProtoNumber(2) val endHeight: AttoHeight,
+    @ProtoNumber(2) val startHeight: AttoHeight,
+    @ProtoNumber(3) val endHeight: AttoHeight,
 ) : AttoMessage {
     companion object {
         const val MAX_TRANSACTIONS = 1000UL

@@ -13,9 +13,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 @Serializable
 @SerialName("AttoVoteRequest")
 data class AttoVoteRequest(
-    @ProtoNumber(0)
-    val blockAlgorithm: AttoAlgorithm,
     @ProtoNumber(1)
+    val blockAlgorithm: AttoAlgorithm,
+    @ProtoNumber(2)
     @Serializable(with = AttoHashAsByteArraySerializer::class)
     val blockHash: AttoHash,
 ) : AttoMessage {
