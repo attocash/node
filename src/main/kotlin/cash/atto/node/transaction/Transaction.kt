@@ -42,25 +42,18 @@ data class Transaction(
     val serialized: Buffer
         get() = this.toAttoTransaction().toBuffer()
 
-    override fun getId(): AttoHash {
-        return hash
-    }
+    override fun getId(): AttoHash = hash
 
-    override fun isNew(): Boolean {
-        return true
-    }
+    override fun isNew(): Boolean = true
 
-    fun toAttoTransaction(): AttoTransaction {
-        return AttoTransaction(
+    fun toAttoTransaction(): AttoTransaction =
+        AttoTransaction(
             block = block,
             signature = signature,
             work = work,
         )
-    }
 
-    fun toPublicKeyHeight(): PublicKeyHeight {
-        return PublicKeyHeight(this.block.publicKey, this.block.height)
-    }
+    fun toPublicKeyHeight(): PublicKeyHeight = PublicKeyHeight(this.block.publicKey, this.block.height)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

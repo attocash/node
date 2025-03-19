@@ -12,7 +12,6 @@ import org.springframework.web.reactive.function.client.bodyToMono
 class UncheckedTransactionStepDefinition(
     private val webClient: WebClient,
 ) {
-
     @When("^peer (\\w+) finds (\\w+) unchecked transactions$")
     fun assertUncheckedCount(
         shortId: String,

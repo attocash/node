@@ -38,9 +38,9 @@ interface UncheckedTransactionRepository :
             )
             DELETE FROM unchecked_transaction
             WHERE hash IN (SELECT hash FROM hashes_to_delete)
-        """
+        """,
     )
-    suspend fun deleteExistingInTransaction() : Int
+    suspend fun deleteExistingInTransaction(): Int
 }
 
 data class GapView(

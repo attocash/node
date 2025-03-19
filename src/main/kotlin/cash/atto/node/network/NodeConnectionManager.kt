@@ -58,9 +58,7 @@ class NodeConnectionManager(
         connectionMap.clear()
     }
 
-    fun isConnected(publicUri: URI): Boolean {
-        return connectionMap.contains(publicUri)
-    }
+    fun isConnected(publicUri: URI): Boolean = connectionMap.contains(publicUri)
 
     suspend fun manage(
         node: AttoNode,

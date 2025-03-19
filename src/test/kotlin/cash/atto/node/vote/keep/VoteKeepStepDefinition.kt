@@ -13,7 +13,6 @@ class VoteKeepStepDefinition(
     private val voteKeeper: VoteKeeper,
     private val voteRepository: VoteRepository,
 ) {
-
     @When("transaction {word} missing votes are grabbed")
     fun assertUncheckedCount(transactionShortId: String) {
         val transaction = PropertyHolder.get(Transaction::class.java, transactionShortId)
@@ -27,5 +26,4 @@ class VoteKeepStepDefinition(
             }
         }
     }
-
 }

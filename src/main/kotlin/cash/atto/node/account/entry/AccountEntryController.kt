@@ -65,11 +65,10 @@ class AccountEntryController(
             ),
         ],
     )
-    suspend fun stream(): Flow<AttoAccountEntry> {
-        return entryFlow
+    suspend fun stream(): Flow<AttoAccountEntry> =
+        entryFlow
             .onStart { logger.trace { "Started streaming latest account entries" } }
             .onCompletion { logger.trace { "Stopped streaming latest account entries" } }
-    }
 
     @GetMapping("/accounts/entries/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(

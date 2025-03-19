@@ -7,8 +7,9 @@ import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.TimeUnit
 
 @Service
-class WeightService(private val weightRepository: WeightRepository) {
-
+class WeightService(
+    private val weightRepository: WeightRepository,
+) {
     @Transactional
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
     suspend fun refresh(): Flow<Weight> {

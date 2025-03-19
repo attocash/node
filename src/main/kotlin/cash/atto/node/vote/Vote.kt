@@ -65,14 +65,15 @@ data class Vote(
     fun toPublicKeyHash(): PublicKeyHash = PublicKeyHash(publicKey, blockHash)
 
     fun toAtto(): AttoSignedVote {
-        val vote = AttoVote(
-            version = version,
-            algorithm = algorithm,
-            publicKey = publicKey,
-            blockAlgorithm = blockAlgorithm,
-            blockHash = blockHash,
-            timestamp = timestamp.toKotlinInstant(),
-        )
+        val vote =
+            AttoVote(
+                version = version,
+                algorithm = algorithm,
+                publicKey = publicKey,
+                blockAlgorithm = blockAlgorithm,
+                blockHash = blockHash,
+                timestamp = timestamp.toKotlinInstant(),
+            )
         return AttoSignedVote(
             vote = vote,
             signature = signature,

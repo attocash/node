@@ -14,9 +14,7 @@ import org.springframework.stereotype.Component
 class BlockValidator(
     val node: AttoNode,
 ) : TransactionValidator {
-    override fun supports(transaction: Transaction): Boolean {
-        return transaction.block is PreviousSupport
-    }
+    override fun supports(transaction: Transaction): Boolean = transaction.block is PreviousSupport
 
     override suspend fun validate(
         account: Account,

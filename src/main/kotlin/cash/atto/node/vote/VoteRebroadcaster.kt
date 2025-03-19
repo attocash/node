@@ -62,7 +62,7 @@ class VoteRebroadcaster(
     @EventListener
     suspend fun process(event: VoteValidated) {
         val holder = holderMap[event.vote.signature]
-        /**
+        /*
          * Holder will be null for votes casted by this node.
          * They are considered valid from the start and broadcasted directly
          */
@@ -103,11 +103,12 @@ class VoteRebroadcaster(
                     val votePush = AttoVotePush(vote.toAtto())
                     val exceptions = it.publicUris
 
-                    val strategy = if (vote.isFinal()) {
-                        BroadcastStrategy.EVERYONE
-                    } else {
-                        BroadcastStrategy.VOTERS
-                    }
+                    val strategy =
+                        if (vote.isFinal()) {
+                            BroadcastStrategy.EVERYONE
+                        } else {
+                            BroadcastStrategy.VOTERS
+                        }
 
                     val message =
                         BroadcastNetworkMessage(

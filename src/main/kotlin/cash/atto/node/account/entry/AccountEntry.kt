@@ -28,7 +28,6 @@ data class AccountEntry(
     val timestamp: Instant,
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
-
     override fun getId(): AttoHash = hash
 
     override fun isNew(): Boolean = persistedAt == null

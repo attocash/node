@@ -27,7 +27,9 @@ class SignatureConfiguration {
                 AttoPrivateKey(signerProperties.key!!.fromHexToByteArray())
             } else {
                 val temporaryPrivateKey = AttoPrivateKey.generate()
-                logger.info { "No private key configured. This node will be considered historical. Created TEMPORARY private key ${temporaryPrivateKey.value.toHex()} to talk with other nodes. DO NOT USE IT OR SHARE!" }
+                logger.info {
+                    "No private key configured. This node will be considered historical. Created TEMPORARY private key ${temporaryPrivateKey.value.toHex()} to talk with other nodes. DO NOT USE IT OR SHARE!"
+                }
                 temporaryPrivateKey
             }
 

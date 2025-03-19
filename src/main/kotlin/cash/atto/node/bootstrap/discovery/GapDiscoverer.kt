@@ -102,7 +102,7 @@ class GapDiscoverer(
                         FROM calculated_gaps
                         WHERE start_height <= end_height
                         ORDER BY transaction_timestamp
-                        LIMIT ${limit};
+                        LIMIT $limit;
                 """,
                 ).map { row, _ ->
                     GapView(

@@ -128,6 +128,10 @@ tasks.withType<Test> {
     maxHeapSize = "2g"
 }
 
+ktlint {
+    version.set("1.4.1")
+}
+
 graalvmNative {
     binaries {
         named("main") {

@@ -13,9 +13,8 @@ import java.net.URI
 sealed interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
 
-    override fun getResolvableType(): ResolvableType {
-        return ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
-    }
+    override fun getResolvableType(): ResolvableType =
+        ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
 }
 
 enum class MessageSource {
@@ -44,9 +43,7 @@ data class DirectNetworkMessage<T : AttoMessage>(
     override fun accepts(
         target: URI,
         node: AttoNode?,
-    ): Boolean {
-        return publicUri == target
-    }
+    ): Boolean = publicUri == target
 }
 
 enum class BroadcastStrategy {

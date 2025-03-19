@@ -21,9 +21,7 @@ internal object ChallengeStore {
     fun remove(
         publicUri: URI,
         challenge: String,
-    ): Boolean {
-        return challenges.remove(publicUri, challenge)
-    }
+    ): Boolean = challenges.remove(publicUri, challenge)
 
     fun generate(publicUri: URI): String {
         val challengePrefix = publicUri.toString().toByteArray()

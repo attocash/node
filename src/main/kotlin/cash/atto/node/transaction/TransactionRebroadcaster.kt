@@ -6,7 +6,6 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.InboundNetworkMessage
-import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging

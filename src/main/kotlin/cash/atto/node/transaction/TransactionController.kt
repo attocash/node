@@ -91,11 +91,10 @@ class TransactionController(
             ),
         ],
     )
-    suspend fun stream(): Flow<AttoTransaction> {
-        return transactionFlow
+    suspend fun stream(): Flow<AttoTransaction> =
+        transactionFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
-    }
 
     @GetMapping("/transactions/{hash}")
     @Operation(description = "Get transaction")
