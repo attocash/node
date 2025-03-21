@@ -1,6 +1,8 @@
 package cash.atto.node.account.entry
 
 import cash.atto.commons.AttoAccountEntry
+import cash.atto.commons.AttoAlgorithm
+import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
@@ -34,6 +36,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
+import java.math.BigDecimal
 
 @RestController
 @RequestMapping
@@ -59,7 +62,7 @@ class AccountEntryController(
                 content = [
                     Content(
                         mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                        schema = Schema(implementation = AttoAccountEntry::class),
+                        schema = Schema(implementation = AttoAccountEntrySample::class),
                     ),
                 ],
             ),
@@ -79,7 +82,7 @@ class AccountEntryController(
                 content = [
                     Content(
                         mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                        schema = Schema(implementation = AttoAccountEntry::class),
+                        schema = Schema(implementation = AttoAccountEntrySample::class),
                     ),
                 ],
             ),
@@ -115,7 +118,7 @@ class AccountEntryController(
                 content = [
                     Content(
                         mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                        schema = Schema(implementation = AttoAccountEntry::class),
+                        schema = Schema(implementation = AttoAccountEntrySample::class),
                     ),
                 ],
             ),
@@ -161,4 +164,43 @@ class AccountEntryController(
     override fun clear() {
         entryFlow.resetReplayCache()
     }
+
+    @Schema(
+        name = "AttoAccountEntry",
+        description = "Represents an account chain entry",
+    )
+    internal data class AttoAccountEntrySample(
+        @Schema(description = "Unique hash of the block", example = "68BA42CDD87328380BE32D5AA6DBB86E905B50273D37AF1DE12F47B83A001154")
+        val hash: String,
+
+        @Schema(description = "Block algorithm", example = "V1")
+        val algorithm: AttoAlgorithm,
+
+        @Schema(description = "Public key of the account", example = "FD595851104FDDB2FEBF3739C8006C8AAE9B8A2B1BC390D5FDF07EBDD8583FA1")
+        val publicKey: String,
+
+        @Schema(description = "Block height", example = "0")
+        val height: BigDecimal,
+
+        @Schema(description = "Type of block in the account chain", example = "RECEIVE")
+        val blockType: AttoBlockType,
+
+        @Schema(description = "Algorithm of the subject involved in the transaction", example = "V1")
+        val subjectAlgorithm: AttoAlgorithm,
+
+        @Schema(
+            description = "Public key of the subject involved in the transaction",
+            example = "2EB21717813E7A0E0A7E308B8E2FD8A051F8724F5C5F0047E92E19310C582E3A"
+        )
+        val subjectPublicKey: String,
+
+        @Schema(description = "Balance before this block", example = "0")
+        val previousBalance: BigDecimal,
+
+        @Schema(description = "Balance after this block", example = "100")
+        val balance: BigDecimal,
+
+        @Schema(description = "Timestamp of the block", example = "1704616009211")
+        val timestamp: Long
+    )
 }

@@ -1,5 +1,6 @@
 package cash.atto.node.receivable
 
+import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
@@ -23,6 +24,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
@@ -31,6 +33,7 @@ import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
+import java.math.BigDecimal
 
 @RestController
 @RequestMapping
@@ -57,7 +60,7 @@ class ReceivableController(
                 content = [
                     Content(
                         mediaType = MediaType.APPLICATION_NDJSON_VALUE,
-                        schema = Schema(implementation = Receivable::class),
+                        schema = Schema(implementation = AttoReceivableExample::class),
                     ),
                 ],
             ),
@@ -92,4 +95,32 @@ class ReceivableController(
             }.onStart { logger.trace { "Started streaming receivable for $publicKey account" } }
             .onCompletion { logger.trace { "Stopped streaming transactions for $publicKey account" } }
     }
+
+    @Schema(name = "AttoReceivable", description = "Represents an Atto transaction")
+    internal data class AttoReceivableExample(
+        @Schema(description = "Transaction hash", example = "0AF0F63BFE4DBC588F95FC3B154DE848AA9A5DD5604BAC99AE9E21C5EA8B4F64")
+        val hash: String,
+
+        @Schema(description = "Version", example = "0")
+        val version: Int,
+
+        @Schema(description = "Algorithm", example = "V1")
+        val algorithm: AttoAlgorithm,
+
+        @Schema(description = "Public key of the sender", example = "53F1A85D25EDA5021C01A77A2B1BA99CEF9DD5FD912D7465B8B652FDEDB6A4F8")
+        val publicKey: String,
+
+        @Schema(description = "Timestamp of the send transaction", example = "1705517157478")
+        val timestamp: Instant,
+
+        @Schema(description = "Algorithm used by the receiver", example = "V1")
+        val receiverAlgorithm: AttoAlgorithm,
+
+        @Schema(description = "Public key of the receiver", example = "0C400961629D759176F009249A33899440900ABCE275F6C5C01C6F7F37A2C59A")
+        val receiverPublicKey: String,
+
+        @Schema(description = "Amount", example = "18000000000000000000")
+        val amount: BigDecimal
+    )
+
 }
