@@ -25,6 +25,7 @@ import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
+import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -56,6 +57,10 @@ import java.net.InetSocketAddress
 @RestController
 @RequestMapping
 @Conditional(NotVoterCondition::class)
+@Tag(
+    name = "Transactions",
+    description = "Submit or query raw transaction blocks. This endpoint handles the low-level building blocks of the ledger.",
+)
 class TransactionController(
     val applicationProperties: ApplicationProperties,
     val thisNode: AttoNode,
@@ -213,14 +218,15 @@ class TransactionController(
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
     @Operation(
         summary = "Publish a transaction",
-        requestBody = io.swagger.v3.oas.annotations.parameters.RequestBody(
-            content = [
-                Content(
-                    mediaType = MediaType.APPLICATION_JSON_VALUE,
-                    schema = Schema(implementation = AttoTransactionSample::class),
-                )
-            ]
-        ),
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_JSON_VALUE,
+                        schema = Schema(implementation = AttoTransactionSample::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -287,18 +293,17 @@ class TransactionController(
         transactionFlow.resetReplayCache()
     }
 
-
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(
         use = JsonTypeInfo.Id.NAME,
         include = JsonTypeInfo.As.PROPERTY,
-        property = "type"  // this must match the "type" field in your JSON
+        property = "type", // this must match the "type" field in your JSON
     )
     @JsonSubTypes(
         JsonSubTypes.Type(value = AttoSendBlockSample::class, name = "SEND"),
         JsonSubTypes.Type(value = AttoReceiveBlockSample::class, name = "RECEIVE"),
         JsonSubTypes.Type(value = AttoOpenBlockSample::class, name = "OPEN"),
-        JsonSubTypes.Type(value = AttoChangeBlockSample::class, name = "CHANGE")
+        JsonSubTypes.Type(value = AttoChangeBlockSample::class, name = "CHANGE"),
     )
     sealed interface AttoBlockSample {
         val network: AttoNetwork
@@ -312,136 +317,98 @@ class TransactionController(
     @Schema(name = "AttoSendBlock", description = "Represents a SEND block")
     data class AttoSendBlockSample(
         override val network: AttoNetwork,
-
         override val version: Int,
-
         override val algorithm: AttoAlgorithm,
-
         override val publicKey: String,
-
         override val balance: BigDecimal,
-
         override val timestamp: Long,
-
         @Schema(description = "Height of the block", example = "2")
         val height: BigDecimal,
-
         @Schema(description = "Hash of the previous block", example = "6CC2D3A7513723B1BA59DE784BA546BAF6447464D0BA3D80004752D6F9F4BA23")
         val previous: String,
-
         @Schema(description = "Algorithm of the receiver", example = "V1")
         val receiverAlgorithm: AttoAlgorithm,
-
         @Schema(description = "Public key of the receiver", example = "552254E101B51B22080D084C12C94BF7DFC5BE0D973025D62C0BC1FF4D9B145F")
         val receiverPublicKey: String,
-
         @Schema(description = "Amount being sent", example = "1")
-        val amount: BigDecimal
+        val amount: BigDecimal,
     ) : AttoBlockSample
 
     @Schema(name = "AttoReceiveBlock", description = "Represents a RECEIVE block")
     data class AttoReceiveBlockSample(
         override val network: AttoNetwork,
-
         override val version: Int,
-
         override val algorithm: AttoAlgorithm,
-
         override val publicKey: String,
-
         override val balance: BigDecimal,
-
         override val timestamp: Long,
-
         @Schema(description = "Height of the block", example = "2")
         val height: BigDecimal,
-
         @Schema(description = "Hash of the previous block", example = "03783A08F51486A66A602439D9164894F07F150B548911086DAE4E4F57A9C4DD")
         val previous: String,
-
         @Schema(description = "Algorithm of the send block", example = "V1")
         val sendHashAlgorithm: AttoAlgorithm,
-
         @Schema(description = "Hash of the send block", example = "EE5FDA9A1ACEC7A09231792C345CDF5CD29F1059E5C413535D9FCA66A1FB2F49")
-        val sendHash: String
+        val sendHash: String,
     ) : AttoBlockSample
 
     @Schema(name = "AttoOpenBlock", description = "Represents an OPEN block")
     data class AttoOpenBlockSample(
         override val network: AttoNetwork,
-
         override val version: Int,
-
         override val algorithm: AttoAlgorithm,
-
         override val publicKey: String,
-
         override val balance: BigDecimal,
-
         override val timestamp: Long,
-
         @Schema(description = "Algorithm of the send block", example = "V1")
         val sendHashAlgorithm: AttoAlgorithm,
-
         @Schema(description = "Hash of the send block", example = "4DC7257C0F492B8C7AC2D8DE4A6DC4078B060BB42FDB6F8032A839AAA9048DB0")
         val sendHash: String,
-
         @Schema(description = "Algorithm of the representative", example = "V1")
         val representativeAlgorithm: AttoAlgorithm,
-
         @Schema(
             description = "Public key of the representative",
-            example = "69C010A8A74924D083D1FC8234861B4B357530F42341484B4EBDA6B99F047105"
+            example = "69C010A8A74924D083D1FC8234861B4B357530F42341484B4EBDA6B99F047105",
         )
-        val representativePublicKey: String
+        val representativePublicKey: String,
     ) : AttoBlockSample
 
     @Schema(name = "AttoChangeBlock", description = "Represents a CHANGE block")
     data class AttoChangeBlockSample(
         override val network: AttoNetwork,
-
         override val version: Int,
-
         override val algorithm: AttoAlgorithm,
-
         override val publicKey: String,
-
         override val balance: BigDecimal,
-
         override val timestamp: Long,
-
         @Schema(description = "Height of the block", example = "2")
         val height: BigDecimal,
-
         @Schema(description = "Hash of the previous block", example = "AD675BD718F3D96F9B89C58A8BF80741D5EDB6741D235B070D56E84098894DD5")
         val previous: String,
-
         @Schema(description = "Algorithm of the representative", example = "V1")
         val representativeAlgorithm: AttoAlgorithm,
-
         @Schema(
             description = "Public key of the representative",
-            example = "69C010A8A74924D083D1FC8234861B4B357530F42341484B4EBDA6B99F047105"
+            example = "69C010A8A74924D083D1FC8234861B4B357530F42341484B4EBDA6B99F047105",
         )
-        val representativePublicKey: String
+        val representativePublicKey: String,
     ) : AttoBlockSample
 
     @Schema(name = "AttoTransaction", description = "A signed block")
     data class AttoTransactionSample(
-
         @Schema(description = "The block to be submitted (SEND, RECEIVE, OPEN, CHANGE)")
         val block: AttoBlockSample,
-
         @Schema(
             description = "Ed25519 signature of the block",
-            example = "52843B36ABDFA4125E4C0D465A3C976C269F993C7C82645B29AB49B7A5A84FC41E3391D2A41C4CB83DFA3214DA87B099F86EF10402BFB1120A5D34F70CBC2B00"
+            example =
+                "52843B36ABDFA4125E4C0D465A3C976C269F993C7C82645B29AB49B7A5A84FC41E" +
+                    "3391D2A41C4CB83DFA3214DA87B099F86EF10402BFB1120A5D34F70CBC2B00",
         )
         val signature: String,
-
         @Schema(
             description = "Proof-of-work for the block",
-            example = "4300FFFFFFFFFFCF"
+            example = "4300FFFFFFFFFFCF",
         )
-        val work: String
+        val work: String,
     )
 }
