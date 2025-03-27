@@ -16,6 +16,7 @@ import cash.atto.commons.AttoVersion
 import cash.atto.commons.AttoVote
 import cash.atto.commons.generate
 import cash.atto.commons.isValid
+import cash.atto.commons.serialiazer.InstantMillisSerializer
 import cash.atto.commons.signer.remote
 import cash.atto.commons.toAttoAmount
 import cash.atto.commons.toAttoHeight
@@ -209,6 +210,7 @@ class SignerTest {
     @Serializable
     data class ChallengeSignatureRequest(
         override val target: AttoChallenge,
+        @Serializable(with = InstantMillisSerializer::class)
         val timestamp: Instant,
     ) : SignatureRequest<AttoChallenge>
 
