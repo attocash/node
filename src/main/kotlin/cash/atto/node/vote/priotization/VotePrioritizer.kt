@@ -22,9 +22,8 @@ import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.priotization.VoteQueue.TransactionVote
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -38,9 +37,7 @@ class VotePrioritizer(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-
+    private val mutex = Mutex()
     private val queue = VoteQueue(properties.groupMaxSize!!)
 
     private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
@@ -76,12 +73,10 @@ class VotePrioritizer(
 
         activeElections[transaction.hash] = transaction
 
-        withContext(singleDispatcher) {
-            val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
-            votes.forEach {
-                logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
-                add(it)
-            }
+        val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
+        votes.forEach {
+            logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
+            add(it)
         }
     }
 
@@ -133,7 +128,7 @@ class VotePrioritizer(
             logger.trace { "Queued for prioritization. $vote" }
 
             val droppedVote =
-                withContext(singleDispatcher) {
+                mutex.withLock {
                     queue.add(TransactionVote(transaction, vote))
                 }
 
@@ -159,7 +154,7 @@ class VotePrioritizer(
 
     @Scheduled(fixedDelay = 10)
     suspend fun process() {
-        withContext(singleDispatcher) {
+        mutex.withLock {
             do {
                 val transactionVote = queue.poll()
                 transactionVote?.let {

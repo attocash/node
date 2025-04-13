@@ -24,9 +24,8 @@ import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.datetime.toJavaInstant
 import kotlinx.datetime.toKotlinInstant
 import org.springframework.context.event.EventListener
@@ -50,15 +49,14 @@ class ElectionVoter(
         val finalVoteTimestamp = AttoVote.finalTimestamp.toJavaInstant()
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val mutex = Mutex()
 
     private val transactions = HashMap<PublicKeyHeight, Transaction>()
     private val agreements = HashSet<PublicKeyHeight>()
 
     @EventListener
     suspend fun process(event: ElectionStarted) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val transaction = event.transaction
             if (transactions[transaction.toPublicKeyHeight()] == null) {
                 consensed(transaction)
@@ -67,7 +65,7 @@ class ElectionVoter(
 
     @EventListener
     suspend fun process(event: ElectionConsensusChanged) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             consensed(event.transaction)
         }
 
@@ -84,7 +82,7 @@ class ElectionVoter(
 
     @EventListener
     suspend fun process(event: ElectionConsensusReached) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val transaction = event.transaction
 
             val publicKeyHeight = transaction.toPublicKeyHeight()
@@ -99,19 +97,19 @@ class ElectionVoter(
 
     @EventListener
     suspend fun process(event: ElectionExpiring) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             vote(event.transaction, Instant.now())
         }
 
     @EventListener
     suspend fun process(event: ElectionExpired) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             remove(event.transaction)
         }
 
     @EventListener
     suspend fun process(event: AccountUpdated) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             if (event.source == TransactionSource.ELECTION) {
                 vote(event.transaction, finalVoteTimestamp)
             }
@@ -124,7 +122,7 @@ class ElectionVoter(
         }
         val transaction = event.transaction
         if (transactionRepository.existsById(transaction.hash)) {
-            withContext(singleDispatcher) {
+            mutex.withLock {
                 vote(transaction, finalVoteTimestamp)
             }
         }

@@ -31,8 +31,7 @@ class FlowRegistry<K, V>(
         return flow
             .onCompletion {
                 flowCache.remove(key)
-            }
-            .timeout(expiration)
+            }.timeout(expiration)
     }
 
     /**

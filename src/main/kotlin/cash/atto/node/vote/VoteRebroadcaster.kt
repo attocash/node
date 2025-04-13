@@ -9,10 +9,8 @@ import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -36,15 +34,10 @@ class VoteRebroadcaster(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val mutex = Mutex()
 
     private val holderMap = ConcurrentHashMap<AttoSignature, VoteHolder>()
     private val voteQueue = PriorityQueue<VoteHolder>()
-
-    @PreDestroy
-    fun stop() {
-        singleDispatcher.cancel()
-    }
 
     @EventListener
     fun process(event: VoteReceived) {
@@ -67,7 +60,7 @@ class VoteRebroadcaster(
          * They are considered valid from the start and broadcasted directly
          */
         if (holder != null && isRebroadcaster()) {
-            withContext(singleDispatcher) {
+            mutex.withLock {
                 voteQueue.add(holder)
                 logger.trace { "Vote queued for rebroadcast. ${event.vote}" }
             }
@@ -95,7 +88,7 @@ class VoteRebroadcaster(
 
     @Scheduled(fixedDelay = 10)
     suspend fun process() {
-        withContext(singleDispatcher) {
+        mutex.withLock {
             do {
                 val voteHolder = voteQueue.poll()
                 voteHolder?.let {

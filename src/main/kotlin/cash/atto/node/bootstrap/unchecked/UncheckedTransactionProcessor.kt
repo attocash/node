@@ -12,12 +12,10 @@ import cash.atto.node.bootstrap.TransactionStuck
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
@@ -34,16 +32,11 @@ class UncheckedTransactionProcessor(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-
-    @PreDestroy
-    fun stop() {
-        singleDispatcher.cancel()
-    }
+    private val mutex = Mutex()
 
     @Transactional
     suspend fun process() =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val transactionMap =
                 uncheckedTransactionRepository
                     .findReadyToValidate(1_000L)

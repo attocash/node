@@ -16,11 +16,8 @@ import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -33,22 +30,16 @@ class TransactionPrioritizer(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val mutex = Mutex()
 
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
     private val activeElections = HashSet<AttoHash>()
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
 
-    @PreDestroy
-    fun stop() {
-        singleDispatcher.cancel()
-    }
-
     @Scheduled(fixedDelay = 100)
     suspend fun process() {
-        withContext(singleDispatcher) {
+        mutex.withLock {
             do {
                 val transaction = queue.poll()
                 transaction?.let {
@@ -72,7 +63,7 @@ class TransactionPrioritizer(
 
     @EventListener
     suspend fun process(event: AccountUpdated) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val hash = event.transaction.hash
 
             activeElections.remove(hash)
@@ -87,20 +78,20 @@ class TransactionPrioritizer(
 
     @EventListener
     suspend fun process(event: ElectionStarted) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             activeElections.add(event.transaction.hash)
         }
 
     @EventListener
     suspend fun process(event: ElectionExpired) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val hash = event.transaction.hash
             activeElections.remove(hash)
             buffer.remove(hash)
         }
 
     suspend fun add(transaction: Transaction) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val block = transaction.block
             if (block is PreviousSupport && activeElections.contains(block.previous)) {
                 buffer(block.previous, transaction)

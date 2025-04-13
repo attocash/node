@@ -15,11 +15,8 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -34,15 +31,9 @@ class Election(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
+    private val mutex = Mutex()
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
-
-    @PreDestroy
-    fun stop() {
-        singleDispatcher.cancel()
-    }
 
     fun getSize(): Int = publicKeyHeightElectionMap.size
 
@@ -62,7 +53,7 @@ class Election(
 
     @EventListener
     suspend fun process(event: AccountUpdated) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val transaction = event.transaction
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {
                 logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
@@ -72,7 +63,7 @@ class Election(
     private suspend fun start(
         account: Account,
         transaction: Transaction,
-    ) = withContext(singleDispatcher) {
+    ) = mutex.withLock {
         publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
             val publicKeyHeightElection =
                 v ?: PublicKeyHeightElection(account) {
@@ -90,7 +81,7 @@ class Election(
     private suspend fun process(
         transaction: Transaction,
         vote: Vote,
-    ) = withContext(singleDispatcher) {
+    ) = mutex.withLock {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         logger.trace { "Processing $vote" }
@@ -99,12 +90,12 @@ class Election(
 
         if (publicKeyHeightElection == null) {
             logger.trace { "Election for $publicKeyHeight not found. Vote will be ignored" }
-            return@withContext
+            return@withLock
         }
 
         if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
-            return@withContext
+            return@withLock
         }
 
         val account = publicKeyHeightElection.account
@@ -121,7 +112,7 @@ class Election(
             }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
-            return@withContext
+            return@withLock
         }
 
         val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
@@ -131,7 +122,7 @@ class Election(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun processExpiring() =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
 
             publicKeyHeightElectionMap
@@ -147,7 +138,7 @@ class Election(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun stopObservingStaled() =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
 
             publicKeyHeightElectionMap

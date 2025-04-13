@@ -13,10 +13,8 @@ import cash.atto.node.vote.VoteDropReason
 import cash.atto.node.vote.VoteDropped
 import cash.atto.node.vote.weight.VoteWeighter
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 
@@ -27,14 +25,8 @@ class DependencyDiscoverer(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    private val mutex = Mutex()
     private val transactionHolderMap = FixedSizeHashMap<AttoHash, TransactionHolder>(50_000)
-
-    private val singleDispatcher = Dispatchers.Default.limitedParallelism(1)
-
-    @PreDestroy
-    fun stop() {
-        singleDispatcher.cancel()
-    }
 
     @EventListener
     suspend fun process(event: TransactionRejected) {
@@ -49,7 +41,7 @@ class DependencyDiscoverer(
     suspend fun add(
         reason: TransactionRejectionReason?,
         transaction: Transaction,
-    ) = withContext(singleDispatcher) {
+    ) = mutex.withLock {
         val transactionHolder = TransactionHolder(reason, transaction)
         transactionHolderMap[transaction.hash] = transactionHolder
         logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
@@ -65,14 +57,14 @@ class DependencyDiscoverer(
     }
 
     suspend fun process(vote: Vote) =
-        withContext(singleDispatcher) {
+        mutex.withLock {
             if (!vote.isFinal()) {
-                return@withContext
+                return@withLock
             }
 
             val hash = vote.blockHash
 
-            val holder = transactionHolderMap[hash] ?: return@withContext
+            val holder = transactionHolderMap[hash] ?: return@withLock
 
             holder.add(vote)
 
