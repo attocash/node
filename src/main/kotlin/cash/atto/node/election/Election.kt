@@ -84,7 +84,7 @@ class Election(
 
         logger.trace { "Started election for $transaction" }
 
-        eventPublisher.publishSync(ElectionStarted(account, transaction))
+        eventPublisher.publish(ElectionStarted(account, transaction))
     }
 
     private suspend fun process(

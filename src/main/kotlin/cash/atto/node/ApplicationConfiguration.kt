@@ -1,11 +1,14 @@
 package cash.atto.node
 
+import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.models.ExternalDocumentation
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.event.ApplicationEventMulticaster
+import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.web.reactive.config.WebFluxConfigurer
@@ -14,6 +17,21 @@ import org.springframework.web.reactive.config.WebFluxConfigurer
 @EnableScheduling
 @AutoConfigureOrder(0)
 class ApplicationConfiguration : WebFluxConfigurer {
+    @Bean
+    fun applicationEventMulticaster(): ApplicationEventMulticaster {
+        val logger = KotlinLogging.logger {}
+
+        val multicaster = SimpleApplicationEventMulticaster()
+
+        multicaster.setTaskExecutor { task ->
+            Thread.ofVirtual().start(task)
+        }
+        multicaster.setErrorHandler {
+            logger.error(it) { it.message }
+        }
+        return multicaster
+    }
+
     @Bean
     fun springShopOpenAPI(): OpenAPI =
         OpenAPI()
