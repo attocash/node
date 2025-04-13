@@ -9,6 +9,7 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.FlowRegistry
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.InboundNetworkMessage
@@ -26,9 +27,7 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -72,18 +71,14 @@ class TransactionController(
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
 
-    /**
-     * There's a small chance that during subscription a client may miss the entry in the database and in the transaction
-     * flow.
-     *
-     * The replay was added to workaround that. In any case, it's recommended to subscribe before publish transactions
-     *
-     */
-    private val transactionFlow = MutableSharedFlow<AttoTransaction>(100_000)
+    private val flowRegistryByHash = FlowRegistry<AttoHash, AttoTransaction>()
+    private val flowRegistryByPublicKey = FlowRegistry<AttoPublicKey, AttoTransaction>()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
-        transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
+        val transaction = accountUpdated.transaction.toAttoTransaction()
+        flowRegistryByHash.tryEmit(transaction.hash, transaction)
+        flowRegistryByPublicKey.tryEmit(transaction.block.publicKey, transaction)
     }
 
     @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
@@ -102,7 +97,8 @@ class TransactionController(
         ],
     )
     suspend fun stream(): Flow<AttoTransaction> =
-        transactionFlow
+        flowRegistryByHash
+            .streamAll()
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
 
@@ -145,18 +141,20 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable hash: AttoHash,
+        @RequestParam checkDatabase: Boolean = true,
     ): Flow<AttoTransaction> {
         val transactionDatabaseFlow: Flow<AttoTransaction> =
             flow {
-                val transaction = repository.findById(hash)
-                if (transaction != null) {
-                    emit(transaction.toAttoTransaction())
+                if (checkDatabase) {
+                    val transaction = repository.findById(hash)
+                    if (transaction != null) {
+                        emit(transaction.toAttoTransaction())
+                    }
                 }
             }
 
         val transactionFlow =
-            transactionFlow
-                .filter { it.hash == hash }
+            flowRegistryByHash.streamAll().filter { it.hash == hash }
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .onStart { logger.trace { "Started streaming $hash transaction" } }
@@ -201,8 +199,8 @@ class TransactionController(
                 .map { it.toAttoTransaction() }
 
         val transactionFlow =
-            transactionFlow
-                .filter { it.block.publicKey == publicKey }
+            flowRegistryByPublicKey
+                .createFlow(publicKey)
                 .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
@@ -285,12 +283,12 @@ class TransactionController(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
     ): Flow<AttoTransaction> =
-        stream(transaction.hash)
+        stream(transaction.hash, false)
             .onStart { publish(transaction, request) }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     override fun clear() {
-        transactionFlow.resetReplayCache()
+        flowRegistryByPublicKey.clear()
+        flowRegistryByHash.clear()
     }
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
