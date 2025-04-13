@@ -51,7 +51,7 @@ class AccountEntryController(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val entryFlow = MutableSharedFlow<AttoAccountEntry>(100_000)
+    private val entryFlow = MutableSharedFlow<AttoAccountEntry>()
 
     @EventListener
     suspend fun process(event: AccountEntrySaved) {

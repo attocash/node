@@ -49,14 +49,7 @@ class AccountController(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    /**
-     * There's a small chance that during subscription a client may miss the entry in the database and in the transaction
-     * flow.
-     *
-     * The replay was added to workaround that. In any case, it's recommended to subscribe before publish transactions
-     *
-     */
-    private val accountFlow = MutableSharedFlow<AttoAccount>(100_000)
+    private val accountFlow = MutableSharedFlow<AttoAccount>()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
