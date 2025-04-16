@@ -43,6 +43,7 @@ class TransactionPrioritizer(
             do {
                 val transaction = queue.poll()
                 transaction?.let {
+                    logger.debug { "Dequeued $transaction" }
                     eventPublisher.publish(TransactionReceived(it))
                 }
             } while (transaction != null)
@@ -100,6 +101,7 @@ class TransactionPrioritizer(
             } else {
                 val droppedTransaction = queue.add(transaction)
                 if (droppedTransaction != null) {
+                    logger.debug { "Dropped $droppedTransaction" }
                     eventPublisher.publish(TransactionDropped(droppedTransaction))
                 }
                 logger.debug { "Queued $transaction" }

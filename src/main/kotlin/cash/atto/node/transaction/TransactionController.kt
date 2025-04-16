@@ -157,8 +157,8 @@ class TransactionController(
             flowRegistryByHash.streamAll().filter { it.hash == hash }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .onStart { logger.trace { "Started streaming $hash transaction" } }
-            .onCompletion { logger.trace { "Stopped streaming $hash transaction" } }
+            .onStart { logger.debug { "Started streaming $hash transaction" } }
+            .onCompletion { logger.debug { "Stopped streaming $hash transaction" } }
             .take(1)
     }
 

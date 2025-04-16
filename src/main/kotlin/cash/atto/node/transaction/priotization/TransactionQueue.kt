@@ -4,6 +4,7 @@ import cash.atto.commons.AttoSendBlock
 import cash.atto.node.transaction.Transaction
 import kotlinx.datetime.toJavaInstant
 import java.time.temporal.ChronoUnit
+import java.util.Arrays
 import java.util.Comparator.comparing
 import java.util.SortedMap
 import java.util.TreeMap
@@ -32,17 +33,20 @@ class TransactionQueue(
             }
     }
 
+    private val hashComparator = Comparator<Transaction> { a, b ->
+        Arrays.compareUnsigned(a.block.hash.value, b.block.hash.value)
+    }
+
     private val dateComparator: Comparator<Transaction> =
         comparing {
             ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp.toJavaInstant())
         }
 
-    private val versionComparator: Comparator<Transaction> =
-        comparing {
-            it.block.version
-        }
+    private val versionComparator = compareByDescending<Transaction> { it.block.version }
 
-    private val comparator = versionComparator.thenComparing(dateComparator)
+    private val comparator = versionComparator
+        .thenComparing(dateComparator)
+        .thenComparing(hashComparator)
 
     private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
     private val currentGroup = AtomicInteger(0)
