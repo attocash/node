@@ -48,25 +48,36 @@ class ElectionProcessor(
         buffer.send(event)
     }
 
-    @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.MILLISECONDS)
+    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MILLISECONDS)
     @Transactional
     suspend fun flush() {
+        flushBatch(1_000)
+    }
+
+    private suspend fun flushBatch(size: Int) {
         val events = mutableListOf<ElectionConsensusReached>()
 
-        for (i in 1..1000) {
-            val event = buffer.tryReceive().getOrNull() ?: break
-            events += event
-        }
+        try {
+            for (i in 1..size) {
+                val event = buffer.tryReceive().getOrNull() ?: break
+                events += event
+            }
 
-        if (events.isEmpty()) return
+            if (events.isEmpty()) return
 
-        val transactions = events.map { it.transaction }
+            val transactions = events.map { it.transaction }
 
-        accountService.add(TransactionSource.ELECTION, transactions)
+            accountService.add(TransactionSource.ELECTION, transactions)
 
-        if (thisNode.isHistorical()) {
-            val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
-            voteService.saveAll(finalVotes)
+            if (thisNode.isHistorical()) {
+                val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
+                voteService.saveAll(finalVotes)
+            }
+        } catch (e: Exception) {
+            events.forEach {
+                buffer.send(it)
+            }
+            throw e
         }
     }
 }
