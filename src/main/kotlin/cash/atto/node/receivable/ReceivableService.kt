@@ -14,16 +14,18 @@ class ReceivableService(
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(receivable: Receivable) {
-        receivableRepository.save(receivable)
-        logger.debug { "Saved $receivable" }
-        eventPublisher.publishAfterCommit(ReceivableSaved(receivable))
+    suspend fun saveAll(receivables: List<Receivable>) {
+        receivableRepository.saveAll(receivables).collect { receivable ->
+            logger.debug { "Saved $receivable" }
+            eventPublisher.publishAfterCommit(ReceivableSaved(receivable))
+        }
     }
 
     @Transactional
-    suspend fun delete(hash: AttoHash) {
-        val deleted = receivableRepository.delete(hash)
-        require(deleted > 0) { "Receivable does not exist." }
-        logger.debug { "Deleted receivable $hash" }
+    suspend fun deleteAll(hashes: List<AttoHash>) {
+        if (hashes.isEmpty()) return
+        val deleted = receivableRepository.deleteAllByHash(hashes)
+        require(deleted == hashes.size) { "One or more receivable does not exist. Hashes: $hashes" }
+        logger.debug { "Deleted receivable $hashes" }
     }
 }

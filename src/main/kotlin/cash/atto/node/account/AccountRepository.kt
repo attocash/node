@@ -8,6 +8,9 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
 import com.github.benmanes.caffeine.cache.Caffeine
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
@@ -18,21 +21,16 @@ import java.time.Instant
 interface AccountRepository : AttoRepository {
     suspend fun save(entity: Account): Account
 
+    fun saveAll(entities: List<Account>): Flow<Account>
+
     suspend fun findById(id: AttoPublicKey): Account?
 
-    suspend fun findByAlgorithmAndPublicKey(
-        algorithm: AttoAlgorithm,
-        publicKey: AttoPublicKey,
-    ): Account?
+    fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account>
 }
 
 interface AccountCrudRepository :
     CoroutineCrudRepository<Account, AttoPublicKey>,
     AccountRepository {
-    override suspend fun findByAlgorithmAndPublicKey(
-        algorithm: AttoAlgorithm,
-        publicKey: AttoPublicKey,
-    ): Account?
 }
 
 @Primary
@@ -66,12 +64,43 @@ class AccountCachedRepository(
         return saved
     }
 
+    override fun saveAll(entities: List<Account>): Flow<Account> =
+        accountCrudRepository.saveAll(entities).onEach { saved ->
+            cache[saved.publicKey] =
+                saved.copy(
+                    persistedAt = saved.persistedAt ?: Instant.now(),
+                    updatedAt = Instant.now(),
+                )
+
+            executeAfterCompletion { status ->
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    cache.remove(saved.publicKey)
+                }
+            }
+        }
+
     override suspend fun findById(id: AttoPublicKey): Account? = cache[id] ?: accountCrudRepository.findById(id)
 
-    override suspend fun findByAlgorithmAndPublicKey(
-        algorithm: AttoAlgorithm,
-        publicKey: AttoPublicKey,
-    ): Account? = accountCrudRepository.findByAlgorithmAndPublicKey(algorithm, publicKey)
+    override fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account> =
+        flow {
+            val missing = mutableListOf<AttoPublicKey>()
+
+            for (id in ids) {
+                val cached = cache[id]
+                if (cached != null) {
+                    emit(cached)
+                } else {
+                    missing += id
+                }
+            }
+
+            if (missing.isNotEmpty()) {
+                accountCrudRepository.findAllById(missing).collect { account ->
+                    cache[account.publicKey] = account
+                    emit(account)
+                }
+            }
+        }
 
     override suspend fun deleteAll() {
         accountCrudRepository.deleteAll()
@@ -83,8 +112,8 @@ suspend fun AccountRepository.getByAlgorithmAndPublicKey(
     publicKey: AttoPublicKey,
     network: AttoNetwork,
 ): Account {
-    val account = findByAlgorithmAndPublicKey(algorithm, publicKey)
-    if (account != null) {
+    val account = findById(publicKey)
+    if (account != null && account.algorithm == algorithm) {
         return account
     }
 

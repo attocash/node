@@ -1,6 +1,7 @@
 atto:
   node:
     network: LIVE
+    force-historical: true # true until vote is more evenly spread in the network
   network:
     defaultNodes:
       - wss://node-adventurous.live.core.atto.cash

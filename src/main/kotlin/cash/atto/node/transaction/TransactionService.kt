@@ -17,20 +17,29 @@ class TransactionService(
     private val logger = KotlinLogging.logger {}
 
     @Transactional
-    suspend fun save(
-        source: TransactionSource,
-        transaction: Transaction,
-    ) {
-        val block = transaction.block
-
-        transactionRepository.save(transaction)
-        logger.debug { "Saved $transaction" }
-
-        if (block is AttoSendBlock) {
-            val receivable = block.toReceivable().toReceivable()
-            receivableService.save(receivable)
-        } else if (block is ReceiveSupport) {
-            receivableService.delete(block.sendHash)
+    suspend fun saveAll(transactions: List<Transaction>) {
+        transactionRepository.saveAll(transactions).collect { transaction ->
+            logger.debug { "Saved $transaction" }
         }
+
+        val receivables =
+            transactions
+                .asSequence()
+                .map { it.block }
+                .filterIsInstance<AttoSendBlock>()
+                .map { it.toReceivable().toReceivable() }
+                .toList()
+
+        receivableService.saveAll(receivables)
+
+        val received =
+            transactions
+                .asSequence()
+                .map { it.block }
+                .filterIsInstance<ReceiveSupport>()
+                .map { it.sendHash }
+                .toList()
+
+        receivableService.deleteAll(received)
     }
 }

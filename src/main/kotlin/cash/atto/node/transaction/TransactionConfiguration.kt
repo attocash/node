@@ -92,9 +92,9 @@ class TransactionConfiguration(
                     amount = block.balance,
                 )
 
-            receivableService.save(receivable)
+            receivableService.saveAll(listOf(receivable))
 
-            accountService.add(TransactionSource.BOOTSTRAP, transaction)
+            accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction))
 
             val network = thisNode.network
             val hash = genesisTransaction.hash

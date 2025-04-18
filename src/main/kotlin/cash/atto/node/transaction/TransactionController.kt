@@ -7,9 +7,7 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
-import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
-import cash.atto.node.FlowRegistry
 import cash.atto.node.NotVoterCondition
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.InboundNetworkMessage
@@ -27,7 +25,9 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
+import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.takeWhile
+import kotlinx.coroutines.flow.timeout
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -52,6 +53,7 @@ import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.math.BigDecimal
 import java.net.InetSocketAddress
+import kotlin.time.Duration.Companion.seconds
 
 @RestController
 @RequestMapping
@@ -66,19 +68,16 @@ class TransactionController(
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository,
-) : CacheSupport {
+) {
     private val logger = KotlinLogging.logger {}
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
 
-    private val flowRegistryByHash = FlowRegistry<AttoHash, AttoTransaction>()
-    private val flowRegistryByPublicKey = FlowRegistry<AttoPublicKey, AttoTransaction>()
+    private val transactionFlow = MutableSharedFlow<AttoTransaction>()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
-        val transaction = accountUpdated.transaction.toAttoTransaction()
-        flowRegistryByHash.tryEmit(transaction.hash, transaction)
-        flowRegistryByPublicKey.tryEmit(transaction.block.publicKey, transaction)
+        transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
     }
 
     @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
@@ -97,8 +96,7 @@ class TransactionController(
         ],
     )
     suspend fun stream(): Flow<AttoTransaction> =
-        flowRegistryByHash
-            .streamAll()
+        transactionFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
 
@@ -141,24 +139,22 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable hash: AttoHash,
-        @RequestParam checkDatabase: Boolean = true,
     ): Flow<AttoTransaction> {
         val transactionDatabaseFlow: Flow<AttoTransaction> =
             flow {
-                if (checkDatabase) {
-                    val transaction = repository.findById(hash)
-                    if (transaction != null) {
-                        emit(transaction.toAttoTransaction())
-                    }
+                val transaction = repository.findById(hash)
+                if (transaction != null) {
+                    emit(transaction.toAttoTransaction())
                 }
             }
 
         val transactionFlow =
-            flowRegistryByHash.streamAll().filter { it.hash == hash }
+            transactionFlow
+                .filter { it.hash == hash }
 
         return merge(transactionFlow, transactionDatabaseFlow)
-            .onStart { logger.debug { "Started streaming $hash transaction" } }
-            .onCompletion { logger.debug { "Stopped streaming $hash transaction" } }
+            .onStart { logger.trace { "Started streaming $hash transaction" } }
+            .onCompletion { logger.trace { "Stopped streaming $hash transaction" } }
             .take(1)
     }
 
@@ -199,8 +195,8 @@ class TransactionController(
                 .map { it.toAttoTransaction() }
 
         val transactionFlow =
-            flowRegistryByPublicKey
-                .createFlow(publicKey)
+            transactionFlow
+                .filter { it.block.publicKey == publicKey }
                 .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
 
         return merge(transactionFlow, transactionDatabaseFlow)
@@ -273,6 +269,7 @@ class TransactionController(
         )
     }
 
+    @OptIn(FlowPreview::class)
     @PostMapping(
         "/transactions/stream",
         consumes = [MediaType.APPLICATION_JSON_VALUE],
@@ -283,13 +280,9 @@ class TransactionController(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
     ): Flow<AttoTransaction> =
-        stream(transaction.hash, false)
+        stream(transaction.hash)
             .onStart { publish(transaction, request) }
-
-    override fun clear() {
-        flowRegistryByPublicKey.clear()
-        flowRegistryByHash.clear()
-    }
+            .timeout(10.seconds)
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(

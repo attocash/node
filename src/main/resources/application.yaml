@@ -32,7 +32,7 @@ atto:
     token: ${ATTO_SIGNER_REMOTE_TOKEN:}
     key: ${ATTO_PRIVATE_KEY:}
   node:
-    force-historical: true
+    force-historical: false
     public-uri: ${ATTO_PUBLIC_URI}
   network:
     broadcaster:

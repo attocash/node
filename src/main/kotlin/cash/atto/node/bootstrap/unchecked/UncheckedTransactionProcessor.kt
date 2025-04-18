@@ -59,7 +59,7 @@ class UncheckedTransactionProcessor(
                         break
                     }
 
-                    account = accountService.add(TransactionSource.BOOTSTRAP, transaction)
+                    account = accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 
                     logger.debug { "Resolved $transaction" }
                     eventPublisher.publish(TransactionResolved(transaction))

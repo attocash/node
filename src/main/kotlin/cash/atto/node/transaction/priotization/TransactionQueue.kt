@@ -33,9 +33,10 @@ class TransactionQueue(
             }
     }
 
-    private val hashComparator = Comparator<Transaction> { a, b ->
-        Arrays.compareUnsigned(a.block.hash.value, b.block.hash.value)
-    }
+    private val hashComparator =
+        Comparator<Transaction> { a, b ->
+            Arrays.compareUnsigned(a.block.hash.value, b.block.hash.value)
+        }
 
     private val dateComparator: Comparator<Transaction> =
         comparing {
@@ -44,9 +45,10 @@ class TransactionQueue(
 
     private val versionComparator = compareByDescending<Transaction> { it.block.version }
 
-    private val comparator = versionComparator
-        .thenComparing(dateComparator)
-        .thenComparing(hashComparator)
+    private val comparator =
+        versionComparator
+            .thenComparing(dateComparator)
+            .thenComparing(hashComparator)
 
     private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
     private val currentGroup = AtomicInteger(0)
