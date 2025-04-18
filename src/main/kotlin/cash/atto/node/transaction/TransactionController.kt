@@ -125,6 +125,8 @@ class TransactionController(
     @GetMapping("/transactions/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream a single transaction",
+        description = "Allows clients to track the confirmation of a transaction in real-time by streaming a single transaction by hash. " +
+            "Useful when the transaction hash is shared ahead of time, like in payment protocols.",
         responses = [
             ApiResponse(
                 responseCode = "200",
