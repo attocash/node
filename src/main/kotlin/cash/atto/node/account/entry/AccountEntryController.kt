@@ -44,7 +44,8 @@ import java.math.BigDecimal
 @Conditional(NotVoterCondition::class)
 @Tag(
     name = "Account Entries",
-    description = "A user-friendly view of account activity. Recommended for displaying transaction history in UIs.",
+    description = "A user-friendly view of account activity. Recommended for displaying transaction history in UIs.\n\n"
+    +   "Because a transaction's hash can be known before posting it, the ability to track its confirmation status by streaming a single entry is provided.",
 )
 class AccountEntryController(
     val repository: AccountEntryRepository,
