@@ -30,8 +30,7 @@ interface AccountRepository : AttoRepository {
 
 interface AccountCrudRepository :
     CoroutineCrudRepository<Account, AttoPublicKey>,
-    AccountRepository {
-}
+    AccountRepository
 
 @Primary
 @Component

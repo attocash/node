@@ -44,7 +44,7 @@ import java.math.BigDecimal
 @Conditional(NotVoterCondition::class)
 @Tag(
     name = "Account Entries",
-    description = "A user-friendly view of account activity. Recommended for displaying transaction history in UIs."
+    description = "A user-friendly view of account activity. Recommended for displaying transaction history in UIs.",
 )
 class AccountEntryController(
     val repository: AccountEntryRepository,
@@ -81,8 +81,9 @@ class AccountEntryController(
     @GetMapping("/accounts/entries/{hash}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream a single account entry",
-        description = "Allows clients to track the confirmation of a transaction in real-time by streaming a single account entry by hash. " +
-            "Useful when the transaction hash is shared ahead of time, like in payment protocols.",
+        description =
+            "Allows clients to track the confirmation of a transaction in real-time by streaming a single account entry by hash. " +
+                "Useful when the transaction hash is shared ahead of time, like in payment protocols.",
         responses = [
             ApiResponse(
                 responseCode = "200",

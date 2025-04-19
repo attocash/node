@@ -15,6 +15,7 @@ import cash.atto.node.receivable.ReceivableRepository
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionService
 import cash.atto.node.transaction.TransactionSource
+import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.toList
 import kotlinx.datetime.toJavaInstant
@@ -23,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional
 
 @Service
 class AccountService(
+    private val thisNode: AttoNode,
     private val accountRepository: AccountRepository,
     private val accountEntryService: AccountEntryService,
     private val transactionService: TransactionService,
@@ -103,6 +105,58 @@ class AccountService(
         )
     }
 
+    private suspend fun Map<AttoPublicKey, AccountTransaction>.toEntries(): List<AccountEntry> {
+        val neededReceivables =
+            this.values
+                .mapNotNull {
+                    val block = it.transaction.block
+                    if (block is AttoReceiveBlock || block is AttoOpenBlock) {
+                        (block as ReceiveSupport).sendHash
+                    } else {
+                        null
+                    }
+                }.distinct()
+
+        val receivableMap =
+            receivableRepository
+                .findAllById(neededReceivables)
+                .toList()
+                .associateBy { it.hash }
+
+        return this.values.map { (account, transaction) ->
+            val block = transaction.block
+            val (subjectAlgorithm, subjectPublicKey) =
+                when (block) {
+                    is AttoChangeBlock -> {
+                        block.representativeAlgorithm to block.representativePublicKey
+                    }
+
+                    is AttoSendBlock -> {
+                        block.receiverAlgorithm to block.receiverPublicKey
+                    }
+
+                    is AttoReceiveBlock, is AttoOpenBlock -> {
+                        block as ReceiveSupport
+                        val receivable = receivableMap[block.sendHash]!!
+                        receivable.algorithm to receivable.publicKey
+                    }
+                }
+
+            AccountEntry(
+                hash = transaction.hash,
+                algorithm = transaction.algorithm,
+                publicKey = transaction.publicKey,
+                height = transaction.height,
+                blockType = block.type,
+                subjectAlgorithm = subjectAlgorithm,
+                subjectPublicKey = subjectPublicKey,
+                previousBalance = account.balance,
+                balance = block.balance,
+                timestamp = block.timestamp.toJavaInstant(),
+            )
+        }
+    }
+
     @Transactional
     suspend fun add(
         source: TransactionSource,
@@ -122,58 +176,10 @@ class AccountService(
             eventPublisher.publishAfterCommit(AccountUpdated(source, account, updatedAccount, transaction))
         }
 
-        val neededReceivables =
-            accountTransactionMap.values
-                .mapNotNull {
-                    val block = it.transaction.block
-                    if (block is AttoReceiveBlock || block is AttoOpenBlock) {
-                        (block as ReceiveSupport).sendHash
-                    } else {
-                        null
-                    }
-                }.distinct()
-
-        val receivableMap =
-            receivableRepository
-                .findAllById(neededReceivables)
-                .toList()
-                .associateBy { it.hash }
-
-        val entries =
-            accountTransactionMap.values.map { (account, transaction) ->
-                val block = transaction.block
-                val (subjectAlgorithm, subjectPublicKey) =
-                    when (block) {
-                        is AttoChangeBlock -> {
-                            block.representativeAlgorithm to block.representativePublicKey
-                        }
-
-                        is AttoSendBlock -> {
-                            block.receiverAlgorithm to block.receiverPublicKey
-                        }
-
-                        is AttoReceiveBlock, is AttoOpenBlock -> {
-                            block as ReceiveSupport
-                            val receivable = receivableMap[block.sendHash]!!
-                            receivable.algorithm to receivable.publicKey
-                        }
-                    }
-
-                AccountEntry(
-                    hash = transaction.hash,
-                    algorithm = transaction.algorithm,
-                    publicKey = transaction.publicKey,
-                    height = transaction.height,
-                    blockType = block.type,
-                    subjectAlgorithm = subjectAlgorithm,
-                    subjectPublicKey = subjectPublicKey,
-                    previousBalance = account.balance,
-                    balance = block.balance,
-                    timestamp = block.timestamp.toJavaInstant(),
-                )
-            }
-
-        accountEntryService.saveAll(entries)
+        if (thisNode.isHistorical()) {
+            val entries = accountTransactionMap.toEntries()
+            accountEntryService.saveAll(entries)
+        }
 
         transactionService.saveAll(transactions)
 
