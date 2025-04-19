@@ -3,16 +3,21 @@ package cash.atto.node.vote.priotization
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.PublicKeyHash
 import cash.atto.node.vote.Vote
-import java.util.*
+import java.util.Arrays
 import java.util.Comparator.comparing
+import java.util.TreeSet
 
 class VoteQueue(
     private val maxSize: Int,
 ) {
+    private val hashComparator =
+        Comparator<TransactionVote> { a, b ->
+            Arrays.compareUnsigned(a.vote.hash.value, a.vote.hash.value)
+        }
     private val weightComparator: Comparator<TransactionVote> = comparing { it.vote.weight.raw }
 
     private val map = HashMap<PublicKeyHash, TransactionVote>()
-    private val set = TreeSet(weightComparator)
+    private val set = TreeSet(weightComparator.thenComparing(hashComparator))
     private var size = 0
 
     fun add(entry: TransactionVote): TransactionVote? {
