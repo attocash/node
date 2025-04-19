@@ -48,7 +48,7 @@ class ElectionProcessor(
         buffer.send(event)
     }
 
-    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MILLISECONDS)
+    @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MILLISECONDS)
     @Transactional
     suspend fun flush() {
         flushBatch(1_000)
