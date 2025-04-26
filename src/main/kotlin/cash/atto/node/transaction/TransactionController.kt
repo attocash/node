@@ -80,7 +80,6 @@ class TransactionController(
         transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
     }
 
-    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all latest transactions",
         responses = [
@@ -95,6 +94,7 @@ class TransactionController(
             ),
         ],
     )
+    @GetMapping("/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun stream(): Flow<AttoTransaction> =
         transactionFlow
             .onStart { logger.trace { "Started streaming latest transactions" } }
@@ -183,6 +183,8 @@ class TransactionController(
     ): Flow<AttoTransaction> {
         val from = fromHeight.toULong()
         val to = toHeight.toULong()
+        val count = to - from + 1U
+        val expectedCount = if (count > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else count.toInt()
 
         if (from == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
@@ -204,7 +206,7 @@ class TransactionController(
 
         return merge(transactionFlow, transactionDatabaseFlow)
             .sortByHeight(from.toAttoHeight())
-            .takeWhile { it.height <= to.toAttoHeight() }
+            .take(expectedCount)
             .onStart {
                 logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {

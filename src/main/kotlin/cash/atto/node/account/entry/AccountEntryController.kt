@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -139,6 +138,8 @@ class AccountEntryController(
     ): Flow<AttoAccountEntry> {
         val from = fromHeight.toULong()
         val to = toHeight.toULong()
+        val count = to - from + 1U
+        val expectedCount = if (count > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else count.toInt()
 
         if (from == 0UL) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
@@ -160,7 +161,7 @@ class AccountEntryController(
 
         return merge(entryFlow, databaseFlow)
             .sortByHeight(from.toAttoHeight())
-            .takeWhile { it.height <= to.toAttoHeight() }
+            .take(expectedCount)
             .onStart {
                 logger.trace { "Started streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
             }.onCompletion {
