@@ -9,11 +9,15 @@ import cash.atto.node.vote.VoteService
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
-import org.springframework.transaction.annotation.Transactional
+import org.springframework.transaction.ReactiveTransactionManager
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 import java.util.concurrent.TimeUnit
 
 @Service
@@ -22,10 +26,13 @@ class ElectionProcessor(
     private val messagePublisher: NetworkMessagePublisher,
     private val accountService: AccountService,
     private val voteService: VoteService,
+    transactionManager: ReactiveTransactionManager,
 ) {
     private val logger = KotlinLogging.logger {}
 
     private val buffer = Channel<ElectionConsensusReached>(Channel.UNLIMITED)
+
+    private val transactionalOperator = TransactionalOperator.create(transactionManager)
 
     @EventListener
     fun process(event: ElectionExpiring) {
@@ -48,10 +55,12 @@ class ElectionProcessor(
         buffer.send(event)
     }
 
-    @Scheduled(fixedDelay = 5, timeUnit = TimeUnit.MILLISECONDS)
-    @Transactional
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.MILLISECONDS)
     suspend fun flush() {
-        flushBatch(1_000)
+        while (!buffer.isEmpty) {
+            flushBatch(1_000)
+        }
     }
 
     private suspend fun flushBatch(size: Int) {
@@ -67,16 +76,19 @@ class ElectionProcessor(
 
             val transactions = events.map { it.transaction }
 
-            accountService.add(TransactionSource.ELECTION, transactions)
+            transactionalOperator.executeAndAwait {
+                accountService.add(TransactionSource.ELECTION, transactions)
 
-            if (thisNode.isHistorical()) {
-                val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
-                voteService.saveAll(finalVotes)
+                if (thisNode.isHistorical()) {
+                    val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
+                    voteService.saveAll(finalVotes)
+                }
             }
         } catch (e: Exception) {
             events.forEach {
                 buffer.send(it)
             }
+            delay(10_000)
             throw e
         }
     }
