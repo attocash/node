@@ -30,8 +30,13 @@ interface ReceivableRepository : AttoRepository {
 
     fun findAllById(ids: Iterable<AttoHash>): Flow<Receivable>
 
-    suspend fun findAsc(
+    suspend fun findDesc(
         publicKey: AttoPublicKey,
+        minAmount: AttoAmount,
+    ): Flow<Receivable>
+
+    suspend fun findAllDesc(
+        publicKeys: List<AttoPublicKey>,
         minAmount: AttoAmount,
     ): Flow<Receivable>
 }
@@ -55,8 +60,21 @@ interface ReceivableCrudRepository :
             ORDER BY t.amount DESC
         """,
     )
-    override suspend fun findAsc(
+    override suspend fun findDesc(
         publicKey: AttoPublicKey,
+        minAmount: AttoAmount,
+    ): Flow<Receivable>
+
+    @Query(
+        """
+            SELECT * FROM receivable t
+            WHERE t.receiver_public_key in (:publicKeys)
+            AND t.amount >= :minAmount
+            ORDER BY t.amount DESC
+        """,
+    )
+    override suspend fun findAllDesc(
+        publicKeys: List<AttoPublicKey>,
         minAmount: AttoAmount,
     ): Flow<Receivable>
 }
@@ -128,10 +146,15 @@ class ReceivableCachedRepository(
             receivableCrudRepository.findAllById(missing).collect { emit(it) }
         }
 
-    override suspend fun findAsc(
+    override suspend fun findDesc(
         publicKey: AttoPublicKey,
         minAmount: AttoAmount,
-    ): Flow<Receivable> = receivableCrudRepository.findAsc(publicKey, minAmount)
+    ): Flow<Receivable> = receivableCrudRepository.findDesc(publicKey, minAmount)
+
+    override suspend fun findAllDesc(
+        publicKeys: List<AttoPublicKey>,
+        minAmount: AttoAmount,
+    ): Flow<Receivable> = receivableCrudRepository.findAllDesc(publicKeys, minAmount)
 
     override suspend fun deleteAll() = receivableCrudRepository.deleteAll()
 }

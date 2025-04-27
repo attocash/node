@@ -1,12 +1,13 @@
 package cash.atto.node.account
 
 import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
-import cash.atto.node.forwardHeight
+import cash.atto.node.forwardHeightBy
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -27,6 +29,7 @@ import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
@@ -93,6 +96,43 @@ class AccountController(
         return ResponseEntity.ofNullable(account?.toAttoAccount())
     }
 
+    @PostMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(
+        summary = "Stream all accounts for the given addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AttoAccountExample::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun stream(addresses: Set<AttoAddress>): Flow<AttoAccount> {
+        val publicKeys = addresses.map { it.publicKey }.toSet()
+
+        val accountDatabaseFlow =
+            flow {
+                publicKeys.chunked(1000).forEach { chunk ->
+                    repository
+                        .findAllById(chunk)
+                        .map { it.toAttoAccount() }
+                        .collect { emit(it) }
+                }
+            }
+
+        val accountUpdateFlow =
+            accountFlow
+                .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
+
+        return merge(accountDatabaseFlow, accountUpdateFlow)
+            .forwardHeightBy { AttoAddress(it.algorithm, it.publicKey) }
+            .onStart { logger.trace { "Started streaming accounts for $addresses" } }
+            .onCompletion { logger.trace { "Stopped streaming accounts for $addresses" } }
+    }
+
     @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream account",
@@ -110,20 +150,8 @@ class AccountController(
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
-        val accountDatabaseFlow =
-            flow {
-                repository.findById(publicKey)?.let {
-                    emit(it.toAttoAccount())
-                }
-            }
-        val accountFlow =
-            accountFlow
-                .filter { it.publicKey == publicKey }
-
-        return merge(accountFlow, accountDatabaseFlow)
-            .forwardHeight()
-            .onStart { logger.trace { "Started streaming $publicKey account" } }
-            .onCompletion { logger.trace { "Stopped streaming $publicKey account" } }
+        val address = AttoAddress(AttoAlgorithm.V1, publicKey)
+        return stream(setOf(address))
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

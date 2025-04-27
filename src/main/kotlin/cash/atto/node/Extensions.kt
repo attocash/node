@@ -53,3 +53,22 @@ fun <T : HeightSupport> Flow<T>.forwardHeight(): Flow<T> =
             }
         }
     }
+
+fun <T : HeightSupport> Flow<T>.forwardHeightBy(keySelector: (T) -> Any): Flow<T> =
+    flow {
+        val mutex = Mutex()
+        val lastHeights = mutableMapOf<Any, AttoHeight>()
+
+        collect { value ->
+            mutex.withLock {
+                val key = keySelector(value)
+                val currentHeight = value.height
+                val lastHeight = lastHeights[key] ?: AttoHeight(0UL)
+
+                if (lastHeight < currentHeight) {
+                    emit(value)
+                    lastHeights[key] = currentHeight
+                }
+            }
+        }
+    }

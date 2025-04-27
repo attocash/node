@@ -169,6 +169,8 @@ class TransactionStepDefinition(
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToMono<AttoTransaction>()
+            .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
+            .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
             .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
 
     private fun streamAccountEntries(

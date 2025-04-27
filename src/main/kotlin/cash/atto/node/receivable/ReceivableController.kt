@@ -1,5 +1,6 @@
 package cash.atto.node.receivable
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -29,6 +30,8 @@ import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -55,6 +58,62 @@ class ReceivableController(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    @PostMapping("/accounts/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(
+        summary = "Stream all receivables for multiple addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoReceivableExample::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun stream(
+        @RequestBody addresses: Set<AttoAddress>,
+        @RequestParam(defaultValue = "1") minAmount: AttoAmount,
+    ): Flow<AttoReceivable> {
+        val publicKeys = addresses.map { it.publicKey }.toSet()
+
+        val receivableDatabaseFlow =
+            flow {
+                publicKeys.chunked(1000).forEach { batch ->
+                    repository
+                        .findAllDesc(batch, minAmount)
+                        .collect { emit(it) }
+                }
+            }
+
+        val liveReceivableFlow =
+            receivableFlow
+                .filter { AttoAddress(it.receiverAlgorithm, it.receiverPublicKey) in addresses }
+                .filter { it.amount >= minAmount }
+
+        val knownHashes = HashSet<AttoHash>()
+
+        return merge(receivableDatabaseFlow, liveReceivableFlow)
+            .filter { knownHashes.add(it.hash) }
+            .map { it.toAttoReceivable() }
+            .flatMapMerge { receivable ->
+                val duration = receivable.timestamp - Clock.System.now()
+
+                if (duration.isPositive()) {
+                    flow {
+                        delay(duration)
+                        emit(receivable)
+                    }
+                } else {
+                    flowOf(receivable)
+                }
+            }.onStart { logger.trace { "Started streaming receivables for addresses $addresses" } }
+            .onCompletion { logger.trace { "Stopped streaming receivables for addresses $addresses" } }
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
     @GetMapping("/accounts/{publicKey}/receivables/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream all receivables",
@@ -74,30 +133,8 @@ class ReceivableController(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
-        val receivableDatabaseFlow = repository.findAsc(publicKey, minAmount)
-
-        val receivableFlow =
-            receivableFlow
-                .filter { it.receiverPublicKey == publicKey }
-                .filter { it.amount >= minAmount }
-
-        val knownHashes = HashSet<AttoHash>()
-        return merge(receivableDatabaseFlow, receivableFlow)
-            .filter { knownHashes.add(it.hash) }
-            .map { it.toAttoReceivable() }
-            .flatMapMerge {
-                val duration = it.timestamp - Clock.System.now()
-
-                if (duration.isPositive()) {
-                    flow {
-                        delay(duration)
-                        emit(it)
-                    }
-                } else {
-                    flowOf(it)
-                }
-            }.onStart { logger.trace { "Started streaming receivable for $publicKey account" } }
-            .onCompletion { logger.trace { "Stopped streaming transactions for $publicKey account" } }
+        val address = AttoAddress(AttoAlgorithm.V1, publicKey)
+        return stream(setOf(address), minAmount)
     }
 
     @Schema(name = "AttoReceivable", description = "Represents an Atto transaction")

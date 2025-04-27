@@ -25,6 +25,8 @@ interface AccountRepository : AttoRepository {
 
     suspend fun findById(id: AttoPublicKey): Account?
 
+    fun findAllById(ids: Set<AttoPublicKey>): Flow<Account>
+
     fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account>
 }
 
@@ -79,6 +81,23 @@ class AccountCachedRepository(
         }
 
     override suspend fun findById(id: AttoPublicKey): Account? = cache[id] ?: accountCrudRepository.findById(id)
+
+    override fun findAllById(ids: Set<AttoPublicKey>): Flow<Account> =
+        flow {
+            val missingIds = mutableListOf<AttoPublicKey>()
+
+            ids.forEach { id ->
+                val cachedAccount = cache[id]
+                if (cachedAccount != null) {
+                    emit(cachedAccount)
+                } else {
+                    missingIds.add(id)
+                }
+            }
+
+            val accounts = accountCrudRepository.findAllById(missingIds)
+            accounts.collect { emit(it) }
+        }
 
     override fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account> =
         flow {
