@@ -47,7 +47,7 @@ class IPv6Test {
     fun `netty should resolve`(host: String) {
         val resolver =
             DnsNameResolverBuilder(eventLoopGroup.next())
-                .channelType(NioDatagramChannel::class.java)
+                .datagramChannelType(NioDatagramChannel::class.java)
                 .socketChannelType(NioSocketChannel::class.java, true)
                 .build()
 
