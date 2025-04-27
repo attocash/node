@@ -8,7 +8,6 @@ import cash.atto.commons.AttoTransaction
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
-import cash.atto.node.NotVoterCondition
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
@@ -35,9 +34,7 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.flow.timeout
-import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -57,7 +54,6 @@ import kotlin.time.Duration.Companion.seconds
 
 @RestController
 @RequestMapping
-@Conditional(NotVoterCondition::class)
 @Tag(
     name = "Transactions",
     description = "Submit or query raw transaction blocks. This endpoint handles the low-level building blocks of the ledger.",

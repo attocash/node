@@ -7,7 +7,6 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
-import cash.atto.node.NotVoterCondition
 import cash.atto.node.sortByHeight
 import cash.atto.node.toBigInteger
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -26,7 +25,6 @@ import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
-import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -40,7 +38,6 @@ import java.math.BigDecimal
 
 @RestController
 @RequestMapping
-@Conditional(NotVoterCondition::class)
 @Tag(
     name = "Account Entries",
     description = "A user-friendly view of account activity. Recommended for displaying transaction history in UIs.",

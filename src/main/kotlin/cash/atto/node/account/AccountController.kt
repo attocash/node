@@ -6,7 +6,6 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
-import cash.atto.node.NotVoterCondition
 import cash.atto.node.forwardHeight
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -23,7 +22,6 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import org.springframework.context.annotation.Conditional
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -35,7 +33,6 @@ import java.math.BigDecimal
 
 @RestController
 @RequestMapping("/accounts")
-@Conditional(NotVoterCondition::class)
 @Tag(
     name = "Accounts",
     description =
