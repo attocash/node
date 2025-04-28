@@ -35,6 +35,7 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.timeout
+import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -157,6 +158,66 @@ class TransactionController(
             .take(1)
     }
 
+    @Operation(
+        summary = "Stream transactions by account and height range",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoTransactionSample::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    @GetMapping("/accounts/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun streamMultiple(
+        @RequestBody accountSearch: AccountSearch,
+    ): Flow<AttoTransaction> {
+        val accountRanges = accountSearch.search
+
+        if (accountRanges.any { it.fromHeight == 0UL }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
+        }
+        if (accountRanges.any { it.fromHeight > it.toHeight }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight must be greater or equal to fromHeight")
+        }
+
+        val accountFlows =
+            accountRanges.map { range ->
+                val publicKey = range.publicKey
+                val fromHeight = range.fromHeight.toAttoHeight()
+                val toHeight = range.toHeight.toAttoHeight()
+                val expectedCount =
+                    (range.toHeight - range.fromHeight + 1UL).let {
+                        if (it > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else it.toInt()
+                    }
+
+                val dbFlow =
+                    repository
+                        .findAsc(publicKey, range.fromHeight.toBigInteger(), range.toHeight.toBigInteger())
+                        .map { it.toAttoTransaction() }
+
+                val liveFlow =
+                    transactionFlow
+                        .filter { it.block.publicKey == publicKey }
+                        .filter { it.height in fromHeight..toHeight }
+
+                merge(liveFlow, dbFlow)
+                    .sortByHeight(fromHeight)
+                    .take(expectedCount)
+            }
+
+        return merge(*accountFlows.toTypedArray())
+            .onStart {
+                logger.trace { "Started streaming transactions for ${accountRanges.size} accounts" }
+            }.onCompletion {
+                logger.trace { "Stopped streaming transactions for ${accountRanges.size} accounts" }
+            }
+    }
+
     @GetMapping("/accounts/{publicKey}/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
         summary = "Stream transactions by height",
@@ -174,40 +235,12 @@ class TransactionController(
     )
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1", required = false) fromHeight: String,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: String,
+        @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoTransaction> {
-        val from = fromHeight.toULong()
-        val to = toHeight.toULong()
-        val count = to - from + 1U
-        val expectedCount = if (count > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else count.toInt()
-
-        if (from == 0UL) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
-        }
-
-        if (from > to) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
-        }
-
-        val transactionDatabaseFlow =
-            repository
-                .findAsc(publicKey, from.toBigInteger(), to.toBigInteger())
-                .map { it.toAttoTransaction() }
-
-        val transactionFlow =
-            transactionFlow
-                .filter { it.block.publicKey == publicKey }
-                .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
-
-        return merge(transactionFlow, transactionDatabaseFlow)
-            .sortByHeight(from.toAttoHeight())
-            .take(expectedCount)
-            .onStart {
-                logger.trace { "Started streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
-            }.onCompletion {
-                logger.trace { "Stopped streaming transactions from $publicKey account and height between $fromHeight and $toHeight" }
-            }
+        val transactionSearch = AccountTransactionSearch(publicKey, fromHeight, fromHeight)
+        val search = AccountSearch(listOf(transactionSearch))
+        return streamMultiple(search)
     }
 
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
@@ -284,6 +317,18 @@ class TransactionController(
         stream(transaction.hash)
             .onStart { publish(transaction, request) }
             .timeout(10.seconds)
+
+    @Serializable
+    data class AccountTransactionSearch(
+        val publicKey: AttoPublicKey,
+        val fromHeight: ULong,
+        val toHeight: ULong = ULong.MAX_VALUE,
+    )
+
+    @Serializable
+    data class AccountSearch(
+        val search: List<AccountTransactionSearch>,
+    )
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(

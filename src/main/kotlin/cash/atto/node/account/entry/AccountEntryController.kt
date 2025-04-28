@@ -9,6 +9,8 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
 import cash.atto.node.sortByHeight
 import cash.atto.node.toBigInteger
+import cash.atto.node.transaction.TransactionController.AccountSearch
+import cash.atto.node.transaction.TransactionController.AccountTransactionSearch
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -30,6 +32,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -113,7 +117,66 @@ class AccountEntryController(
             .take(1)
     }
 
-    @GetMapping("/accounts/{publicKey}/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @Operation(
+        summary = "Stream account entries by height range",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        mediaType = MediaType.APPLICATION_NDJSON_VALUE,
+                        schema = Schema(implementation = AttoAccountEntrySample::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    @PostMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun streamMultiple(
+        @RequestBody accountSearch: AccountSearch,
+    ): Flow<AttoAccountEntry> {
+        val accountRanges = accountSearch.search
+
+        if (accountRanges.any { it.fromHeight == 0UL }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
+        }
+        if (accountRanges.any { it.fromHeight > it.toHeight }) {
+            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight must be greater or equal to fromHeight")
+        }
+
+        val accountFlows =
+            accountRanges.map { range ->
+                val publicKey = range.publicKey
+                val fromHeight = range.fromHeight.toAttoHeight()
+                val toHeight = range.toHeight.toAttoHeight()
+                val expectedCount =
+                    (range.toHeight - range.fromHeight + 1UL).let {
+                        if (it > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else it.toInt()
+                    }
+
+                val dbFlow =
+                    repository
+                        .findAsc(publicKey, range.fromHeight.toBigInteger(), range.toHeight.toBigInteger())
+                        .map { it.toAtto() }
+
+                val liveFlow =
+                    entryFlow
+                        .filter { it.publicKey == publicKey }
+                        .filter { it.height in fromHeight..toHeight }
+
+                merge(liveFlow, dbFlow)
+                    .sortByHeight(fromHeight)
+                    .take(expectedCount)
+            }
+
+        return merge(*accountFlows.toTypedArray())
+            .onStart {
+                logger.trace { "Started streaming entries for ${accountRanges.size} accounts" }
+            }.onCompletion {
+                logger.trace { "Stopped streaming entries for ${accountRanges.size} accounts" }
+            }
+    }
+
     @Operation(
         summary = "Stream account entries by height",
         responses = [
@@ -128,42 +191,15 @@ class AccountEntryController(
             ),
         ],
     )
+    @GetMapping("/accounts/{publicKey}/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
-        @RequestParam(defaultValue = "1", required = false) fromHeight: String,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: String,
+        @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
+        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoAccountEntry> {
-        val from = fromHeight.toULong()
-        val to = toHeight.toULong()
-        val count = to - from + 1U
-        val expectedCount = if (count > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else count.toInt()
-
-        if (from == 0UL) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
-        }
-
-        if (from > to) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight should be higher or equals fromHeight")
-        }
-
-        val databaseFlow =
-            repository
-                .findAsc(publicKey, from.toBigInteger(), to.toBigInteger())
-                .map { it.toAtto() }
-
-        val entryFlow =
-            entryFlow
-                .filter { it.publicKey == publicKey }
-                .filter { it.height in from.toAttoHeight()..to.toAttoHeight() }
-
-        return merge(entryFlow, databaseFlow)
-            .sortByHeight(from.toAttoHeight())
-            .take(expectedCount)
-            .onStart {
-                logger.trace { "Started streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
-            }.onCompletion {
-                logger.trace { "Stopped streaming entries from $publicKey account and height between $fromHeight and $toHeight" }
-            }
+        val transactionSearch = AccountTransactionSearch(publicKey, fromHeight, toHeight)
+        val search = AccountSearch(listOf(transactionSearch))
+        return streamMultiple(search)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

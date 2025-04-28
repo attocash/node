@@ -12,7 +12,7 @@ import reactor.core.publisher.Mono
 @Component
 class GlobalRequestInterceptor(
     private val thisNode: AttoNode,
-    private val nodeProperties: NodeProperties
+    private val nodeProperties: NodeProperties,
 ) : WebFilter {
     override fun filter(
         exchange: ServerWebExchange,

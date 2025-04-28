@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -110,8 +111,9 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(addresses: Set<AttoAddress>): Flow<AttoAccount> {
-        val publicKeys = addresses.map { it.publicKey }.toSet()
+    suspend fun stream(search: AccountSearch): Flow<AttoAccount> {
+        val addresses = search.addresses
+        val publicKeys = search.addresses.map { it.publicKey }.toSet()
 
         val accountDatabaseFlow =
             flow {
@@ -128,7 +130,7 @@ class AccountController(
                 .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
 
         return merge(accountDatabaseFlow, accountUpdateFlow)
-            .forwardHeightBy { AttoAddress(it.algorithm, it.publicKey) }
+            .forwardHeightBy { it.address }
             .onStart { logger.trace { "Started streaming accounts for $addresses" } }
             .onCompletion { logger.trace { "Stopped streaming accounts for $addresses" } }
     }
@@ -151,13 +153,19 @@ class AccountController(
         @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(setOf(address))
+        return stream(AccountSearch(setOf(address)))
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun clear() {
         accountFlow.resetReplayCache()
     }
+
+    @JvmInline
+    @Serializable
+    value class AccountSearch(
+        val addresses: Set<AttoAddress>,
+    )
 
     @Schema(name = "AttoAccount", description = "Represents an Atto account")
     internal data class AttoAccountExample(
