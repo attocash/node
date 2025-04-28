@@ -12,17 +12,19 @@ import reactor.core.publisher.Mono
 @Component
 class GlobalRequestInterceptor(
     private val thisNode: AttoNode,
+    private val nodeProperties: NodeProperties
 ) : WebFilter {
     override fun filter(
         exchange: ServerWebExchange,
         chain: WebFilterChain,
     ): Mono<Void> {
-        if (thisNode.isVoter() && thisNode.isNotHistorical() && exchange.request.uri.port == 8080) {
+        if (!nodeProperties.forceApi && thisNode.isVoter() && thisNode.isNotHistorical() && exchange.request.uri.port == 8080) {
             return Mono.error(
                 ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "This node is a voter. Exposing the 8080 port on a voter node is insecure and not recommended. " +
-                        "If you are sure about what you are doing, you can force historical mode by setting the environment variable `ATTO_NODE_FORCE_HISTORICAL`.",
+                    "This node is a voter. Exposing port 8080 on a voter node is insecure and not recommended. " +
+                        "If you understand the risks, you can override this by setting the environment variable" +
+                        " `ATTO_NODE_FORCE_HISTORICAL` or `ATTO_NODE_FORCE_API`.",
                 ),
             )
         }

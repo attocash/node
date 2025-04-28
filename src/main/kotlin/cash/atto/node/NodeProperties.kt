@@ -9,6 +9,7 @@ import org.springframework.context.annotation.Configuration
 class NodeProperties {
     var forceVoter: Boolean = false
     var forceHistorical: Boolean = false
+    var forceApi: Boolean = false
     var network: AttoNetwork? = null
     var publicUri: String? = null
 }

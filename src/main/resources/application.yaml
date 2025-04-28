@@ -33,6 +33,7 @@ atto:
     key: ${ATTO_PRIVATE_KEY:}
   node:
     force-historical: ${ATTO_NODE_FORCE_HISTORICAL:false}
+    force-api: ${ATTO_NODE_FORCE_API:false}
     public-uri: ${ATTO_PUBLIC_URI}
   network:
     broadcaster:
