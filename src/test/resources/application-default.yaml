@@ -9,16 +9,17 @@ spring:
     password:
 
 atto:
-  scheduling:
-    enabled: false
+  transaction:
+    prioritization:
+      frequency: 1
+  vote:
+    prioritization:
+      frequency: 1_000
   node:
     force-voter: true
     force-historical: true
     network: LOCAL
     public-uri: ws://localhost:${websocket.port}
-  network:
-    broadcaster:
-      cache-expiration-time-in-seconds: 0
 
 server:
   error:

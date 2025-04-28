@@ -35,18 +35,13 @@ atto:
     force-historical: ${ATTO_NODE_FORCE_HISTORICAL:false}
     force-api: ${ATTO_NODE_FORCE_API:false}
     public-uri: ${ATTO_PUBLIC_URI}
-  network:
-    broadcaster:
-      cache-expiration-time-in-seconds: 10
-  handshake:
-    expiration-time-in-seconds: 5
-  peer:
-    expiration-time-in-seconds: 300
   transaction:
     prioritization:
+      frequency: 100
       group-max-size: 1_000
   vote:
     prioritization:
+      frequency: 10
       group-max-size: 1_000
       cache-max-size: 20_000
     weight:

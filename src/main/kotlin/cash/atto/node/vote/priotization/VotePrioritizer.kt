@@ -152,7 +152,7 @@ class VotePrioritizer(
         }
     }
 
-    @Scheduled(fixedDelay = 10)
+    @Scheduled(fixedDelayString = "\${atto.vote.prioritization.frequency}")
     suspend fun process() {
         mutex.withLock {
             do {

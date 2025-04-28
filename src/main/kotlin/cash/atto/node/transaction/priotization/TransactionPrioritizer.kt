@@ -37,7 +37,7 @@ class TransactionPrioritizer(
     private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
 
-    @Scheduled(fixedDelay = 100)
+    @Scheduled(fixedDelayString = "\${atto.transaction.prioritization.frequency}")
     suspend fun process() {
         mutex.withLock {
             do {
