@@ -10,6 +10,7 @@ import java.util.SortedMap
 import java.util.TreeMap
 import java.util.TreeSet
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.absoluteValue
 import kotlin.math.min
 
 class TransactionQueue(
@@ -38,19 +39,25 @@ class TransactionQueue(
             Arrays.compareUnsigned(a.block.hash.value, b.block.hash.value)
         }
 
-    private val dateComparator: Comparator<Transaction> =
+    private val balanceComparator: Comparator<Transaction> =
         comparing {
-            ChronoUnit.MILLIS.between(it.receivedAt, it.block.timestamp.toJavaInstant())
+            it.block.balance
+        }
+
+    private val dateDifferenceComparator: Comparator<Transaction> =
+        comparing {
+            ChronoUnit.MILLIS.between(it.block.timestamp.toJavaInstant(), it.receivedAt).absoluteValue
         }
 
     private val versionComparator = compareByDescending<Transaction> { it.block.version }
 
     private val comparator =
         versionComparator
-            .thenComparing(dateComparator)
+            .thenComparing(dateDifferenceComparator)
+            .thenComparing(balanceComparator.reversed())
             .thenComparing(hashComparator)
 
-    private val groups = Array<TreeSet<Transaction>>(groupMap.size) { TreeSet(comparator) }
+    private val groups = Array(groupMap.size) { TreeSet(comparator) }
     private val currentGroup = AtomicInteger(0)
     private val size = AtomicInteger(0)
 
@@ -74,7 +81,7 @@ class TransactionQueue(
 
         if (transactions.size > groupMaxSize) {
             size.addAndGet(-1)
-            return transactions.pollFirst()
+            return transactions.pollLast()
         }
 
         return null
@@ -86,7 +93,7 @@ class TransactionQueue(
 
         do {
             val transactions = groups[groupIndex]
-            val transaction = transactions.pollLast()
+            val transaction = transactions.pollFirst()
 
             groupIndex = ++groupIndex % groupMap.size
 
