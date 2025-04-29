@@ -39,15 +39,13 @@ class TransactionPrioritizer(
 
     @Scheduled(fixedDelayString = "\${atto.transaction.prioritization.frequency}")
     suspend fun process() {
-        mutex.withLock {
-            do {
-                val transaction = queue.poll()
-                transaction?.let {
-                    logger.debug { "Dequeued $transaction" }
-                    eventPublisher.publish(TransactionReceived(it))
-                }
-            } while (transaction != null)
-        }
+        do {
+            val transaction = mutex.withLock { queue.poll() }
+            transaction?.let {
+                logger.debug { "Dequeued $transaction" }
+                eventPublisher.publish(TransactionReceived(it))
+            }
+        } while (transaction != null)
     }
 
     @EventListener
