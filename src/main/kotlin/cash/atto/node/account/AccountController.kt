@@ -18,7 +18,10 @@ import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
@@ -31,6 +34,7 @@ import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 import java.math.BigDecimal
@@ -76,6 +80,36 @@ class AccountController(
             .onStart { logger.trace { "Started streaming latest transactions" } }
             .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @PostMapping
+    @Operation(
+        summary = "Get accounts for given addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AttoAccountExample::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    suspend fun get(
+        @RequestBody search: AccountSearch,
+    ): Flow<AttoAccount> {
+        val publicKeys = search.addresses.map { it.publicKey }
+
+        return publicKeys
+            .chunked(1_000)
+            .asFlow()
+            .flatMapConcat { batch ->
+                repository
+                    .findAllById(batch)
+                    .map { it.toAttoAccount() }
+            }
+    }
+
     @GetMapping("/{publicKey}")
     @Operation(
         summary = "Get account",
@@ -93,8 +127,8 @@ class AccountController(
     suspend fun get(
         @PathVariable publicKey: AttoPublicKey,
     ): ResponseEntity<AttoAccount> {
-        val account = repository.findById(publicKey)
-        return ResponseEntity.ofNullable(account?.toAttoAccount())
+        val account = get(AccountSearch(setOf(AttoAddress(AttoAlgorithm.V1, publicKey)))).firstOrNull()
+        return ResponseEntity.ofNullable(account)
     }
 
     @PostMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
