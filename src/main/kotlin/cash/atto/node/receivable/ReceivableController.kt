@@ -6,6 +6,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
+import cash.atto.node.account.AccountController
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -74,10 +75,10 @@ class ReceivableController(
         ],
     )
     suspend fun stream(
-        @RequestBody addresses: Set<AttoAddress>,
+        @RequestBody search: AccountController.Search,
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
-        val publicKeys = addresses.map { it.publicKey }.toSet()
+        val publicKeys = search.addresses.map { it.publicKey }.toSet()
 
         val receivableDatabaseFlow =
             flow {
@@ -90,7 +91,7 @@ class ReceivableController(
 
         val liveReceivableFlow =
             receivableFlow
-                .filter { AttoAddress(it.receiverAlgorithm, it.receiverPublicKey) in addresses }
+                .filter { it.receiverPublicKey in publicKeys }
                 .filter { it.amount >= minAmount }
 
         val knownHashes = HashSet<AttoHash>()
@@ -109,8 +110,8 @@ class ReceivableController(
                 } else {
                     flowOf(receivable)
                 }
-            }.onStart { logger.trace { "Started streaming receivables for addresses $addresses" } }
-            .onCompletion { logger.trace { "Stopped streaming receivables for addresses $addresses" } }
+            }.onStart { logger.trace { "Started streaming receivables for addresses $search" } }
+            .onCompletion { logger.trace { "Stopped streaming receivables for addresses $search" } }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -134,7 +135,7 @@ class ReceivableController(
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(setOf(address), minAmount)
+        return stream(AccountController.Search(listOf(address)), minAmount)
     }
 
     @Schema(name = "AttoReceivable", description = "Represents an Atto transaction")

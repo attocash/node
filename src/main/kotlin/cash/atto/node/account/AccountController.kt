@@ -96,7 +96,7 @@ class AccountController(
         ],
     )
     suspend fun get(
-        @RequestBody search: AccountSearch,
+        @RequestBody search: Search,
     ): Flow<AttoAccount> {
         val publicKeys = search.addresses.map { it.publicKey }
 
@@ -127,7 +127,7 @@ class AccountController(
     suspend fun get(
         @PathVariable publicKey: AttoPublicKey,
     ): ResponseEntity<AttoAccount> {
-        val account = get(AccountSearch(setOf(AttoAddress(AttoAlgorithm.V1, publicKey)))).firstOrNull()
+        val account = get(Search(setOf(AttoAddress(AttoAlgorithm.V1, publicKey)))).firstOrNull()
         return ResponseEntity.ofNullable(account)
     }
 
@@ -145,7 +145,7 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(search: AccountSearch): Flow<AttoAccount> {
+    suspend fun stream(search: Search): Flow<AttoAccount> {
         val addresses = search.addresses
         val publicKeys = search.addresses.map { it.publicKey }.toSet()
 
@@ -187,7 +187,7 @@ class AccountController(
         @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AccountSearch(setOf(address)))
+        return stream(Search(setOf(address)))
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -197,8 +197,8 @@ class AccountController(
 
     @JvmInline
     @Serializable
-    value class AccountSearch(
-        val addresses: Set<AttoAddress>,
+    value class Search(
+        val addresses: Collection<AttoAddress>,
     )
 
     @Schema(name = "AttoAccount", description = "Represents an Atto account")

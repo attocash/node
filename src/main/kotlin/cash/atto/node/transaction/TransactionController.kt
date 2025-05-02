@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
@@ -174,9 +175,9 @@ class TransactionController(
     )
     @GetMapping("/accounts/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
-        @RequestBody accountSearch: AccountSearch,
+        @RequestBody search: Search,
     ): Flow<AttoTransaction> {
-        val accountRanges = accountSearch.search
+        val accountRanges = search.search
 
         if (accountRanges.any { it.fromHeight == 0UL }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
@@ -187,7 +188,7 @@ class TransactionController(
 
         val accountFlows =
             accountRanges.map { range ->
-                val publicKey = range.publicKey
+                val publicKey = range.address.publicKey
                 val fromHeight = range.fromHeight.toAttoHeight()
                 val toHeight = range.toHeight.toAttoHeight()
                 val expectedCount =
@@ -238,8 +239,8 @@ class TransactionController(
         @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
         @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoTransaction> {
-        val transactionSearch = AccountTransactionSearch(publicKey, fromHeight, fromHeight)
-        val search = AccountSearch(listOf(transactionSearch))
+        val transactionSearch = AccountTransactionSearch(AttoAddress(AttoAlgorithm.V1, publicKey), fromHeight, toHeight)
+        val search = Search(listOf(transactionSearch))
         return streamMultiple(search)
     }
 
@@ -320,13 +321,13 @@ class TransactionController(
 
     @Serializable
     data class AccountTransactionSearch(
-        val publicKey: AttoPublicKey,
+        val address: AttoAddress,
         val fromHeight: ULong,
         val toHeight: ULong = ULong.MAX_VALUE,
     )
 
     @Serializable
-    data class AccountSearch(
+    data class Search(
         val search: List<AccountTransactionSearch>,
     )
 

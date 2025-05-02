@@ -1,6 +1,7 @@
 package cash.atto.node.account.entry
 
 import cash.atto.commons.AttoAccountEntry
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
@@ -9,8 +10,8 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
 import cash.atto.node.sortByHeight
 import cash.atto.node.toBigInteger
-import cash.atto.node.transaction.TransactionController.AccountSearch
 import cash.atto.node.transaction.TransactionController.AccountTransactionSearch
+import cash.atto.node.transaction.TransactionController.Search
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -133,9 +134,9 @@ class AccountEntryController(
     )
     @PostMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
-        @RequestBody accountSearch: AccountSearch,
+        @RequestBody search: Search,
     ): Flow<AttoAccountEntry> {
-        val accountRanges = accountSearch.search
+        val accountRanges = search.search
 
         if (accountRanges.any { it.fromHeight == 0UL }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
@@ -146,7 +147,7 @@ class AccountEntryController(
 
         val accountFlows =
             accountRanges.map { range ->
-                val publicKey = range.publicKey
+                val publicKey = range.address.publicKey
                 val fromHeight = range.fromHeight.toAttoHeight()
                 val toHeight = range.toHeight.toAttoHeight()
                 val expectedCount =
@@ -197,8 +198,8 @@ class AccountEntryController(
         @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
         @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoAccountEntry> {
-        val transactionSearch = AccountTransactionSearch(publicKey, fromHeight, toHeight)
-        val search = AccountSearch(listOf(transactionSearch))
+        val transactionSearch = AccountTransactionSearch(AttoAddress(AttoAlgorithm.V1, publicKey), fromHeight, toHeight)
+        val search = Search(listOf(transactionSearch))
         return streamMultiple(search)
     }
 
