@@ -195,9 +195,8 @@ class AccountController(
         accountFlow.resetReplayCache()
     }
 
-    @JvmInline
     @Serializable
-    value class Search(
+    data class Search(
         val addresses: Collection<AttoAddress>,
     )
 
