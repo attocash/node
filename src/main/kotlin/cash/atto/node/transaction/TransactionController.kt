@@ -6,6 +6,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.node.AttoNodeOperations
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
@@ -36,7 +37,6 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import kotlinx.coroutines.flow.timeout
-import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -175,7 +175,7 @@ class TransactionController(
     )
     @GetMapping("/accounts/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
-        @RequestBody search: Search,
+        @RequestBody search: AttoNodeOperations.HeightSearch,
     ): Flow<AttoTransaction> {
         val accountRanges = search.search
 
@@ -188,7 +188,7 @@ class TransactionController(
 
         val accountFlows =
             accountRanges.map { range ->
-                val publicKey = range.address.publicKey
+                val publicKey = AttoAddress.parsePath(range.address).publicKey
                 val fromHeight = range.fromHeight.toAttoHeight()
                 val toHeight = range.toHeight.toAttoHeight()
                 val expectedCount =
@@ -239,8 +239,8 @@ class TransactionController(
         @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
         @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoTransaction> {
-        val transactionSearch = AccountTransactionSearch(AttoAddress(AttoAlgorithm.V1, publicKey), fromHeight, toHeight)
-        val search = Search(listOf(transactionSearch))
+        val transactionSearch = AttoNodeOperations.AccountHeightSearch(AttoAddress(AttoAlgorithm.V1, publicKey).path, fromHeight, toHeight)
+        val search = AttoNodeOperations.HeightSearch(listOf(transactionSearch))
         return streamMultiple(search)
     }
 
@@ -318,18 +318,6 @@ class TransactionController(
         stream(transaction.hash)
             .onStart { publish(transaction, request) }
             .timeout(10.seconds)
-
-    @Serializable
-    data class AccountTransactionSearch(
-        val address: AttoAddress,
-        val fromHeight: ULong,
-        val toHeight: ULong = ULong.MAX_VALUE,
-    )
-
-    @Serializable
-    data class Search(
-        val search: List<AccountTransactionSearch>,
-    )
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(

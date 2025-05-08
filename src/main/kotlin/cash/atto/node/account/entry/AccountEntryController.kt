@@ -6,12 +6,11 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.node.AttoNodeOperations
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
 import cash.atto.node.sortByHeight
 import cash.atto.node.toBigInteger
-import cash.atto.node.transaction.TransactionController.AccountTransactionSearch
-import cash.atto.node.transaction.TransactionController.Search
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -134,7 +133,7 @@ class AccountEntryController(
     )
     @PostMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
-        @RequestBody search: Search,
+        @RequestBody search: AttoNodeOperations.HeightSearch,
     ): Flow<AttoAccountEntry> {
         val accountRanges = search.search
 
@@ -147,7 +146,7 @@ class AccountEntryController(
 
         val accountFlows =
             accountRanges.map { range ->
-                val publicKey = range.address.publicKey
+                val publicKey = AttoAddress.parsePath(range.address).publicKey
                 val fromHeight = range.fromHeight.toAttoHeight()
                 val toHeight = range.toHeight.toAttoHeight()
                 val expectedCount =
@@ -198,8 +197,8 @@ class AccountEntryController(
         @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
         @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
     ): Flow<AttoAccountEntry> {
-        val transactionSearch = AccountTransactionSearch(AttoAddress(AttoAlgorithm.V1, publicKey), fromHeight, toHeight)
-        val search = Search(listOf(transactionSearch))
+        val transactionSearch = AttoNodeOperations.AccountHeightSearch(AttoAddress(AttoAlgorithm.V1, publicKey).path, fromHeight, toHeight)
+        val search = AttoNodeOperations.HeightSearch(listOf(transactionSearch))
         return streamMultiple(search)
     }
 

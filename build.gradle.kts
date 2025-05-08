@@ -42,12 +42,13 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "bad0de9-SNAPSHOT"
+    val commonsVersion = "6971c0f-SNAPSHOT"
     val cucumberVersion = "7.22.1"
     val springdocVersion = "2.8.8"
     val ktorVersion = "3.1.3"
 
     implementation("cash.atto:commons-core:$commonsVersion")
+    implementation("cash.atto:commons-node:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
     implementation("cash.atto:commons-signer-remote:$commonsVersion")
 

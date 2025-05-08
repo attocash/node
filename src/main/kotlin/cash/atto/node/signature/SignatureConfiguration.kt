@@ -3,7 +3,7 @@ package cash.atto.node.signature
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.signer.remote
+import cash.atto.commons.node.remote
 import cash.atto.commons.toHex
 import cash.atto.commons.toSigner
 import io.github.oshai.kotlinlogging.KotlinLogging
