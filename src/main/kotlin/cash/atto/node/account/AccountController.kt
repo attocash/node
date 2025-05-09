@@ -95,7 +95,7 @@ class AccountController(
             ),
         ],
     )
-    suspend fun get(
+    fun get(
         @RequestBody search: AttoNodeOperations.AccountSearch,
     ): Flow<AttoAccount> {
         val publicKeys = search.addresses.map { AttoAddress.parsePath(it).publicKey }

@@ -237,9 +237,10 @@ class TransactionController(
     suspend fun stream(
         @PathVariable publicKey: AttoPublicKey,
         @RequestParam(defaultValue = "1", required = false) fromHeight: ULong,
-        @RequestParam(defaultValue = "${ULong.MAX_VALUE}", required = false) toHeight: ULong,
+        @RequestParam(required = false) toHeight: ULong?,
     ): Flow<AttoTransaction> {
-        val transactionSearch = AttoNodeOperations.AccountHeightSearch(AttoAddress(AttoAlgorithm.V1, publicKey).path, fromHeight, toHeight)
+        val transactionSearch =
+            AttoNodeOperations.AccountHeightSearch(AttoAddress(AttoAlgorithm.V1, publicKey).path, fromHeight, toHeight ?: ULong.MAX_VALUE)
         val search = AttoNodeOperations.HeightSearch(listOf(transactionSearch))
         return streamMultiple(search)
     }

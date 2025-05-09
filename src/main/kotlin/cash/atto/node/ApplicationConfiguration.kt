@@ -9,14 +9,12 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
-import org.springframework.http.codec.ServerCodecConfigurer
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.web.reactive.config.WebFluxConfigurer
 
 @Configuration
 @EnableScheduling
 @AutoConfigureOrder(0)
-class ApplicationConfiguration : WebFluxConfigurer {
+class ApplicationConfiguration {
     @Bean
     fun applicationEventMulticaster(): ApplicationEventMulticaster {
         val logger = KotlinLogging.logger {}
@@ -48,11 +46,4 @@ class ApplicationConfiguration : WebFluxConfigurer {
                     .description("Docs")
                     .url("https://atto.cash/docs"),
             )
-
-    override fun configureHttpMessageCodecs(configurer: ServerCodecConfigurer) {
-        configurer
-            .defaultCodecs()
-        configurer
-            .defaultCodecs()
-    }
 }

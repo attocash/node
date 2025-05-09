@@ -26,12 +26,12 @@ server:
 
 logging:
   level:
-    atto: INFO
-    atto.node.network: INFO
-    atto.node.transaction: DEBUG
-    atto.node.election: TRACE
+    cash.atto: INFO
+    cash.atto.node.network: INFO
+    cash.atto.node.transaction: DEBUG
+    cash.atto.node.election: TRACE
     io.r2dbc.h2: INFO
-    org.springframework.boot.autoconfigure: INFO
+    cash.atto.node.receivable: TRACE
 
 management:
   endpoints:
