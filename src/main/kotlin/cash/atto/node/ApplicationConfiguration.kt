@@ -43,7 +43,7 @@ class ApplicationConfiguration {
                     ).version("v1.0.0"),
             ).externalDocs(
                 ExternalDocumentation()
-                    .description("Docs")
-                    .url("https://atto.cash/docs"),
+                    .description("Integration Docs")
+                    .url("https://atto.cash/docs/integration"),
             )
 }
