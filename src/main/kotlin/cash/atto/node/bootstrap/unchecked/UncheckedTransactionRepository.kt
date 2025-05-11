@@ -20,7 +20,7 @@ interface UncheckedTransactionRepository :
                             ut.*
                     FROM unchecked_transaction ut
                     LEFT JOIN account a on ut.public_key = a.public_key and ut.height > a.height
-                    ORDER BY ut.public_key, ut.height ) ready
+                    ) ready
             WHERE height = account_height + row_num
             ORDER BY timestamp
             LIMIT :limit
