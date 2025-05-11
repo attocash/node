@@ -16,6 +16,7 @@ import cash.atto.node.vote.VoteValidated
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
@@ -27,7 +28,9 @@ import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.math.max
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.seconds
 
 @Component
 @DependsOn("genesisTransaction")
@@ -81,7 +84,7 @@ class VoteWeighter(
     }
 
     @EventListener
-    fun listen(event: AccountUpdated) {
+    suspend fun listen(event: AccountUpdated) {
         val previousAccount = event.previousAccount
         val updatedAccount = event.updatedAccount
         val transaction = event.transaction
@@ -121,30 +124,34 @@ class VoteWeighter(
             .associate { it.key to it.value }
             .toMap(LinkedHashMap())
 
-    private fun add(
+    private suspend fun add(
         publicKey: AttoPublicKey,
         amount: AttoAmount,
         defaultAmount: AttoAmount,
     ) {
-        weightMap.compute(publicKey) { _, weight ->
-            if (weight == null) {
-                defaultAmount
-            } else {
-                weight + amount
+        retryUntilSuccess {
+            weightMap.compute(publicKey) { _, weight ->
+                if (weight == null) {
+                    defaultAmount
+                } else {
+                    weight + amount
+                }
             }
         }
     }
 
-    private fun subtract(
+    private suspend fun subtract(
         publicKey: AttoPublicKey,
         amount: AttoAmount,
         defaultAmount: AttoAmount,
     ) {
-        weightMap.compute(publicKey) { _, weight ->
-            if (weight == null) {
-                defaultAmount
-            } else {
-                weight - amount
+        retryUntilSuccess {
+            weightMap.compute(publicKey) { _, weight ->
+                if (weight == null) {
+                    defaultAmount
+                } else {
+                    weight - amount
+                }
             }
         }
     }
@@ -199,6 +206,22 @@ class VoteWeighter(
     }
 
     fun getMinTimestamp(): Instant = Instant.now().minusSeconds(properties.samplePeriodInDays!!.days.inWholeSeconds)
+
+    suspend fun retryUntilSuccess(
+        pause: Duration = 1.seconds,
+        maxAttempts: Int = Int.MAX_VALUE,
+        block: suspend () -> Unit,
+    ) {
+        var attempts = 0
+        while (true) {
+            try {
+                return block()
+            } catch (e: Exception) {
+                if (++attempts >= maxAttempts) throw e
+                delay(pause)
+            }
+        }
+    }
 
     override fun clear() {
         weightMap.clear()

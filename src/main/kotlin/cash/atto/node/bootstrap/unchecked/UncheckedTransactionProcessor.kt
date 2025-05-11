@@ -34,7 +34,7 @@ class UncheckedTransactionProcessor(
     private val mutex = Mutex()
 
     @Transactional
-    suspend fun process(candidateTransactions: Collection<Transaction>) {
+    suspend fun process(candidateTransactions: Collection<Transaction>): Int {
         logger.debug { "Starting resolution of ${candidateTransactions.size} unchecked transaction..." }
         mutex.withLock {
             val accountMap = HashMap<AttoPublicKey, Account>()
@@ -79,6 +79,8 @@ class UncheckedTransactionProcessor(
                 uncheckedTransactionService.cleanUp()
                 logger.info { "Resolved $resolvedCounter transactions" }
             }
+
+            return resolvedCounter
         }
     }
 }
@@ -96,7 +98,7 @@ class UncheckedTransactionProcessorStarter(
                     .findReadyToValidate(100L)
                     .map { it.toTransaction() }
                     .toList()
-            processor.process(candidateTransactions)
-        } while (candidateTransactions.isNotEmpty())
+            val resolvedCounter = processor.process(candidateTransactions)
+        } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
     }
 }
