@@ -8,10 +8,12 @@ import cash.atto.node.account.AccountService
 import cash.atto.node.account.getByAlgorithmAndPublicKey
 import cash.atto.node.bootstrap.TransactionResolved
 import cash.atto.node.bootstrap.TransactionStuck
+import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.scheduling.annotation.Scheduled
@@ -33,20 +35,18 @@ class UncheckedTransactionProcessor(
     private val mutex = Mutex()
 
     @Transactional
-    suspend fun process() {
-        logger.debug { "Starting unchecked transaction resolution..." }
+    suspend fun process(candidateTransactions: Collection<Transaction>) {
+        logger.debug { "Starting resolution of ${candidateTransactions.size} unchecked transaction..." }
         mutex.withLock {
             val accountMap = HashMap<AttoPublicKey, Account>()
             val violations = HashSet<AttoPublicKey>()
             var resolvedCounter = 0
 
-            uncheckedTransactionRepository
-                .findReadyToValidate(1_000L)
-                .map { it.toTransaction() }
-                .collect { transaction ->
+            candidateTransactions
+                .forEach { transaction ->
                     if (violations.contains(transaction.publicKey)) {
                         logger.debug { "Skipping $transaction because previous transaction for the same public key already failed" }
-                        return@collect
+                        return@forEach
                     }
 
                     logger.debug { "Unchecked solving $transaction" }
@@ -57,16 +57,16 @@ class UncheckedTransactionProcessor(
                             transaction.block.network,
                         )
 
-                    logger.trace { "Start validation $transaction from $account" }
+                    logger.debug { "Start validation $transaction from $account" }
 
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {
                         eventPublisher.publish(TransactionStuck(violation.reason, transaction))
                         violations.add(transaction.publicKey)
-                        return@collect
+                        return@forEach
                     }
 
-                    logger.trace { "No violation found for $transaction" }
+                    logger.debug { "No violation found for $transaction" }
 
                     accountMap[transaction.publicKey] = accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 
@@ -86,10 +86,16 @@ class UncheckedTransactionProcessor(
 
 @Component
 class UncheckedTransactionProcessorStarter(
-    val processor: UncheckedTransactionProcessor,
+    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
+    private val processor: UncheckedTransactionProcessor,
 ) {
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
-        processor.process()
+        val candidateTransactions =
+            uncheckedTransactionRepository
+                .findReadyToValidate(1_000L)
+                .map { it.toTransaction() }
+                .toList()
+        processor.process(candidateTransactions)
     }
 }
