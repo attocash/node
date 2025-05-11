@@ -39,6 +39,7 @@ interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
 data class DirectNetworkMessage<T : AttoMessage>(
     val publicUri: URI,
     override val payload: T,
+    val expectedResponseCount: ULong = 0UL,
 ) : OutboundNetworkMessage<T> {
     override fun accepts(
         target: URI,

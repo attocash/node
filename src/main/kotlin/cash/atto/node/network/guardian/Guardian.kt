@@ -3,6 +3,7 @@ package cash.atto.node.network.guardian
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NodeBanned
 import cash.atto.node.network.NodeConnected
@@ -13,6 +14,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.InetSocketAddress
+import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
@@ -27,12 +29,40 @@ class Guardian(
     private val statisticsMap = ConcurrentHashMap<InetSocketAddress, ULong>()
     private val voterMap = ConcurrentHashMap<InetSocketAddress, AttoPublicKey>()
 
+    /**
+     * Allow extra requests when messages were actually requested
+     */
+    private val expectedResponseCountMap = ConcurrentHashMap<URI, ULong>()
+
     @Volatile
     private var snapshot: Map<InetSocketAddress, ULong> = mapOf()
+
+
+    @EventListener
+    fun count(message: DirectNetworkMessage<*>) {
+        val uri = message.publicUri
+        expectedResponseCountMap.compute(uri) { _, v ->
+            val count = (v ?: 0UL) + message.expectedResponseCount
+            if (count == 0UL) {
+                return@compute null
+            }
+            return@compute count
+        }
+    }
 
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
+        val expectedCount = expectedResponseCountMap.compute(message.publicUri) { _, v ->
+            val count = v ?: 0UL
+            if (count == 0UL) {
+                return@compute null
+            }
+            return@compute count - 1UL
+        }
+        if (expectedCount != null) {
+            return
+        }
         statisticsMap.compute(socketAddress) { _, v ->
             (v ?: 0UL) + 1UL
         }

@@ -116,10 +116,16 @@ class GapDiscoverer(
 
         gaps.collect { view ->
             pointerMap.computeIfAbsent(view.publicKey) {
-                val request = AttoTransactionStreamRequest(view.publicKey, view.startHeight(), view.endHeight())
-                val message = DirectNetworkMessage(peers[Random.nextInt(peers.size)], request)
+                val startHeight = view.startHeight()
+                val endHeight = view.endHeight()
+                val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
+                val message = DirectNetworkMessage(
+                    peers[Random.nextInt(peers.size)],
+                    request,
+                    expectedResponseCount = endHeight.value - startHeight.value + 1UL
+                )
                 networkMessagePublisher.publish(message)
-                TransactionPointer(view.startHeight(), view.endHeight(), view.expectedEndHash)
+                TransactionPointer(startHeight, endHeight, view.expectedEndHash)
             }
         }
     }
