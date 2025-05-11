@@ -1,7 +1,5 @@
 package cash.atto.node.bootstrap.unchecked
 
-import cash.atto.commons.AttoAlgorithm
-import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
@@ -35,16 +33,19 @@ class UncheckedTransactionProcessor(
     private val mutex = Mutex()
 
     @Transactional
-    suspend fun process() =
+    suspend fun process() {
+        logger.debug { "Starting unchecked transaction resolution..." }
         mutex.withLock {
             val accountMap = HashMap<AttoPublicKey, Account>()
             val violations = HashSet<AttoPublicKey>()
+            var resolvedCounter = 0
 
             uncheckedTransactionRepository
                 .findReadyToValidate(1_000L)
                 .map { it.toTransaction() }
                 .collect { transaction ->
                     if (violations.contains(transaction.publicKey)) {
+                        logger.debug { "Skipping $transaction because previous transaction for the same public key already failed" }
                         return@collect
                     }
 
@@ -58,25 +59,28 @@ class UncheckedTransactionProcessor(
 
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {
+                        logger.debug { "Violation found for $transaction $violation" }
                         eventPublisher.publish(TransactionStuck(violation.reason, transaction))
                         violations.add(transaction.publicKey)
                         return@collect
                     }
 
+                    logger.debug { "No violation found for $transaction" }
+
                     accountMap[transaction.publicKey] = accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 
                     logger.debug { "Resolved $transaction" }
                     eventPublisher.publish(TransactionResolved(transaction))
+
+                    resolvedCounter++
                 }
 
-            uncheckedTransactionService.cleanUp()
+            if (resolvedCounter > 0) {
+                uncheckedTransactionService.cleanUp()
+                logger.info { "Resolved $resolvedCounter transactions" }
+            }
         }
-
-    private data class Key(
-        val network: AttoNetwork,
-        val algorithm: AttoAlgorithm,
-        val publicKey: AttoPublicKey,
-    )
+    }
 }
 
 @Component
