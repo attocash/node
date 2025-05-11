@@ -35,7 +35,12 @@ class UncheckedTransactionProcessor(
 
     @Transactional
     suspend fun process(candidateTransactions: Collection<Transaction>): Int {
+        if (candidateTransactions.isEmpty()) {
+            return 0
+        }
+
         logger.debug { "Starting resolution of ${candidateTransactions.size} unchecked transaction..." }
+
         mutex.withLock {
             val accountMap = HashMap<AttoPublicKey, Account>()
             val violations = HashSet<AttoPublicKey>()
