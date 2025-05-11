@@ -318,7 +318,7 @@ class TransactionController(
     ): Flow<AttoTransaction> =
         stream(transaction.hash)
             .onStart { publish(transaction, request) }
-            .timeout(10.seconds)
+            .timeout(40.seconds)
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(
