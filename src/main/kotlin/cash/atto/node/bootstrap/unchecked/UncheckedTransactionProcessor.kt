@@ -90,11 +90,13 @@ class UncheckedTransactionProcessorStarter(
 ) {
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
-        val candidateTransactions =
-            uncheckedTransactionRepository
-                .findReadyToValidate(1_000L)
-                .map { it.toTransaction() }
-                .toList()
-        processor.process(candidateTransactions)
+        do {
+            val candidateTransactions =
+                uncheckedTransactionRepository
+                    .findReadyToValidate(100L)
+                    .map { it.toTransaction() }
+                    .toList()
+            processor.process(candidateTransactions)
+        } while (candidateTransactions.isNotEmpty())
     }
 }
