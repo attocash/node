@@ -301,7 +301,7 @@ class NetworkProcessor(
         defaultScope.cancel()
     }
 
-    @Scheduled(fixedRate = 60_000)
+    @Scheduled(fixedDelay = 1_000)
     suspend fun boostrap() {
         withContext(Dispatchers.Default) {
             networkProperties
