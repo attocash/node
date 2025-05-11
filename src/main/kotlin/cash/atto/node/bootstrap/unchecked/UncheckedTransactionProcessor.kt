@@ -57,15 +57,16 @@ class UncheckedTransactionProcessor(
                             transaction.block.network,
                         )
 
+                    logger.trace { "Start validation $transaction from $account" }
+
                     val violation = transactionValidationManager.validate(account, transaction)
                     if (violation != null) {
-                        logger.debug { "Violation found for $transaction $violation" }
                         eventPublisher.publish(TransactionStuck(violation.reason, transaction))
                         violations.add(transaction.publicKey)
                         return@collect
                     }
 
-                    logger.debug { "No violation found for $transaction" }
+                    logger.trace { "No violation found for $transaction" }
 
                     accountMap[transaction.publicKey] = accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 

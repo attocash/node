@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 
@@ -31,7 +32,6 @@ class TransactionValidationManager(
         val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
         val violation = validate(account, event.transaction)
         if (violation != null) {
-            logger.debug { "${violation.reason} ${violation.message}: $transaction" }
             eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
         } else {
             eventPublisher.publish(TransactionValidated(account, transaction))
@@ -46,5 +46,6 @@ class TransactionValidationManager(
             .asFlow()
             .filter { it.supports(transaction) }
             .mapNotNull { it.validate(account, transaction) }
+            .onEach { logger.debug { "${it.reason} ${it.message}: $transaction" } }
             .firstOrNull()
 }
