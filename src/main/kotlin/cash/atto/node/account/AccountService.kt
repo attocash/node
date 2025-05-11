@@ -163,9 +163,15 @@ class AccountService(
         transactions: List<Transaction>,
     ): List<Account> {
         val accountTransactionMap = transactions.getAccountMap()
-        val updatedAccounts = accountTransactionMap.values.map { it.account.updateWith(it.transaction) }
 
-        accountRepository.saveAll(updatedAccounts).collect { updatedAccount ->
+        val updatedAccounts =
+            accountTransactionMap.values
+                .map { it.account.updateWith(it.transaction) }
+                .let {
+                    accountRepository.saveAll(it).toList()
+                }
+
+        updatedAccounts.forEach { updatedAccount ->
             val (account, transaction) = accountTransactionMap[updatedAccount.publicKey]!!
             require(
                 updatedAccount.height.toULong() == transaction.height.value,

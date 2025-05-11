@@ -23,7 +23,6 @@ import java.util.concurrent.TimeUnit
 
 @Component
 class UncheckedTransactionProcessor(
-    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val accountRepository: AccountRepository,
     private val transactionValidationManager: TransactionValidationManager,
     private val accountService: AccountService,
