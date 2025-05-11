@@ -134,9 +134,9 @@ class VoteKeeper(
             val batch = mutableListOf<Vote>()
 
             do {
-                val transaction = voteBuffer.tryReceive().getOrNull()
-                transaction?.let { batch.add(it) }
-            } while (batch.size < 1000 && transaction != null)
+                val vote = voteBuffer.tryReceive().getOrNull()
+                vote?.let { batch.add(it) }
+            } while (batch.size < 1000 && vote != null)
 
             if (batch.isNotEmpty()) {
                 voteService.saveAll(batch)
