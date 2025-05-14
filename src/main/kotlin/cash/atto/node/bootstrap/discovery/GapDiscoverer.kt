@@ -119,11 +119,12 @@ class GapDiscoverer(
                 val startHeight = view.startHeight()
                 val endHeight = view.endHeight()
                 val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
-                val message = DirectNetworkMessage(
-                    peers[Random.nextInt(peers.size)],
-                    request,
-                    expectedResponseCount = endHeight.value - startHeight.value + 1UL
-                )
+                val message =
+                    DirectNetworkMessage(
+                        peers[Random.nextInt(peers.size)],
+                        request,
+                        expectedResponseCount = endHeight.value - startHeight.value + 1UL,
+                    )
                 networkMessagePublisher.publish(message)
                 TransactionPointer(startHeight, endHeight, view.expectedEndHash)
             }

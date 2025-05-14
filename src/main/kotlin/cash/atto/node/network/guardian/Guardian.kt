@@ -37,7 +37,6 @@ class Guardian(
     @Volatile
     private var snapshot: Map<InetSocketAddress, ULong> = mapOf()
 
-
     @EventListener
     fun count(message: DirectNetworkMessage<*>) {
         val uri = message.publicUri
@@ -53,13 +52,14 @@ class Guardian(
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
         val socketAddress = message.socketAddress
-        val expectedCount = expectedResponseCountMap.compute(message.publicUri) { _, v ->
-            val count = v ?: 0UL
-            if (count == 0UL) {
-                return@compute null
+        val expectedCount =
+            expectedResponseCountMap.compute(message.publicUri) { _, v ->
+                val count = v ?: 0UL
+                if (count == 0UL) {
+                    return@compute null
+                }
+                return@compute count - 1UL
             }
-            return@compute count - 1UL
-        }
         if (expectedCount != null) {
             return
         }

@@ -14,19 +14,12 @@ interface UncheckedTransactionRepository :
     AttoRepository {
     @Query(
         """
-            SELECT * FROM (
-                    SELECT ROW_NUMBER() OVER(PARTITION BY ut.public_key ORDER BY ut.height) AS row_num,
-                            COALESCE(a.height, 0) account_height,
-                            ut.*
-                    FROM unchecked_transaction ut
-                    LEFT JOIN account a on ut.public_key = a.public_key and ut.height > a.height
-                    ) ready
-            WHERE height = account_height + row_num
+            SELECT * FROM unchecked_transaction
             ORDER BY timestamp
             LIMIT :limit
         """,
     )
-    suspend fun findReadyToValidate(limit: Long): Flow<UncheckedTransaction>
+    suspend fun findTopOldest(limit: Long): Flow<UncheckedTransaction>
 
     @Modifying
     @Query(

@@ -100,7 +100,7 @@ class UncheckedTransactionProcessorStarter(
         do {
             val candidateTransactions =
                 uncheckedTransactionRepository
-                    .findReadyToValidate(100L)
+                    .findTopOldest(1000L)
                     .map { it.toTransaction() }
                     .toList()
             val resolvedCounter = processor.process(candidateTransactions)
