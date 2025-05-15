@@ -11,6 +11,7 @@ import cash.atto.protocol.AttoTransactionResponse
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
@@ -74,11 +75,13 @@ class TransactionNetworkProvider(
                     request.endHeight,
                 )
 
-            transactions.collect {
-                val response = AttoTransactionStreamResponse(it.toAttoTransaction())
-                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
-                delay(10.milliseconds)
-            }
+            transactions
+                .takeWhile { peers.contains(message.publicUri) }
+                .collect {
+                    val response = AttoTransactionStreamResponse(it.toAttoTransaction())
+                    networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+                    delay(10.milliseconds)
+                }
         }
     }
 }
