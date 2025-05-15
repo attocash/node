@@ -9,6 +9,8 @@ import cash.atto.protocol.AttoTransactionResponse
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import kotlin.time.Duration.Companion.milliseconds
@@ -19,6 +21,8 @@ class TransactionNetworkProvider(
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
 ) {
+    private val mutex = Mutex()
+
     @EventListener
     suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
         if (thisNode.isNotHistorical()) {
@@ -37,18 +41,21 @@ class TransactionNetworkProvider(
         if (thisNode.isNotHistorical()) {
             return
         }
-        val request = message.payload
-        val transactions =
-            transactionRepository.findDesc(
-                request.publicKey,
-                request.startHeight,
-                request.endHeight,
-            )
 
-        transactions.collect {
-            val response = AttoTransactionStreamResponse(it.toAttoTransaction())
-            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
-            delay(10.milliseconds)
+        mutex.withLock {
+            val request = message.payload
+            val transactions =
+                transactionRepository.findDesc(
+                    request.publicKey,
+                    request.startHeight,
+                    request.endHeight,
+                )
+
+            transactions.collect {
+                val response = AttoTransactionStreamResponse(it.toAttoTransaction())
+                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+                delay(10.milliseconds)
+            }
         }
     }
 }
