@@ -4,13 +4,20 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.models.ExternalDocumentation
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
+import org.springframework.aot.hint.MemberCategory
+import org.springframework.aot.hint.RuntimeHints
+import org.springframework.aot.hint.RuntimeHintsRegistrar
+import org.springframework.aot.hint.TypeReference
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.scheduling.annotation.EnableScheduling
 
+
+@ImportRuntimeHints(SpringDocWorkaround::class)
 @Configuration
 @EnableScheduling
 @AutoConfigureOrder(0)
@@ -46,4 +53,14 @@ class ApplicationConfiguration {
                     .description("Integration Docs")
                     .url("https://atto.cash/docs/integration"),
             )
+}
+
+
+class SpringDocWorkaround : RuntimeHintsRegistrar {
+    override fun registerHints(hints: RuntimeHints, classLoader: ClassLoader?) {
+        hints.reflection().registerType(
+            TypeReference.of("org.springframework.core.convert.support.GenericConversionService\$Converters"),
+            *MemberCategory.entries.toTypedArray()
+        )
+    }
 }
