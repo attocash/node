@@ -32,6 +32,9 @@ class GuardianTest {
     private val toleranceMultiplier = 10UL
 
     @RelaxedMockK
+    lateinit var thisNode: AttoNode
+
+    @RelaxedMockK
     lateinit var voteWeighter: VoteWeighter
 
     @RelaxedMockK
