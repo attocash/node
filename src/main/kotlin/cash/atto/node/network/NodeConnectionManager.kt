@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
@@ -137,13 +136,12 @@ class NodeConnectionManager(
         withContext(Dispatchers.Default) {
             connectionMap
                 .values
+                .shuffled()
                 .asSequence()
                 .filter { strategy.shouldBroadcast(it.node) }
                 .forEach {
                     logger.trace { "Sending to ${it.node.publicUri} $message" }
-                    launch {
-                        send(it.node.publicUri, serialized)
-                    }
+                    send(it.node.publicUri, serialized)
                 }
         }
     }
