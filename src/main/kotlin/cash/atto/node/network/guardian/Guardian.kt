@@ -9,6 +9,7 @@ import cash.atto.node.network.NodeBanned
 import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.weight.VoteWeighter
+import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -20,6 +21,7 @@ import java.util.concurrent.TimeUnit
 
 @Service
 class Guardian(
+    private val thisNode: AttoNode,
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
     private val guardianProperties: GuardianProperties,
@@ -51,6 +53,10 @@ class Guardian(
 
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
+        if (message.publicUri == thisNode.publicUri) {
+            return
+        }
+
         val socketAddress = message.socketAddress
         val expectedCount =
             expectedResponseCountMap.compute(message.publicUri) { _, v ->
