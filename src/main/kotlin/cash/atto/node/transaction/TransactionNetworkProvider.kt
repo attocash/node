@@ -48,11 +48,18 @@ class TransactionNetworkProvider(
         if (thisNode.isNotHistorical()) {
             return
         }
-        val request = message.payload
-        val transaction = transactionRepository.findById(request.hash)
-        if (transaction != null) {
-            val response = AttoTransactionResponse(transaction.toAttoTransaction())
-            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+
+        mutex.withLock {
+            if (!peers.contains(message.publicUri)) {
+                return
+            }
+
+            val request = message.payload
+            val transaction = transactionRepository.findById(request.hash)
+            if (transaction != null) {
+                val response = AttoTransactionResponse(transaction.toAttoTransaction())
+                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+            }
         }
     }
 
