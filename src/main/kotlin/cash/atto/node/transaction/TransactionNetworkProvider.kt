@@ -3,6 +3,8 @@ package cash.atto.node.transaction
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.NodeConnected
+import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionRequest
 import cash.atto.protocol.AttoTransactionResponse
@@ -13,6 +15,8 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.net.URI
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.milliseconds
 
 @Component
@@ -20,8 +24,23 @@ class TransactionNetworkProvider(
     private val thisNode: AttoNode,
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
-) {
+
+    ) {
+    private val peers = ConcurrentHashMap.newKeySet<URI>()
     private val mutex = Mutex()
+
+
+    @EventListener
+    fun add(nodeEvent: NodeConnected) {
+        val node = nodeEvent.node
+        peers.add(node.publicUri)
+    }
+
+    @EventListener
+    fun remove(nodeEvent: NodeDisconnected) {
+        val node = nodeEvent.node
+        peers.remove(node.publicUri)
+    }
 
     @EventListener
     suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
@@ -43,6 +62,10 @@ class TransactionNetworkProvider(
         }
 
         mutex.withLock {
+            if (!peers.contains(message.publicUri)) {
+                return
+            }
+
             val request = message.payload
             val transactions =
                 transactionRepository.findDesc(
