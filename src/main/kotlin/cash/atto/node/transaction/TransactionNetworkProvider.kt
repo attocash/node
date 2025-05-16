@@ -25,11 +25,9 @@ class TransactionNetworkProvider(
     private val thisNode: AttoNode,
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
-
-    ) {
+) {
     private val peers = ConcurrentHashMap.newKeySet<URI>()
     private val mutex = Mutex()
-
 
     @EventListener
     fun add(nodeEvent: NodeConnected) {

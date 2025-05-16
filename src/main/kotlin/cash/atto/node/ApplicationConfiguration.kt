@@ -16,9 +16,9 @@ import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.scheduling.annotation.EnableScheduling
 import org.springframework.scheduling.annotation.SchedulingConfigurer
+import org.springframework.scheduling.concurrent.ConcurrentTaskScheduler
 import org.springframework.scheduling.config.ScheduledTaskRegistrar
 import java.util.concurrent.Executors
-
 
 @ImportRuntimeHints(SpringDocWorkaround::class)
 @Configuration
@@ -41,7 +41,19 @@ class ApplicationConfiguration : SchedulingConfigurer {
     }
 
     override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
-        taskRegistrar.setScheduler(Executors.newVirtualThreadPerTaskExecutor())
+        val platformThreadScheduler =
+            Executors.newSingleThreadScheduledExecutor { r ->
+                Thread
+                    .ofPlatform()
+                    .daemon(true)
+                    .name("atto-scheduled-task-timer")
+                    .factory()
+                    .newThread(r)
+            }
+
+        val taskScheduler = ConcurrentTaskScheduler(Executors.newVirtualThreadPerTaskExecutor(), platformThreadScheduler)
+
+        taskRegistrar.setScheduler(taskScheduler)
     }
 
     @Bean
@@ -62,12 +74,14 @@ class ApplicationConfiguration : SchedulingConfigurer {
             )
 }
 
-
 class SpringDocWorkaround : RuntimeHintsRegistrar {
-    override fun registerHints(hints: RuntimeHints, classLoader: ClassLoader?) {
+    override fun registerHints(
+        hints: RuntimeHints,
+        classLoader: ClassLoader?,
+    ) {
         hints.reflection().registerType(
             TypeReference.of("org.springframework.core.convert.support.GenericConversionService\$Converters"),
-            *MemberCategory.entries.toTypedArray()
+            *MemberCategory.entries.toTypedArray(),
         )
     }
 }
