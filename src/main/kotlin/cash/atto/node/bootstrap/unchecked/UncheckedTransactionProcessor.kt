@@ -21,16 +21,15 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.TimeUnit
 
+private val logger = KotlinLogging.logger {}
+
 @Component
 class UncheckedTransactionProcessor(
     private val accountRepository: AccountRepository,
     private val transactionValidationManager: TransactionValidationManager,
     private val accountService: AccountService,
-    private val uncheckedTransactionService: UncheckedTransactionService,
     private val eventPublisher: EventPublisher,
 ) {
-    private val logger = KotlinLogging.logger {}
-
     private val mutex = Mutex()
 
     @Transactional
@@ -80,11 +79,6 @@ class UncheckedTransactionProcessor(
                     resolvedCounter++
                 }
 
-            if (resolvedCounter > 0) {
-                uncheckedTransactionService.cleanUp()
-                logger.info { "Resolved $resolvedCounter transactions" }
-            }
-
             return resolvedCounter
         }
     }
@@ -94,6 +88,7 @@ class UncheckedTransactionProcessor(
 class UncheckedTransactionProcessorStarter(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val processor: UncheckedTransactionProcessor,
+    private val uncheckedTransactionService: UncheckedTransactionService,
 ) {
     @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
@@ -104,6 +99,10 @@ class UncheckedTransactionProcessorStarter(
                     .map { it.toTransaction() }
                     .toList()
             val resolvedCounter = processor.process(candidateTransactions)
+            uncheckedTransactionService.cleanUp()
+            if (resolvedCounter > 0) {
+                logger.info { "Resolved $resolvedCounter transactions" }
+            }
         } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
     }
 }

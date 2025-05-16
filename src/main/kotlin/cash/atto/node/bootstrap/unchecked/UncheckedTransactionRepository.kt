@@ -27,10 +27,11 @@ interface UncheckedTransactionRepository :
             WITH hashes_to_delete AS (
                 SELECT ut.hash
                 FROM unchecked_transaction ut
-                JOIN transaction t ON ut.hash = t.hash
+                JOIN account a ON ut.public_key = a.public_key
+                WHERE ut.height <= a.height
             )
             DELETE FROM unchecked_transaction
-            WHERE hash IN (SELECT hash FROM hashes_to_delete)
+            WHERE hash IN (SELECT hash FROM hashes_to_delete);
         """,
     )
     suspend fun deleteExistingInTransaction(): Int
