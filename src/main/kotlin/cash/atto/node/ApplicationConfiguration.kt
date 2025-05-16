@@ -15,13 +15,16 @@ import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.scheduling.annotation.EnableScheduling
+import org.springframework.scheduling.annotation.SchedulingConfigurer
+import org.springframework.scheduling.config.ScheduledTaskRegistrar
+import java.util.concurrent.Executors
 
 
 @ImportRuntimeHints(SpringDocWorkaround::class)
 @Configuration
 @EnableScheduling
 @AutoConfigureOrder(0)
-class ApplicationConfiguration {
+class ApplicationConfiguration : SchedulingConfigurer {
     @Bean
     fun applicationEventMulticaster(): ApplicationEventMulticaster {
         val logger = KotlinLogging.logger {}
@@ -35,6 +38,10 @@ class ApplicationConfiguration {
             logger.error(it) { it.message }
         }
         return multicaster
+    }
+
+    override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
+        taskRegistrar.setScheduler(Executors.newVirtualThreadPerTaskExecutor())
     }
 
     @Bean
