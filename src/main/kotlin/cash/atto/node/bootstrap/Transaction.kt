@@ -1,6 +1,7 @@
 package cash.atto.node.bootstrap
 
 import cash.atto.node.Event
+import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.vote.Vote
@@ -18,4 +19,8 @@ data class TransactionStuck(
 
 data class TransactionResolved(
     val transaction: Transaction,
+) : Event
+
+data class UncheckedTransactionSaved(
+    val transaction: UncheckedTransaction,
 ) : Event

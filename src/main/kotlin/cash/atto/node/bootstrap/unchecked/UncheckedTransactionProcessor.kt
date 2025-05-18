@@ -74,7 +74,7 @@ class UncheckedTransactionProcessor(
                     accountMap[transaction.publicKey] = accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 
                     logger.debug { "Resolved $transaction" }
-                    eventPublisher.publish(TransactionResolved(transaction))
+                    eventPublisher.publishAfterCommit(TransactionResolved(transaction))
 
                     resolvedCounter++
                 }

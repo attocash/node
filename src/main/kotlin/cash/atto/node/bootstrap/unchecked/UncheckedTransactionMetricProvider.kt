@@ -1,0 +1,50 @@
+package cash.atto.node.bootstrap.unchecked
+
+import cash.atto.node.bootstrap.TransactionResolved
+import cash.atto.node.bootstrap.UncheckedTransactionSaved
+import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
+import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.DelicateCoroutinesApi
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
+import org.springframework.context.event.EventListener
+import org.springframework.stereotype.Component
+import java.util.concurrent.atomic.AtomicLong
+
+@Component
+class UncheckedTransactionMetricProvider(
+    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
+    private val meterRegistry: MeterRegistry,
+) {
+    private val logger = KotlinLogging.logger {}
+
+    private val count = AtomicLong(0)
+
+    @OptIn(DelicateCoroutinesApi::class)
+    @PostConstruct
+    fun start() {
+        Gauge
+            .builder("transactions.unchecked.count") { count.get() }
+            .description("Current number of unchecked transactions")
+            .register(meterRegistry)
+        GlobalScope.launch {
+            try {
+                count.addAndGet(uncheckedTransactionRepository.countAll())
+            } catch (e: Exception) {
+                logger.error(e) { "Error while getting unchecked transaction count from database" }
+            }
+        }
+    }
+
+    @EventListener
+    fun process(event: UncheckedTransactionSaved) {
+        count.incrementAndGet()
+    }
+
+    @EventListener
+    fun process(event: TransactionResolved) {
+        count.decrementAndGet()
+    }
+}

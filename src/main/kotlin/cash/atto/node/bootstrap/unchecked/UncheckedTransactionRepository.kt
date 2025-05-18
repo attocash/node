@@ -35,6 +35,9 @@ interface UncheckedTransactionRepository :
         """,
     )
     suspend fun deleteExistingInTransaction(): Int
+
+    @Query("SELECT COUNT(*) FROM unchecked_transaction")
+    suspend fun countAll(): Long
 }
 
 data class GapView(
