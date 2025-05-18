@@ -173,7 +173,7 @@ class TransactionController(
             ),
         ],
     )
-    @GetMapping("/accounts/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    @PostMapping("/accounts/transactions/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
         @RequestBody search: AttoNodeOperations.HeightSearch,
     ): Flow<AttoTransaction> {
