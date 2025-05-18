@@ -1,6 +1,6 @@
 spring:
   application:
-    name: node
+    name: atto-node
   main:
     banner-mode: off
   threads:
@@ -75,3 +75,6 @@ management:
       base-path: /
       exposure:
         include: health,metrics,prometheus
+  metrics:
+    tags:
+      application: ${spring.application.name}
