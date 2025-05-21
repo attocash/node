@@ -8,10 +8,12 @@ import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
+import kotlin.time.Duration.Companion.minutes
 
 @Component
 class UncheckedTransactionMetricProvider(
@@ -30,10 +32,14 @@ class UncheckedTransactionMetricProvider(
             .description("Current number of unchecked transactions")
             .register(meterRegistry)
         GlobalScope.launch {
-            try {
-                count.addAndGet(uncheckedTransactionRepository.countAll())
-            } catch (e: Exception) {
-                logger.error(e) { "Error while getting unchecked transaction count from database" }
+            while (true) {
+                try {
+                    count.addAndGet(uncheckedTransactionRepository.countAll())
+                    return@launch
+                } catch (e: Exception) {
+                    logger.error(e) { "Error while getting unchecked transaction count from database" }
+                    delay(1.minutes)
+                }
             }
         }
     }
