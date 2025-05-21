@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
+import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
@@ -32,7 +33,10 @@ interface AccountRepository : AttoRepository {
 
 interface AccountCrudRepository :
     CoroutineCrudRepository<Account, AttoPublicKey>,
-    AccountRepository
+    AccountRepository {
+    @Query("SELECT SUM(height) FROM account")
+    suspend fun sumHeight(): Long
+}
 
 @Primary
 @Component
