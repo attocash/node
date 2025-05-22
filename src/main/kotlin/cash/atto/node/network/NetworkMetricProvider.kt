@@ -18,7 +18,8 @@ class NetworkMetricProvider(
 
     @PostConstruct
     fun start() {
-        Gauge.builder("network.peers.active", peerCount) { it.get().toDouble() }
+        Gauge
+            .builder("network.peers.active", peerCount) { it.get().toDouble() }
             .description("Current number of active connected peers")
             .register(meterRegistry)
     }

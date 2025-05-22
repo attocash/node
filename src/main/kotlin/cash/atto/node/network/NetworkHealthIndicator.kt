@@ -24,15 +24,13 @@ class NetworkHealthIndicator : HealthIndicator {
     @EventListener
     fun remove(nodeEvent: NodeDisconnected) {
         peerCount.decrementAndGet()
-
     }
 
-    override fun health(): Health {
-        return if (peerCount.get() > 0 || lastDisconnect > Instant.now().minus(Duration.ofMinutes(5))) {
+    override fun health(): Health =
+        if (peerCount.get() > 0 || lastDisconnect > Instant.now().minus(Duration.ofMinutes(5))) {
             Health.up().withDetail("peers", peerCount.get().toString()).build()
         } else {
             logger.warn { "Node is not connected to any peer" }
             Health.down().build()
         }
-    }
 }
