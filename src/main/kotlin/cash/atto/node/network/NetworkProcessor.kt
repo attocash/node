@@ -116,7 +116,7 @@ class NetworkProcessor(
     private val connectingMap =
         Caffeine
             .newBuilder()
-            .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
+            .expireAfterAccess(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
             .build<URI, MutableSharedFlow<AttoNode>>()
             .asMap()
 
