@@ -54,6 +54,7 @@ class Guardian(
     @EventListener
     fun count(message: InboundNetworkMessage<*>) {
         if (message.publicUri == thisNode.publicUri) {
+            logger.debug { "Received message from itself. Ignoring $message" }
             return
         }
 
