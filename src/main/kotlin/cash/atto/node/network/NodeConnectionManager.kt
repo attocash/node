@@ -152,7 +152,7 @@ class NodeConnectionManager(
 
     @Scheduled(fixedRate = 10_000)
     suspend fun keepAlive() {
-        val sample = connectionMap.values.randomOrNull()
+        val sample = connectionMap.toMap().values.randomOrNull()
         val message = AttoKeepAlive(sample?.node?.publicUri)
         send(BroadcastNetworkMessage(strategy = BroadcastStrategy.EVERYONE, payload = message))
     }
