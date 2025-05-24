@@ -12,6 +12,7 @@ import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
@@ -36,13 +37,15 @@ class NodeConnectionManager(
 ) {
     private val logger = KotlinLogging.logger {}
 
+    private val disconnectScope = CoroutineScope(Dispatchers.Default.limitedParallelism(1))
+
     private val connectionMap =
         Caffeine
             .newBuilder()
             .expireAfterWrite(Duration.ofSeconds(60))
             .removalListener { _: URI?, connection: NodeConnection?, _ ->
                 connection?.let {
-                    runBlocking {
+                    disconnectScope.launch {
                         try {
                             connection.disconnected()
                         } finally {
