@@ -44,7 +44,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -301,17 +300,15 @@ class NetworkProcessor(
         defaultScope.cancel()
     }
 
-    @Scheduled(fixedDelay = 1_000)
+    @Scheduled(fixedRate = 1_000)
     suspend fun boostrap() {
-        withContext(Dispatchers.Default) {
-            networkProperties
-                .defaultNodes
-                .asSequence()
-                .map { URI(it) }
-                .forEach {
-                    connectAsync(it)
-                }
-        }
+        networkProperties
+            .defaultNodes
+            .asSequence()
+            .map { URI(it) }
+            .forEach {
+                connectAsync(it)
+            }
     }
 
     @EventListener
