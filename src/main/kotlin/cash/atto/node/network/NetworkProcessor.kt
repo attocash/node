@@ -14,7 +14,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.engine.cio.CIO
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.header
@@ -26,7 +25,6 @@ import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.origin
 import io.ktor.server.request.host
 import io.ktor.server.request.port
@@ -35,7 +33,6 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
-import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -43,7 +40,6 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -79,7 +75,7 @@ class NetworkProcessor(
     val random = SecureRandom.getInstanceStrong()!!
 
     private val httpClient =
-        HttpClient(CIO) {
+        HttpClient(io.ktor.client.engine.cio.CIO) {
             install(
                 io
                     .ktor
@@ -97,7 +93,7 @@ class NetworkProcessor(
         }
 
     private val websocketClient =
-        HttpClient(CIO) {
+        HttpClient(io.ktor.client.engine.cio.CIO) {
             install(
                 io
                     .ktor
@@ -120,7 +116,7 @@ class NetworkProcessor(
             .asMap()
 
     private val server =
-        embeddedServer(Netty, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
+        embeddedServer(io.ktor.server.cio.CIO, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
             install(
                 io
                     .ktor

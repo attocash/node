@@ -25,8 +25,8 @@ import cash.atto.commons.toByteArray
 import cash.atto.commons.toSigner
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
+import io.ktor.server.cio.CIO
 import io.ktor.server.engine.embeddedServer
-import io.ktor.server.netty.Netty
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
@@ -148,7 +148,7 @@ class SignerTest {
         val signer = AttoPrivateKey.generate().toSigner()
 
         val server =
-            embeddedServer(Netty, port = port) {
+            embeddedServer(CIO, port = port) {
                 install(ContentNegotiation) {
                     json()
                 }
