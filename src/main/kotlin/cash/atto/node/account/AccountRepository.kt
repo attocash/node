@@ -34,7 +34,7 @@ interface AccountRepository : AttoRepository {
 interface AccountCrudRepository :
     CoroutineCrudRepository<Account, AttoPublicKey>,
     AccountRepository {
-    @Query("SELECT SUM(height) FROM account")
+    @Query("SELECT COALESCE(SUM(height), 0) FROM account")
     suspend fun sumHeight(): Long
 }
 

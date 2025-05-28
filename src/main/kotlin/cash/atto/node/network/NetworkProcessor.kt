@@ -217,8 +217,7 @@ class NetworkProcessor(
 
                         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
-                        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
-                        if (existingFlow != null) {
+                        if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
                             logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
                             return@webSocket
                         }
@@ -287,13 +286,6 @@ class NetworkProcessor(
             }
         }.start(wait = false)
 
-    @PostConstruct
-    fun start() {
-        runBlocking {
-            boostrap()
-        }
-    }
-
     @PreDestroy
     fun stop() {
         server.stop()
@@ -342,8 +334,7 @@ class NetworkProcessor(
 
         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
-        val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
-        if (existingFlow != null) {
+        if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
             logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
             return
         }

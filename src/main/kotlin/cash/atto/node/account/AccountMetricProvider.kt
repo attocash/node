@@ -8,12 +8,14 @@ import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import org.springframework.context.annotation.DependsOn
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
 
 @Component
+@DependsOn("flywayInitializer")
 class AccountMetricProvider(
     private val repository: AccountCrudRepository,
     private val meterRegistry: MeterRegistry,
