@@ -6,20 +6,18 @@ import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
-import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
@@ -125,7 +123,11 @@ class NodeConnectionManager(
         val serialized = NetworkSerializer.serialize(message)
 
         logger.debug { "Sending to $publicUri $message ${serialized.toHex()}" }
-        send(publicUri, serialized)
+        try {
+            send(publicUri, serialized)
+        } catch (e: Exception) {
+            logger.debug(e) { "Exception during sending to $publicUri $message ${serialized.toHex()}" }
+        }
     }
 
     @EventListener
@@ -176,10 +178,8 @@ class NodeConnectionManager(
                 .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
 
-        suspend fun disconnected() {
-            if (session.isActive) {
-                session.close(CloseReason(CloseReason.Codes.GOING_AWAY, "Disconnecting..."))
-            }
+        fun disconnected() {
+            session.cancel()
         }
 
         suspend fun send(message: ByteArray) {
