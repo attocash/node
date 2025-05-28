@@ -340,11 +340,6 @@ class NetworkProcessor(
             return
         }
 
-        if (connectingMap.containsKey(publicUri)) {
-            logger.trace { "Can't connect as a client to $publicUri. Connection attempt in progress." }
-            return
-        }
-
         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
         val existingFlow = connectingMap.putIfAbsent(publicUri, connectingFlow)
