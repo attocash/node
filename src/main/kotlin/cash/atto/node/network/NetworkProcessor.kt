@@ -26,8 +26,6 @@ import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.origin
-import io.ktor.server.request.host
-import io.ktor.server.request.port
 import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
@@ -279,7 +277,7 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val connectionSocketAddress = InetSocketAddress(call.request.host(), call.request.port())
+                        val connectionSocketAddress = InetSocketAddress(call.request.origin.remoteHost, call.request.origin.remotePort)
 
                         connectionManager.manage(node, connectionSocketAddress, this)
                     } catch (e: Exception) {
