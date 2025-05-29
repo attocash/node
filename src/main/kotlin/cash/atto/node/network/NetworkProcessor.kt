@@ -201,6 +201,13 @@ class NetworkProcessor(
                         logger.trace { "New websocket connection attempt from $remoteHost" }
 
                         val publicUri = URI(call.request.headers[PUBLIC_URI_HEADER]!!)
+
+                        if (publicUri == thisNode.publicUri) {
+                            logger.trace { "Can't connect as a server to $publicUri. This uri is this node." }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@webSocket
+                        }
+
                         val challenge = call.request.headers[CHALLENGE_HEADER]!!
 
                         logger.trace { "Headers received: publicUri=$publicUri, challenge=$challenge" }
