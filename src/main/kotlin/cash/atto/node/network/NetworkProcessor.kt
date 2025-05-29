@@ -323,15 +323,16 @@ class NetworkProcessor(
             return
         }
 
-        if (connectionManager.isConnected(publicUri)) {
-            logger.trace { "Can't connect to $publicUri. Connection already established." }
-            return
-        }
-
         val connectingFlow = MutableSharedFlow<AttoNode>(1)
 
         if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
             logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
+            return
+        }
+
+        if (connectionManager.isConnected(publicUri)) {
+            connectingMap.remove(publicUri)
+            logger.trace { "Can't connect to $publicUri. Connection already established." }
             return
         }
 
