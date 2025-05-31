@@ -34,6 +34,7 @@ import io.ktor.server.websocket.webSocket
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
@@ -104,7 +105,7 @@ class NetworkProcessor(
             }
         }
 
-    private val defaultScope = CoroutineScope(Dispatchers.Default)
+    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     private val connectingMap =
         Caffeine
@@ -290,7 +291,7 @@ class NetworkProcessor(
     @PreDestroy
     fun stop() {
         server.stop()
-        defaultScope.cancel()
+        ioScope.cancel()
     }
 
     @Scheduled(fixedRate = 1_000)
@@ -321,7 +322,7 @@ class NetworkProcessor(
     }
 
     private suspend fun connectAsync(publicUri: URI) {
-        defaultScope.launch {
+        ioScope.launch {
             try {
                 logger.trace { "Start connection to $publicUri" }
                 connection(publicUri)
