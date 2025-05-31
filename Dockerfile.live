@@ -1,5 +1,9 @@
 ARG BASE_IMAGE_TAG=latest
+ARG APPLICATION_VERSION
+
 FROM ghcr.io/attocash/node:${BASE_IMAGE_TAG}
+
+ENV APPLICATION_VERSION=${APPLICATION_VERSION}
 
 LABEL org.opencontainers.image.source https://github.com/attocash/node
 

@@ -1,6 +1,7 @@
 spring:
   application:
     name: atto-node
+    version: ${APPLICATION_VERSION:}
   main:
     banner-mode: off
   threads:
@@ -78,3 +79,4 @@ management:
   metrics:
     tags:
       application: ${spring.application.name}
+      application-version: ${spring.application.version}

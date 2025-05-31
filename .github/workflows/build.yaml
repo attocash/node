@@ -44,3 +44,5 @@ jobs:
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.sha }}
             ghcr.io/${{ github.repository }}:${{ env.BRANCH_NAME }}
+          build-args: |
+            APPLICATION_VERSION=${{ github.sha }}

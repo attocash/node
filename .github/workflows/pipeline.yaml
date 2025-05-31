@@ -33,6 +33,7 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       image: dev
+      next-tag: ${{ needs.release-tag.outputs.next-tag }}
   release-dev:
     permissions:
       packages: write
@@ -69,6 +70,7 @@ jobs:
     uses: ./.github/workflows/build-image.yaml
     with:
       image: live
+      next-tag: ${{ needs.release-tag.outputs.next-tag }}
   release-live:
     permissions:
       packages: write
