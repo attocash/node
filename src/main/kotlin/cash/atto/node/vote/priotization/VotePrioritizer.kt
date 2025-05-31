@@ -114,7 +114,7 @@ class VotePrioritizer(
             return
         }
 
-        if (rejectedTransactionCache.contains(vote.blockHash)) {
+        if (rejectedTransactionCache.containsKey(vote.blockHash)) {
             eventPublisher.publish(VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED))
             return
         }
