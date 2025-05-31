@@ -7,31 +7,20 @@ import jakarta.annotation.PostConstruct
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.atomic.AtomicInteger
 
 @Component
 class NetworkMetricProvider(
     private val meterRegistry: MeterRegistry,
+    private val connectionManager: NodeConnectionManager
 ) {
-    private val peerCount = AtomicInteger(0)
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
 
     @PostConstruct
     fun start() {
         Gauge
-            .builder("network.peers.active", peerCount) { it.get().toDouble() }
+            .builder("network.peers.active", connectionManager) { it.connectionCount.toDouble() }
             .description("Current number of active connected peers")
             .register(meterRegistry)
-    }
-
-    @EventListener
-    fun add(nodeEvent: NodeConnected) {
-        peerCount.incrementAndGet()
-    }
-
-    @EventListener
-    fun remove(nodeEvent: NodeDisconnected) {
-        peerCount.decrementAndGet()
     }
 
     @EventListener

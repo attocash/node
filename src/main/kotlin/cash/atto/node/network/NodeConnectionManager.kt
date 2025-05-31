@@ -53,12 +53,15 @@ class NodeConnectionManager(
             }.build<URI, NodeConnection>()
             .asMap()
 
+    val connectionCount: Int
+        get() = connectionMap.size
+
     @PreDestroy
     fun stop() {
         connectionMap.clear()
     }
 
-    fun isConnected(publicUri: URI): Boolean = connectionMap.contains(publicUri)
+    fun isConnected(publicUri: URI): Boolean = connectionMap.containsKey(publicUri)
 
     suspend fun manage(
         node: AttoNode,
