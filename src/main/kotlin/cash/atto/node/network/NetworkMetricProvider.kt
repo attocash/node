@@ -11,7 +11,7 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class NetworkMetricProvider(
     private val meterRegistry: MeterRegistry,
-    private val connectionManager: NodeConnectionManager
+    private val connectionManager: NodeConnectionManager,
 ) {
     private val counters = ConcurrentHashMap<Pair<String, String>, Counter>()
 

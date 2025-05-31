@@ -115,22 +115,15 @@ class NodeConnectionManager(
             }
     }
 
-    private suspend fun send(
-        publicUri: URI,
-        serialized: ByteArray,
-    ) {
-        connectionMap[publicUri]?.send(serialized)
-    }
-
     @EventListener
     suspend fun send(networkMessage: DirectNetworkMessage<*>) {
         val publicUri = networkMessage.publicUri
         val message = networkMessage.payload
         val serialized = NetworkSerializer.serialize(message)
 
-        logger.debug { "Sending to $publicUri $message ${serialized.toHex()}" }
+        logger.trace { "Sending to $publicUri $message ${serialized.toHex()}" }
         try {
-            send(publicUri, serialized)
+            connectionMap[publicUri]?.send(serialized)
         } catch (e: Exception) {
             logger.debug(e) { "Exception during sending to $publicUri $message ${serialized.toHex()}" }
             connectionMap.remove(publicUri)
