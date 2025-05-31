@@ -176,7 +176,7 @@ class NodeConnectionManager(
                 .incoming
                 .consumeAsFlow()
                 .onStart { logger.info { "Connected to ${node.publicUri} ${node.publicKey}" } }
-                .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
+                .onCompletion { cause -> logger.info(cause) { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
 
         fun disconnect() {
