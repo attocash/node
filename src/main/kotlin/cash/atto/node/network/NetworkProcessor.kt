@@ -310,18 +310,18 @@ class NetworkProcessor(
         val keepAlive = message.payload
         val neighbour = keepAlive.neighbour ?: return
 
-        if (neighbour == thisNode.publicUri) {
-            return
-        }
-
-        if (connectionManager.isConnected(neighbour)) {
-            return
-        }
-
         connectAsync(neighbour)
     }
 
     private suspend fun connectAsync(publicUri: URI) {
+        if (publicUri == thisNode.publicUri) {
+            return
+        }
+
+        if (connectionManager.isConnected(publicUri)) {
+            return
+        }
+
         ioScope.launch {
             try {
                 logger.trace { "Start connection to $publicUri" }
