@@ -11,6 +11,7 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
 import io.ktor.client.call.body
@@ -110,6 +111,7 @@ class NetworkProcessor(
     private val connectingMap =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
             .build<URI, MutableSharedFlow<AttoNode>>()
             .asMap()

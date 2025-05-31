@@ -22,6 +22,7 @@ import cash.atto.node.vote.Vote
 import cash.atto.protocol.AttoTransactionRequest
 import cash.atto.protocol.AttoTransactionResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
@@ -42,6 +43,7 @@ class SendDiscoverer(
     private val unknownHashCache =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofMinutes(5))
             .maximumSize(100_000)
             .build<AttoHash, AttoHash>()

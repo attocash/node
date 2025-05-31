@@ -22,6 +22,7 @@ import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVoteRequest
 import cash.atto.protocol.AttoVoteResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import kotlinx.coroutines.channels.Channel
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -49,6 +50,7 @@ class VoteKeeper(
     private val missingVoteMap =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(cacheExpiration)
             .build<MissingVote, MissingVote>()
             .asMap()

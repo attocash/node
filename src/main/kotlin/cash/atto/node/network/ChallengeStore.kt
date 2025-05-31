@@ -2,6 +2,7 @@ package cash.atto.node.network
 
 import cash.atto.commons.toHex
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import java.net.URI
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
@@ -13,6 +14,7 @@ internal object ChallengeStore {
     private val challenges =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(5, TimeUnit.SECONDS)
             .maximumSize(100_000)
             .build<URI, String>()

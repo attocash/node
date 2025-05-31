@@ -18,6 +18,7 @@ import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.asFlow
 import org.springframework.context.event.EventListener
@@ -45,6 +46,7 @@ class GapDiscoverer(
     private val pointerMap =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(10))
             .maximumSize(maxSize)
             .build<AttoPublicKey, TransactionPointer>()

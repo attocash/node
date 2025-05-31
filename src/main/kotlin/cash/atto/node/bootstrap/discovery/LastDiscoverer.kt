@@ -23,6 +23,7 @@ import cash.atto.protocol.AttoVoteStreamCancel
 import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.AttoVoteStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
 import org.springframework.context.event.EventListener
@@ -46,6 +47,7 @@ class LastDiscoverer(
     private val transactionElectionMap =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .maximumSize(100_000)
             .build<AttoHash, TransactionElection>()

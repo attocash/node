@@ -5,6 +5,7 @@ import cash.atto.node.EventPublisher
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
@@ -42,6 +43,7 @@ class NodeConnectionManager(
     private val connectionMap =
         Caffeine
             .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(60))
             .removalListener { _: URI?, connection: NodeConnection?, _ ->
                 connection?.let {
