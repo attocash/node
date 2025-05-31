@@ -12,6 +12,7 @@ import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
@@ -19,7 +20,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -34,7 +34,10 @@ class NodeConnectionManager(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val disconnectScope = CoroutineScope(Dispatchers.Default.limitedParallelism(1))
+    private val ioScope =
+        CoroutineScope(
+            Dispatchers.IO + SupervisorJob(),
+        )
 
     private val connectionMap =
         Caffeine
@@ -42,9 +45,9 @@ class NodeConnectionManager(
             .expireAfterWrite(Duration.ofSeconds(60))
             .removalListener { _: URI?, connection: NodeConnection?, _ ->
                 connection?.let {
-                    disconnectScope.launch {
+                    ioScope.launch {
                         try {
-                            connection.disconnected()
+                            connection.disconnect()
                         } finally {
                             eventPublisher.publish(NodeDisconnected(connection.connectionInetSocketAddress, connection.node))
                         }
@@ -75,7 +78,7 @@ class NodeConnectionManager(
 
         if (existingConnection != null) {
             logger.trace { "Connection to ${node.publicUri} already managed. New connection will be ignored" }
-            connection.disconnected()
+            connection.disconnect()
         }
 
         connection
@@ -130,6 +133,7 @@ class NodeConnectionManager(
             send(publicUri, serialized)
         } catch (e: Exception) {
             logger.debug(e) { "Exception during sending to $publicUri $message ${serialized.toHex()}" }
+            connectionMap.remove(publicUri)
         }
     }
 
@@ -139,20 +143,19 @@ class NodeConnectionManager(
         val message = networkMessage.payload
         val serialized = NetworkSerializer.serialize(message)
 
-        logger.trace { "Broadcasting peers $message ${serialized.toHex()}" }
-
-        withContext(Dispatchers.Default) {
-            connectionMap
-                .values
-                .asSequence()
-                .filter { strategy.shouldBroadcast(it.node) }
-                .forEach {
-                    logger.trace { "Sending to ${it.node.publicUri} $message" }
-                    launch {
-                        send(it.node.publicUri, serialized)
-                    }
+        connectionMap.values
+            .asSequence()
+            .filter { strategy.shouldBroadcast(it.node) }
+            .forEach { connection ->
+                ioScope.launch {
+                    logger.trace { "Sending to ${connection.node.publicUri} $message" }
+                    runCatching { connection.send(serialized) }
+                        .onFailure { t ->
+                            logger.debug(t) { "Exception during sending to ${connection.node.publicUri} $message" }
+                            connectionMap.remove(connection.node.publicUri)
+                        }
                 }
-        }
+            }
     }
 
     @Scheduled(fixedRate = 10_000)
@@ -181,7 +184,7 @@ class NodeConnectionManager(
                 .onCompletion { logger.info { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
 
-        fun disconnected() {
+        fun disconnect() {
             session.cancel()
         }
 
