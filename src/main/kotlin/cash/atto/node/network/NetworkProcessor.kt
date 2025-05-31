@@ -308,6 +308,15 @@ class NetworkProcessor(
     suspend fun onKeepAlive(message: InboundNetworkMessage<AttoKeepAlive>) {
         val keepAlive = message.payload
         val neighbour = keepAlive.neighbour ?: return
+
+        if (neighbour == thisNode.publicUri) {
+            return
+        }
+
+        if (connectionManager.isConnected(neighbour)) {
+            return
+        }
+
         connectAsync(neighbour)
     }
 
