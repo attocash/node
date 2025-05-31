@@ -6,7 +6,9 @@ on:
       image:
         required: true
         type: string
-
+      next-tag:
+        required: true
+        type: string
 jobs:
   build-image:
     runs-on: ubuntu-latest
@@ -23,5 +25,10 @@ jobs:
 
       - name: build-image
         run: |
-          docker build --build-arg BASE_IMAGE_TAG=${{ github.sha }} -t ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} -f Dockerfile.${{ inputs.image }} .
+          docker build \
+            --build-arg BASE_IMAGE_TAG=${{ github.sha }} \
+            --build-arg APPLICATION_VERSION=${{ env.APPLICATION_VERSION }} \
+            -t ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} \
+            -f Dockerfile.${{ inputs.image }} .
           docker push ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
+

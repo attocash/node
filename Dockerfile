@@ -1,4 +1,8 @@
+ARG APPLICATION_VERSION
+
 FROM scratch
+
+ENV APPLICATION_VERSION=${APPLICATION_VERSION}
 
 COPY ./build/native/nativeCompile/node /app/node
 
