@@ -44,10 +44,11 @@ class NodeConnectionManager(
             .newBuilder()
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(60))
-            .removalListener { _: URI?, connection: NodeConnection?, _ ->
+            .removalListener { _: URI?, connection: NodeConnection?, cause ->
                 connection?.let {
                     ioScope.launch {
                         try {
+                            logger.trace { "Removing connection to ${connection.node.publicUri} because of $cause" }
                             connection.disconnect()
                         } finally {
                             eventPublisher.publish(NodeDisconnected(connection.connectionInetSocketAddress, connection.node))
