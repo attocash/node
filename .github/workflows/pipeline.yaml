@@ -66,6 +66,7 @@ jobs:
     permissions:
       packages: write
     needs:
+      - release-tag
       - release-dev
     uses: ./.github/workflows/build-image.yaml
     with:
