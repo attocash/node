@@ -50,6 +50,8 @@ class NodeConnectionManager(
                         try {
                             logger.trace { "Removing connection to ${connection.node.publicUri} because of $cause" }
                             connection.disconnect()
+                        } catch (e: Exception) {
+                            logger.debug(e) { "Exception during disconnecting from ${connection.node.publicUri}" }
                         } finally {
                             eventPublisher.publish(NodeDisconnected(connection.connectionInetSocketAddress, connection.node))
                         }
@@ -150,11 +152,12 @@ class NodeConnectionManager(
             .forEach { connection ->
                 ioScope.launch {
                     logger.trace { "Sending to ${connection.node.publicUri} $message" }
-                    runCatching { connection.send(serialized) }
-                        .onFailure { t ->
-                            logger.debug(t) { "Exception during sending to ${connection.node.publicUri} $message" }
-                            connectionMap.remove(connection.node.publicUri)
-                        }
+                    try {
+                        connection.send(serialized)
+                    } catch (e: Exception) {
+                        logger.debug(e) { "Exception during sending to ${connection.node.publicUri} $message" }
+                        connectionMap.remove(connection.node.publicUri)
+                    }
                 }
             }
     }

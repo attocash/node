@@ -4,6 +4,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.models.ExternalDocumentation
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
+import jakarta.annotation.PostConstruct
 import org.springframework.aot.hint.MemberCategory
 import org.springframework.aot.hint.RuntimeHints
 import org.springframework.aot.hint.RuntimeHintsRegistrar
@@ -25,10 +26,17 @@ import java.util.concurrent.Executors
 @EnableScheduling
 @AutoConfigureOrder(0)
 class ApplicationConfiguration : SchedulingConfigurer {
+    val logger = KotlinLogging.logger {}
+
+    @PostConstruct
+    fun init() {
+        Thread.setDefaultUncaughtExceptionHandler { _, e ->
+            logger.error(e) { "Uncaught on thread ${Thread.currentThread().name}" }
+        }
+    }
+
     @Bean
     fun applicationEventMulticaster(): ApplicationEventMulticaster {
-        val logger = KotlinLogging.logger {}
-
         val multicaster = SimpleApplicationEventMulticaster()
 
         multicaster.setTaskExecutor { task ->
@@ -52,6 +60,9 @@ class ApplicationConfiguration : SchedulingConfigurer {
             }
 
         val taskScheduler = ConcurrentTaskScheduler(Executors.newVirtualThreadPerTaskExecutor(), platformThreadScheduler)
+        taskScheduler.setErrorHandler {
+            logger.error(it) { it.message }
+        }
 
         taskRegistrar.setScheduler(taskScheduler)
     }
