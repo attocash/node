@@ -70,11 +70,13 @@ class VotePrioritizer(
     @EventListener
     suspend fun process(event: ElectionStarted) {
         val transaction = event.transaction
-
         activeElections[transaction.hash] = transaction
 
-        val votes = voteBuffer.remove(transaction.hash)?.values ?: setOf()
-        votes.forEach {
+        val unbufferedVotes = mutex.withLock {
+            voteBuffer.remove(transaction.hash)?.values
+        }
+
+        unbufferedVotes?.forEach {
             logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
             add(it)
         }
@@ -123,31 +125,31 @@ class VotePrioritizer(
     }
 
     private suspend fun add(vote: Vote) {
-        val transaction = activeElections[vote.blockHash]
-        if (transaction != null) {
-            logger.trace { "Queued for prioritization. $vote" }
+        mutex.withLock {
+            val transaction = activeElections[vote.blockHash]
+            if (transaction != null) {
+                logger.trace { "Queued for prioritization. $vote" }
 
-            val droppedVote =
-                mutex.withLock {
+                val droppedVote =
                     queue.add(TransactionVote(transaction, vote))
-                }
 
-            droppedVote?.let {
-                logger.trace { "Dropped from queue. $droppedVote" }
-                eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.SUPERSEDED))
-            }
-        } else {
-            logger.trace { "Buffered until election starts. $vote" }
-            voteBuffer.compute(vote.blockHash) { _, m ->
-                val map = m ?: HashMap()
-                map.compute(vote.publicKey) { _, v ->
-                    if (v == null || vote.timestamp > v.timestamp) {
-                        vote
-                    } else {
-                        v
-                    }
+                droppedVote?.let {
+                    logger.trace { "Dropped from queue. $droppedVote" }
+                    eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.SUPERSEDED))
                 }
-                map
+            } else {
+                logger.trace { "Buffered until election starts. $vote" }
+                voteBuffer.compute(vote.blockHash) { _, m ->
+                    val map = m ?: HashMap()
+                    map.compute(vote.publicKey) { _, v ->
+                        if (v == null || vote.timestamp > v.timestamp) {
+                            vote
+                        } else {
+                            v
+                        }
+                    }
+                    map
+                }
             }
         }
     }
