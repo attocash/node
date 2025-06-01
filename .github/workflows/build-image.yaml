@@ -27,7 +27,7 @@ jobs:
         run: |
           docker build \
             --build-arg BASE_IMAGE_TAG=${{ github.sha }} \
-            --build-arg APPLICATION_VERSION=${{ env.APPLICATION_VERSION }} \
+            --build-arg APPLICATION_VERSION=${{ inputs.next-tag }}-${{ inputs.image }} \
             -t ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} \
             -f Dockerfile.${{ inputs.image }} .
           docker push ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
