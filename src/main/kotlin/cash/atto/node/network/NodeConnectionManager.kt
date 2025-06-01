@@ -63,6 +63,7 @@ class NodeConnectionManager(
 
     @PreDestroy
     fun stop() {
+        logger.info { "Connection Manager is stopping! Clearing all connections..." }
         connectionMap.clear()
     }
 
