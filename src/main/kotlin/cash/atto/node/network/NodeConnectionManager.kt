@@ -75,45 +75,50 @@ class NodeConnectionManager(
         val publicUri = node.publicUri
         val connection = NodeConnection(node, connectionSocketAddress, session)
 
-        val existingConnection = connectionMap.putIfAbsent(publicUri, connection)
-
-        if (existingConnection != null) {
+        if (connectionMap.putIfAbsent(publicUri, connection) != null) {
             logger.trace { "Connection to ${node.publicUri} already managed. New connection will be ignored" }
             connection.disconnect()
         }
 
-        connection
-            .incomingFlow()
-            .onStart {
-                eventPublisher.publish(NodeConnected(connectionSocketAddress, node))
-            }.onCompletion {
-                logger.trace(it) { "Inbound message stream from ${node.publicUri} completed" }
-                connectionMap.remove(publicUri)
-            }.collect {
-                val message = NetworkSerializer.deserialize(it)
-
-                if (message == null) {
-                    logger.debug { "Received invalid message from $publicUri ${it.toHex()}" }
+        try {
+            connection
+                .incomingFlow()
+                .onStart {
+                    eventPublisher.publish(NodeConnected(connectionSocketAddress, node))
+                }.onCompletion {
+                    logger.trace(it) { "Inbound message stream from ${node.publicUri} completed" }
                     connectionMap.remove(publicUri)
-                    return@collect
+                }.collect {
+                    val message = NetworkSerializer.deserialize(it)
+
+                    if (message == null) {
+                        logger.debug { "Received invalid message from $publicUri ${it.toHex()}" }
+                        connectionMap.remove(publicUri)
+                        return@collect
+                    }
+
+                    if (message is AttoKeepAlive) {
+                        connectionMap[publicUri] = connection
+                    }
+
+                    logger.trace { "Received from $publicUri $message ${it.toHex()}" }
+
+                    val networkMessage =
+                        InboundNetworkMessage(
+                            MessageSource.WEBSOCKET,
+                            publicUri,
+                            connectionSocketAddress,
+                            message,
+                        )
+
+                    messagePublisher.publish(networkMessage)
                 }
-
-                if (message is AttoKeepAlive) {
-                    connectionMap[publicUri] = connection
-                }
-
-                logger.trace { "Received from $publicUri $message ${it.toHex()}" }
-
-                val networkMessage =
-                    InboundNetworkMessage(
-                        MessageSource.WEBSOCKET,
-                        publicUri,
-                        connectionSocketAddress,
-                        message,
-                    )
-
-                messagePublisher.publish(networkMessage)
-            }
+        } catch (e: Exception) {
+            logger.debug(e) { "Exception during inbound message stream from ${node.publicUri}" }
+            connectionMap.remove(publicUri)
+        } finally {
+            connection.disconnect()
+        }
     }
 
     @EventListener
