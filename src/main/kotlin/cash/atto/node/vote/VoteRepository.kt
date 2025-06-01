@@ -74,7 +74,7 @@ interface VoteRepository :
                  )
             SELECT last_transaction_hash, representative_public_key
             FROM missing_reps
-            WHERE rk between 1 and 2;
+            WHERE rk between 1 and 12;
         """,
     )
     suspend fun findMissingVote(onlineWeight: BigInteger): List<MissingVote>
