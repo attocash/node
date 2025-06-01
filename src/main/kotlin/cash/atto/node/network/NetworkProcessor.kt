@@ -34,8 +34,8 @@ import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
@@ -52,6 +52,7 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.security.SecureRandom
 import java.time.Duration
+import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.seconds
 
 @Component
@@ -66,7 +67,7 @@ class NetworkProcessor(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val MAX_MESSAGE_SIZE = 272
+        const val MAX_MESSAGE_SIZE = 300
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
@@ -106,7 +107,7 @@ class NetworkProcessor(
             }
         }
 
-    private val ioScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+    private val ioScope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val connectingMap =
         Caffeine
@@ -214,6 +215,7 @@ class NetworkProcessor(
                         logger.trace { "Headers received: publicUri=$publicUri, challenge=$challenge" }
 
                         if (!challenge.isChallengePrefixValid()) {
+                            call.respond(HttpStatusCode.BadRequest)
                             logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -223,6 +225,7 @@ class NetworkProcessor(
 
                         if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
                             logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
+                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
@@ -259,13 +262,18 @@ class NetworkProcessor(
                         logger.trace { "Challenge response status from $httpUri: ${result.status}" }
 
                         if (!result.status.isSuccess()) {
+                            connectingMap.remove(publicUri)
+                            logger.trace { "Received invalid ${result.status.value} challenge status from $publicUri $remoteHost" }
+                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
                         val response = result.body<ChallengeResponse>()
 
                         if (!ChallengeStore.remove(publicUri, counterChallenge)) {
-                            logger.trace { "Received invalid challenge request from $publicUri $remoteHost $response" }
+                            connectingMap.remove(publicUri)
+                            logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
+                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
@@ -276,7 +284,9 @@ class NetworkProcessor(
 
                         val signature = response.signature
                         if (!signature.isValid(node.publicKey, counterHash)) {
+                            connectingMap.remove(publicUri)
                             logger.trace { "Received invalid signature from client $remoteHost $response" }
+                            call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
 
@@ -285,6 +295,7 @@ class NetworkProcessor(
                         connectionManager.manage(node, connectionSocketAddress, this)
                     } catch (e: Exception) {
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
+                        call.respond(HttpStatusCode.InternalServerError)
                     }
                 }
             }
@@ -382,7 +393,7 @@ class NetworkProcessor(
                 }
 
             if (node == null) {
-                logger.trace { "Handshake timed out" }
+                logger.trace { "Handshake with $publicUri timed out" }
                 return
             }
 

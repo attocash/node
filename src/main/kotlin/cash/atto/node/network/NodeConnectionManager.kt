@@ -12,11 +12,12 @@ import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.consumeAsFlow
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
@@ -27,6 +28,7 @@ import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.URI
 import java.time.Duration
+import java.util.concurrent.Executors
 
 @Component
 class NodeConnectionManager(
@@ -35,10 +37,7 @@ class NodeConnectionManager(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val ioScope =
-        CoroutineScope(
-            Dispatchers.IO + SupervisorJob(),
-        )
+    private val ioScope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val connectionMap =
         Caffeine
@@ -175,6 +174,7 @@ class NodeConnectionManager(
             session
                 .incoming
                 .consumeAsFlow()
+                .filterIsInstance<Frame.Binary>()
                 .onStart { logger.info { "Connected to ${node.publicUri} ${node.publicKey}" } }
                 .onCompletion { cause -> logger.info(cause) { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
