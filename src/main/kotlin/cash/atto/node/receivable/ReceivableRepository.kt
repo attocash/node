@@ -5,7 +5,6 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.AttoRepository
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.Scheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach

@@ -9,12 +9,11 @@ import java.time.Instant
 
 @Component
 class NetworkHealthIndicator(
-    private val connectionManager: NodeConnectionManager
+    private val connectionManager: NodeConnectionManager,
 ) : HealthIndicator {
     private val logger = KotlinLogging.logger {}
 
     private var lastDisconnect = Instant.now()
-
 
     override fun health(): Health =
         if (connectionManager.connectionCount > 0 || lastDisconnect > Instant.now().minus(Duration.ofMinutes(5))) {

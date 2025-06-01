@@ -21,7 +21,6 @@ import cash.atto.node.vote.VoteRejectionReason
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.priotization.VoteQueue.TransactionVote
 import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
