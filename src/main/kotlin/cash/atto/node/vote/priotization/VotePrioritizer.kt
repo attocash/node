@@ -72,9 +72,10 @@ class VotePrioritizer(
         val transaction = event.transaction
         activeElections[transaction.hash] = transaction
 
-        val unbufferedVotes = mutex.withLock {
-            voteBuffer.remove(transaction.hash)?.values
-        }
+        val unbufferedVotes =
+            mutex.withLock {
+                voteBuffer.remove(transaction.hash)?.values
+            }
 
         unbufferedVotes?.forEach {
             logger.trace { "Unbuffered vote and ready to be prioritized. $it" }
@@ -154,7 +155,7 @@ class VotePrioritizer(
         }
     }
 
-    @Scheduled(fixedDelayString = "\${atto.vote.prioritization.frequency}")
+    @Scheduled(fixedRateString = "\${atto.vote.prioritization.frequency}")
     suspend fun process() {
         mutex.withLock {
             do {

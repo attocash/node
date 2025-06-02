@@ -44,7 +44,6 @@ class ApplicationConfiguration {
         return multicaster
     }
 
-
     @Bean
     fun springShopOpenAPI(): OpenAPI =
         OpenAPI()

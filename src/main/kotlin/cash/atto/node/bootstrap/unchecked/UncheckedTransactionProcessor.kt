@@ -90,19 +90,23 @@ class UncheckedTransactionProcessorStarter(
     private val processor: UncheckedTransactionProcessor,
     private val uncheckedTransactionService: UncheckedTransactionService,
 ) {
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
+    private val mutex = Mutex()
+
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
-        do {
-            val candidateTransactions =
-                uncheckedTransactionRepository
-                    .findTopOldest(1000L)
-                    .map { it.toTransaction() }
-                    .toList()
-            val resolvedCounter = processor.process(candidateTransactions)
-            uncheckedTransactionService.cleanUp()
-            if (resolvedCounter > 0) {
-                logger.info { "Resolved $resolvedCounter transactions" }
-            }
-        } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
+        mutex.withLock {
+            do {
+                val candidateTransactions =
+                    uncheckedTransactionRepository
+                        .findTopOldest(1000L)
+                        .map { it.toTransaction() }
+                        .toList()
+                val resolvedCounter = processor.process(candidateTransactions)
+                uncheckedTransactionService.cleanUp()
+                if (resolvedCounter > 0) {
+                    logger.info { "Resolved $resolvedCounter transactions" }
+                }
+            } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
+        }
     }
 }

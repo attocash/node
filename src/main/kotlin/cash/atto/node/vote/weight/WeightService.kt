@@ -11,7 +11,7 @@ class WeightService(
     private val weightRepository: WeightRepository,
 ) {
     @Transactional
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.HOURS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     suspend fun refresh(): Flow<Weight> {
         weightRepository.deleteAll()
         weightRepository.refreshWeights()

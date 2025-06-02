@@ -21,6 +21,8 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.reactive.asFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Scheduled
@@ -41,6 +43,8 @@ class GapDiscoverer(
     private val logger = KotlinLogging.logger {}
 
     private val peers = ConcurrentHashMap.newKeySet<URI>()
+
+    private val mutex = Mutex()
 
     private val maxSize = 1_000L
     private val pointerMap =
@@ -67,20 +71,21 @@ class GapDiscoverer(
         peers.remove(node.publicUri)
     }
 
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun resolve() {
-        val peers = peers.toList()
+        mutex.withLock {
+            val peers = peers.toList()
 
-        if (peers.isEmpty()) {
-            return
-        }
+            if (peers.isEmpty()) {
+                return
+            }
 
-        val limit = maxSize - pointerMap.size
+            val limit = maxSize - pointerMap.size
 
-        val gaps =
-            databaseClient
-                .sql(
-                    """
+            val gaps =
+                databaseClient
+                    .sql(
+                        """
                         WITH max_transaction_height AS (
                             SELECT public_key, COALESCE(MAX(height), 0) AS max_height
                             FROM transaction
@@ -106,29 +111,30 @@ class GapDiscoverer(
                         ORDER BY transaction_timestamp
                         LIMIT $limit;
                 """,
-                ).map { row, _ ->
-                    GapView(
-                        AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                        row.get("start_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                        row.get("end_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                        AttoHash(row.get("expected_end_hash", ByteArray::class.java)!!),
-                    )
-                }.all()
-                .asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
+                    ).map { row, _ ->
+                        GapView(
+                            AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
+                            row.get("start_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
+                            row.get("end_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
+                            AttoHash(row.get("expected_end_hash", ByteArray::class.java)!!),
+                        )
+                    }.all()
+                    .asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
 
-        gaps.collect { view ->
-            pointerMap.computeIfAbsent(view.publicKey) {
-                val startHeight = view.startHeight()
-                val endHeight = view.endHeight()
-                val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
-                val message =
-                    DirectNetworkMessage(
-                        peers[Random.nextInt(peers.size)],
-                        request,
-                        expectedResponseCount = endHeight.value - startHeight.value + 1UL,
-                    )
-                networkMessagePublisher.publish(message)
-                TransactionPointer(startHeight, endHeight, view.expectedEndHash)
+            gaps.collect { view ->
+                pointerMap.computeIfAbsent(view.publicKey) {
+                    val startHeight = view.startHeight()
+                    val endHeight = view.endHeight()
+                    val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
+                    val message =
+                        DirectNetworkMessage(
+                            peers[Random.nextInt(peers.size)],
+                            request,
+                            expectedResponseCount = endHeight.value - startHeight.value + 1UL,
+                        )
+                    networkMessagePublisher.publish(message)
+                    TransactionPointer(startHeight, endHeight, view.expectedEndHash)
+                }
             }
         }
     }

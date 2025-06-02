@@ -126,7 +126,10 @@ class NodeConnectionManager(
         }
     }
 
-    suspend fun send(publicUri: URI, message: AttoMessage) {
+    suspend fun send(
+        publicUri: URI,
+        message: AttoMessage,
+    ) {
         val serialized = NetworkSerializer.serialize(message)
 
         logger.trace { "Sending to $publicUri $message ${serialized.toHex()}" }

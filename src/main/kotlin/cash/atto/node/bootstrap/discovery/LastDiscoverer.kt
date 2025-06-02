@@ -26,6 +26,8 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -53,22 +55,26 @@ class LastDiscoverer(
             .build<AttoHash, TransactionElection>()
             .asMap()
 
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.MINUTES)
+    private val mutex = Mutex()
+
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
         if (thisNode.isNotHistorical()) {
             return
         }
 
-        if (uncheckedTransactionRepository.count() > 0) {
-            return
+        mutex.withLock {
+            if (uncheckedTransactionRepository.count() > 0) {
+                return
+            }
+
+            val transactions = transactionRepository.getLastSample(10)
+
+            transactions
+                .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
+                .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
+                .collect { networkMessagePublisher.publish(it) }
         }
-
-        val transactions = transactionRepository.getLastSample(100)
-
-        transactions
-            .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
-            .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
-            .collect { networkMessagePublisher.publish(it) }
     }
 
     @EventListener

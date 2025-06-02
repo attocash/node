@@ -12,6 +12,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -33,6 +35,7 @@ class ElectionProcessor(
     private val buffer = Channel<ElectionConsensusReached>(Channel.UNLIMITED)
 
     private val transactionalOperator = TransactionalOperator.create(transactionManager)
+    private val mutex = Mutex()
 
     @EventListener
     fun process(event: ElectionExpiring) {
@@ -56,10 +59,12 @@ class ElectionProcessor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.MILLISECONDS)
+    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MILLISECONDS)
     suspend fun flush() {
-        while (!buffer.isEmpty) {
-            flushBatch(1_000)
+        mutex.withLock {
+            while (!buffer.isEmpty) {
+                flushBatch(1_000)
+            }
         }
     }
 

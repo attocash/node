@@ -89,7 +89,8 @@ class Guardian(
         voterMap.remove(nodeEvent.connectionSocketAddress)
     }
 
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    @Synchronized
     fun guard() {
         val newSnapshot = statisticsMap.toMap()
 

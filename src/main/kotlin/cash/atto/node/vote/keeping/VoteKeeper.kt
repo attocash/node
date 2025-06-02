@@ -85,7 +85,7 @@ class VoteKeeper(
         voteBuffer.send(Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote))
     }
 
-    @Scheduled(fixedDelay = 10, timeUnit = TimeUnit.MINUTES)
+    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)
     suspend fun keep() {
         val minimalWeight = voteWeighter.getMinimalConfirmationWeight()
         val missingVote = voteRepository.findMissingVote(minimalWeight.raw.toBigInteger())
@@ -130,7 +130,7 @@ class VoteKeeper(
         return Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote)
     }
 
-    @Scheduled(fixedDelay = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun flush() {
         do {
             val batch = mutableListOf<Vote>()
