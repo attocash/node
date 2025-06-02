@@ -16,16 +16,12 @@ import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.scheduling.annotation.EnableScheduling
-import org.springframework.scheduling.annotation.SchedulingConfigurer
-import org.springframework.scheduling.concurrent.ConcurrentTaskScheduler
-import org.springframework.scheduling.config.ScheduledTaskRegistrar
-import java.util.concurrent.Executors
 
 @ImportRuntimeHints(SpringDocWorkaround::class)
 @Configuration
 @EnableScheduling
 @AutoConfigureOrder(0)
-class ApplicationConfiguration : SchedulingConfigurer {
+class ApplicationConfiguration {
     val logger = KotlinLogging.logger {}
 
     @PostConstruct
@@ -48,24 +44,6 @@ class ApplicationConfiguration : SchedulingConfigurer {
         return multicaster
     }
 
-    override fun configureTasks(taskRegistrar: ScheduledTaskRegistrar) {
-        val platformThreadScheduler =
-            Executors.newSingleThreadScheduledExecutor { r ->
-                Thread
-                    .ofPlatform()
-                    .daemon(true)
-                    .name("atto-scheduled-task-timer")
-                    .factory()
-                    .newThread(r)
-            }
-
-        val taskScheduler = ConcurrentTaskScheduler(Executors.newVirtualThreadPerTaskExecutor(), platformThreadScheduler)
-        taskScheduler.setErrorHandler {
-            logger.error(it) { it.message }
-        }
-
-        taskRegistrar.setScheduler(taskScheduler)
-    }
 
     @Bean
     fun springShopOpenAPI(): OpenAPI =
