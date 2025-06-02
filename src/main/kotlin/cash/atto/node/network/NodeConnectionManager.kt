@@ -3,6 +3,7 @@ package cash.atto.node.network
 import cash.atto.commons.toHex
 import cash.atto.node.EventPublisher
 import cash.atto.protocol.AttoKeepAlive
+import cash.atto.protocol.AttoMessage
 import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
@@ -125,10 +126,7 @@ class NodeConnectionManager(
         }
     }
 
-    @EventListener
-    suspend fun send(networkMessage: DirectNetworkMessage<*>) {
-        val publicUri = networkMessage.publicUri
-        val message = networkMessage.payload
+    suspend fun send(publicUri: URI, message: AttoMessage) {
         val serialized = NetworkSerializer.serialize(message)
 
         logger.trace { "Sending to $publicUri $message ${serialized.toHex()}" }
@@ -141,29 +139,32 @@ class NodeConnectionManager(
     }
 
     @EventListener
-    suspend fun send(networkMessage: BroadcastNetworkMessage<*>) {
+    suspend fun send(networkMessage: DirectNetworkMessage<*>) {
+        val publicUri = networkMessage.publicUri
+        val message = networkMessage.payload
+
+        send(publicUri, message)
+    }
+
+    @EventListener
+    fun send(networkMessage: BroadcastNetworkMessage<*>) {
         val strategy = networkMessage.strategy
         val message = networkMessage.payload
-        val serialized = NetworkSerializer.serialize(message)
+
+        logger.trace { "Sending $networkMessage" }
 
         connectionMap.values
             .asSequence()
             .filter { strategy.shouldBroadcast(it.node) }
             .forEach { connection ->
                 ioScope.launch {
-                    logger.trace { "Sending to ${connection.node.publicUri} $message" }
-                    try {
-                        connection.send(serialized)
-                    } catch (e: Exception) {
-                        logger.debug(e) { "Exception during sending to ${connection.node.publicUri} $message" }
-                        connectionMap.remove(connection.node.publicUri)
-                    }
+                    send(connection.node.publicUri, message)
                 }
             }
     }
 
     @Scheduled(fixedRate = 10_000)
-    suspend fun keepAlive() {
+    fun keepAlive() {
         val sample = connectionMap.toMap().values.randomOrNull()
         val message = AttoKeepAlive(sample?.node?.publicUri)
         send(BroadcastNetworkMessage(strategy = BroadcastStrategy.EVERYONE, payload = message))
