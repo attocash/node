@@ -94,6 +94,9 @@ class UncheckedTransactionProcessorStarter(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun process() {
+        if (mutex.isLocked) {
+            return
+        }
         mutex.withLock {
             do {
                 val candidateTransactions =

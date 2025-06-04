@@ -73,6 +73,9 @@ class GapDiscoverer(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun resolve() {
+        if (mutex.isLocked) {
+            return
+        }
         mutex.withLock {
             val peers = peers.toList()
 

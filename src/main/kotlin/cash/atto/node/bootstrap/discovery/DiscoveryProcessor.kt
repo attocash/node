@@ -26,6 +26,9 @@ class DiscoveryProcessor(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun flush() {
+        if (mutex.isLocked) {
+            return
+        }
         mutex.withLock {
             do {
                 val batch = mutableListOf<UncheckedTransaction>()
