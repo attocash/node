@@ -62,13 +62,14 @@ class TransactionPrioritizer(
 
     @EventListener
     suspend fun process(event: AccountUpdated) {
-        val bufferedTransactions = mutex.withLock {
-            val hash = event.transaction.hash
+        val bufferedTransactions =
+            mutex.withLock {
+                val hash = event.transaction.hash
 
-            activeElections.remove(hash)
+                activeElections.remove(hash)
 
-            return@withLock buffer.remove(hash)?.toList() ?: emptyList()
-        }
+                return@withLock buffer.remove(hash)?.toList() ?: emptyList()
+            }
 
         bufferedTransactions.forEach {
             logger.debug { "Unbuffered $it" }

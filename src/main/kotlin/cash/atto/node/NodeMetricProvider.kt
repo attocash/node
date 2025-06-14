@@ -18,7 +18,8 @@ class NodeMetricProvider(
     @PostConstruct
     fun start() {
         val version = applicationVersion.substringBefore('-').toDoubleOrNull() ?: 0.0
-        Gauge.builder("node.version", this) { version }
+        Gauge
+            .builder("node.version", this) { version }
             .description("Information about the Atto node")
             .tags(
                 listOf(
@@ -28,9 +29,8 @@ class NodeMetricProvider(
                     Tag.of("algorithm", thisNode.algorithm.toString()),
                     Tag.of("address", AttoAddress(thisNode.algorithm, thisNode.publicKey).toString()),
                     Tag.of("features", thisNode.features.joinToString(", ")),
-                    Tag.of("test_version", version.toString())
-                )
-            )
-            .register(meterRegistry)
+                    Tag.of("test_version", version.toString()),
+                ),
+            ).register(meterRegistry)
     }
 }

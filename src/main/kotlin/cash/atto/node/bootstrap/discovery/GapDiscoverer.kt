@@ -158,7 +158,7 @@ class GapDiscoverer(
         transaction: AttoTransaction,
     ): TransactionPointer? {
         if (transaction.hash != pointer.currentHash) {
-            logger.debug { "Expecting transaction with hash ${transaction.hash} but received hash $transaction" }
+            logger.debug { "Expecting transaction with hash ${pointer.currentHash} but received hash $transaction" }
             return pointer
         }
 
