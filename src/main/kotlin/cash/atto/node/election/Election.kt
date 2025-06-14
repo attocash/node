@@ -107,7 +107,7 @@ class Election(
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
             logger.trace {
-                "Consensus reached because totalWeight($totalWeight) > minimalConfirmationWeight($minimalConfirmationWeight). " +
+                "Consensus reached because totalWeight($totalWeight) >= minimalConfirmationWeight($minimalConfirmationWeight). " +
                     "Transaction ${finalTransaction.hash} was chosen by ${votes.map { "${it.publicKey}=${it.weight}" }}."
             }
             publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
@@ -206,38 +206,33 @@ class TransactionElection(
     val transaction: Transaction,
     private val minimalConfirmationWeightProvider: () -> AttoAmount,
 ) {
-    @Volatile
-    var totalWeight = AttoAmount.MIN
-        private set
-
     internal val votes = HashMap<AttoPublicKey, Vote>()
+
+    /**
+     * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
+     * is unlikely to happen in the live environment but very likely to happen locally.
+     */
+    val totalWeight: AttoAmount
+        get() {
+            var sum = AttoAmount.MIN
+            for (vote in votes.values) {
+                val next = sum + vote.weight
+                sum = if (next < sum) AttoAmount.MAX else next
+            }
+            return sum
+        }
 
     internal fun add(vote: Vote): Boolean {
         val oldVote = votes[vote.publicKey]
-
         if (oldVote != null && oldVote.timestamp >= vote.timestamp) {
             return false
         }
 
         votes[vote.publicKey] = vote
-
-        /**
-         * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
-         * is unlikely to happen in the live environment but very likely to happen locally.
-         */
-        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
-        if (totalWeight < minimalConfirmationWeight) {
-            val remainingWeight = minimalConfirmationWeight - totalWeight
-            totalWeight += if (vote.weight < remainingWeight) vote.weight else remainingWeight
-        }
-
         return true
     }
 
-    fun isConsensusReached(): Boolean {
-        val minimalConfirmationWeight = minimalConfirmationWeightProvider.invoke()
-        return totalWeight >= minimalConfirmationWeight
-    }
+    fun isConsensusReached(): Boolean = totalWeight >= minimalConfirmationWeightProvider.invoke()
 
     internal fun remove(vote: Vote): Vote? = votes.remove(vote.publicKey)
 }
