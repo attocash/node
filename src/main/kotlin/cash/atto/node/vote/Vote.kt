@@ -84,11 +84,13 @@ data class Vote(
 data class VoteReceived(
     val publicUri: URI,
     val vote: Vote,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class VoteValidated(
     val transaction: Transaction,
     val vote: Vote,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 enum class VoteDropReason {
@@ -100,6 +102,7 @@ enum class VoteDropReason {
 data class VoteDropped(
     val vote: Vote,
     val reason: VoteDropReason,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 enum class VoteRejectionReason {
@@ -109,4 +112,5 @@ enum class VoteRejectionReason {
 data class VoteRejected(
     val reason: VoteRejectionReason,
     val vote: Vote,
+    override val timestamp: Instant = Instant.now(),
 ) : Event

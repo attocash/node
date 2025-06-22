@@ -7,8 +7,11 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
 import org.springframework.transaction.reactive.TransactionSynchronizationManager
 import reactor.core.publisher.Mono
+import java.time.Instant
 
-interface Event
+interface Event {
+    val timestamp: Instant
+}
 
 @Component
 class EventPublisher(

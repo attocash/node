@@ -62,4 +62,5 @@ data class AccountUpdated(
     val previousAccount: Account,
     val updatedAccount: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event

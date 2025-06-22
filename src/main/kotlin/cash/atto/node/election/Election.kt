@@ -240,25 +240,30 @@ class TransactionElection(
 data class ElectionStarted(
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class ElectionConsensusChanged(
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class ElectionConsensusReached(
     val account: Account,
     val transaction: Transaction,
     val votes: Collection<Vote>,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class ElectionExpiring(
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class ElectionExpired(
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event

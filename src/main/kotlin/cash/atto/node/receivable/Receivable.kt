@@ -56,4 +56,5 @@ fun AttoReceivable.toReceivable(): Receivable =
 
 data class ReceivableSaved(
     val receivable: Receivable,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
