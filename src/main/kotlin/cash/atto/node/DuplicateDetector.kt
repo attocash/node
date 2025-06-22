@@ -4,7 +4,7 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import kotlin.time.Duration
 import kotlin.time.toJavaDuration
 
-class DuplicateDetector<T>(
+class DuplicateDetector<T : Any>(
     val duration: Duration,
 ) {
     private val cache: MutableMap<T, T> =
