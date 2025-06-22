@@ -30,6 +30,8 @@ data class Transaction(
     val receivedAt: Instant = Instant.now(),
     val persistedAt: Instant? = null,
 ) : Persistable<AttoHash> {
+    companion object {}
+
     @Id
     val hash = block.hash
 
@@ -93,15 +95,18 @@ fun AttoTransaction.toTransaction(): Transaction =
 
 data class TransactionReceived(
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class TransactionDropped(
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class TransactionValidated(
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event
 
 enum class TransactionSource {
@@ -132,4 +137,5 @@ data class TransactionRejected(
     val message: String,
     val account: Account,
     val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
 ) : Event

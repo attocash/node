@@ -63,4 +63,5 @@ fun AttoAccountEntry.toEntity(): AccountEntry =
 
 data class AccountEntrySaved(
     val entry: AccountEntry,
+    override val timestamp: Instant = Instant.now(),
 ) : Event

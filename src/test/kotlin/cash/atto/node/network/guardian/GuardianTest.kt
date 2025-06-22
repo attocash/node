@@ -94,7 +94,14 @@ class GuardianTest {
         guardian.guard()
 
         // then
-        verify { eventPublisher.publish(NodeBanned(normalEvent.connectionSocketAddress.address)) }
+        verify {
+            eventPublisher.publish(
+                match { event ->
+                    event as NodeBanned
+                    event.address == normalEvent.connectionSocketAddress.address
+                },
+            )
+        }
     }
 
     @Test
@@ -127,7 +134,14 @@ class GuardianTest {
         guardian.guard()
 
         // then
-        verify { eventPublisher.publish(NodeBanned(normalEvent.connectionSocketAddress.address)) }
+        verify {
+            eventPublisher.publish(
+                match { event ->
+                    event as NodeBanned
+                    event.address == normalEvent.connectionSocketAddress.address
+                },
+            )
+        }
     }
 
     @Test
