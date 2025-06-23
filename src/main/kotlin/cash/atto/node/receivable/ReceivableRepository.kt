@@ -49,8 +49,8 @@ interface ReceivableCrudRepository :
     override suspend fun delete(hash: AttoHash): Int
 
     @Modifying
-    @Query("DELETE FROM receivable r WHERE r.hash in (:hash)")
-    override suspend fun deleteAllByHash(hashes: Iterable<AttoHash>): Int
+    @Query("DELETE FROM receivable r WHERE r.hash in (:ids)")
+    override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int
 
     @Query(
         """
@@ -122,9 +122,9 @@ class ReceivableCachedRepository(
         return receivableCrudRepository.delete(hash)
     }
 
-    override suspend fun deleteAllByHash(hashes: Iterable<AttoHash>): Int {
-        hashes.forEach { cache.remove(it) }
-        return receivableCrudRepository.deleteAllByHash(hashes)
+    override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int {
+        ids.forEach { cache.remove(it) }
+        return receivableCrudRepository.deleteAllByHash(ids)
     }
 
     override suspend fun findById(id: AttoHash): Receivable? = cache[id] ?: receivableCrudRepository.findById(id)

@@ -12,7 +12,7 @@ import org.springframework.stereotype.Component
 @Component
 class NodeMetricProvider(
     private val thisNode: AttoNode,
-    @Value("\${spring.application.version:local}") private val applicationVersion: String,
+    @param:Value("\${spring.application.version:local}") private val applicationVersion: String,
     private val meterRegistry: MeterRegistry,
 ) {
     @PostConstruct

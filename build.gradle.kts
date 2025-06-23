@@ -1,7 +1,7 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    val kotlinVersion = "2.1.21"
+    val kotlinVersion = "2.2.0"
 
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
@@ -118,10 +118,9 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers")
 }
 
-tasks.withType<KotlinCompile> {
-    kotlinOptions {
-        freeCompilerArgs = listOf("-Xjsr305=strict", "-Xjvm-default=all")
-        jvmTarget = "21"
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 

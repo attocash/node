@@ -140,21 +140,27 @@ class ReceivableController(
 
     @Schema(name = "AttoReceivable", description = "Represents an Atto transaction")
     internal data class AttoReceivableExample(
-        @Schema(description = "Transaction hash", example = "0AF0F63BFE4DBC588F95FC3B154DE848AA9A5DD5604BAC99AE9E21C5EA8B4F64")
+        @param:Schema(description = "Transaction hash", example = "0AF0F63BFE4DBC588F95FC3B154DE848AA9A5DD5604BAC99AE9E21C5EA8B4F64")
         val hash: String,
-        @Schema(description = "Version", example = "0")
+        @param:Schema(description = "Version", example = "0")
         val version: Int,
-        @Schema(description = "Algorithm", example = "V1")
+        @param:Schema(description = "Algorithm", example = "V1")
         val algorithm: AttoAlgorithm,
-        @Schema(description = "Public key of the sender", example = "53F1A85D25EDA5021C01A77A2B1BA99CEF9DD5FD912D7465B8B652FDEDB6A4F8")
+        @param:Schema(
+            description = "Public key of the sender",
+            example = "53F1A85D25EDA5021C01A77A2B1BA99CEF9DD5FD912D7465B8B652FDEDB6A4F8",
+        )
         val publicKey: String,
-        @Schema(description = "Timestamp of the send transaction", example = "1705517157478")
+        @param:Schema(description = "Timestamp of the send transaction", example = "1705517157478")
         val timestamp: Instant,
-        @Schema(description = "Algorithm used by the receiver", example = "V1")
+        @param:Schema(description = "Algorithm used by the receiver", example = "V1")
         val receiverAlgorithm: AttoAlgorithm,
-        @Schema(description = "Public key of the receiver", example = "0C400961629D759176F009249A33899440900ABCE275F6C5C01C6F7F37A2C59A")
+        @param:Schema(
+            description = "Public key of the receiver",
+            example = "0C400961629D759176F009249A33899440900ABCE275F6C5C01C6F7F37A2C59A",
+        )
         val receiverPublicKey: String,
-        @Schema(description = "Amount", example = "18000000000000000000")
+        @param:Schema(description = "Amount", example = "18000000000000000000")
         val amount: BigDecimal,
     )
 }
