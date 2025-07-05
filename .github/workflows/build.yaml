@@ -17,9 +17,8 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: '21'
+          java-version: '24'
           native-image-musl: true
-          components: 'native-image'
           cache: 'gradle'
 
       - uses: gradle/actions/setup-gradle@v4
