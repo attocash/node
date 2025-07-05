@@ -8,7 +8,6 @@ plugins {
     kotlin("plugin.spring") version kotlinVersion
 
     id("org.springframework.boot") version "3.5.3"
-    id("io.spring.dependency-management") version "1.1.7"
     id("org.graalvm.buildtools.native") version "0.10.6"
     id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
 }
@@ -51,6 +50,8 @@ dependencies {
     implementation("cash.atto:commons-node:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
     implementation("cash.atto:commons-signer-remote:$commonsVersion")
+
+    implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
 
