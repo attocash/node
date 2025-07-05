@@ -176,7 +176,7 @@ class PublicKeyHeightElection(
     fun add(vote: Vote): Boolean {
         val transactionElection =
             transactionElectionMap[vote.blockHash]
-                ?: throw IllegalStateException("No election for block ${vote.blockHash}")
+                ?: return false
 
         if (!transactionElection.add(vote)) {
             return false
