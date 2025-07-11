@@ -9,7 +9,7 @@ plugins {
 
     id("org.springframework.boot") version "3.5.3"
     id("org.graalvm.buildtools.native") version "0.10.6"
-    id("org.jlleitschuh.gradle.ktlint") version "12.3.0"
+    id("org.jlleitschuh.gradle.ktlint") version "13.0.0"
 }
 
 group = "cash.atto"
