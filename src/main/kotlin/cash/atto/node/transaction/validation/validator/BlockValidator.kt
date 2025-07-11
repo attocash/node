@@ -8,9 +8,11 @@ import cash.atto.node.transaction.validation.TransactionValidator
 import cash.atto.node.transaction.validation.TransactionViolation
 import cash.atto.protocol.AttoNode
 import kotlinx.datetime.toJavaInstant
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 @Component
+@Order(0)
 class BlockValidator(
     val node: AttoNode,
 ) : TransactionValidator {
