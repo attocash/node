@@ -6,9 +6,11 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.validation.TransactionValidator
 import cash.atto.node.transaction.validation.TransactionViolation
+import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
 @Component
+@Order(2)
 class SendValidator : TransactionValidator {
     override fun supports(transaction: Transaction): Boolean = transaction.block is AttoSendBlock
 

@@ -9,12 +9,15 @@ import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.PublicKeyHeight
 import cash.atto.node.transaction.Transaction
+import cash.atto.node.transaction.TransactionRejected
+import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
@@ -45,6 +48,7 @@ class ElectionVoter(
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
     private val messagePublisher: NetworkMessagePublisher,
+    private val accountRepository: AccountRepository,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -142,12 +146,31 @@ class ElectionVoter(
         }
 
     @EventListener
-    suspend fun process(event: AccountUpdated) =
-        mutex.withLock {
-            if (event.source == TransactionSource.ELECTION) {
-                vote(event.transaction, finalVoteTimestamp)
-            }
+    suspend fun process(event: AccountUpdated) {
+        if (event.source != TransactionSource.ELECTION) {
+            return
         }
+
+        mutex.withLock {
+            vote(event.transaction, finalVoteTimestamp)
+        }
+    }
+
+    @EventListener
+    suspend fun process(event: TransactionRejected) {
+        if (event.reason != TransactionRejectionReason.OLD_TRANSACTION) {
+            return
+        }
+
+        val account = accountRepository.findById(event.transaction.publicKey)
+        if (account?.lastTransactionHash != event.transaction.hash) {
+            return
+        }
+
+        mutex.withLock {
+            vote(event.transaction, finalVoteTimestamp)
+        }
+    }
 
     /**
      * During the election phase, multiple transactions at the same height can trigger a flurry of votes,

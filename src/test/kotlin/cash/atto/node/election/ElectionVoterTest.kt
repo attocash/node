@@ -13,15 +13,19 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
+import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.Transaction
+import cash.atto.node.transaction.TransactionRejected
+import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.RelaxedMockK
@@ -54,6 +58,9 @@ class ElectionVoterTest {
 
     @RelaxedMockK
     lateinit var account: Account
+
+    @RelaxedMockK
+    lateinit var accountRepository: AccountRepository
 
     @InjectMockKs
     lateinit var electionVoter: ElectionVoter
@@ -214,6 +221,38 @@ class ElectionVoterTest {
             )
         }
         verify {
+            eventPublisher.publish(
+                match { event ->
+                    event as VoteValidated
+                    event.transaction == transaction
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `should send final vote when receive a old transaction`() {
+        // given
+        val transaction = Transaction.sample()
+        every { account.publicKey } returns transaction.publicKey
+        every { account.lastTransactionHash } returns transaction.hash
+        coEvery { accountRepository.findById(transaction.publicKey) } returns account
+
+        // when
+        runBlocking {
+            electionVoter.process(TransactionRejected(TransactionRejectionReason.OLD_TRANSACTION, "Test", account, transaction))
+        }
+
+        // then
+        verify(exactly = 1) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.EVERYONE
+                },
+            )
+        }
+        verify(exactly = 1) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
