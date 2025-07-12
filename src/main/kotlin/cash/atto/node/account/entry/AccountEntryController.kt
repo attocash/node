@@ -6,7 +6,8 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoBlockType
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.node.AttoNodeOperations
+import cash.atto.commons.node.AccountHeightSearch
+import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.CacheSupport
 import cash.atto.node.sortByHeight
@@ -133,11 +134,11 @@ class AccountEntryController(
     )
     @PostMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun streamMultiple(
-        @RequestBody search: AttoNodeOperations.HeightSearch,
+        @RequestBody search: HeightSearch,
     ): Flow<AttoAccountEntry> {
         val accountRanges = search.search
 
-        if (accountRanges.any { it.fromHeight == 0UL }) {
+        if (accountRanges.any { it.fromHeight == 0UL.toAttoHeight() }) {
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
         }
         if (accountRanges.any { it.fromHeight > it.toHeight }) {
@@ -146,17 +147,17 @@ class AccountEntryController(
 
         val accountFlows =
             accountRanges.map { range ->
-                val publicKey = AttoAddress.parsePath(range.address).publicKey
-                val fromHeight = range.fromHeight.toAttoHeight()
-                val toHeight = range.toHeight.toAttoHeight()
+                val publicKey = range.address.publicKey
+                val fromHeight = range.fromHeight
+                val toHeight = range.toHeight
                 val expectedCount =
                     (range.toHeight - range.fromHeight + 1UL).let {
-                        if (it > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else it.toInt()
+                        if (it.value > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else it.value.toInt()
                     }
 
                 val dbFlow =
                     repository
-                        .findAsc(publicKey, range.fromHeight.toBigInteger(), range.toHeight.toBigInteger())
+                        .findAsc(publicKey, range.fromHeight.value.toBigInteger(), range.toHeight.value.toBigInteger())
                         .map { it.toAtto() }
 
                 val liveFlow =
@@ -198,8 +199,12 @@ class AccountEntryController(
         @RequestParam(required = false) toHeight: ULong?,
     ): Flow<AttoAccountEntry> {
         val transactionSearch =
-            AttoNodeOperations.AccountHeightSearch(AttoAddress(AttoAlgorithm.V1, publicKey).path, fromHeight, toHeight ?: ULong.MAX_VALUE)
-        val search = AttoNodeOperations.HeightSearch(listOf(transactionSearch))
+            AccountHeightSearch(
+                AttoAddress(AttoAlgorithm.V1, publicKey),
+                fromHeight.toAttoHeight(),
+                (toHeight ?: ULong.MAX_VALUE).toAttoHeight(),
+            )
+        val search = HeightSearch(listOf(transactionSearch))
         return streamMultiple(search)
     }
 

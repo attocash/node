@@ -5,7 +5,7 @@ import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.node.AttoNodeOperations
+import cash.atto.commons.node.AccountSearch
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.forwardHeightBy
@@ -96,9 +96,9 @@ class AccountController(
         ],
     )
     fun get(
-        @RequestBody search: AttoNodeOperations.AccountSearch,
+        @RequestBody search: AccountSearch,
     ): Flow<AttoAccount> {
-        val publicKeys = search.addresses.map { AttoAddress.parsePath(it).publicKey }
+        val publicKeys = search.addresses.map { it.publicKey }
 
         return publicKeys
             .chunked(1_000)
@@ -127,7 +127,7 @@ class AccountController(
     suspend fun get(
         @PathVariable publicKey: AttoPublicKey,
     ): ResponseEntity<AttoAccount> {
-        val account = get(AttoNodeOperations.AccountSearch(setOf(AttoAddress(AttoAlgorithm.V1, publicKey).path))).firstOrNull()
+        val account = get(AccountSearch(setOf(AttoAddress(AttoAlgorithm.V1, publicKey)))).firstOrNull()
         return ResponseEntity.ofNullable(account)
     }
 
@@ -145,7 +145,7 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(search: AttoNodeOperations.AccountSearch): Flow<AttoAccount> {
+    suspend fun stream(search: AccountSearch): Flow<AttoAccount> {
         val addresses = search.addresses.toSet()
 
         val accountDatabaseFlow =
@@ -153,7 +153,7 @@ class AccountController(
                 val publicKeys =
                     search.addresses
                         .asSequence()
-                        .map { AttoAddress.parsePath(it).publicKey }
+                        .map { it.publicKey }
                         .toSet()
 
                 publicKeys.chunked(1000).forEach { chunk ->
@@ -166,7 +166,7 @@ class AccountController(
 
         val accountUpdateFlow =
             accountFlow
-                .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey).path) }
+                .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
 
         return merge(accountDatabaseFlow, accountUpdateFlow)
             .forwardHeightBy { it.address }
@@ -192,7 +192,7 @@ class AccountController(
         @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AttoNodeOperations.AccountSearch(setOf(address.path)))
+        return stream(AccountSearch(setOf(address)))
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

@@ -112,7 +112,7 @@ internal class BlockValidatorTest {
     fun `should return INVALID_VERSION when account height is after transaction height`() =
         runBlocking {
             // when
-            val violation = validator.validate(account.copy(version = account.version + 1U), transaction)
+            val violation = validator.validate(account.copy(version = (account.version.value + 1U).toAttoVersion()), transaction)
 
             // then
             assertEquals(TransactionRejectionReason.INVALID_VERSION, violation?.reason)
