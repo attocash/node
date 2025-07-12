@@ -12,3 +12,10 @@ class AttoVersionToShortSerializerDBConverter : DBConverter<AttoVersion, Short> 
 class ShortToAttoVersionDeserializerDBConverter : DBConverter<Short, AttoVersion> {
     override fun convert(source: Short): AttoVersion = AttoVersion(source.toUShort())
 }
+
+@Component
+class IntegerToAttoVersionDeserializerDBConverter : DBConverter<Integer, AttoVersion> {
+    override fun convert(source: Integer): AttoVersion = AttoVersion(source.toShort().toUShort())
+}
+
+

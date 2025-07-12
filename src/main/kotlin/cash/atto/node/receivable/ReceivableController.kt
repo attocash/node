@@ -6,7 +6,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
-import cash.atto.commons.node.AttoNodeOperations
+import cash.atto.commons.node.AccountSearch
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -75,10 +75,10 @@ class ReceivableController(
         ],
     )
     suspend fun stream(
-        @RequestBody search: AttoNodeOperations.AccountSearch,
+        @RequestBody search: AccountSearch,
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
-        val publicKeys = search.addresses.map { AttoAddress.parsePath(it).publicKey }.toSet()
+        val publicKeys = search.addresses.map { it.publicKey }.toSet()
 
         val receivableDatabaseFlow =
             flow {
@@ -135,7 +135,7 @@ class ReceivableController(
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AttoNodeOperations.AccountSearch(listOf(address.path)), minAmount)
+        return stream(AccountSearch(listOf(address)), minAmount)
     }
 
     @Schema(name = "AttoReceivable", description = "Represents an Atto transaction")
