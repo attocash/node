@@ -86,7 +86,7 @@ class SpringDocWorkaround2 : RuntimeHintsRegistrar {
         )
 
         hints.reflection().registerType(
-            TypeReference.of("[Lcash.atto.commons.AttoTransaction;"),
+            TypeReference.of("cash.atto.commons.AttoTransaction[]"),
             MemberCategory.UNSAFE_ALLOCATED
         )
     }
