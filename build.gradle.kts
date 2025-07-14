@@ -44,7 +44,7 @@ dependencies {
     val commonsVersion = "5.1.0"
     val cucumberVersion = "7.25.0"
     val springdocVersion = "2.8.9"
-    val ktorVersion = "3.2.1"
+    val ktorVersion = "3.2.2"
 
     implementation("cash.atto:commons-core:$commonsVersion")
     implementation("cash.atto:commons-node:$commonsVersion")
