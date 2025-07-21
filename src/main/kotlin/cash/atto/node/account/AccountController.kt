@@ -215,7 +215,7 @@ class AccountController(
             schema =
                 Schema(
                     description = "Atto address",
-                    example = "atto://...",
+                    example = "address without atto://",
                 ),
         )
         val addresses: Collection<String>,

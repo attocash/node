@@ -228,7 +228,7 @@ class AccountEntryController(
     data class AccountHeightSearchSample(
         @param:Schema(
             description = "Address of the account",
-            example = "atto://...",
+            example = "address without atto://",
         )
         val address: String,
         @param:Schema(
