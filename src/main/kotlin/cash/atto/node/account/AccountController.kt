@@ -214,8 +214,8 @@ class AccountController(
         @field:ArraySchema(
             schema =
                 Schema(
-                    description = "Atto address",
-                    example = "address without atto://",
+                    description = "Address of the account (without atto://)",
+                    example = "adwmbykpqs3mgbqogizzwm6arokkcmuxium7rbh343drwd2q5om6vj3jrfiyk",
                 ),
         )
         val addresses: Collection<String>,
