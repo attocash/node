@@ -12,6 +12,7 @@ import cash.atto.node.forwardHeightBy
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.media.ArraySchema
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -84,6 +85,14 @@ class AccountController(
     @PostMapping
     @Operation(
         summary = "Get accounts for given addresses",
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = [
+                    Content(
+                        schema = Schema(implementation = AccountSearchSample::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -199,6 +208,18 @@ class AccountController(
     override fun clear() {
         accountFlow.resetReplayCache()
     }
+
+    @Schema(name = "AccountSearch", description = "List of addresses")
+    data class AccountSearchSample(
+        @field:ArraySchema(
+            schema =
+                Schema(
+                    description = "Atto address",
+                    example = "atto://...",
+                ),
+        )
+        val addresses: Collection<String>,
+    )
 
     @Schema(name = "AttoAccount", description = "Represents an Atto account")
     internal data class AttoAccountExample(

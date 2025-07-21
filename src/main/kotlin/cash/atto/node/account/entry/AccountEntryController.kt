@@ -120,6 +120,14 @@ class AccountEntryController(
 
     @Operation(
         summary = "Stream account entries by height range",
+        requestBody =
+            io.swagger.v3.oas.annotations.parameters.RequestBody(
+                content = [
+                    Content(
+                        schema = Schema(implementation = HeightSearchSample::class),
+                    ),
+                ],
+            ),
         responses = [
             ApiResponse(
                 responseCode = "200",
@@ -212,6 +220,36 @@ class AccountEntryController(
     override fun clear() {
         entryFlow.resetReplayCache()
     }
+
+    @Schema(
+        name = "AccountHeightSearch",
+        description = "Account height range to be searched",
+    )
+    data class AccountHeightSearchSample(
+        @param:Schema(
+            description = "Address of the account",
+            example = "atto://...",
+        )
+        val address: String,
+        @param:Schema(
+            description = "From height (inclusive), normally last seen height + 1",
+            example = "0",
+        )
+        val fromHeight: Long,
+        @param:Schema(
+            description = "To height (inclusive)",
+            example = "0",
+        )
+        val toHeight: Long,
+    )
+
+    @Schema(
+        name = "HeightSearch",
+        description = "List of account heights to be searched",
+    )
+    data class HeightSearchSample(
+        val search: Collection<AccountHeightSearchSample>,
+    )
 
     @Schema(
         name = "AttoAccountEntry",
