@@ -12,6 +12,7 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
+import cash.atto.node.election.ElectionExpired
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
@@ -73,10 +74,21 @@ class TransactionController(
     private val useXForwardedForKey = "X-FORWARDED-FOR"
 
     private val transactionFlow = MutableSharedFlow<AttoTransaction>()
+    private val rejectionFlow = MutableSharedFlow<Rejection>()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
         transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
+    }
+
+    @EventListener
+    suspend fun process(rejection: TransactionRejected) {
+        rejectionFlow.emit(Rejection(rejection.transaction, rejection.reason.toString(), rejection.message))
+    }
+
+    @EventListener
+    suspend fun process(expired: ElectionExpired) {
+        rejectionFlow.emit(Rejection(expired.transaction, "ELECTION_EXPIRED", "Election took too long"))
     }
 
     @Operation(
@@ -320,10 +332,31 @@ class TransactionController(
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
-    ): Flow<AttoTransaction> =
-        stream(transaction.hash)
-            .onStart { publish(transaction, request) }
+    ): Flow<AttoTransaction> {
+        val rejectionErrorFlow =
+            rejectionFlow
+                .filter { it.transaction.hash == transaction.hash }
+                .map<Rejection, AttoTransaction> { rejection ->
+                    throw ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Transaction rejected due to ${rejection.reason}: ${rejection.message}",
+                    )
+                }
+
+        val successStream =
+            stream(transaction.hash)
+                .onStart { publish(transaction, request) }
+
+        return merge(rejectionErrorFlow, successStream)
+            .take(1)
             .timeout(40.seconds)
+    }
+
+    private class Rejection(
+        val transaction: Transaction,
+        val reason: String,
+        val message: String,
+    )
 
     @Schema(name = "AttoBlock", description = "Base type for all block variants")
     @JsonTypeInfo(
