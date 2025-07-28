@@ -71,15 +71,13 @@ class AccountCachedRepository(
 
     override fun saveAll(entities: List<Account>): Flow<Account> =
         accountCrudRepository.saveAll(entities).onEach { saved ->
-            cache[saved.publicKey] =
-                saved.copy(
-                    persistedAt = saved.persistedAt ?: Instant.now(),
-                    updatedAt = Instant.now(),
-                )
-
             executeAfterCompletion { status ->
-                if (status != TransactionSynchronization.STATUS_COMMITTED) {
-                    cache.remove(saved.publicKey)
+                if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    cache[saved.publicKey] =
+                        saved.copy(
+                            persistedAt = saved.persistedAt ?: Instant.now(),
+                            updatedAt = Instant.now(),
+                        )
                 }
             }
         }

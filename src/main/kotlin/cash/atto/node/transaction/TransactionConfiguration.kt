@@ -43,7 +43,7 @@ class TransactionConfiguration(
         signer: AttoSigner,
         thisNode: AttoNode,
         transactionManager: ReactiveTransactionManager,
-        ): Transaction {
+    ): Transaction {
         val genesis = properties.genesis
 
         val genesisTransaction =
@@ -63,7 +63,7 @@ class TransactionConfiguration(
             throw IllegalStateException("${genesisTransaction.block.network} is an invalid genesis network: ${properties.genesis}")
         }
 
-         val transactionalOperator = TransactionalOperator.create(transactionManager)
+        val transactionalOperator = TransactionalOperator.create(transactionManager)
 
         runBlocking {
             transactionalOperator.executeAndAwait {
@@ -71,14 +71,13 @@ class TransactionConfiguration(
             }
         }
 
-
         return genesisTransaction
     }
 
-    private suspend fun initializeDatabase(
+    internal suspend fun initializeDatabase(
         genesisTransaction: Transaction,
         thisNode: AttoNode,
-    )  {
+    ) {
         val anyAccountChange = transactionRepository.getLastSample(1).toList()
         if (anyAccountChange.isEmpty()) {
             val block = genesisTransaction.block as AttoOpenBlock

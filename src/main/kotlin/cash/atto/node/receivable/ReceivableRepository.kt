@@ -95,11 +95,9 @@ class ReceivableCachedRepository(
     override suspend fun save(entity: Receivable): Receivable {
         val saved = receivableCrudRepository.save(entity)
 
-        cache[entity.hash] = saved.copy(persistedAt = Instant.now())
-
         executeAfterCompletion { status ->
-            if (status != TransactionSynchronization.STATUS_COMMITTED) {
-                cache.remove(entity.hash)
+            if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                cache[entity.hash] = saved.copy(persistedAt = Instant.now())
             }
         }
 
