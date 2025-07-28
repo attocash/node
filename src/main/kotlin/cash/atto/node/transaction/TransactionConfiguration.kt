@@ -23,6 +23,9 @@ import kotlinx.datetime.toJavaInstant
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
+import org.springframework.transaction.ReactiveTransactionManager
+import org.springframework.transaction.reactive.TransactionalOperator
+import org.springframework.transaction.reactive.executeAndAwait
 import java.time.Instant
 
 @Configuration
@@ -39,7 +42,8 @@ class TransactionConfiguration(
         properties: TransactionProperties,
         signer: AttoSigner,
         thisNode: AttoNode,
-    ): Transaction {
+        transactionManager: ReactiveTransactionManager,
+        ): Transaction {
         val genesis = properties.genesis
 
         val genesisTransaction =
@@ -59,15 +63,22 @@ class TransactionConfiguration(
             throw IllegalStateException("${genesisTransaction.block.network} is an invalid genesis network: ${properties.genesis}")
         }
 
-        initializeDatabase(genesisTransaction, thisNode)
+         val transactionalOperator = TransactionalOperator.create(transactionManager)
+
+        runBlocking {
+            transactionalOperator.executeAndAwait {
+                initializeDatabase(genesisTransaction, thisNode)
+            }
+        }
+
 
         return genesisTransaction
     }
 
-    fun initializeDatabase(
+    private suspend fun initializeDatabase(
         genesisTransaction: Transaction,
         thisNode: AttoNode,
-    ) = runBlocking {
+    )  {
         val anyAccountChange = transactionRepository.getLastSample(1).toList()
         if (anyAccountChange.isEmpty()) {
             val block = genesisTransaction.block as AttoOpenBlock
