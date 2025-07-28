@@ -174,8 +174,7 @@ class LastDiscoverer(
         }
     }
 
-    @EventListener
-    suspend fun startElection(transaction: Transaction) {
+    private suspend fun startElection(transaction: Transaction) {
         eventPublisher.publish(TransactionReceived(transaction))
     }
 }
