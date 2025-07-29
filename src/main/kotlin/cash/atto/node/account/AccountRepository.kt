@@ -64,7 +64,12 @@ class AccountCachedRepository(
             }
             executeAfterCompletion { status ->
                 if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    cache[saved.publicKey] = saved
+                    cache.compute(saved.publicKey) { _, existingValue ->
+                        if (existingValue != null && existingValue.height > saved.height) {
+                            existingValue
+                        }
+                        saved
+                    }
                 }
             }
         }
