@@ -7,8 +7,11 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
+import cash.atto.node.executeAfterCompletion
+import cash.atto.node.getCurrentTransaction
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
@@ -20,13 +23,9 @@ import java.time.Duration
 import java.time.Instant
 
 interface AccountRepository : AttoRepository {
-    suspend fun save(entity: Account): Account
-
     fun saveAll(entities: List<Account>): Flow<Account>
 
     suspend fun findById(id: AttoPublicKey): Account?
-
-    fun findAllById(ids: Set<AttoPublicKey>): Flow<Account>
 
     fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account>
 }
@@ -51,67 +50,45 @@ class AccountCachedRepository(
             .build<AttoPublicKey, Account>()
             .asMap()
 
-    override suspend fun save(entity: Account): Account {
-        val saved = accountCrudRepository.save(entity)
-
-        cache[entity.publicKey] =
-            saved.copy(
-                persistedAt = entity.persistedAt ?: Instant.now(),
-                updatedAt = Instant.now(),
-            )
-
-        executeAfterCompletion { status ->
-            if (status != TransactionSynchronization.STATUS_COMMITTED) {
-                cache.remove(entity.publicKey)
-            }
-        }
-
-        return saved
-    }
-
     override fun saveAll(entities: List<Account>): Flow<Account> =
-        accountCrudRepository.saveAll(entities).onEach { saved ->
+        accountCrudRepository.saveAll(entities).onEach { it ->
+            val saved =
+                it.copy(
+                    persistedAt = it.persistedAt ?: Instant.now(),
+                    updatedAt = Instant.now(),
+                )
+
+            getCurrentTransaction()!!.apply {
+                this.unbindResourceIfPossible(saved.publicKey)
+                this.bindResource(saved.publicKey, saved)
+            }
             executeAfterCompletion { status ->
                 if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    cache[saved.publicKey] =
-                        saved.copy(
-                            persistedAt = saved.persistedAt ?: Instant.now(),
-                            updatedAt = Instant.now(),
-                        )
+                    cache[saved.publicKey] = saved
                 }
             }
         }
 
-    override suspend fun findById(id: AttoPublicKey): Account? = cache[id] ?: accountCrudRepository.findById(id)
-
-    override fun findAllById(ids: Set<AttoPublicKey>): Flow<Account> =
-        flow {
-            val missingIds = mutableListOf<AttoPublicKey>()
-
-            ids.forEach { id ->
-                val cachedAccount = cache[id]
-                if (cachedAccount != null) {
-                    emit(cachedAccount)
-                } else {
-                    missingIds.add(id)
-                }
-            }
-
-            val accounts = accountCrudRepository.findAllById(missingIds)
-            accounts.collect { emit(it) }
-        }
+    override suspend fun findById(id: AttoPublicKey): Account? = findAllById(listOf(id)).firstOrNull()
 
     override fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account> =
         flow {
             val missing = mutableListOf<AttoPublicKey>()
 
             for (id in ids) {
+                val transactionalCached = getCurrentTransaction()?.getResource(id) as Account?
+                if (transactionalCached != null) {
+                    emit(transactionalCached)
+                    continue
+                }
+
                 val cached = cache[id]
                 if (cached != null) {
                     emit(cached)
-                } else {
-                    missing += id
+                    continue
                 }
+
+                missing += id
             }
 
             if (missing.isNotEmpty()) {

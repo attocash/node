@@ -11,7 +11,6 @@ import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
@@ -90,11 +89,7 @@ class ElectionProcessor(
                 }
             }
         } catch (e: Exception) {
-            events.forEach {
-                buffer.send(it)
-            }
-            delay(10_000)
-            throw e
+            throw RuntimeException("Error while processing ${events.map { it.transaction.hash }}", e)
         }
     }
 }

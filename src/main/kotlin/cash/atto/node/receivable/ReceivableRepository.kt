@@ -4,8 +4,11 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.AttoRepository
+import cash.atto.node.executeAfterCompletion
+import cash.atto.node.getCurrentTransaction
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
@@ -18,11 +21,7 @@ import java.time.Duration
 import java.time.Instant
 
 interface ReceivableRepository : AttoRepository {
-    suspend fun save(entity: Receivable): Receivable
-
     suspend fun saveAll(entities: Iterable<Receivable>): Flow<Receivable>
-
-    suspend fun delete(hash: AttoHash): Int
 
     suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int
 
@@ -44,10 +43,6 @@ interface ReceivableRepository : AttoRepository {
 interface ReceivableCrudRepository :
     CoroutineCrudRepository<Receivable, AttoHash>,
     ReceivableRepository {
-    @Modifying
-    @Query("DELETE FROM receivable r WHERE r.hash = :hash")
-    override suspend fun delete(hash: AttoHash): Int
-
     @Modifying
     @Query("DELETE FROM receivable r WHERE r.hash in (:ids)")
     override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int
@@ -92,56 +87,49 @@ class ReceivableCachedRepository(
             .build<AttoHash, Receivable>()
             .asMap()
 
-    override suspend fun save(entity: Receivable): Receivable {
-        val saved = receivableCrudRepository.save(entity)
-
-        executeAfterCompletion { status ->
-            if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                cache[entity.hash] = saved.copy(persistedAt = Instant.now())
-            }
-        }
-
-        return saved
-    }
-
     override suspend fun saveAll(entities: Iterable<Receivable>): Flow<Receivable> =
-        receivableCrudRepository.saveAll(entities).onEach { saved ->
-            cache[saved.hash] = saved.copy(persistedAt = Instant.now())
+        receivableCrudRepository.saveAll(entities).onEach {
+            val saved = it.copy(persistedAt = Instant.now())
+
+            getCurrentTransaction()!!.apply {
+                this.unbindResourceIfPossible(saved.hash)
+                this.bindResource(saved.hash, saved)
+            }
 
             executeAfterCompletion { status ->
-                if (status != TransactionSynchronization.STATUS_COMMITTED) {
-                    cache.remove(saved.hash)
+                if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                    cache[saved.hash] = saved
                 }
             }
         }
 
-    override suspend fun delete(hash: AttoHash): Int {
-        cache.remove(hash)
-        return receivableCrudRepository.delete(hash)
-    }
-
     override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int {
-        ids.forEach { cache.remove(it) }
+        ids.forEach {
+            getCurrentTransaction()?.unbindResourceIfPossible(it)
+            cache.remove(it)
+        }
         return receivableCrudRepository.deleteAllByHash(ids)
     }
 
-    override suspend fun findById(id: AttoHash): Receivable? = cache[id] ?: receivableCrudRepository.findById(id)
+    override suspend fun findById(id: AttoHash): Receivable? = findAllById(listOf(id)).firstOrNull()
 
     override fun findAllById(ids: Iterable<AttoHash>): Flow<Receivable> =
         flow {
             val seen = mutableSetOf<AttoHash>()
 
             ids.forEach { id ->
-                cache[id]?.let {
-                    emit(it)
+                val cached = getCurrentTransaction()?.getResource(id) as Receivable? ?: cache[id]
+                if (cached != null) {
+                    emit(cached)
                     seen += id
                 }
             }
 
             val missing = ids.filterNot { it in seen }
 
-            // Emit results from the database
-            receivableCrudRepository.findAllById(missing).collect { emit(it) }
+            receivableCrudRepository
+                .findAllById(missing)
+                .collect { emit(it) }
         }
 
     override suspend fun findDesc(
