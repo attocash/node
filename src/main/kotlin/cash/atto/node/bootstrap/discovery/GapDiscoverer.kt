@@ -100,7 +100,7 @@ class GapDiscoverer(
                             expectedResponseCount = endHeight.value - startHeight.value + 1UL,
                         )
                     networkMessagePublisher.publish(message)
-                    TransactionPointer(startHeight, endHeight, view.expectedEndHash)
+                    TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
                 }
             }
         }
@@ -133,10 +133,10 @@ class GapDiscoverer(
                 logger.debug { "End of the gap reached for account ${transaction.block.publicKey}" }
                 null
             } else {
-                TransactionPointer(
-                    pointer.initialHeight,
-                    block.height - 1UL,
-                    (block as PreviousSupport).previous,
+                pointer.copy(
+                    currentHeight = block.height - 1UL,
+                    currentHash = (block as PreviousSupport).previous,
+                    timestamp = Instant.now(),
                 )
             }
 
@@ -149,7 +149,9 @@ class GapDiscoverer(
 }
 
 private data class TransactionPointer(
+    val publicKey: AttoPublicKey,
     val initialHeight: AttoHeight,
+    val finalHeight: AttoHeight,
     val currentHeight: AttoHeight,
     val currentHash: AttoHash,
     val timestamp: Instant = Instant.now(),
