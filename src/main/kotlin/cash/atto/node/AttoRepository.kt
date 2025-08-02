@@ -27,3 +27,15 @@ suspend fun executeAfterCompletion(callback: (Int) -> Unit) {
         },
     )
 }
+
+suspend fun executeAfterCommit(callback: () -> Unit) {
+    val manager = getCurrentTransaction()!!
+    manager.registerSynchronization(
+        object : TransactionSynchronization {
+            override fun afterCommit(): Mono<Void> =
+                Mono.fromRunnable {
+                    callback.invoke()
+                }
+        },
+    )
+}

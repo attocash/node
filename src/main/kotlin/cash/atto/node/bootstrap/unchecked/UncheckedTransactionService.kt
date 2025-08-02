@@ -2,10 +2,11 @@ package cash.atto.node.bootstrap.unchecked
 
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.UncheckedTransactionSaved
+import cash.atto.node.executeAfterCommit
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.springframework.dao.DuplicateKeyException
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 
@@ -21,14 +22,11 @@ class UncheckedTransactionService(
     @Transactional
     suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>) {
         mutex.withLock {
-            // TODO: save as batch
-            uncheckedTransactions.forEach {
-                try {
-                    uncheckedTransactionRepository.save(it)
-                    eventPublisher.publishAfterCommit(UncheckedTransactionSaved(it))
+            val savedTransactions = uncheckedTransactionRepository.saveAll(uncheckedTransactions).toList()
+            executeAfterCommit {
+                savedTransactions.forEach {
                     logger.debug { "Saved $it" }
-                } catch (e: DuplicateKeyException) {
-                    logger.debug { "Already exist $it" }
+                    eventPublisher.publish(UncheckedTransactionSaved(it))
                 }
             }
         }

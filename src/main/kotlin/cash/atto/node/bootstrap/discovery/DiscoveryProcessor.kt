@@ -1,5 +1,7 @@
 package cash.atto.node.bootstrap.discovery
 
+import cash.atto.commons.AttoHash
+import cash.atto.node.DuplicateDetector
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
@@ -11,16 +13,21 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.minutes
 
 @Component
 class DiscoveryProcessor(
     val uncheckedTransactionService: UncheckedTransactionService,
 ) {
     private val mutex = Mutex()
+    private val duplicateDetector = DuplicateDetector<AttoHash>(1.minutes)
     private val buffer = Channel<UncheckedTransaction>(Channel.UNLIMITED)
 
     @EventListener
     suspend fun process(event: TransactionDiscovered) {
+        if (duplicateDetector.isDuplicate(event.transaction.hash)) {
+            return
+        }
         buffer.send(event.transaction.toUncheckedTransaction())
     }
 
