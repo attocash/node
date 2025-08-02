@@ -5,10 +5,10 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.PreviousSupport
-import cash.atto.commons.toAttoHeight
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.GapView
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
@@ -20,11 +20,9 @@ import cash.atto.protocol.AttoTransactionStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.reactive.asFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
-import org.springframework.r2dbc.core.DatabaseClient
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -36,7 +34,7 @@ import kotlin.random.Random
 
 @Component
 class GapDiscoverer(
-    private val databaseClient: DatabaseClient,
+    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
 ) {
@@ -51,7 +49,7 @@ class GapDiscoverer(
         Caffeine
             .newBuilder()
             .scheduler(Scheduler.systemScheduler())
-            .expireAfterWrite(Duration.ofSeconds(10))
+            .expireAfterAccess(Duration.ofMinutes(1))
             .maximumSize(maxSize)
             .build<AttoPublicKey, TransactionPointer>()
             .asMap()
@@ -84,45 +82,11 @@ class GapDiscoverer(
             }
 
             val limit = maxSize - pointerMap.size
+            val publicKeyToExclude =
+                pointerMap.keys
+                    .ifEmpty { setOf(AttoPublicKey(ByteArray(32))) }
 
-            val gaps =
-                databaseClient
-                    .sql(
-                        """
-                        WITH max_transaction_height AS (
-                            SELECT public_key, COALESCE(MAX(height), 0) AS max_height
-                            FROM transaction
-                            GROUP BY public_key
-                        ),
-                        calculated_gaps AS (
-                            SELECT
-                                ut.public_key,
-                                GREATEST(
-                                    COALESCE(mth.max_height, 0),
-                                    COALESCE(LAG(ut.height) OVER (PARTITION BY ut.public_key ORDER BY ut.height ASC), 0)
-                                ) + 1 AS start_height,
-                                ut.height - 1 AS end_height,
-                                ut.previous AS expected_end_hash,
-                                ut.timestamp AS transaction_timestamp
-                            FROM unchecked_transaction ut
-                            LEFT JOIN max_transaction_height mth
-                                ON ut.public_key = mth.public_key
-                        )
-                        SELECT public_key, start_height, end_height, expected_end_hash
-                        FROM calculated_gaps
-                        WHERE start_height <= end_height
-                        ORDER BY transaction_timestamp
-                        LIMIT $limit;
-                """,
-                    ).map { row, _ ->
-                        GapView(
-                            AttoPublicKey(row.get("public_key", ByteArray::class.java)!!),
-                            row.get("start_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                            row.get("end_height", Long::class.javaObjectType)!!.toULong().toAttoHeight(),
-                            AttoHash(row.get("expected_end_hash", ByteArray::class.java)!!),
-                        )
-                    }.all()
-                    .asFlow() // https://github.com/spring-projects/spring-data-relational/issues/1394
+            val gaps = uncheckedTransactionRepository.findGaps(publicKeyToExclude, limit)
 
             gaps.collect { view ->
                 pointerMap.computeIfAbsent(view.publicKey) {
