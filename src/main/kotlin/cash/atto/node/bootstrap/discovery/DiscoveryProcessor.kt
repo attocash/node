@@ -20,7 +20,7 @@ class DiscoveryProcessor(
     val uncheckedTransactionService: UncheckedTransactionService,
 ) {
     private val mutex = Mutex()
-    private val duplicateDetector = DuplicateDetector<AttoHash>(2.minutes)
+    private val duplicateDetector = DuplicateDetector<AttoHash>(10.minutes)
     private val buffer = Channel<UncheckedTransaction>(Channel.UNLIMITED)
 
     @EventListener
