@@ -4,10 +4,11 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.UncheckedTransactionSaved
 import cash.atto.node.executeAfterCommit
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.toSet
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -17,26 +18,28 @@ class UncheckedTransactionService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val mutex = Mutex()
-
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>) {
-        mutex.withLock {
-            val savedTransactions = uncheckedTransactionRepository.saveAll(uncheckedTransactions).toList()
-            executeAfterCommit {
-                savedTransactions.forEach {
-                    logger.debug { "Saved $it" }
-                    eventPublisher.publish(UncheckedTransactionSaved(it))
-                }
+        val existingTransactions =
+            uncheckedTransactionRepository
+                .findAllById(uncheckedTransactions.map { it.id })
+                .map { it.hash }
+                .toSet()
+
+        val transactionsToSave = uncheckedTransactions.filter { it.hash !in existingTransactions }
+
+        val savedTransactions = uncheckedTransactionRepository.saveAll(transactionsToSave).toList()
+        executeAfterCommit {
+            savedTransactions.forEach {
+                logger.debug { "Saved $it" }
+                eventPublisher.publish(UncheckedTransactionSaved(it))
             }
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.SERIALIZABLE)
     suspend fun cleanUp() {
-        mutex.withLock {
-            val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
-            logger.debug { "Deleted $deletedCount unchecked transactions" }
-        }
+        val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
+        logger.debug { "Deleted $deletedCount unchecked transactions" }
     }
 }
