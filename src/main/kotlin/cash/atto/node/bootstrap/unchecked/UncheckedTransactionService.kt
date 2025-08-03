@@ -37,7 +37,7 @@ class UncheckedTransactionService(
         }
     }
 
-    @Transactional(isolation = Isolation.SERIALIZABLE)
+    @Transactional
     suspend fun cleanUp() {
         val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
         logger.debug { "Deleted $deletedCount unchecked transactions" }
