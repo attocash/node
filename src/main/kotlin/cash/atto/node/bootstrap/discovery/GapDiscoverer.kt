@@ -7,6 +7,7 @@ import cash.atto.commons.AttoTransaction
 import cash.atto.commons.PreviousSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
+import cash.atto.node.bootstrap.UncheckedTransactionSaved
 import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.network.DirectNetworkMessage
@@ -54,6 +55,14 @@ class GapDiscoverer(
             .build<AttoPublicKey, TransactionPointer>()
             .asMap()
 
+    private val lastCompletedGaps =
+        Caffeine
+            .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
+            .expireAfterWrite(Duration.ofMinutes(2))
+            .build<AttoPublicKey, AttoHeight>()
+            .asMap()
+
     @EventListener
     fun add(nodeEvent: NodeConnected) {
         val node = nodeEvent.node
@@ -67,6 +76,17 @@ class GapDiscoverer(
     fun remove(nodeEvent: NodeDisconnected) {
         val node = nodeEvent.node
         peers.remove(node.publicUri)
+    }
+
+    @EventListener
+    fun process(event: UncheckedTransactionSaved) {
+        lastCompletedGaps.computeIfPresent(event.transaction.publicKey) { _, lastCompleted ->
+            if (lastCompleted == event.transaction.block.height) {
+                null
+            } else {
+                lastCompleted
+            }
+        }
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
@@ -83,7 +103,7 @@ class GapDiscoverer(
 
             val limit = maxSize - pointerMap.size
             val publicKeyToExclude =
-                pointerMap.keys
+                (pointerMap.keys + lastCompletedGaps.keys)
                     .ifEmpty { setOf(AttoPublicKey(ByteArray(32))) }
 
             val gaps = uncheckedTransactionRepository.findGaps(publicKeyToExclude, limit)
@@ -141,6 +161,8 @@ class GapDiscoverer(
             }
 
         logger.debug { "Discovered gap transaction ${transaction.hash} with height ${block.height}. New pointer: $nextPointer" }
+
+        lastCompletedGaps.put(pointer.publicKey, block.height)
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
 
