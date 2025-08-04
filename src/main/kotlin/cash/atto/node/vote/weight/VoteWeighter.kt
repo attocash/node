@@ -189,7 +189,7 @@ class VoteWeighter(
         val confirmationThreshold = properties.confirmationThreshold!!.toULong()
 
         val minimalConfirmationWeight = (onlineWeight / 100UL) * confirmationThreshold
-        val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.toString().toULong()
+        val defaultMinimalConfirmationWeight = properties.minimalConfirmationWeight!!.replace("_", "").toULong()
         this.minimalConfirmationWeight = max(minimalConfirmationWeight, defaultMinimalConfirmationWeight).toAttoAmount()
 
         logger.info { "Minimal confirmation weight updated to ${this.minimalConfirmationWeight}" }
@@ -199,7 +199,7 @@ class VoteWeighter(
         } else if (onlineWeights.isNotEmpty()) {
             this.minimalRebroadcastWeight = onlineWeights.last().value
         } else {
-            this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.toString().toAttoAmount()
+            this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.replace("_", "").toAttoAmount()
         }
 
         logger.info { "Minimal rebroadcast weight updated to ${this.minimalRebroadcastWeight}" }
