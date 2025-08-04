@@ -29,7 +29,7 @@ class NodeMetricProvider(
                     Tag.of("algorithm", thisNode.algorithm.toString()),
                     Tag.of("address", AttoAddress(thisNode.algorithm, thisNode.publicKey).toString()),
                     Tag.of("features", thisNode.features.joinToString(", ")),
-                    Tag.of("test_version", version.toString()),
+                    Tag.of("version", version.toString()),
                 ),
             ).register(meterRegistry)
     }
