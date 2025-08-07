@@ -52,6 +52,7 @@ class AccountController(
     val node: AttoNode,
     val eventPublisher: EventPublisher,
     val repository: AccountRepository,
+    val crudRepository: AccountCrudRepository,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -202,6 +203,12 @@ class AccountController(
     ): Flow<AttoAccount> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
         return stream(AccountSearch(setOf(address)))
+    }
+
+
+    @GetMapping("/top")
+    suspend fun getTop100(): List<AttoAccount> {
+        return crudRepository.getTop100().map { it.toAttoAccount() }
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

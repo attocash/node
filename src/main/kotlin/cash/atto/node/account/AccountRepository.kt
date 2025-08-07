@@ -35,6 +35,11 @@ interface AccountCrudRepository :
     AccountRepository {
     @Query("SELECT COALESCE(SUM(height), 0) FROM account")
     suspend fun sumHeight(): Long
+
+
+    @Deprecated("Temporary")
+    @Query("SELECT * FROM account ORDER BY balance DESC LIMIT 100")
+    suspend fun getTop100(): List<Account>
 }
 
 @Primary
