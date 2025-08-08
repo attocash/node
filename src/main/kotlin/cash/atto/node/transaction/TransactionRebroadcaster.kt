@@ -37,9 +37,11 @@ class TransactionRebroadcaster(
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
-        broadcastQueue.seen(transaction, message.publicUri)
+        val new = broadcastQueue.seen(transaction, message.publicUri)
 
-        logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
+        if (new) {
+            logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
+        }
     }
 
     @EventListener
@@ -108,12 +110,14 @@ private class BroadcastQueue {
     fun seen(
         transaction: AttoTransaction,
         publicUri: URI,
-    ) {
-        holderMap.compute(transaction.hash) { _, v ->
-            val holder = v ?: TransactionSocketAddressHolder(transaction)
-            holder.add(publicUri)
-            holder
-        }
+    ): Boolean {
+        val holder =
+            holderMap.compute(transaction.hash) { _, v ->
+                val holder = v ?: TransactionSocketAddressHolder(transaction)
+                holder.add(publicUri)
+                holder
+            }
+        return holder!!.publicUris.isNotEmpty()
     }
 
     fun drop(hash: AttoHash) {

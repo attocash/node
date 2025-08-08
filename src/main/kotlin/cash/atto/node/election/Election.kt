@@ -116,7 +116,9 @@ class Election(
         }
 
         val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
-        logger.trace { "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader." }
+        logger.trace {
+            "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader with ${provisionalTransactionElection.totalWeight} weight."
+        }
         eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
     }
 
