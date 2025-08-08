@@ -117,7 +117,7 @@ private class BroadcastQueue {
                 holder.add(publicUri)
                 holder
             }
-        return holder!!.publicUris.isNotEmpty()
+        return holder!!.publicUris.size == 1
     }
 
     fun drop(hash: AttoHash) {
