@@ -101,8 +101,8 @@ class Election(
         val account = publicKeyHeightElection.account
 
         val consensusTransactionElection = publicKeyHeightElection.getConsensus()
+        val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
         if (consensusTransactionElection != null) {
-            val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
             val totalWeight = consensusTransactionElection.totalWeight
             val finalTransaction = consensusTransactionElection.transaction
             val votes = consensusTransactionElection.votes.values
@@ -117,7 +117,8 @@ class Election(
 
         val provisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
         logger.trace {
-            "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader with ${provisionalTransactionElection.totalWeight} weight."
+            "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader but " +
+                "totalWeight(${provisionalTransactionElection.totalWeight}) < minimalConfirmationWeight($minimalConfirmationWeight)."
         }
         eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
     }
