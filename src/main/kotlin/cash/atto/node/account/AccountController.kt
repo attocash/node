@@ -205,11 +205,8 @@ class AccountController(
         return stream(AccountSearch(setOf(address)))
     }
 
-
     @GetMapping("/top")
-    suspend fun getTop100(): List<AttoAccount> {
-        return crudRepository.getTop100().map { it.toAttoAccount() }
-    }
+    suspend fun getTop100(): List<AttoAccount> = crudRepository.getTop100().map { it.toAttoAccount() }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     override fun clear() {
