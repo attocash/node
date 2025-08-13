@@ -38,11 +38,11 @@ atto:
     public-uri: ${ATTO_PUBLIC_URI}
   transaction:
     prioritization:
-      frequency: 100
+      frequency: 1
       group-max-size: 1_000
   vote:
     prioritization:
-      frequency: 10
+      frequency: 1
       group-max-size: 1_000
       cache-max-size: 20_000
     weight:
