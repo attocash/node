@@ -86,7 +86,7 @@ class VoteRebroadcaster(
         logger.trace { "Stopped monitoring vote because event was dropped. ${event.vote}" }
     }
 
-    @Scheduled(fixedRate = 10)
+    @Scheduled(fixedRate = 100)
     suspend fun process() {
         mutex.withLock {
             do {
