@@ -157,6 +157,9 @@ class VotePrioritizer(
 
     @Scheduled(fixedRateString = "\${atto.vote.prioritization.frequency}")
     suspend fun process() {
+        if (mutex.isLocked) {
+            return
+        }
         mutex.withLock {
             do {
                 val transactionVote = queue.poll()
