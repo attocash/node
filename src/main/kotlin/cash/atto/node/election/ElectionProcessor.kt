@@ -60,6 +60,9 @@ class ElectionProcessor(
     @OptIn(ExperimentalCoroutinesApi::class)
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MILLISECONDS)
     suspend fun flush() {
+        if (mutex.isLocked) {
+            return
+        }
         mutex.withLock {
             while (!buffer.isEmpty) {
                 flushBatch(1_000)
