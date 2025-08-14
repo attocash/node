@@ -39,6 +39,11 @@ class TransactionPrioritizer(
 
     @Scheduled(fixedRateString = "\${atto.transaction.prioritization.frequency}")
     suspend fun process() {
+        val activeElectionCount = mutex.withLock { activeElections.size }
+        if (activeElectionCount >= 1000) {
+            logger.debug { "There are $activeElectionCount active elections. Skipping prioritization for now." }
+            return
+        }
         do {
             val transaction = mutex.withLock { queue.poll() }
             transaction?.let {
