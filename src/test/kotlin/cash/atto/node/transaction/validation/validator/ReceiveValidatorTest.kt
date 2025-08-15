@@ -88,7 +88,7 @@ internal class ReceiveValidatorTest {
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
-                    timestamp = block.timestamp.toJavaInstant(),
+                    timestamp = block.timestamp.toJavaInstant().minusSeconds(1),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = block.publicKey,
                     amount = block.balance - account.balance,
@@ -162,7 +162,7 @@ internal class ReceiveValidatorTest {
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
-                    timestamp = block.timestamp.toJavaInstant(),
+                    timestamp = block.timestamp.toJavaInstant().minusSeconds(1),
                     receiverAlgorithm = block.algorithm,
                     receiverPublicKey = account.publicKey,
                     amount = AttoAmount(2UL),
@@ -178,5 +178,34 @@ internal class ReceiveValidatorTest {
 
             // then
             assertEquals(TransactionRejectionReason.INVALID_BALANCE, violation?.reason)
+        }
+
+
+    @Test
+    fun `should return INVALID_TIMESTAMP when Receivable timestamp is ahead of transaction timestamp`() =
+        runBlocking {
+            // given
+            val receivable =
+                Receivable(
+                    hash = block.sendHash,
+                    version = 0U.toAttoVersion(),
+                    algorithm = AttoAlgorithm.V1,
+                    publicKey = AttoPublicKey(Random.nextBytes(32)),
+                    timestamp = block.timestamp.toJavaInstant(),
+                    receiverAlgorithm = block.algorithm,
+                    receiverPublicKey = account.publicKey,
+                    amount = block.balance - account.balance,
+                )
+
+            val receivableRepository = mockk<ReceivableRepository>()
+            coEvery { receivableRepository.findById(block.sendHash) } returns receivable
+
+            val validator = ReceiveValidator(receivableRepository)
+
+            // when
+            val violation = validator.validate(account, transaction)
+
+            // then
+            assertEquals(TransactionRejectionReason.INVALID_TIMESTAMP, violation?.reason)
         }
 }
