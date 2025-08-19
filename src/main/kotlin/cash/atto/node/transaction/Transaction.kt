@@ -117,6 +117,7 @@ enum class TransactionSource {
 enum class TransactionRejectionReason(
     val recoverable: Boolean,
 ) {
+    ALREADY_CONFIRMED(false),
     INVALID_TRANSACTION(false),
     INVALID_NETWORK(false),
     INVALID_BALANCE(false),

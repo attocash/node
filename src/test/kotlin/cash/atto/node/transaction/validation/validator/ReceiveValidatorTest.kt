@@ -180,7 +180,6 @@ internal class ReceiveValidatorTest {
             assertEquals(TransactionRejectionReason.INVALID_BALANCE, violation?.reason)
         }
 
-
     @Test
     fun `should return INVALID_TIMESTAMP when Receivable timestamp is ahead of transaction timestamp`() =
         runBlocking {

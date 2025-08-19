@@ -336,6 +336,7 @@ class TransactionController(
         val rejectionErrorFlow =
             rejectionFlow
                 .filter { it.transaction.hash == transaction.hash }
+                .filter { it.reason != TransactionRejectionReason.ALREADY_CONFIRMED.name }
                 .map<Rejection, AttoTransaction> { rejection ->
                     throw ResponseStatusException(
                         HttpStatus.BAD_REQUEST,

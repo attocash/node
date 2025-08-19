@@ -24,6 +24,13 @@ class BlockValidator(
     ): TransactionViolation? {
         val block = transaction.block
 
+        if (account.lastTransactionHash == transaction.hash) {
+            return TransactionViolation(
+                TransactionRejectionReason.ALREADY_CONFIRMED,
+                "The account ${account.publicKey} already has the transaction ${transaction.hash} confirmed.",
+            )
+        }
+
         if (account.height.toULong() < block.height.value - 1U) {
             return TransactionViolation(
                 TransactionRejectionReason.PREVIOUS_NOT_FOUND,
