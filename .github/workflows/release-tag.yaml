@@ -17,7 +17,7 @@ jobs:
     outputs:
       next-tag: ${{ steps.set-next-tag.outputs.next-tag }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - run: git fetch --tags
 
