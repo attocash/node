@@ -45,6 +45,7 @@ class VoteWeighter(
 
     private val weightMap = ConcurrentHashMap<AttoPublicKey, AttoAmount>()
     private val latestVoteMap = ConcurrentHashMap<AttoPublicKey, Vote>()
+    private lateinit var onlineWeight: AttoAmount
     private lateinit var minimalRebroadcastWeight: AttoAmount
     private lateinit var minimalConfirmationWeight: AttoAmount
 
@@ -164,6 +165,8 @@ class VoteWeighter(
 
     fun getMinimalConfirmationWeight(): AttoAmount = minimalConfirmationWeight
 
+    fun getMinimalToStaleWeight(): AttoAmount = onlineWeight - minimalConfirmationWeight
+
     fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean = minimalRebroadcastWeight <= get(publicKey)
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
@@ -178,6 +181,8 @@ class VoteWeighter(
                 .toList()
 
         val onlineWeight = onlineWeights.sumOf { it.value.raw }
+
+        this.onlineWeight = onlineWeight.toAttoAmount()
 
         logger.info { "Total online vote weight $onlineWeight" }
 

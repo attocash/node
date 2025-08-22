@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap.discovery
 
-import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
@@ -63,7 +62,7 @@ class LastDiscoverer(
             .expireAfterWrite(2, TimeUnit.MINUTES)
             .maximumSize(100_000)
             .removalListener { _: AttoHash?, election: TransactionElection?, cause ->
-                val retryThreshold = AttoAmount(voteWeighter.getMinimalConfirmationWeight().raw / 5UL)
+                val retryThreshold = voteWeighter.getMinimalToStaleWeight()
                 if (election != null && election.totalWeight >= retryThreshold) {
                     scope.launch { startElection(election.transaction) }
                 }
