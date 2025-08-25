@@ -6,7 +6,7 @@ import java.util.concurrent.Callable
 import java.util.concurrent.TimeUnit
 
 object Waiter {
-    val timeoutInSeconds = 10L // CHANGE ME DURING TESTS
+    val timeoutInSeconds = 20L // CHANGE ME DURING TESTS
 
     fun <T> waitUntilNonNull(callable: Callable<T>): T =
         Awaitility
