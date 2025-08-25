@@ -58,7 +58,7 @@ class ElectionProcessor(
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
-    @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MILLISECONDS)
+    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MILLISECONDS)
     suspend fun flush() {
         if (mutex.isLocked) {
             return
