@@ -3,7 +3,6 @@ package cash.atto.node.vote.priotization
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.AttoSignature
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
@@ -42,7 +41,7 @@ class VotePrioritizer(
 
     private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
 
-    private val duplicateDetector = DuplicateDetector<AttoSignature>(1.minutes)
+    private val duplicateDetector = DuplicateDetector<AttoHash>(1.minutes)
 
     private val rejectedTransactionCache =
         Caffeine
@@ -107,7 +106,7 @@ class VotePrioritizer(
     suspend fun add(event: VoteReceived) {
         val vote = event.vote
 
-        if (duplicateDetector.isDuplicate(vote.signature)) {
+        if (duplicateDetector.isDuplicate(vote.hash)) {
             logger.trace { "Ignored duplicated $vote" }
             return
         }
@@ -157,17 +156,12 @@ class VotePrioritizer(
 
     @Scheduled(fixedRateString = "\${atto.vote.prioritization.frequency}")
     suspend fun process() {
-        if (mutex.isLocked) {
-            return
-        }
-        mutex.withLock {
-            do {
-                val transactionVote = queue.poll()
-                transactionVote?.let {
-                    eventPublisher.publish(VoteValidated(it.transaction, it.vote))
-                }
-            } while (transactionVote != null)
-        }
+        do {
+            val transactionVote = mutex.withLock { queue.poll() }
+            transactionVote?.let {
+                eventPublisher.publish(VoteValidated(it.transaction, it.vote))
+            }
+        } while (transactionVote != null)
     }
 
     private fun validate(vote: Vote): VoteRejectionReason? {
