@@ -46,6 +46,23 @@ internal class VoteQueueTest {
             assertNull(queue.poll())
         }
 
+
+    @Test
+    fun `should allow same weight votes`() =
+        runBlocking {
+            // given
+            val transaction = mockk<Transaction>()
+            val firstVote = VoteQueue.TransactionVote(transaction, createVote(20UL))
+            val secondVote = VoteQueue.TransactionVote(transaction, createVote(20UL))
+
+            // when
+            assertNull(queue.add(firstVote))
+            assertNull(queue.add(secondVote))
+
+            // then
+            assertEquals(2, queue.getSize())
+        }
+
     private fun createVote(weight: ULong): Vote =
         Vote(
             hash = AttoHash(Random.nextBytes(ByteArray(32))),

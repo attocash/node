@@ -12,7 +12,7 @@ class VoteQueue(
 ) {
     private val hashComparator =
         Comparator<TransactionVote> { a, b ->
-            Arrays.compareUnsigned(a.vote.hash.value, a.vote.hash.value)
+            Arrays.compareUnsigned(a.vote.hash.value, b.vote.hash.value)
         }
     private val weightComparator: Comparator<TransactionVote> = comparing { it.vote.weight.raw }
 
