@@ -46,7 +46,6 @@ internal class VoteQueueTest {
             assertNull(queue.poll())
         }
 
-
     @Test
     fun `should allow same weight votes`() =
         runBlocking {
