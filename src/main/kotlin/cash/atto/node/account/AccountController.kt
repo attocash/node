@@ -155,7 +155,7 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(search: AccountSearch): Flow<AttoAccount> {
+    suspend fun stream(@RequestBody search: AccountSearch): Flow<AttoAccount> {
         val addresses = search.addresses.toSet()
 
         val accountDatabaseFlow =
