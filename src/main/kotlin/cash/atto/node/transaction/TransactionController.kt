@@ -344,11 +344,10 @@ class TransactionController(
                     )
                 }
 
-        val successStream =
-            stream(transaction.hash)
-                .onStart { publish(transaction, request) }
+        val successStream = stream(transaction.hash)
 
         return merge(rejectionErrorFlow, successStream)
+            .onStart { publish(transaction, request) }
             .take(1)
             .timeout(40.seconds)
     }
