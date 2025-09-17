@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
-    val kotlinVersion = "2.2.10"
+    val kotlinVersion = "2.2.20"
 
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
