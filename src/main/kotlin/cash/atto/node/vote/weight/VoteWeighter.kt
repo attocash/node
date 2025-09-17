@@ -165,7 +165,17 @@ class VoteWeighter(
 
     fun getMinimalConfirmationWeight(): AttoAmount = minimalConfirmationWeight
 
-    fun getMinimalToStaleWeight(): AttoAmount = onlineWeight - minimalConfirmationWeight
+    fun getMinimalToStaleWeight(): AttoAmount {
+        val onlineWeight = onlineWeight
+        val minimalConfirmationWeight = minimalConfirmationWeight
+        /*
+         * Prevent underflow during bootstrap
+         */
+        if (onlineWeight <= minimalConfirmationWeight) {
+            return minimalConfirmationWeight
+        }
+        return onlineWeight - minimalConfirmationWeight
+    }
 
     fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean = minimalRebroadcastWeight <= get(publicKey)
 
