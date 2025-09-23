@@ -24,11 +24,14 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: build-image
-        run: |
-          docker build \
-            --build-arg BASE_IMAGE_TAG=${{ github.sha }} \
-            --build-arg APPLICATION_VERSION=${{ inputs.next-tag }}-${{ inputs.image }} \
-            -t ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} \
-            -f Dockerfile.${{ inputs.image }} .
-          docker push ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.${{ inputs.image }}
+          push: true
+          tags: ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
+          build-args: |
+            BASE_IMAGE_TAG=${{ github.sha }}
+            APPLICATION_VERSION=${{ inputs.next-tag }}-${{ inputs.image }}
+          provenance: mode=max
+          sbom: true
