@@ -58,14 +58,11 @@ interface UncheckedTransactionRepository :
     @Modifying
     @Query(
         """
-            WITH hashes_to_delete AS (
-                SELECT ut.hash
-                FROM unchecked_transaction ut
-                JOIN account a ON ut.public_key = a.public_key
-                WHERE ut.height <= a.height
-            )
-            DELETE FROM unchecked_transaction
-            WHERE hash IN (SELECT hash FROM hashes_to_delete);
+            DELETE ut
+            FROM unchecked_transaction ut
+            JOIN account a
+              ON a.public_key = ut.public_key
+             AND ut.height <= a.height
         """,
     )
     suspend fun deleteExistingInTransaction(): Int
