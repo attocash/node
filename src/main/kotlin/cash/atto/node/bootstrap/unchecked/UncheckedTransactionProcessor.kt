@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.TimeUnit
 
@@ -32,7 +33,7 @@ class UncheckedTransactionProcessor(
 ) {
     private val mutex = Mutex()
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     suspend fun process(candidateTransactions: Collection<Transaction>): Int {
         if (candidateTransactions.isEmpty()) {
             return 0

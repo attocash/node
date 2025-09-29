@@ -5,6 +5,7 @@ import cash.atto.node.bootstrap.UncheckedTransactionSaved
 import cash.atto.node.executeAfterCommit
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.stereotype.Service
+import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 
 @Service
@@ -15,7 +16,7 @@ class UncheckedTransactionService(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>) {
         uncheckedTransactionInserter.insert(uncheckedTransactions)
         executeAfterCommit {
@@ -26,9 +27,11 @@ class UncheckedTransactionService(
         }
     }
 
-    @Transactional
+    @Transactional(isolation = Isolation.READ_COMMITTED)
     suspend fun cleanUp() {
         val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
-        logger.debug { "Deleted $deletedCount unchecked transactions" }
+        if (deletedCount > 0) {
+            logger.debug { "Deleted $deletedCount unchecked transactions" }
+        }
     }
 }
