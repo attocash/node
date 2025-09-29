@@ -6,6 +6,7 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.InboundNetworkMessage
+import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -37,7 +38,7 @@ class TransactionRebroadcaster(
     fun process(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
-        val new = broadcastQueue.seen(transaction, message.publicUri)
+        val new = broadcastQueue.seen(message.source, transaction, message.publicUri)
 
         if (new) {
             logger.trace { "Started monitoring transaction to rebroadcast. $transaction" }
@@ -46,8 +47,16 @@ class TransactionRebroadcaster(
 
     @EventListener
     suspend fun process(event: TransactionValidated) {
-        if (broadcastQueue.enqueue(event.transaction.hash)) {
-            logger.trace { "Transaction queued for rebroadcast. ${event.transaction}" }
+        val hash = event.transaction.hash
+        broadcastQueue.get(hash)?.let {
+            if (it.source == MessageSource.REST) {
+                logger.trace { "Rebroadcasting transaction from rest: ${event.transaction}" }
+                broadcastQueue.drop(hash)
+                broadcast(it.transaction)
+            }
+        }
+        if (broadcastQueue.enqueue(hash)) {
+            logger.trace { "Transaction queued for rebroadcast: ${event.transaction}" }
         }
     }
 
@@ -75,7 +84,7 @@ class TransactionRebroadcaster(
 
     private fun broadcast(
         transaction: AttoTransaction,
-        exceptions: Set<URI>,
+        exceptions: Set<URI> = setOf(),
     ) {
         val transactionPush = AttoTransactionPush(transaction)
         val message =
@@ -94,6 +103,7 @@ class TransactionRebroadcaster(
 }
 
 private class TransactionSocketAddressHolder(
+    val source: MessageSource,
     val transaction: AttoTransaction,
 ) {
     val publicUris = HashSet<URI>()
@@ -108,17 +118,20 @@ private class BroadcastQueue {
     private val transactionQueue = Channel<TransactionSocketAddressHolder>(capacity = UNLIMITED)
 
     fun seen(
+        source: MessageSource,
         transaction: AttoTransaction,
         publicUri: URI,
     ): Boolean {
         val holder =
             holderMap.compute(transaction.hash) { _, v ->
-                val holder = v ?: TransactionSocketAddressHolder(transaction)
+                val holder = v ?: TransactionSocketAddressHolder(source, transaction)
                 holder.add(publicUri)
                 holder
             }
         return holder!!.publicUris.size == 1
     }
+
+    fun get(hash: AttoHash): TransactionSocketAddressHolder? = holderMap[hash]
 
     fun drop(hash: AttoHash) {
         holderMap.remove(hash)
