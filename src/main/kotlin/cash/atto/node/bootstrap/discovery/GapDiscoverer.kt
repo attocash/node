@@ -102,6 +102,12 @@ class GapDiscoverer(
             }
 
             val limit = maxSize - pointerMap.size
+
+            if (limit <= 0L) {
+                logger.debug { "Skipping gap discovery. Pointer map size is $maxSize" }
+                return
+            }
+
             val publicKeyToExclude =
                 (pointerMap.keys + lastCompletedGaps.keys)
                     .ifEmpty { setOf(AttoPublicKey(ByteArray(32))) }
@@ -162,7 +168,7 @@ class GapDiscoverer(
 
         logger.debug { "Discovered gap transaction ${transaction.hash} with height ${block.height}. New pointer: $nextPointer" }
 
-        lastCompletedGaps.put(pointer.publicKey, block.height)
+        lastCompletedGaps[pointer.publicKey] = block.height
 
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
 
