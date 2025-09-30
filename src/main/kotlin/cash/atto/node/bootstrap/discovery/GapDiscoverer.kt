@@ -117,7 +117,9 @@ class GapDiscoverer(
                 return
             }
 
-            logger.trace { "Pointer map size is ${pointerMap.size} and last completed gap is ${lastCompletedGaps.size}. Looking for $limit more gaps" }
+            logger.trace {
+                "Pointer map size is ${pointerMap.size} and last completed gap is ${lastCompletedGaps.size}. Looking for $limit more gaps"
+            }
 
             val publicKeyToExclude =
                 (pointerMap.keys + lastCompletedGaps.keys)
@@ -138,7 +140,9 @@ class GapDiscoverer(
                         )
                     networkMessagePublisher.publish(message)
                     val pointer = TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
-                    logger.trace { "Starting gap discovery for account ${view.publicKey}. Requesting transactions from $startHeight to $endHeight" }
+                    logger.trace {
+                        "Starting gap discovery for account ${view.publicKey}. Requesting transactions from $startHeight to $endHeight"
+                    }
                     pointer
                 }
             }
@@ -151,14 +155,17 @@ class GapDiscoverer(
         val transaction = response.transaction
         val block = transaction.block
 
-        val pointer = pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
-            if (pointer.currentHeight != block.height && block.height in pointer.initialHeight..<pointer.finalHeight) {
-                outOfOrderBuffer[block.hash] = message
-                logger.trace { "Buffering out of order transaction ${block.hash}. Current height is ${pointer.currentHeight} and block height is ${block.height}" }
-                return@computeIfPresent pointer
+        val pointer =
+            pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
+                if (pointer.currentHeight != block.height && block.height in pointer.initialHeight..<pointer.finalHeight) {
+                    outOfOrderBuffer[block.hash] = message
+                    logger.trace {
+                        "Buffering out of order transaction ${block.hash}. Current height is ${pointer.currentHeight} and block height is ${block.height}"
+                    }
+                    return@computeIfPresent pointer
+                }
+                process(pointer, transaction)
             }
-            process(pointer, transaction)
-        }
 
         if (pointer == null) {
             return

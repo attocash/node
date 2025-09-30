@@ -82,7 +82,7 @@ interface UncheckedTransactionRepository :
                     FROM information_schema.tables
                     WHERE table_schema = DATABASE()
                     AND table_name = 'unchecked_transaction';
-                """
+                """,
     )
     suspend fun countAll(): Long
 }

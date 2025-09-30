@@ -1,7 +1,5 @@
 package cash.atto.node.bootstrap.unchecked
 
-import cash.atto.node.bootstrap.TransactionResolved
-import cash.atto.node.bootstrap.UncheckedTransactionSaved
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
@@ -11,7 +9,6 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import org.springframework.context.annotation.DependsOn
-import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.util.concurrent.atomic.AtomicLong
 import kotlin.time.Duration.Companion.minutes
