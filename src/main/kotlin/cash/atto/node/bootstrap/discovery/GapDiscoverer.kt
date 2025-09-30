@@ -117,7 +117,7 @@ class GapDiscoverer(
                 return
             }
 
-            logger.trace { "Pointer map size is ${pointerMap.size} and last completed gap is $lastCompletedGaps. Looking for $limit more gaps" }
+            logger.trace { "Pointer map size is ${pointerMap.size} and last completed gap is ${lastCompletedGaps.size}. Looking for $limit more gaps" }
 
             val publicKeyToExclude =
                 (pointerMap.keys + lastCompletedGaps.keys)
