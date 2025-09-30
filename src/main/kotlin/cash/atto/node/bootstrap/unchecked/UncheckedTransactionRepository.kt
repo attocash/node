@@ -40,7 +40,7 @@ interface UncheckedTransactionRepository :
                 FROM unchecked_transaction ut
                 LEFT JOIN account a ON a.public_key = ut.public_key
                 WHERE ut.height > COALESCE(a.height, 0)
-                AND public_key NOT IN (:publicKeyToExclude)
+                AND ut.public_key NOT IN (:publicKeyToExclude)
 
             ),
             ranked AS (
