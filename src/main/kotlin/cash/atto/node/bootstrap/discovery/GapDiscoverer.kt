@@ -137,7 +137,9 @@ class GapDiscoverer(
                             expectedResponseCount = endHeight.value - startHeight.value + 1UL,
                         )
                     networkMessagePublisher.publish(message)
-                    TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
+                    val pointer = TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
+                    logger.trace { "Starting gap discovery for account ${view.publicKey}. Requesting transactions from $startHeight to $endHeight" }
+                    pointer
                 }
             }
         }
