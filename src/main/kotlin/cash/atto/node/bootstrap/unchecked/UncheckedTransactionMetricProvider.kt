@@ -19,18 +19,13 @@ import kotlin.time.Duration.Companion.minutes
 class UncheckedTransactionMetricProvider(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val meterRegistry: MeterRegistry,
-) {
+) : AutoCloseable {
     private val logger = KotlinLogging.logger {}
 
     private val count = AtomicLong(0)
 
     @OptIn(DelicateCoroutinesApi::class)
-    @PostConstruct
-    fun start() {
-        Gauge
-            .builder("transactions.unchecked.count") { count.get() }
-            .description("Current number of unchecked transactions")
-            .register(meterRegistry)
+    private val job =
         GlobalScope.launch {
             while (isActive) {
                 try {
@@ -41,5 +36,16 @@ class UncheckedTransactionMetricProvider(
                 }
             }
         }
+
+    @PostConstruct
+    fun start() {
+        Gauge
+            .builder("transactions.unchecked.count") { count.get() }
+            .description("Current number of unchecked transactions")
+            .register(meterRegistry)
+    }
+
+    override fun close() {
+        job.cancel()
     }
 }
