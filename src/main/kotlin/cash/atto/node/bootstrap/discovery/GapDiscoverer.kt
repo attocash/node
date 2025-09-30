@@ -63,6 +63,15 @@ class GapDiscoverer(
             .build<AttoPublicKey, AttoHeight>()
             .asMap()
 
+    private val outOfOrderBuffer =
+        Caffeine
+            .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .maximumSize(maxSize * AttoTransactionStreamRequest.MAX_TRANSACTIONS.toLong())
+            .build<AttoHash, InboundNetworkMessage<AttoTransactionStreamResponse>>()
+            .asMap()
+
     @EventListener
     fun add(nodeEvent: NodeConnected) {
         val node = nodeEvent.node
@@ -108,6 +117,8 @@ class GapDiscoverer(
                 return
             }
 
+            logger.trace { "Pointer map size is ${pointerMap.size}. Resolving gaps with $limit transactions per request" }
+
             val publicKeyToExclude =
                 (pointerMap.keys + lastCompletedGaps.keys)
                     .ifEmpty { setOf(AttoPublicKey(ByteArray(32))) }
@@ -138,9 +149,21 @@ class GapDiscoverer(
         val transaction = response.transaction
         val block = transaction.block
 
-        pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
+        val pointer = pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
+            if (pointer.currentHeight != block.height && block.height in pointer.initialHeight..<pointer.finalHeight) {
+                outOfOrderBuffer[block.hash] = message
+                logger.trace { "Buffering out of order transaction ${block.hash}. Current height is ${pointer.currentHeight} and block height is ${block.height}" }
+                return@computeIfPresent pointer
+            }
             process(pointer, transaction)
         }
+
+        if (pointer == null) {
+            return
+        }
+
+        val nextMessage = outOfOrderBuffer.remove(pointer.currentHash) ?: return
+        process(nextMessage)
     }
 
     private fun process(
@@ -149,7 +172,7 @@ class GapDiscoverer(
     ): TransactionPointer? {
         if (transaction.hash != pointer.currentHash) {
             logger.debug { "Expecting transaction with hash ${pointer.currentHash} but received hash $transaction" }
-            return pointer
+            return null
         }
 
         val block = transaction.block
