@@ -7,6 +7,7 @@ import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.DelicateCoroutinesApi
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import org.springframework.context.annotation.DependsOn
 import org.springframework.stereotype.Component
@@ -31,7 +32,7 @@ class UncheckedTransactionMetricProvider(
             .description("Current number of unchecked transactions")
             .register(meterRegistry)
         GlobalScope.launch {
-            while (true) {
+            while (isActive) {
                 try {
                     count.set(uncheckedTransactionRepository.countAll())
                 } catch (e: Exception) {
