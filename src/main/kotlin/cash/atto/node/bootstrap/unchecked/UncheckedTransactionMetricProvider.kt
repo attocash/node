@@ -36,23 +36,12 @@ class UncheckedTransactionMetricProvider(
         GlobalScope.launch {
             while (true) {
                 try {
-                    count.addAndGet(uncheckedTransactionRepository.countAll())
-                    return@launch
+                    count.set(uncheckedTransactionRepository.countAll())
                 } catch (e: Exception) {
                     logger.error(e) { "Error while getting unchecked transaction count from database" }
                     delay(1.minutes)
                 }
             }
         }
-    }
-
-    @EventListener
-    fun process(event: UncheckedTransactionSaved) {
-        count.incrementAndGet()
-    }
-
-    @EventListener
-    fun process(event: TransactionResolved) {
-        count.decrementAndGet()
     }
 }

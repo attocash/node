@@ -76,7 +76,14 @@ interface UncheckedTransactionRepository :
     )
     suspend fun deleteExistingInTransaction(): Int
 
-    @Query("SELECT COUNT(*) FROM unchecked_transaction")
+    @Query(
+        """
+                    SELECT TABLE_ROWS
+                    FROM information_schema.tables
+                    WHERE table_schema = DATABASE()
+                    AND table_name = 'unchecked_transaction';
+                """
+    )
     suspend fun countAll(): Long
 }
 
