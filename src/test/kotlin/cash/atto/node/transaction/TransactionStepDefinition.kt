@@ -171,7 +171,10 @@ class TransactionStepDefinition(
             .bodyToMono<AttoTransaction>()
             .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
             .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
-            .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+            .timeout(Duration.ofSeconds(Waiter.timeoutInSeconds))
+            .doOnError { e ->
+                logger.error(e) { "Failed streaming transaction $hash (neighbour=$neighbour)" }
+            }.block()!!
 
     private fun streamAccountEntries(
         neighbour: Neighbour,
@@ -187,7 +190,10 @@ class TransactionStepDefinition(
             .onStatus({ it.value() == 404 }, { Mono.empty() })
             .bodyToFlux<AttoAccountEntry>()
             .filter { it.hash == hash }
-            .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+            .timeout(Duration.ofSeconds(Waiter.timeoutInSeconds))
+            .doOnError { e ->
+                logger.error(e) { "Failed streaming transaction $hash (neighbour=$neighbour)" }
+            }.blockFirst()!!
     }
 
     private fun streamReceivable(
