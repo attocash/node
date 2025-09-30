@@ -89,11 +89,9 @@ class GapDiscoverer(
 
     @EventListener
     fun process(event: UncheckedTransactionSaved) {
-        lastCompletedGaps.computeIfPresent(event.transaction.publicKey) { _, lastCompleted ->
-            if (lastCompleted == event.transaction.block.height) {
-                null
-            } else {
-                lastCompleted
+        if (lastCompletedGaps.remove(event.transaction.publicKey, event.transaction.block.height)) {
+            logger.trace {
+                "Removed last completed gap for account ${event.transaction.publicKey} with height ${event.transaction.block.height}"
             }
         }
     }
