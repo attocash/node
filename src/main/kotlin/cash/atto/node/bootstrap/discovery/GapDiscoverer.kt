@@ -5,6 +5,7 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.PreviousSupport
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.UncheckedTransactionSaved
@@ -38,7 +39,7 @@ class GapDiscoverer(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val peers = ConcurrentHashMap.newKeySet<URI>()
@@ -203,6 +204,12 @@ class GapDiscoverer(
         eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
 
         return nextPointer
+    }
+
+    override fun clear() {
+        pointerMap.clear()
+        lastCompletedGaps.clear()
+        outOfOrderBuffer.clear()
     }
 }
 
