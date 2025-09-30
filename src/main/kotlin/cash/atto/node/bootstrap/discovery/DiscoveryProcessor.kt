@@ -6,6 +6,7 @@ import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
 import cash.atto.node.bootstrap.unchecked.toUncheckedTransaction
+import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -14,11 +15,14 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.minutes
+import kotlin.time.measureTime
 
 @Component
 class DiscoveryProcessor(
     val uncheckedTransactionService: UncheckedTransactionService,
 ) {
+    private val logger = KotlinLogging.logger {}
+
     private val mutex = Mutex()
     private val duplicateDetector = DuplicateDetector<AttoHash>(10.minutes)
     private val buffer = Channel<UncheckedTransaction>(Channel.UNLIMITED)
@@ -26,6 +30,7 @@ class DiscoveryProcessor(
     @EventListener
     suspend fun process(event: TransactionDiscovered) {
         if (duplicateDetector.isDuplicate(event.transaction.hash)) {
+            logger.trace { "Ignoring duplicate transaction ${event.transaction.hash}" }
             return
         }
         buffer.send(event.transaction.toUncheckedTransaction())
@@ -46,7 +51,11 @@ class DiscoveryProcessor(
                 } while (batch.size < 1000 && transaction != null)
 
                 if (batch.isNotEmpty()) {
-                    uncheckedTransactionService.save(batch)
+                    val elapsed =
+                        measureTime {
+                            uncheckedTransactionService.save(batch)
+                        }
+                    logger.info { "Saved ${batch.size} transactions in $elapsed" }
                 }
             } while (batch.isNotEmpty())
         }
