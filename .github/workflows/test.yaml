@@ -15,6 +15,7 @@ jobs:
         with:
           distribution: 'graalvm'
           java-version: '25'
+          native-image-musl: true
           cache: 'gradle'
 
       - uses: gradle/actions/setup-gradle@v4

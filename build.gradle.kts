@@ -17,6 +17,13 @@ group = "cash.atto"
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
+        nativeImageCapable = true
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_21)
     }
 }
 
@@ -117,12 +124,6 @@ dependencies {
     testImplementation("org.testcontainers:mysql")
     testImplementation("org.testcontainers:r2dbc")
     testImplementation("org.testcontainers:testcontainers")
-}
-
-kotlin {
-    compilerOptions {
-        jvmTarget.set(JvmTarget.JVM_21)
-    }
 }
 
 tasks.withType<Test> {
