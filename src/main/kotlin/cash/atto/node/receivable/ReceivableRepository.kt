@@ -142,5 +142,8 @@ class ReceivableCachedRepository(
         minAmount: AttoAmount,
     ): Flow<Receivable> = receivableCrudRepository.findAllDesc(publicKeys, minAmount)
 
-    override suspend fun deleteAll() = receivableCrudRepository.deleteAll()
+    override suspend fun deleteAll() {
+        cache.clear()
+        receivableCrudRepository.deleteAll()
+    }
 }

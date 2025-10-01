@@ -109,6 +109,7 @@ class AccountCachedRepository(
         }
 
     override suspend fun deleteAll() {
+        cache.clear()
         accountCrudRepository.deleteAll()
     }
 }

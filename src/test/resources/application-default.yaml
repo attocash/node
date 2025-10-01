@@ -31,6 +31,7 @@ logging:
     cash.atto: INFO
     cash.atto.node.network: TRACE
     cash.atto.node.bootstrap: TRACE
+    cash.atto.node.EventPublisher: TRACE
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 
