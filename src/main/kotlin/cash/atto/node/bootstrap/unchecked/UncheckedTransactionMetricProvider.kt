@@ -19,7 +19,7 @@ class UncheckedTransactionMetricProvider(
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun calculate() {
-        count.set(uncheckedTransactionRepository.fastCount())
+        count.set(uncheckedTransactionRepository.count())
     }
 
     @PostConstruct
