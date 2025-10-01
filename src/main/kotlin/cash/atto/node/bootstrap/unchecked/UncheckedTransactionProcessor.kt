@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import java.util.concurrent.TimeUnit
+import kotlin.time.measureTime
 
 private val logger = KotlinLogging.logger {}
 
@@ -105,10 +106,14 @@ class UncheckedTransactionProcessorStarter(
                         .findTopOldest(1000L)
                         .map { it.toTransaction() }
                         .toList()
-                val resolvedCounter = processor.process(candidateTransactions)
-                uncheckedTransactionService.cleanUp()
+
+                var resolvedCounter = 0
+                val elapsed = measureTime {
+                    resolvedCounter = processor.process(candidateTransactions)
+                    uncheckedTransactionService.cleanUp()
+                }
                 if (resolvedCounter > 0) {
-                    logger.info { "Resolved $resolvedCounter transactions" }
+                    logger.info { "Resolved $resolvedCounter unchecked transactions in $elapsed" }
                 }
             } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
         }

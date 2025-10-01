@@ -55,7 +55,7 @@ class DiscoveryProcessor(
                         measureTime {
                             uncheckedTransactionService.save(batch)
                         }
-                    logger.info { "Saved ${batch.size} transactions in $elapsed" }
+                    logger.info { "Saved ${batch.size} unchecked transactions in $elapsed" }
                 }
             } while (batch.isNotEmpty())
         }
