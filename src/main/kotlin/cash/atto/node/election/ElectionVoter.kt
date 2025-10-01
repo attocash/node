@@ -25,11 +25,12 @@ import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -66,6 +67,18 @@ class ElectionVoter(
     private val consensusMap = HashMap<PublicKeyHeight, Consensus>()
 
     private val pending = HashMap<PublicKeyHeight, Job>()
+
+    override fun clear() {
+        consensusMap.clear()
+        pending.clear()
+    }
+
+    @PreDestroy
+    fun close() {
+        logger.info { "Election Voter is stopping..." }
+        clear()
+        scope.cancel()
+    }
 
     private suspend fun consensed(
         transaction: Transaction,
@@ -248,11 +261,6 @@ class ElectionVoter(
         consensusMap.remove(publicKeyHeight)
         pending.remove(publicKeyHeight)?.cancel()
         logger.trace { "Removed ${transaction.hash} from the voter queue" }
-    }
-
-    override fun clear() {
-        consensusMap.clear()
-        pending.clear()
     }
 
     private data class Consensus(

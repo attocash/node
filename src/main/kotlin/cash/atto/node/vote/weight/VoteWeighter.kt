@@ -72,6 +72,11 @@ class VoteWeighter(
             calculateMinimalWeights()
         }
 
+    override fun clear() {
+        weightMap.clear()
+        latestVoteMap.clear()
+    }
+
     @EventListener
     fun listen(event: VoteValidated) {
         val vote = event.vote
@@ -236,10 +241,5 @@ class VoteWeighter(
                 delay(pause)
             }
         }
-    }
-
-    override fun clear() {
-        weightMap.clear()
-        latestVoteMap.clear()
     }
 }

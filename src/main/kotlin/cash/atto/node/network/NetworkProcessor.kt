@@ -7,6 +7,7 @@ import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.isValid
 import cash.atto.commons.toByteArray
+import cash.atto.node.CacheSupport
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
@@ -63,7 +64,7 @@ class NetworkProcessor(
     environment: Environment,
     private val networkProperties: NetworkProperties,
     private val connectionManager: NodeConnectionManager,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
@@ -107,7 +108,7 @@ class NetworkProcessor(
             }
         }
 
-    private val ioScope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
+    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val connectingMap =
         Caffeine
@@ -301,10 +302,16 @@ class NetworkProcessor(
             }
         }.start(wait = false)
 
+    override fun clear() {
+        connectingMap.clear()
+    }
+
     @PreDestroy
     fun stop() {
+        logger.info { "Network Processor is stopping..." }
+        clear()
         server.stop()
-        ioScope.cancel()
+        scope.cancel()
     }
 
     @Scheduled(fixedRate = 1_000)
@@ -335,7 +342,7 @@ class NetworkProcessor(
             return
         }
 
-        ioScope.launch {
+        scope.launch {
             try {
                 logger.trace { "Start connection to $publicUri" }
                 connection(publicUri)

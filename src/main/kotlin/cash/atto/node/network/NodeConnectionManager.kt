@@ -1,6 +1,7 @@
 package cash.atto.node.network
 
 import cash.atto.commons.toHex
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoMessage
@@ -35,10 +36,10 @@ import java.util.concurrent.Executors
 class NodeConnectionManager(
     private val messagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val ioScope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
+    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val connectionMap =
         Caffeine
@@ -47,7 +48,7 @@ class NodeConnectionManager(
             .expireAfterWrite(Duration.ofSeconds(60))
             .removalListener { _: URI?, connection: NodeConnection?, cause ->
                 connection?.let {
-                    ioScope.launch {
+                    scope.launch {
                         try {
                             logger.trace { "Removing connection to ${connection.node.publicUri} because of $cause" }
                             connection.disconnect()
@@ -64,11 +65,15 @@ class NodeConnectionManager(
     val connectionCount: Int
         get() = connectionMap.size
 
+    override fun clear() {
+        connectionMap.clear()
+    }
+
     @PreDestroy
     fun stop() {
-        logger.info { "Connection Manager is stopping! Clearing all connections..." }
-        connectionMap.clear()
-        ioScope.cancel()
+        logger.info { "Node Connection Manager is stopping..." }
+        clear()
+        scope.cancel()
     }
 
     fun isConnected(publicUri: URI): Boolean = connectionMap.containsKey(publicUri)
@@ -161,7 +166,7 @@ class NodeConnectionManager(
             .asSequence()
             .filter { strategy.shouldBroadcast(it.node) }
             .forEach { connection ->
-                ioScope.launch {
+                scope.launch {
                     send(connection.node.publicUri, message)
                 }
             }

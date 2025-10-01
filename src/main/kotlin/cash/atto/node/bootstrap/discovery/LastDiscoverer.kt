@@ -1,6 +1,7 @@
 package cash.atto.node.bootstrap.discovery
 
 import cash.atto.commons.AttoHash
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.getByAlgorithmAndPublicKey
@@ -27,9 +28,11 @@ import cash.atto.protocol.AttoVoteStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -50,7 +53,7 @@ class LastDiscoverer(
     private val eventPublisher: EventPublisher,
     private val voteConverter: VoteConverter,
     private val voteWeighter: VoteWeighter,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
@@ -70,6 +73,18 @@ class LastDiscoverer(
             .asMap()
 
     private val mutex = Mutex()
+
+    override fun clear() {
+        transactionElectionMap.clear()
+    }
+
+    @PreDestroy
+    fun close() {
+        logger.info { "Last Discoverer is stopping..." }
+
+        clear()
+        scope.cancel()
+    }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
     suspend fun broadcastSample() {
