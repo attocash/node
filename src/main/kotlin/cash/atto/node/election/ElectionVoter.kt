@@ -29,6 +29,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -39,6 +40,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
+import java.util.concurrent.Executors
 import kotlin.time.Duration.Companion.seconds
 
 @Service
@@ -57,7 +59,7 @@ class ElectionVoter(
         val finalVoteTimestamp = AttoVote.finalTimestamp.toJavaInstant()
     }
 
-    private val scope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val mutex = Mutex()
 
