@@ -84,7 +84,7 @@ interface UncheckedTransactionRepository :
                     AND table_name = 'unchecked_transaction';
                 """,
     )
-    suspend fun countAll(): Long
+    suspend fun fastCount(): Long
 }
 
 data class GapView(
