@@ -126,6 +126,7 @@ kotlin {
 }
 
 tasks.withType<Test> {
+    jvmArgs("-Djdk.tracePinnedThreads=full")
     useJUnitPlatform()
     maxHeapSize = "2g"
 }
