@@ -68,6 +68,7 @@ class NodeConnectionManager(
     fun stop() {
         logger.info { "Connection Manager is stopping! Clearing all connections..." }
         connectionMap.clear()
+        ioScope.cancel()
     }
 
     fun isConnected(publicUri: URI): Boolean = connectionMap.containsKey(publicUri)
