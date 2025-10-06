@@ -1,15 +1,13 @@
 package cash.atto.node.bootstrap.discovery
 
 import io.swagger.v3.oas.annotations.Operation
-import org.springframework.context.annotation.Profile
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
 @RequestMapping("/unchecked-transactions/discoveries")
-@Profile("default")
-class DiscoveryController(
+class DiscoveryTestController(
     val gapDiscoverer: GapDiscoverer,
     val lastDiscoverer: LastDiscoverer,
 ) {
@@ -21,7 +19,7 @@ class DiscoveryController(
 
     @PostMapping("/last")
     @Operation(description = "Start broadcast of last transactions")
-    suspend fun tail() {
+    suspend fun last() {
         lastDiscoverer.broadcastSample()
     }
 }
