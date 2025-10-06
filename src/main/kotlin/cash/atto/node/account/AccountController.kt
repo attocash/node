@@ -10,6 +10,7 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
@@ -83,6 +84,16 @@ class AccountController(
     @PostMapping
     @Operation(
         summary = "Get accounts for given addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AttoAccount::class),
+                    ),
+                ],
+            ),
+        ],
     )
     fun get(
         @RequestBody search: AccountSearch,
@@ -177,6 +188,7 @@ class AccountController(
     }
 
     @GetMapping("/top")
+    @Hidden
     suspend fun getTop100(): List<AttoAccount> = crudRepository.getTop100().map { it.toAttoAccount() }
 
     @OptIn(ExperimentalCoroutinesApi::class)
