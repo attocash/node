@@ -12,11 +12,13 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteDropReason
 import cash.atto.node.vote.VoteDropped
 import cash.atto.node.vote.weight.VoteWeighter
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 @Component
 class DependencyDiscoverer(
@@ -27,6 +29,23 @@ class DependencyDiscoverer(
 
     private val mutex = Mutex()
     private val transactionHolderMap = FixedSizeHashMap<AttoHash, TransactionHolder>(50_000)
+
+    /*
+     * This buffer is mainly used in tests to handle out-of-order votes that arrive before their corresponding transactions.
+     * In live environments, this situation is very unlikely due to the deterministic flow of message propagation,
+     * but since Atto operates asynchronously across peers, it’s not entirely impossible.
+     *
+     * Entries expire quickly (1 minute) and are weighted by the number of votes to limit memory usage.
+     */
+    private val outOfOrderBuffer =
+        Caffeine.newBuilder()
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .maximumWeight(1000)
+            .weigher<AttoHash, List<Vote>> { _, votes ->
+                votes.size
+            }
+            .build<AttoHash, ArrayList<Vote>>()
+            .asMap()
 
     @EventListener
     suspend fun process(event: TransactionRejected) {
@@ -45,6 +64,10 @@ class DependencyDiscoverer(
         val transactionHolder = TransactionHolder(reason, transaction)
         transactionHolderMap[transaction.hash] = transactionHolder
         logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
+
+        outOfOrderBuffer.remove(transaction.hash)?.forEach { vote ->
+            process(vote)
+        }
     }
 
     @EventListener
@@ -53,18 +76,24 @@ class DependencyDiscoverer(
             return
         }
 
+        if (!event.vote.isFinal()) {
+            return
+        }
+
+        outOfOrderBuffer.compute(event.vote.blockHash) { _, v ->
+            val votes = v ?: ArrayList()
+            votes.add(event.vote)
+            return@compute votes
+        }
+
         process(event.vote)
     }
 
-    suspend fun process(vote: Vote) =
+    suspend fun process(vote: Vote): Unit =
         mutex.withLock {
-            if (!vote.isFinal()) {
-                return@withLock
-            }
-
             val hash = vote.blockHash
 
-            val holder = transactionHolderMap[hash] ?: return@withLock
+            val holder = transactionHolderMap[hash] ?: return
 
             holder.add(vote)
 
@@ -81,6 +110,8 @@ class DependencyDiscoverer(
                     ),
                 )
             }
+
+            return
         }
 }
 
