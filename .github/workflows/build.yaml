@@ -21,7 +21,7 @@ jobs:
           native-image-musl: true
           cache: 'gradle'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v5
 
       - run: ./gradlew --no-daemon nativeCompile
 
