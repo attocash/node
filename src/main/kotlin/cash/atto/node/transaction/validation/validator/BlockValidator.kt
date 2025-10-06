@@ -1,13 +1,13 @@
 package cash.atto.node.transaction.validation.validator
 
 import cash.atto.commons.PreviousSupport
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.validation.TransactionValidator
 import cash.atto.node.transaction.validation.TransactionViolation
 import cash.atto.protocol.AttoNode
-import kotlinx.datetime.toJavaInstant
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 

@@ -108,10 +108,11 @@ class UncheckedTransactionProcessorStarter(
                         .toList()
 
                 var resolvedCounter = 0
-                val elapsed = measureTime {
-                    resolvedCounter = processor.process(candidateTransactions)
-                    uncheckedTransactionService.cleanUp()
-                }
+                val elapsed =
+                    measureTime {
+                        resolvedCounter = processor.process(candidateTransactions)
+                        uncheckedTransactionService.cleanUp()
+                    }
                 if (resolvedCounter > 0) {
                     logger.info { "Resolved $resolvedCounter unchecked transactions in $elapsed" }
                 }

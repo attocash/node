@@ -1,8 +1,8 @@
 package cash.atto.node.transaction.priotization
 
 import cash.atto.commons.AttoSendBlock
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.transaction.Transaction
-import kotlinx.datetime.toJavaInstant
 import java.time.temporal.ChronoUnit
 import java.util.Arrays
 import java.util.Comparator.comparing

@@ -6,9 +6,9 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoVersion
+import cash.atto.commons.toAtto
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.Event
-import kotlinx.datetime.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.time.Instant
@@ -35,7 +35,7 @@ data class Receivable(
             version = version,
             algorithm = algorithm,
             publicKey = publicKey,
-            timestamp = timestamp.toKotlinInstant(),
+            timestamp = timestamp.toAtto(),
             receiverAlgorithm = receiverAlgorithm,
             receiverPublicKey = receiverPublicKey,
             amount = amount,

@@ -5,6 +5,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoChallenge
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
@@ -17,7 +18,6 @@ import cash.atto.commons.AttoVote
 import cash.atto.commons.generate
 import cash.atto.commons.isValid
 import cash.atto.commons.node.remote
-import cash.atto.commons.serialiazer.InstantMillisSerializer
 import cash.atto.commons.toAttoAmount
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
@@ -34,8 +34,6 @@ import io.ktor.server.routing.get
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -96,7 +94,7 @@ class SignerTest {
         runBlocking {
             // given
             val challenge = AttoChallenge.generate()
-            val timestamp = Clock.System.now()
+            val timestamp = AttoInstant.now()
 
             // when
             val signature = signer.sign(challenge, timestamp)
@@ -113,7 +111,7 @@ class SignerTest {
             publicKey = signer.publicKey,
             blockAlgorithm = AttoAlgorithm.V1,
             blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
-            timestamp = Clock.System.now(),
+            timestamp = AttoInstant.now(),
         )
 
     private fun AttoBlock.Companion.sample(): AttoBlock =
@@ -124,7 +122,7 @@ class SignerTest {
             publicKey = signer.publicKey,
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
-            timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+            timestamp = AttoInstant.now(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHashAlgorithm = AttoAlgorithm.V1,
             sendHash = AttoHash(Random.Default.nextBytes(ByteArray(32))),
@@ -136,7 +134,7 @@ class SignerTest {
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
             publicKey = AttoPublicKey(Random.nextBytes(32)),
-            timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+            timestamp = AttoInstant.now(),
             receiverAlgorithm = AttoAlgorithm.V1,
             receiverPublicKey = signer.publicKey,
             amount = 1000UL.toAttoAmount(),
@@ -210,8 +208,7 @@ class SignerTest {
     @Serializable
     data class ChallengeSignatureRequest(
         override val target: AttoChallenge,
-        @Serializable(with = InstantMillisSerializer::class)
-        val timestamp: Instant,
+        val timestamp: AttoInstant,
     ) : SignatureRequest<AttoChallenge>
 
     @Serializable

@@ -7,12 +7,12 @@ import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoVersion
+import cash.atto.commons.toBigInteger
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
-import cash.atto.node.toBigInteger
 import cash.atto.node.vote.MissingVote
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteRepository

@@ -2,7 +2,7 @@ package cash.atto.protocol
 
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.serialiazer.AttoTransactionAsByteArraySerializer
+import cash.atto.commons.AttoTransactionAsByteArraySerializer
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable

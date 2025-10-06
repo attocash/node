@@ -6,7 +6,9 @@ import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit
 import cash.atto.commons.AttoVote
+import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoVersion
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
@@ -35,8 +37,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.datetime.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
@@ -228,7 +228,7 @@ class ElectionVoter(
                 publicKey = thisNode.publicKey,
                 blockAlgorithm = transaction.algorithm,
                 blockHash = transaction.hash,
-                timestamp = timestamp.toKotlinInstant(),
+                timestamp = timestamp.toAtto(),
             )
         val attoSignedVote =
             AttoSignedVote(

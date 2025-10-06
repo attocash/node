@@ -8,11 +8,11 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
+import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.transaction.priotization.TransactionQueue
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.toKotlinInstant
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
@@ -88,7 +88,7 @@ internal class TransactionQueueTest {
                 publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount(amount),
-                timestamp = timestamp.toKotlinInstant(),
+                timestamp = timestamp.toAtto(),
                 previous = AttoHash(Random.nextBytes(ByteArray(32))),
                 sendHashAlgorithm = AttoAlgorithm.V1,
                 sendHash = AttoHash(ByteArray(32)),

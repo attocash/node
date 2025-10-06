@@ -2,6 +2,8 @@ package cash.atto.node.network
 
 import cash.atto.commons.AttoChallenge
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoInstant
+import cash.atto.commons.AttoInstantAsStringSerializer
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
@@ -42,8 +44,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
@@ -173,7 +173,7 @@ class NetworkProcessor(
 
                         logger.trace { "Challenge $challenge validated successfully" }
 
-                        val timestamp = Clock.System.now()
+                        val timestamp = AttoInstant.now()
                         val response =
                             ChallengeResponse(
                                 thisNode,
@@ -236,7 +236,7 @@ class NetworkProcessor(
                                 .replaceFirst("wss://", "https://")
                                 .replaceFirst("ws://", "http://")
 
-                        val timestamp = Clock.System.now()
+                        val timestamp = AttoInstant.now()
                         val counterChallenge = ChallengeStore.generate(publicUri)
                         val counterResponse =
                             CounterChallengeResponse(
@@ -428,7 +428,8 @@ class NetworkProcessor(
     @Serializable
     private data class ChallengeResponse(
         val node: AttoNode,
-        val timestamp: Instant,
+        @Serializable(with = AttoInstantAsStringSerializer::class)
+        val timestamp: AttoInstant,
         val signature: AttoSignature,
     )
 
@@ -437,7 +438,8 @@ class NetworkProcessor(
         val challenge: String,
         val genesis: AttoHash,
         val node: AttoNode,
-        val timestamp: Instant,
+        @Serializable(with = AttoInstantAsStringSerializer::class)
+        val timestamp: AttoInstant,
         val signature: AttoSignature,
         val counterChallenge: String,
     )

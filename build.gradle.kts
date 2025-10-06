@@ -24,7 +24,7 @@ repositories {
     mavenCentral()
     mavenLocal()
     maven {
-        url = uri("https://s01.oss.sonatype.org/content/repositories/snapshots/")
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
     }
 }
 
@@ -41,7 +41,7 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "5.4.0"
+    val commonsVersion = "728ce5a-SNAPSHOT"
     val cucumberVersion = "7.30.0"
     val springdocVersion = "2.8.13"
     val ktorVersion = "3.3.0"
@@ -50,6 +50,7 @@ dependencies {
     implementation("cash.atto:commons-node:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
     implementation("cash.atto:commons-signer-remote:$commonsVersion")
+    implementation("cash.atto:commons-spring-boot-starter:$commonsVersion")
 
     implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
 

@@ -6,20 +6,16 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoVersion
-import cash.atto.node.ApplicationProperties
-import cash.atto.node.toULong
+import cash.atto.commons.toULong
 import cash.atto.node.vote.Vote
 import io.r2dbc.spi.Row
+import org.springframework.core.convert.converter.Converter
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
-import org.springframework.stereotype.Component
 import java.math.BigInteger
 import java.time.Instant
 
-@Component
-class VoteSerializerDBConverter(
-    val properties: ApplicationProperties,
-) : DBConverter<Vote, OutboundRow> {
+class VoteSerializerDBConverter : Converter<Vote, OutboundRow> {
     override fun convert(vote: Vote): OutboundRow {
         val row = OutboundRow()
         with(row) {
@@ -42,10 +38,7 @@ class VoteSerializerDBConverter(
     }
 }
 
-@Component
-class VoteDeserializerDBConverter(
-    val properties: ApplicationProperties,
-) : DBConverter<Row, Vote> {
+class VoteDeserializerDBConverter : Converter<Row, Vote> {
     override fun convert(row: Row): Vote =
         Vote(
             hash = AttoHash(row.get("hash", ByteArray::class.java)!!),

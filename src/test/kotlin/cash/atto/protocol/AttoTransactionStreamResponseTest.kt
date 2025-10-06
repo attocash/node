@@ -3,6 +3,7 @@ package cash.atto.protocol
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoReceiveBlock
@@ -14,8 +15,6 @@ import cash.atto.commons.toPublicKey
 import cash.atto.commons.worker.AttoWorker
 import cash.atto.commons.worker.cpu
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -37,7 +36,7 @@ class AttoTransactionStreamResponseTest {
                 publicKey = privateKey.toPublicKey(),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
-                timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+                timestamp = AttoInstant.now(),
                 previous = AttoHash(Random.nextBytes(ByteArray(32))),
                 sendHashAlgorithm = AttoAlgorithm.V1,
                 sendHash = AttoHash(ByteArray(32)),

@@ -4,7 +4,9 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSigner
@@ -32,8 +34,6 @@ import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.verify
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
@@ -69,6 +69,7 @@ class ElectionVoterTest {
     fun beforeEach() {
         every { voteWeighter.get() } returns AttoAmount.MAX
         every { thisNode.isVoter() } returns true
+        every { signer.publicKey } returns AttoPublicKey(Random.nextBytes(ByteArray(32)))
     }
 
     @Test
@@ -270,10 +271,10 @@ class ElectionVoterTest {
             publicKey = signer.publicKey,
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
-            timestamp = Instant.fromEpochMilliseconds(Clock.System.now().toEpochMilliseconds()),
+            timestamp = AttoInstant.now(),
             previous = AttoHash(Random.nextBytes(ByteArray(32))),
             sendHashAlgorithm = AttoAlgorithm.V1,
-            sendHash = AttoHash(Random.Default.nextBytes(ByteArray(32))),
+            sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
         )
 
     private fun Transaction.Companion.sample(): Transaction =

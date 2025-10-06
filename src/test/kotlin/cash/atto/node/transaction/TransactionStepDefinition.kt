@@ -162,19 +162,21 @@ class TransactionStepDefinition(
     private fun streamTransaction(
         neighbour: Neighbour,
         hash: AttoHash,
-    ): AttoTransaction =
-        webClient
-            .get()
-            .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
-            .retrieve()
-            .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<AttoTransaction>()
-            .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
-            .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
-            .timeout(Duration.ofSeconds(Waiter.timeoutInSeconds))
-            .doOnError { e ->
-                logger.error(e) { "Failed streaming transaction $hash (neighbour=$neighbour)" }
-            }.block()!!
+    ): AttoTransaction {
+        try {
+            return webClient
+                .get()
+                .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
+                .retrieve()
+                .onStatus({ it.value() == 404 }, { Mono.empty() })
+                .bodyToMono<AttoTransaction>()
+                .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
+                .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
+                .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+        } catch (e: Exception) {
+            throw IllegalStateException("Exception while streaming transaction $hash (neighbour=$neighbour)", e)
+        }
+    }
 
     private fun streamAccountEntries(
         neighbour: Neighbour,
@@ -183,17 +185,18 @@ class TransactionStepDefinition(
         height: AttoHeight,
     ): AttoAccountEntry {
         val url = "http://localhost:${neighbour.httpPort}/accounts/$publicKey/entries/stream?fromHeight=$height&toHeight=$height"
-        return webClient
-            .get()
-            .uri(url)
-            .retrieve()
-            .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToFlux<AttoAccountEntry>()
-            .filter { it.hash == hash }
-            .timeout(Duration.ofSeconds(Waiter.timeoutInSeconds))
-            .doOnError { e ->
-                logger.error(e) { "Failed streaming transaction $hash (neighbour=$neighbour)" }
-            }.blockFirst()!!
+        try {
+            return webClient
+                .get()
+                .uri(url)
+                .retrieve()
+                .onStatus({ it.value() == 404 }, { Mono.empty() })
+                .bodyToFlux<AttoAccountEntry>()
+                .filter { it.hash == hash }
+                .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+        } catch (e: Exception) {
+            throw IllegalStateException("Exception while streaming account entry $hash (neighbour=$neighbour)", e)
+        }
     }
 
     private fun streamReceivable(

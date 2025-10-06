@@ -2,6 +2,7 @@ package cash.atto.node.transaction
 
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoTransaction
@@ -9,6 +10,7 @@ import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
+import cash.atto.commons.toJavaInstant
 import cash.atto.commons.worker.AttoWorker
 import cash.atto.commons.worker.cpu
 import cash.atto.node.account.AccountService
@@ -18,8 +20,6 @@ import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
-import kotlinx.datetime.Clock
-import kotlinx.datetime.toJavaInstant
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.DependsOn
@@ -70,6 +70,8 @@ class TransactionConfiguration(
                 initializeDatabase(genesisTransaction, thisNode)
             }
         }
+
+        logger.info { "Genesis $genesisTransaction" }
 
         return genesisTransaction
     }
@@ -125,7 +127,7 @@ class TransactionConfiguration(
                 algorithm = thisNode.algorithm,
                 publicKey = signer.publicKey,
                 balance = AttoAmount.MAX,
-                timestamp = Clock.System.now(),
+                timestamp = AttoInstant.now(),
                 sendHashAlgorithm = thisNode.algorithm,
                 sendHash = AttoHash(ByteArray(32)),
                 representativeAlgorithm = thisNode.algorithm,

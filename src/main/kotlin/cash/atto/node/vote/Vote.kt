@@ -8,10 +8,10 @@ import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoVersion
 import cash.atto.commons.AttoVote
+import cash.atto.commons.toAtto
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.Event
 import cash.atto.node.transaction.Transaction
-import kotlinx.datetime.toJavaInstant
-import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.domain.Persistable
 import java.net.URI
@@ -60,7 +60,7 @@ data class Vote(
 
     override fun isNew(): Boolean = true
 
-    fun isFinal(): Boolean = AttoVote.finalTimestamp == timestamp.toKotlinInstant()
+    fun isFinal(): Boolean = AttoVote.finalTimestamp == timestamp.toAtto()
 
     fun toPublicKeyHash(): PublicKeyHash = PublicKeyHash(publicKey, blockHash)
 
@@ -72,7 +72,7 @@ data class Vote(
                 publicKey = publicKey,
                 blockAlgorithm = blockAlgorithm,
                 blockHash = blockHash,
-                timestamp = timestamp.toKotlinInstant(),
+                timestamp = timestamp.toAtto(),
             )
         return AttoSignedVote(
             vote = vote,

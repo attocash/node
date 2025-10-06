@@ -1,21 +1,17 @@
 package cash.atto.node.convertion
 
 import cash.atto.commons.AttoTransaction
+import cash.atto.commons.toBigInteger
 import cash.atto.commons.toBuffer
-import cash.atto.node.ApplicationProperties
-import cash.atto.node.toBigInteger
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.toTransaction
 import io.r2dbc.spi.Row
+import org.springframework.core.convert.converter.Converter
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
-import org.springframework.stereotype.Component
 import java.time.Instant
 
-@Component
-class TransactionSerializerDBConverter(
-    val properties: ApplicationProperties,
-) : DBConverter<Transaction, OutboundRow> {
+class TransactionSerializerDBConverter : Converter<Transaction, OutboundRow> {
     override fun convert(transaction: Transaction): OutboundRow {
         val block = transaction.block
 
@@ -33,8 +29,7 @@ class TransactionSerializerDBConverter(
     }
 }
 
-@Component
-class TransactionDeserializerDBConverter : DBConverter<Row, Transaction> {
+class TransactionDeserializerDBConverter : Converter<Row, Transaction> {
     override fun convert(row: Row): Transaction {
         val serializedBlock = row.get("serialized", ByteArray::class.java)!!.toBuffer()
         return AttoTransaction.fromBuffer(serializedBlock)!!.toTransaction()

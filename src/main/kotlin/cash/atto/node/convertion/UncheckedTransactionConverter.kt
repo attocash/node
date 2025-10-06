@@ -4,18 +4,19 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.PreviousSupport
 import cash.atto.commons.toBuffer
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.toUncheckedTransaction
 import cash.atto.node.transaction.toTransaction
 import io.r2dbc.spi.Row
-import kotlinx.datetime.toJavaInstant
+import org.springframework.core.convert.converter.Converter
 import org.springframework.data.r2dbc.mapping.OutboundRow
 import org.springframework.r2dbc.core.Parameter
 import org.springframework.stereotype.Component
 import java.time.Instant
 
 @Component
-class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransaction, OutboundRow> {
+class UncheckedTransactionSerializerDBConverter : Converter<UncheckedTransaction, OutboundRow> {
     override fun convert(uncheckedTransaction: UncheckedTransaction): OutboundRow {
         val block = uncheckedTransaction.block
         val row = OutboundRow()
@@ -41,7 +42,7 @@ class UncheckedTransactionSerializerDBConverter : DBConverter<UncheckedTransacti
 }
 
 @Component
-class UncheckedTransactionDeserializerDBConverter : DBConverter<Row, UncheckedTransaction> {
+class UncheckedTransactionDeserializerDBConverter : Converter<Row, UncheckedTransaction> {
     override fun convert(row: Row): UncheckedTransaction {
         val serializedBlock = row.get("serialized", ByteArray::class.java)!!.toBuffer()
         return AttoTransaction.fromBuffer(serializedBlock)!!.toTransaction().toUncheckedTransaction()

@@ -8,10 +8,10 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoVersion
+import cash.atto.commons.toAtto
 import cash.atto.node.Event
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
-import kotlinx.datetime.toKotlinInstant
 import org.springframework.data.annotation.Id
 import org.springframework.data.annotation.Version
 import org.springframework.data.domain.Persistable
@@ -51,7 +51,7 @@ data class Account(
             height = AttoHeight(height.toULong()),
             balance = balance,
             lastTransactionHash = lastTransactionHash,
-            lastTransactionTimestamp = lastTransactionTimestamp.toKotlinInstant(),
+            lastTransactionTimestamp = lastTransactionTimestamp.toAtto(),
             representativeAlgorithm = representativeAlgorithm,
             representativePublicKey = representativePublicKey,
         )

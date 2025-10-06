@@ -1,13 +1,13 @@
 package cash.atto.node.transaction.validation.validator
 
 import cash.atto.commons.ReceiveSupport
+import cash.atto.commons.toAtto
 import cash.atto.node.account.Account
 import cash.atto.node.receivable.ReceivableRepository
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
 import cash.atto.node.transaction.validation.TransactionValidator
 import cash.atto.node.transaction.validation.TransactionViolation
-import kotlinx.datetime.toKotlinInstant
 import org.springframework.core.annotation.Order
 import org.springframework.stereotype.Component
 
@@ -39,7 +39,7 @@ class ReceiveValidator(
             )
         }
 
-        if (transaction.block.timestamp <= receivable.timestamp.toKotlinInstant()) {
+        if (transaction.block.timestamp <= receivable.timestamp.toAtto()) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_TIMESTAMP,
                 "The account ${account.publicKey} can't receive ${receivable.hash}. " +
