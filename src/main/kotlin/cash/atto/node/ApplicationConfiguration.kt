@@ -40,7 +40,7 @@ class ApplicationConfiguration {
     }
 
     @Bean
-    fun springShopOpenAPI(environment: Environment): OpenAPI {
+    fun openApi(environment: Environment): OpenAPI {
         val version = environment.getProperty("spring.application.version").ifEmpty { "dev" }
         return OpenAPI()
             .info(
