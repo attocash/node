@@ -18,15 +18,11 @@ Feature: Bootstrap
     And send transaction 1 from THIS account to A account
     And transaction 1 is confirmed
 
-    And receive transaction 2 from 1 send transaction to A account
-    And transaction 2 is confirmed
-
     When the peer B
-    And send transaction 3 from A account to THIS account
+    And send transaction 2 from THIS account to A account
 
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
-    Then transaction 3 is confirmed
 
   Scenario: Last transaction should be broadcast
     Given the peer A
