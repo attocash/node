@@ -41,7 +41,7 @@ class ApplicationConfiguration {
 
     @Bean
     fun openApi(environment: Environment): OpenAPI {
-        val version = environment.getProperty("spring.application.version").ifEmpty { "dev" }
+        val version = environment.getProperty("spring.application.version", "").ifEmpty { "dev" }
         return OpenAPI()
             .info(
                 Info()
