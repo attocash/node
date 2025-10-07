@@ -16,6 +16,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
+import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @ImportRuntimeHints(SpringDocWorkaround1::class, SpringDocWorkaround2::class)
@@ -46,8 +47,9 @@ class ApplicationConfiguration {
     }
 
     @Bean
-    fun springShopOpenAPI(): OpenAPI =
-        OpenAPI()
+    fun springShopOpenAPI(environment: Environment): OpenAPI {
+        val version = environment.getProperty("spring.application.version").ifEmpty { "dev" }
+        return OpenAPI()
             .info(
                 Info()
                     .title("Atto Node API")
@@ -55,12 +57,13 @@ class ApplicationConfiguration {
                         "Atto is a high-performance cryptocurrency focused on instant, feeless, " +
                             "and scalable digital cash; this interface is the entry point to the network, " +
                             "allowing clients to publish and receive blocks, query account data, and participate in the network.",
-                    ).version("v1.0.0"),
+                    ).version(version),
             ).externalDocs(
                 ExternalDocumentation()
                     .description("Integration Docs")
                     .url("https://atto.cash/docs/integration"),
             )
+    }
 }
 
 class SpringDocWorkaround1 : RuntimeHintsRegistrar {
