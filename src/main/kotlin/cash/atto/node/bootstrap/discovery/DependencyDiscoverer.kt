@@ -3,6 +3,7 @@ package cash.atto.node.bootstrap.discovery
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
+import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.transaction.Transaction
@@ -24,7 +25,7 @@ import java.time.Duration
 class DependencyDiscoverer(
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val mutex = Mutex()
@@ -32,18 +33,17 @@ class DependencyDiscoverer(
 
     /*
      * This buffer is mainly used in tests to handle out-of-order votes that arrive before their corresponding transactions.
-     * In live environments, this situation is very unlikely due to the deterministic flow of message propagation,
-     * but since Atto operates asynchronously across peers, it’s not entirely impossible.
+     * In live environments, this situation is very unlikely due to the flow of messages and network latency, but since Atto
+     * operates asynchronously across peers, it’s not entirely impossible.
      *
      * Entries expire quickly (1 minute) and are weighted by the number of votes to limit memory usage.
      */
     private val outOfOrderBuffer =
-        Caffeine.newBuilder()
+        Caffeine
+            .newBuilder()
             .expireAfterWrite(Duration.ofMinutes(1))
             .maximumWeight(1000)
-            .weigher<AttoHash, List<Vote>> { _, votes ->
-                votes.size
-            }
+            .weigher<AttoHash, List<Vote>> { _, votes -> votes.size }
             .build<AttoHash, ArrayList<Vote>>()
             .asMap()
 
@@ -60,10 +60,12 @@ class DependencyDiscoverer(
     suspend fun add(
         reason: TransactionRejectionReason?,
         transaction: Transaction,
-    ) = mutex.withLock {
-        val transactionHolder = TransactionHolder(reason, transaction)
-        transactionHolderMap[transaction.hash] = transactionHolder
-        logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
+    ) {
+        mutex.withLock {
+            val transactionHolder = TransactionHolder(reason, transaction)
+            transactionHolderMap[transaction.hash] = transactionHolder
+            logger.debug { "Transaction rejected but added to the discovery queue. $transaction" }
+        }
 
         outOfOrderBuffer.remove(transaction.hash)?.forEach { vote ->
             process(vote)
@@ -99,6 +101,7 @@ class DependencyDiscoverer(
 
             val weight = holder.getWeight()
             val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
+
             if (weight >= minimalConfirmationWeight) {
                 transactionHolderMap.remove(hash)
                 logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
@@ -113,6 +116,11 @@ class DependencyDiscoverer(
 
             return
         }
+
+    override fun clear() {
+        transactionHolderMap.clear()
+        outOfOrderBuffer.clear()
+    }
 }
 
 private class TransactionHolder(
