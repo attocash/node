@@ -21,7 +21,7 @@ jobs:
 
       - run: ./gradlew -Pagent test --no-daemon --info --fail-fast
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         with:
           name: native-image-metadata
           path: build/native/agent-output/test
