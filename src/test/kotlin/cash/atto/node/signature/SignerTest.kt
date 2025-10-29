@@ -130,6 +130,7 @@ class SignerTest {
 
     private fun AttoReceivable.Companion.sample(): AttoReceivable =
         AttoReceivable(
+            network = AttoNetwork.LOCAL,
             hash = AttoHash(Random.Default.nextBytes(32)),
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,

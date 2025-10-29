@@ -94,6 +94,7 @@ class TransactionConfiguration(
 
             val receivable =
                 Receivable(
+                    network = block.network,
                     hash = block.sendHash,
                     version = block.version,
                     algorithm = block.algorithm,

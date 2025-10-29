@@ -84,6 +84,7 @@ internal class ReceiveValidatorTest {
             // given
             val receivable =
                 Receivable(
+                    network = block.network,
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
@@ -130,6 +131,7 @@ internal class ReceiveValidatorTest {
             byteArray.fill(1)
             val receivable =
                 Receivable(
+                    network = block.network,
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
@@ -158,6 +160,7 @@ internal class ReceiveValidatorTest {
             // given
             val receivable =
                 Receivable(
+                    network = block.network,
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
@@ -186,6 +189,7 @@ internal class ReceiveValidatorTest {
             // given
             val receivable =
                 Receivable(
+                    network = block.network,
                     hash = block.sendHash,
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,

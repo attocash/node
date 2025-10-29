@@ -3,6 +3,7 @@ package cash.atto.node.receivable
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoVersion
@@ -16,6 +17,7 @@ import java.time.Instant
 data class Receivable(
     @Id
     val hash: AttoHash,
+    val network: AttoNetwork,
     val version: AttoVersion,
     val algorithm: AttoAlgorithm,
     val publicKey: AttoPublicKey,
@@ -31,6 +33,7 @@ data class Receivable(
 
     fun toAttoReceivable(): AttoReceivable =
         AttoReceivable(
+            network = network,
             hash = hash,
             version = version,
             algorithm = algorithm,
@@ -44,6 +47,7 @@ data class Receivable(
 
 fun AttoReceivable.toReceivable(): Receivable =
     Receivable(
+        network = network,
         hash = hash,
         version = version,
         algorithm = algorithm,

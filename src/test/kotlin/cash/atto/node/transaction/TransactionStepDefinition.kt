@@ -86,7 +86,7 @@ class TransactionStepDefinition(
                 )
             } else {
                 val open =
-                    AttoAccount.open(receivable.receiverAlgorithm, receivable.receiverPublicKey, receivable, sendTransaction.block.network)
+                    AttoAccount.open(receivable.receiverAlgorithm, receivable.receiverPublicKey, receivable)
                 val openBlock = open.first
                 Transaction(
                     block = openBlock,
