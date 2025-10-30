@@ -45,7 +45,7 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "05fa932-SNAPSHOT"
+    val commonsVersion = "33ce2e9-SNAPSHOT"
     val cucumberVersion = "7.31.0"
     val springdocVersion = "2.8.13"
     val ktorVersion = "3.3.1"
@@ -99,7 +99,7 @@ dependencies {
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
-    implementation("net.logstash.logback:logstash-logback-encoder:9.0")
+    implementation("net.logstash.logback:logstash-logback-encoder:8.1")
     implementation("io.github.oshai:kotlin-logging-jvm:7.0.13")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
