@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     environment: ${{ inputs.image }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - run: git fetch --tags
 
