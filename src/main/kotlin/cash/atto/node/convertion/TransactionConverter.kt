@@ -3,6 +3,7 @@ package cash.atto.node.convertion
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.toBigInteger
 import cash.atto.commons.toBuffer
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.toTransaction
 import io.r2dbc.spi.Row
@@ -20,6 +21,7 @@ class TransactionSerializerDBConverter : Converter<Transaction, OutboundRow> {
             put("hash", Parameter.from(block.hash))
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height.value.toBigInteger()))
+            put("timestamp", Parameter.from(block.timestamp.toJavaInstant()))
             put("serialized", Parameter.from(transaction.toAttoTransaction().toBuffer()))
             put("received_at", Parameter.from(transaction.receivedAt))
             put("persisted_at", Parameter.fromOrEmpty(transaction.persistedAt, Instant::class.java))
