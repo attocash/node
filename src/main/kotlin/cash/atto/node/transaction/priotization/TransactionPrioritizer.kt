@@ -16,11 +16,10 @@ import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 
 @Service
@@ -30,25 +29,21 @@ class TransactionPrioritizer(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val mutex = Mutex()
-
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
-    private val activeElections = HashSet<AttoHash>()
-    private val buffer = HashMap<AttoHash, MutableSet<Transaction>>()
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
+    private val electionDependencies = ConcurrentHashMap<AttoHash, MutableSet<Transaction>>()
 
     @Scheduled(fixedRateString = "\${atto.transaction.prioritization.frequency}")
-    suspend fun process() {
+    fun process() {
         do {
-            val transaction =
-                mutex.withLock {
-                    val activeElectionCount = activeElections.size
-                    if (activeElectionCount >= 1000) {
-                        logger.debug { "There are $activeElectionCount active elections. Skipping prioritization for now." }
-                        return
-                    }
-                    queue.poll()
-                }
+            val electionsSize = electionDependencies.size
+            if (electionsSize >= 1000) {
+                logger.debug { "There are $electionsSize active elections. Skipping prioritization for now." }
+                return
+            }
+
+            val transaction = queue.poll()
+
             transaction?.let {
                 logger.debug { "Dequeued $transaction" }
                 eventPublisher.publish(TransactionReceived(it))
@@ -57,7 +52,7 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    suspend fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
+    fun add(message: InboundNetworkMessage<AttoTransactionPush>) {
         val transaction = message.payload.transaction
 
         if (duplicateDetector.isDuplicate(transaction.hash)) {
@@ -69,73 +64,71 @@ class TransactionPrioritizer(
     }
 
     @EventListener
-    suspend fun process(event: AccountUpdated) {
-        val bufferedTransactions =
-            mutex.withLock {
-                val hash = event.transaction.hash
+    fun process(event: AccountUpdated) {
+        val hash = event.transaction.hash
 
-                activeElections.remove(hash)
+        val bufferedTransactions = electionDependencies.remove(hash) ?: emptySet()
 
-                return@withLock buffer.remove(hash)?.toList() ?: emptyList()
+        if (bufferedTransactions.isNotEmpty()) {
+            logger.debug { "Dependency $hash resolved. Re-processing ${bufferedTransactions.size} transactions." }
+            bufferedTransactions.forEach {
+                add(it)
             }
-
-        bufferedTransactions.forEach {
-            logger.debug { "Unbuffered $it" }
-            add(it)
         }
     }
 
     @EventListener
-    suspend fun process(event: ElectionStarted) =
-        mutex.withLock {
-            activeElections.add(event.transaction.hash)
-        }
+    fun process(event: ElectionStarted) {
+        electionDependencies.putIfAbsent(event.transaction.hash, ConcurrentHashMap.newKeySet())
+    }
 
     @EventListener
-    suspend fun process(event: ElectionExpired) =
-        mutex.withLock {
-            val hash = event.transaction.hash
-            activeElections.remove(hash)
-            buffer.remove(hash)
+    fun process(event: ElectionExpired) {
+        electionDependencies.remove(event.transaction.hash)
+    }
+
+    fun add(transaction: Transaction) {
+        val block = transaction.block
+
+        if (block is ReceiveSupport && bufferIfElectionActive(block.sendHash, transaction)) {
+            logger.debug { "Buffering ${transaction.hash} until send block ${block.sendHash} is confirmed" }
+            return
         }
 
-    suspend fun add(transaction: Transaction) =
-        mutex.withLock {
-            val block = transaction.block
-            if (block is PreviousSupport && activeElections.contains(block.previous)) {
-                buffer(block.previous, transaction)
-            } else if (block is ReceiveSupport && activeElections.contains(block.sendHash)) {
-                buffer(block.sendHash, transaction)
-            } else {
-                val droppedTransaction = queue.add(transaction)
-                if (droppedTransaction != null) {
-                    logger.debug { "Dropped $droppedTransaction" }
-                    eventPublisher.publish(TransactionDropped(droppedTransaction))
-                }
-                logger.debug { "Queued $transaction" }
-            }
+        if (block is PreviousSupport && bufferIfElectionActive(block.previous, transaction)) {
+            logger.debug { "Buffering ${transaction.hash} until previous block ${block.previous} is confirmed" }
+            return
         }
 
-    private fun buffer(
-        hash: AttoHash,
+        val droppedTransaction = queue.add(transaction)
+
+        if (droppedTransaction != null) {
+            logger.debug { "Dropped $droppedTransaction" }
+            eventPublisher.publish(TransactionDropped(droppedTransaction))
+        } else {
+            logger.debug { "Queued $transaction" }
+        }
+    }
+
+    private fun bufferIfElectionActive(
+        dependency: AttoHash,
         transaction: Transaction,
-    ) {
-        buffer.compute(hash) { _, v ->
-            val set = v ?: HashSet()
-            set.add(transaction)
-            set
-        }
-        logger.debug { "Buffered until dependencies are confirmed. $transaction" }
+    ): Boolean {
+        val dependencies =
+            electionDependencies.computeIfPresent(dependency) { _, set ->
+                set.add(transaction)
+                set
+            }
+        return dependencies != null
     }
 
-    fun getQueueSize(): Int = queue.getSize()
+    fun getQueueSize(): Int = queue.size()
 
-    fun getBufferSize(): Int = buffer.size
+    fun getBufferSize(): Int = electionDependencies.values.sumOf { it.size }
 
     override fun clear() {
         queue.clear()
-        activeElections.clear()
-        buffer.clear()
+        electionDependencies.clear()
         duplicateDetector.clear()
     }
 }

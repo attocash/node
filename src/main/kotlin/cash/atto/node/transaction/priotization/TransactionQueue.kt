@@ -10,6 +10,8 @@ import java.util.SortedMap
 import java.util.TreeMap
 import java.util.TreeSet
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 import kotlin.math.absoluteValue
 import kotlin.math.min
 
@@ -57,9 +59,39 @@ class TransactionQueue(
             .thenComparing(balanceComparator.reversed())
             .thenComparing(hashComparator)
 
-    private val groups = Array(groupMap.size) { TreeSet(comparator) }
+    private inner class Group {
+        private val transactions = TreeSet(comparator)
+        val lock = ReentrantLock()
+
+        fun add(transaction: Transaction): Transaction? =
+            lock.withLock {
+                transactions.add(transaction)
+
+                if (transactions.size > groupMaxSize) {
+                    transactions.pollLast()
+                } else {
+                    null
+                }
+            }
+
+        fun poll(): Transaction? =
+            lock.withLock {
+                return transactions.pollFirst()
+            }
+
+        fun size(): Int =
+            lock.withLock {
+                return transactions.size
+            }
+
+        fun clear() =
+            lock.withLock {
+                transactions.clear()
+            }
+    }
+
+    private val groups = Array(groupMap.size) { Group() }
     private val currentGroup = AtomicInteger(0)
-    private val size = AtomicInteger(0)
 
     private fun getGroup(transaction: Transaction): Int {
         val block = transaction.block
@@ -69,45 +101,29 @@ class TransactionQueue(
     }
 
     /**
-     * @return deleted transaction
+     * @return deleted transaction if queue was full and eviction occurred
      */
     fun add(transaction: Transaction): Transaction? {
-        val group = getGroup(transaction)
-        val transactions = groups[group]
-
-        if (transactions.add(transaction)) {
-            size.addAndGet(1)
-        }
-
-        if (transactions.size > groupMaxSize) {
-            size.addAndGet(-1)
-            return transactions.pollLast()
-        }
-
-        return null
+        val groupIndex = getGroup(transaction)
+        return groups[groupIndex].add(transaction)
     }
 
-    internal fun poll(): Transaction? {
-        val groupInitial = currentGroup.get()
-        var groupIndex = currentGroup.get()
+    fun poll(): Transaction? {
+        val start = currentGroup.getAndUpdate { (it + 1) % groups.size }
 
-        do {
-            val transactions = groups[groupIndex]
-            val transaction = transactions.pollFirst()
-
-            groupIndex = ++groupIndex % groupMap.size
+        for (i in groups.indices) {
+            val index = (start + i) % groups.size
+            val transaction = groups[index].poll()
 
             if (transaction != null) {
-                currentGroup.set(groupIndex)
-                size.addAndGet(-1)
                 return transaction
             }
-        } while (groupInitial != groupIndex)
+        }
 
         return null
     }
 
-    fun getSize(): Int = size.get()
+    fun size(): Int = groups.sumOf { it.size() }
 
     fun clear() {
         groups.forEach { it.clear() }
