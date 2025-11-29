@@ -13,6 +13,7 @@ interface WeightRepository : CoroutineCrudRepository<Weight, AttoPublicKey> {
         SELECT representative_algorithm, representative_public_key, CAST(SUM(balance) AS UNSIGNED) AS weight
         FROM account
         GROUP BY representative_algorithm, representative_public_key
+        HAVING weight > 0
         """,
     )
     suspend fun refreshWeights()

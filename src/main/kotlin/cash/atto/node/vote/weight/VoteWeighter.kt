@@ -153,10 +153,16 @@ class VoteWeighter(
     ) {
         retryUntilSuccess {
             weightMap.compute(publicKey) { _, weight ->
-                if (weight == null) {
-                    defaultAmount
+                val newWeight =
+                    if (weight == null) {
+                        defaultAmount
+                    } else {
+                        weight - amount
+                    }
+                if (newWeight > AttoAmount.MIN) {
+                    return@compute newWeight
                 } else {
-                    weight - amount
+                    return@compute null
                 }
             }
         }
