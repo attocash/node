@@ -130,6 +130,8 @@ class VoteWeighter(
             .associate { it.key to it.value }
             .toMap(LinkedHashMap())
 
+    fun getLastestVote(publicKey: AttoPublicKey): Vote? = latestVoteMap[publicKey]
+
     private suspend fun add(
         publicKey: AttoPublicKey,
         amount: AttoAmount,
