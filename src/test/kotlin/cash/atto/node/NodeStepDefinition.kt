@@ -29,8 +29,9 @@ class NodeStepDefinition(
         val nodeName = "Node $shortId"
         val starter =
             Runnable {
-                val websocketPort = randomPort()
-                val httpPort = randomPort()
+                val ports = randomPorts()
+                val websocketPort = ports[0]
+                val httpPort = ports[1]
 
                 val classLoader = Thread.currentThread().contextClassLoader
                 val applicationClass = arrayOf(classLoader.loadClass(Application::class.java.canonicalName))
@@ -105,11 +106,11 @@ class NodeStepDefinition(
         networkProperties.defaultNodes.add("ws://localhost:${neighbour.websocketPort}")
     }
 
-    private fun randomPort(): UShort {
-        val socket = ServerSocket(0)
-        val port = socket.localPort
-        socket.close()
-        return port.toUShort()
+    private fun randomPorts(count: Int = 2): List<UShort> {
+        val sockets = (0 until count).map { ServerSocket(0) }
+        val ports = sockets.map { it.localPort.toUShort() }
+        sockets.forEach { it.close() }
+        return ports
     }
 
     private fun createClassLoader(): URLClassLoader {

@@ -7,6 +7,10 @@ spring:
     url: jdbc:mysql://${ATTO_DB_HOST:localhost}:${ATTO_DB_PORT:3306}/${ATTO_DB_NAME:atto}
     user: ${ATTO_DB_USER:root}
     password: ${ATTO_DB_PASSWORD:}
+  web:
+    error:
+      include-message: ALWAYS
+      include-stacktrace: ALWAYS
 
 atto:
   node:
@@ -14,14 +18,6 @@ atto:
     force-historical: true
     network: LOCAL
     public-uri: ws://localhost:${websocket.port}
-  network:
-    broadcaster:
-      cache-expiration-time-in-seconds: 0
-
-server:
-  error:
-    include-message: ALWAYS
-    include-stacktrace: ALWAYS
 
 logging:
   level:

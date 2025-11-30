@@ -9,6 +9,8 @@ on:
 jobs:
   test:
     uses: ./.github/workflows/test.yaml
+    with:
+      agent_enabled: true
   build:
     permissions:
       contents: read

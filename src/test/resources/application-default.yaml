@@ -7,6 +7,10 @@ spring:
     url:
     user:
     password:
+  web:
+    error:
+      include-message: ALWAYS
+      include-stacktrace: ALWAYS
 
 atto:
   transaction:
@@ -20,11 +24,6 @@ atto:
     force-historical: true
     network: LOCAL
     public-uri: ws://localhost:${websocket.port}
-
-server:
-  error:
-    include-message: ALWAYS
-    include-stacktrace: ALWAYS
 
 logging:
   level:
