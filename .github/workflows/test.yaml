@@ -2,6 +2,12 @@
 
 on:
   workflow_call:
+    inputs:
+      agent_enabled:
+        description: "Enable agent"
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   test:
@@ -20,7 +26,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v5
 
-      - run: ./gradlew -Pagent test --no-daemon --info --fail-fast
+      - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast
 
       - uses: actions/upload-artifact@v5
         with:

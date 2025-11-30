@@ -1,5 +1,5 @@
 plugins {
-    val kotlinVersion = "2.2.21"
+    val kotlinVersion = "2.3.0-RC"
 
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
@@ -14,7 +14,7 @@ group = "cash.atto"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -122,7 +122,7 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    maxHeapSize = "2g"
+    maxHeapSize = "4g"
 }
 
 ktlint {
