@@ -8,7 +8,7 @@ import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.springframework.boot.web.server.WebServerFactoryCustomizer
-import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory
+import org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile
@@ -56,8 +56,8 @@ class NodeConfiguration(
 
     @Bean
     @Profile("!default")
-    fun webServerFactoryCustomizer(nodeProperties: NodeProperties): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> =
-        WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> { factory ->
+    fun webServerFactoryCustomizer(): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> =
+        WebServerFactoryCustomizer { factory ->
             if (!signerProperties.key.isNullOrEmpty()) {
                 factory.setPort(-1)
             }
