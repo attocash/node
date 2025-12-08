@@ -20,7 +20,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
-          java-version: '25'
+          java-version: '24'
           native-image-musl: true
           cache: 'gradle'
 
