@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      NATIVE_IMAGE_OPTIONS: "-J-XX:MaxRAMPercentage=90.0"
     steps:
       - uses: actions/checkout@v6
 

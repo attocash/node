@@ -20,4 +20,4 @@ EXPOSE 8080
 EXPOSE 8081
 EXPOSE 8082
 
-ENTRYPOINT ["/app/node", "-XX:MaxRAMPercentage=90.0"]
+ENTRYPOINT ["/app/node"]
