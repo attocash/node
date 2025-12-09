@@ -8,7 +8,7 @@ import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import org.springframework.boot.web.server.WebServerFactoryCustomizer
-import org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory
+import org.springframework.boot.web.servlet.server.ConfigurableServletWebServerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.context.annotation.Profile

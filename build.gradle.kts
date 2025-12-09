@@ -5,7 +5,7 @@ plugins {
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
 
-    id("org.springframework.boot") version "4.0.0"
+    id("org.springframework.boot") version "3.5.6"
     id("org.graalvm.buildtools.native") version "0.11.3"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
@@ -14,7 +14,7 @@ group = "cash.atto"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(25)
+        languageVersion = JavaLanguageVersion.of(24)
     }
 }
 
@@ -36,15 +36,18 @@ configurations {
     compileOnly {
         extendsFrom(configurations.annotationProcessor.get())
     }
+    all {
+        exclude(group = "commons-logging", module = "commons-logging")
+    }
 }
 
 ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "3960d06-SNAPSHOT"
+    val commonsVersion = "ab19ef8-SNAPSHOT"
     val cucumberVersion = "7.32.0"
-    val springdocVersion = "3.0.0"
+    val springdocVersion = "2.8.14"
     val ktorVersion = "3.3.3"
 
     implementation("cash.atto:commons-core:$commonsVersion")
@@ -92,7 +95,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("io.asyncer:r2dbc-mysql:1.4.1")
 
-    implementation("org.springframework.boot:spring-boot-starter-flyway")
+    implementation("org.flywaydb:flyway-core")
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
@@ -115,9 +118,9 @@ dependencies {
     testImplementation("org.awaitility:awaitility:4.3.0")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
-    testImplementation("org.testcontainers:testcontainers-mysql")
-    testImplementation("org.testcontainers:testcontainers-r2dbc")
+    testImplementation("org.testcontainers:junit-jupiter")
+    testImplementation("org.testcontainers:mysql")
+    testImplementation("org.testcontainers:r2dbc")
 }
 
 tasks.withType<Test> {
