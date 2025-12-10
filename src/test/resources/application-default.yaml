@@ -33,9 +33,3 @@ logging:
     cash.atto.node.EventPublisher: TRACE
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
-
-management:
-  endpoints:
-    web:
-      exposure:
-        include: '*'
