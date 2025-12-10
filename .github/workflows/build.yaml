@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      NATIVE_IMAGE_OPTIONS: "-R:MaxRAMPercentage=90"
+      NATIVE_IMAGE_OPTIONS: "--static --libc=musl --gc=G1 -R:MaxRAMPercentage=90"
     steps:
       - uses: actions/checkout@v6
 

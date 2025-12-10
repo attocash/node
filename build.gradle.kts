@@ -135,9 +135,6 @@ ktlint {
 graalvmNative {
     binaries {
         named("main") {
-            buildArgs.add("--static")
-            buildArgs.add("--libc=musl")
-            buildArgs.add("--gc=G1")
         }
     }
 }
