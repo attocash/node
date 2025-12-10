@@ -1,5 +1,5 @@
 plugins {
-    val kotlinVersion = "2.3.0-RC2"
+    val kotlinVersion = "2.3.0-RC3"
 
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
