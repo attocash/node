@@ -7,7 +7,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     env:
-      NATIVE_IMAGE_OPTIONS: "-R:MaximumHeapSizePercent=90.0"
+      NATIVE_IMAGE_OPTIONS: "-R:MaximumHeapSizePercent=90"
     steps:
       - uses: actions/checkout@v6
 
