@@ -1,18 +1,27 @@
 package cash.atto.node
 
+import com.sun.management.OperatingSystemMXBean
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.models.ExternalDocumentation
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
 import jakarta.annotation.PostConstruct
+import org.springframework.aot.hint.MemberCategory
+import org.springframework.aot.hint.RuntimeHints
+import org.springframework.aot.hint.RuntimeHintsRegistrar
+import org.springframework.aot.hint.registerType
 import org.springframework.boot.autoconfigure.AutoConfigureOrder
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
+import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.EnableScheduling
 
+@ImportRuntimeHints(
+    MicrometerWorkaround::class,
+)
 @Configuration
 @EnableScheduling
 @AutoConfigureOrder(0)
@@ -56,5 +65,14 @@ class ApplicationConfiguration {
                     .description("Integration Docs")
                     .url("https://atto.cash/docs/integration"),
             )
+    }
+}
+
+class MicrometerWorkaround : RuntimeHintsRegistrar {
+    override fun registerHints(hints: RuntimeHints, classLoader: ClassLoader?) {
+        hints.reflection().registerType<OperatingSystemMXBean>(
+            MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS,
+            MemberCategory.INVOKE_PUBLIC_METHODS,
+        )
     }
 }
