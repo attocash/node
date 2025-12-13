@@ -21,7 +21,7 @@ import java.time.Instant
 class VoteWeightController(
     private val voteWeighter: VoteWeighter,
 ) {
-    @GetMapping("/{addressPath}")
+    @GetMapping("/{address}")
     @Operation(
         summary = "Get voter weight",
         responses = [
@@ -36,7 +36,7 @@ class VoteWeightController(
         ],
     )
     fun get(
-        @PathVariable("addressPath") address: AttoAddress,
+        @PathVariable address: AttoAddress,
     ): ResponseEntity<AttoVoterWeight> {
         val weight = voteWeighter.get(address.publicKey)
         val lastVotedAt = voteWeighter.getLastestVote(address.publicKey)?.receivedAt?.toAtto() ?: Instant.EPOCH.toAtto()
