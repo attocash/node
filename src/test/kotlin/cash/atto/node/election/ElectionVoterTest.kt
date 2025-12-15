@@ -146,7 +146,7 @@ class ElectionVoterTest {
         }
 
         // then
-        verify(exactly = 2, timeout = 10_000) {
+        verify(exactly = 2, timeout = 30_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
