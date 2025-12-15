@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/download-artifact@v6
+      - uses: actions/download-artifact@v7
         with:
           name: native-image-metadata
           path: src/main/resources/META-INF/native-image
