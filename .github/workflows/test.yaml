@@ -28,7 +28,7 @@ jobs:
 
       - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast
 
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: native-image-metadata
           path: build/native/agent-output/test
