@@ -310,6 +310,8 @@ class NetworkProcessor(
     fun stop() {
         logger.info { "Network Processor is stopping..." }
         clear()
+        httpClient.close()
+        websocketClient.close()
         server.stop()
         scope.cancel()
     }

@@ -69,7 +69,10 @@ class ApplicationConfiguration {
 }
 
 class MicrometerWorkaround : RuntimeHintsRegistrar {
-    override fun registerHints(hints: RuntimeHints, classLoader: ClassLoader?) {
+    override fun registerHints(
+        hints: RuntimeHints,
+        classLoader: ClassLoader?,
+    ) {
         hints.reflection().registerType<OperatingSystemMXBean>(
             MemberCategory.INVOKE_PUBLIC_CONSTRUCTORS,
             MemberCategory.INVOKE_PUBLIC_METHODS,
