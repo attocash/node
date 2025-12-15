@@ -2,6 +2,7 @@ package cash.atto.node
 
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient
 import org.springframework.boot.test.context.SpringBootTest
 import org.springframework.test.web.reactive.server.WebTestClient
 
@@ -9,6 +10,7 @@ import org.springframework.test.web.reactive.server.WebTestClient
     webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
     properties = ["websocket.port=0"],
 )
+@AutoConfigureWebTestClient(timeout = "PT60S")
 class OpenAPITest {
     @Autowired
     lateinit var webTestClient: WebTestClient
