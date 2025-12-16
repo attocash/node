@@ -173,6 +173,52 @@ class ElectionVoterTest {
     }
 
     @Test
+    fun `should NOT overwrite newer consensus with older one for different transaction`() {
+        // given
+        val transactionNewer = Transaction.sample()
+        val transactionOlder = Transaction.sample()
+
+        val base = java.time.Instant.now()
+        val newerTimestamp = base.plusSeconds(10)
+        val olderTimestamp = base.minusSeconds(10)
+
+        // when
+        runBlocking {
+            // First, consensus on newer transaction
+            electionVoter.process(ElectionStarted(account, transactionNewer, newerTimestamp))
+
+            // Then, an older consensus attempt for a different transaction must be ignored
+            electionVoter.process(ElectionConsensusChanged(account, transactionOlder, olderTimestamp))
+        }
+
+        // then
+        verify(exactly = 1) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
+        verify(exactly = 1) {
+            eventPublisher.publish(
+                match { event ->
+                    event as VoteValidated
+                    event.transaction == transactionNewer
+                },
+            )
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(
+                match { event ->
+                    event as VoteValidated
+                    event.transaction == transactionOlder
+                },
+            )
+        }
+    }
+
+    @Test
     fun `should send final vote when consensus reached`() {
         // given
         val transaction = Transaction.sample()

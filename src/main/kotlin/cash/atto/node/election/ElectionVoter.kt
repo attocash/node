@@ -86,22 +86,22 @@ class ElectionVoter(
     ) {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
-        val consensus = consensusMap[publicKeyHeight]
-
+        val oldConsensus = consensusMap[publicKeyHeight]
         val newConsensus = Consensus(transaction, consensusTimestamp)
 
-        if (consensus != null && consensus.transaction == newConsensus.transaction) {
-            if (consensus.consensusTimestamp < newConsensus.consensusTimestamp) {
-                consensusMap[publicKeyHeight] = newConsensus
-            }
+        if (oldConsensus != null && oldConsensus.consensusTimestamp > newConsensus.consensusTimestamp) {
             return
         }
 
-        logger.trace { "Consensus changed from ${consensus?.hash} to ${transaction.hash}" }
-
         consensusMap[publicKeyHeight] = newConsensus
 
-        if (consensus == null) {
+        if (oldConsensus != null && oldConsensus.transaction == newConsensus.transaction) {
+            return
+        }
+
+        logger.trace { "Consensus changed from ${oldConsensus?.hash} to ${transaction.hash}" }
+
+        if (oldConsensus == null) {
             vote(transaction, Instant.now())
         } else {
             voteAsynchronously(transaction, consensusTimestamp)
@@ -146,10 +146,7 @@ class ElectionVoter(
     suspend fun process(event: ElectionExpiring) {
         val publicKeyHeight = event.transaction.toPublicKeyHeight()
         mutex.withLock {
-            val consensus = consensusMap[publicKeyHeight]
-            if (consensus == null) {
-                return
-            }
+            val consensus = consensusMap[publicKeyHeight] ?: return
             vote(consensus.transaction, Instant.now())
         }
     }
