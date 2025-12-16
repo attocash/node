@@ -8,6 +8,7 @@ import cash.atto.node.Event
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
+import cash.atto.node.election.Election.Companion.ELECTION_STABILITY_MINIMAL_TIME
 import cash.atto.node.transaction.PublicKeyHeight
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionValidated
@@ -20,6 +21,7 @@ import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.TimeUnit
 
@@ -30,6 +32,10 @@ class Election(
     private val eventPublisher: EventPublisher,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
+
+    companion object {
+        val ELECTION_STABILITY_MINIMAL_TIME = Duration.ofSeconds(5)
+    }
 
     private val mutex = Mutex()
 
@@ -161,11 +167,17 @@ class Election(
     }
 }
 
+private class VoterChange(
+    val blockHash: AttoHash,
+    val lastChangeAt: Instant,
+)
+
 class PublicKeyHeightElection(
     val account: Account,
     private val minimalConfirmationWeightProvider: () -> AttoAmount,
 ) {
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
+    private val voterChangeMap = HashMap<AttoPublicKey, VoterChange>()
 
     fun add(transaction: Transaction) {
         if (transactionElectionMap.containsKey(transaction.hash)) {
@@ -185,11 +197,21 @@ class PublicKeyHeightElection(
             return false
         }
 
-        transactionElectionMap
-            .values
-            .asSequence()
-            .filter { it.transaction.hash != vote.blockHash }
-            .forEach { it.remove(vote) }
+        val oldChange = voterChangeMap[vote.publicKey]
+
+        if (oldChange?.blockHash == vote.blockHash) {
+            return true
+        }
+
+        val newChange =
+            if (oldChange != null) {
+                transactionElectionMap[oldChange.blockHash]!!.remove(vote.publicKey)
+                VoterChange(vote.blockHash, Instant.now())
+            } else {
+                VoterChange(vote.blockHash, Instant.MIN)
+            }
+
+        voterChangeMap[vote.publicKey] = newChange
 
         return true
     }
@@ -199,10 +221,26 @@ class PublicKeyHeightElection(
             .values
             .maxBy { it.totalWeight }
 
-    fun getConsensus(): TransactionElection? =
-        transactionElectionMap
-            .values
-            .firstOrNull { it.isConsensusReached() }
+    fun getConsensus(): TransactionElection? {
+        if (transactionElectionMap.isEmpty()) {
+            return null
+        }
+
+        val leader = getProvisionalLeader()
+
+        val recentlyChanged =
+            voterChangeMap.entries
+                .asSequence()
+                .filter { it.value.lastChangeAt > Instant.now().minus(ELECTION_STABILITY_MINIMAL_TIME) }
+                .map { it.key }
+                .toSet()
+
+        if (!leader.isConsensusReached(recentlyChanged)) {
+            return null
+        }
+
+        return leader
+    }
 }
 
 class TransactionElection(
@@ -211,19 +249,26 @@ class TransactionElection(
 ) {
     internal val votes = HashMap<AttoPublicKey, Vote>()
 
+    val totalWeight: AttoAmount
+        get() {
+            return calculateTotalWeight()
+        }
+
     /**
      * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
      * is unlikely to happen in the live environment but very likely to happen locally.
      */
-    val totalWeight: AttoAmount
-        get() {
-            var sum = AttoAmount.MIN
-            for (vote in votes.values) {
-                val next = sum + vote.weight
-                sum = if (next < sum) AttoAmount.MAX else next
+    private fun calculateTotalWeight(exclusions: Set<AttoPublicKey> = emptySet()): AttoAmount {
+        var sum = AttoAmount.MIN
+        for (vote in votes.values) {
+            if (exclusions.contains(vote.publicKey)) {
+                continue
             }
-            return sum
+            val next = sum + vote.weight
+            sum = if (next < sum) AttoAmount.MAX else next
         }
+        return sum
+    }
 
     internal fun add(vote: Vote): Boolean {
         val oldVote = votes[vote.publicKey]
@@ -235,9 +280,10 @@ class TransactionElection(
         return true
     }
 
-    fun isConsensusReached(): Boolean = totalWeight >= minimalConfirmationWeightProvider.invoke()
+    fun isConsensusReached(exclusions: Set<AttoPublicKey> = emptySet()): Boolean =
+        calculateTotalWeight(exclusions) >= minimalConfirmationWeightProvider.invoke()
 
-    internal fun remove(vote: Vote): Vote? = votes.remove(vote.publicKey)
+    internal fun remove(publicKey: AttoPublicKey): Vote? = votes.remove(publicKey)
 }
 
 data class ElectionStarted(

@@ -42,7 +42,7 @@ import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
 import java.util.concurrent.Executors
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.toKotlinDuration
 
 @Service
 class ElectionVoter(
@@ -199,7 +199,7 @@ class ElectionVoter(
         pending.remove(publicKeyHeight)?.cancel()
         val job =
             scope.launch {
-                delay(5.seconds)
+                delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
                 mutex.withLock {
                     vote(transaction, timestamp)
                     pending.remove(publicKeyHeight)
