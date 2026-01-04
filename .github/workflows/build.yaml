@@ -8,6 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      packages: write
     env:
       NATIVE_IMAGE_OPTIONS: "--static --libc=musl --gc=G1 -R:MaxRAMPercentage=90"
     steps:
