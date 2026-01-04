@@ -6,6 +6,8 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       NATIVE_IMAGE_OPTIONS: "--static --libc=musl --gc=G1 -R:MaxRAMPercentage=90"
     steps:
@@ -21,10 +23,10 @@ jobs:
           distribution: 'graalvm'
           java-version: '24'
           native-image-musl: true
+          native-image-enable-sbom: true
           native-image-job-reports: true
           native-image-pr-reports: true
           native-image-pr-reports-update-existing: true
-          native-image-enable-sbom: true
           cache: 'gradle'
 
       - uses: gradle/actions/setup-gradle@v5
