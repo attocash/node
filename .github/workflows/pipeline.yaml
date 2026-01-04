@@ -13,7 +13,7 @@ jobs:
       agent_enabled: true
   build:
     permissions:
-      contents: read
+      contents: write
       packages: write
     needs:
       - test
