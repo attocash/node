@@ -95,7 +95,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
     implementation("io.asyncer:r2dbc-mysql:1.4.1")
 
-    implementation("org.flywaydb:flyway-core")
     implementation("com.mysql:mysql-connector-j")
     implementation("org.flywaydb:flyway-mysql")
 
@@ -135,6 +134,7 @@ ktlint {
 graalvmNative {
     binaries {
         named("main") {
+            buildArgs.add("-march=compatibility")
         }
     }
 }
