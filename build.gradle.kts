@@ -6,7 +6,7 @@ plugins {
     kotlin("plugin.spring") version kotlinVersion
 
     id("org.springframework.boot") version "3.5.8"
-    id("org.graalvm.buildtools.native") version "0.11.3"
+    id("org.graalvm.buildtools.native") version "0.11.4"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
 
