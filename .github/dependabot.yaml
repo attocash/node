@@ -6,11 +6,7 @@ updates:
     directory: "/"
     schedule:
       interval: weekly
-    labels:
-      - "dependencies"
   - package-ecosystem: gradle
     directory: "/"
     schedule:
       interval: daily
-    labels:
-      - "dependencies"
