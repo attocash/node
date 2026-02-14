@@ -47,7 +47,7 @@ ext["kotlin-serialization.version"] = "1.8.0"
 dependencies {
     val commonsVersion = "6.1.0"
     val cucumberVersion = "7.32.0"
-    val springdocVersion = "3.0.1"
+    val springdocVersion = "2.8.14"
     val ktorVersion = "3.3.3"
 
     implementation("cash.atto:commons-core:$commonsVersion")
