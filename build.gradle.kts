@@ -58,7 +58,7 @@ dependencies {
 
     implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
 
     implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
