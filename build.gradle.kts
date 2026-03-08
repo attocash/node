@@ -8,6 +8,7 @@ plugins {
     id("org.springframework.boot") version "3.5.8"
     id("org.graalvm.buildtools.native") version "0.11.4"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 group = "cash.atto"
