@@ -100,11 +100,13 @@ class AccountCachedRepository(
                 missing += id
             }
 
-            if (missing.isNotEmpty()) {
-                accountCrudRepository.findAllById(missing).collect { account ->
-                    cache[account.publicKey] = account
-                    emit(account)
-                }
+            if (missing.isEmpty()) {
+                return@flow
+            }
+
+            accountCrudRepository.findAllById(missing).collect { account ->
+                cache[account.publicKey] = account
+                emit(account)
             }
         }
 

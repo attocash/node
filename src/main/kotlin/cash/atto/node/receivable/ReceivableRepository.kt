@@ -127,6 +127,10 @@ class ReceivableCachedRepository(
 
             val missing = ids.filterNot { it in seen }
 
+            if (missing.isEmpty()) {
+                return@flow
+            }
+
             receivableCrudRepository
                 .findAllById(missing)
                 .collect { emit(it) }
