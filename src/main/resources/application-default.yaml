@@ -24,7 +24,7 @@ logging:
     cash.atto: INFO
     cash.atto.node.network: INFO
     cash.atto.node.transaction.TransactionService: DEBUG
-    cash.atto.node.transaction.priotization.TransactionPrioritizer: DEBUG
+    ash.atto.node.transaction.prioritization.TransactionPrioritizer: DEBUG
     io.r2dbc.h2: INFO
     org.springframework.boot.autoconfigure: INFO
 

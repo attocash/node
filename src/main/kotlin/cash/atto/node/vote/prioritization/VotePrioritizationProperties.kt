@@ -1,4 +1,4 @@
-package cash.atto.node.vote.priotization
+package cash.atto.node.vote.prioritization
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration

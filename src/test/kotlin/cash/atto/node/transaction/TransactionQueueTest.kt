@@ -11,7 +11,7 @@ import cash.atto.commons.AttoWork
 import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
-import cash.atto.node.transaction.priotization.TransactionQueue
+import cash.atto.node.transaction.prioritization.TransactionQueue
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull

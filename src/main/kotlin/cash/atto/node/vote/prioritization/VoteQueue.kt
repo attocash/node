@@ -1,4 +1,4 @@
-package cash.atto.node.vote.priotization
+package cash.atto.node.vote.prioritization
 
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.PublicKeyHash

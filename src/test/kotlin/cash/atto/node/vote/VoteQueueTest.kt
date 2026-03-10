@@ -7,7 +7,7 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.transaction.Transaction
-import cash.atto.node.vote.priotization.VoteQueue
+import cash.atto.node.vote.prioritization.VoteQueue
 import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals

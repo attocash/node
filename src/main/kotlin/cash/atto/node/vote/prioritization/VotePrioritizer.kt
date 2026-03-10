@@ -1,4 +1,4 @@
-package cash.atto.node.vote.priotization
+package cash.atto.node.vote.prioritization
 
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -18,7 +18,7 @@ import cash.atto.node.vote.VoteReceived
 import cash.atto.node.vote.VoteRejected
 import cash.atto.node.vote.VoteRejectionReason
 import cash.atto.node.vote.VoteValidated
-import cash.atto.node.vote.priotization.VoteQueue.TransactionVote
+import cash.atto.node.vote.prioritization.VoteQueue.TransactionVote
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex

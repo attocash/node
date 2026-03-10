@@ -1,4 +1,4 @@
-package cash.atto.node.transaction.priotization
+package cash.atto.node.transaction.prioritization
 
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.context.annotation.Configuration

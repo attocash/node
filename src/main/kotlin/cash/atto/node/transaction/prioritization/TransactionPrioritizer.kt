@@ -1,4 +1,4 @@
-package cash.atto.node.transaction.priotization
+package cash.atto.node.transaction.prioritization
 
 import cash.atto.commons.AttoHash
 import cash.atto.commons.PreviousSupport

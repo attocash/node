@@ -1,4 +1,4 @@
-package cash.atto.node.transaction.priotization
+package cash.atto.node.transaction.prioritization
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import org.springframework.boot.actuate.info.Info
