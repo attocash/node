@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -117,7 +116,7 @@ class AccountController(
     suspend fun get(
         @PathVariable publicKey: AttoPublicKey,
     ): ResponseEntity<AttoAccount> {
-        val account = get(AccountSearch(setOf(AttoAddress(AttoAlgorithm.V1, publicKey)))).firstOrNull()
+        val account = repository.findById(publicKey)?.toAttoAccount()
         return ResponseEntity.ofNullable(account)
     }
 
