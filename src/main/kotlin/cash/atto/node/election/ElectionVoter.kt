@@ -123,7 +123,6 @@ class ElectionVoter(
 
     private suspend fun consensusReached(transaction: Transaction) {
         remove(transaction)
-        vote(transaction, Instant.now())
     }
 
     @EventListener

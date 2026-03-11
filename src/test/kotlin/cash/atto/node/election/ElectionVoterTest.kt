@@ -219,13 +219,45 @@ class ElectionVoterTest {
     }
 
     @Test
-    fun `should send final vote when consensus reached`() {
+    fun `should NOT send vote when consensus reached`() {
         // given
         val transaction = Transaction.sample()
 
         // when
         runBlocking {
             electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
+        }
+
+        // then
+        verify(exactly = 0) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(
+                match { event ->
+                    event as VoteValidated
+                    event.transaction == transaction
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `should send only vote and final vote in election flow`() {
+        // given
+        val transaction = Transaction.sample()
+        val accountUpdated = AccountUpdated(TransactionSource.ELECTION, account, account, transaction)
+
+        // when
+        runBlocking {
+            electionVoter.process(ElectionStarted(account, transaction))
+            electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
+            electionVoter.process(accountUpdated)
         }
 
         // then
@@ -238,10 +270,10 @@ class ElectionVoterTest {
             )
         }
         verify(exactly = 1) {
-            eventPublisher.publish(
-                match { event ->
-                    event as VoteValidated
-                    event.transaction == transaction
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.EVERYONE
                 },
             )
         }
