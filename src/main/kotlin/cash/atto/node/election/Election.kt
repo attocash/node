@@ -34,7 +34,7 @@ class Election(
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        val ELECTION_STABILITY_MINIMAL_TIME = Duration.ofSeconds(5)
+        val ELECTION_STABILITY_MINIMAL_TIME: Duration = Duration.ofSeconds(5)
     }
 
     private val mutex = Mutex()
