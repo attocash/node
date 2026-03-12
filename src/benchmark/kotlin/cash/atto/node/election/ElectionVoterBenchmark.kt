@@ -93,18 +93,10 @@ class ElectionVoterFlowBenchmark {
     }
 
     @Benchmark
-    @Threads(10)
+    @Threads(100)
     fun processElectionFlow() =
         runBlocking {
             val transaction = createTransaction(node, nextHeight.getAndIncrement().toUInt())
-            val accountUpdated =
-                AccountUpdated(
-                    source = TransactionSource.ELECTION,
-                    previousAccount = account,
-                    updatedAccount = account,
-                    transaction = transaction,
-                    timestamp = EVENT_TIMESTAMP,
-                )
 
             electionVoter.process(ElectionStarted(account, transaction, EVENT_TIMESTAMP))
             electionVoter.process(
@@ -122,7 +114,15 @@ class ElectionVoterFlowBenchmark {
                     timestamp = EVENT_TIMESTAMP.plusNanos(2),
                 ),
             )
-            electionVoter.process(accountUpdated)
+            electionVoter.process(
+                AccountUpdated(
+                    source = TransactionSource.ELECTION,
+                    previousAccount = account,
+                    updatedAccount = account,
+                    transaction = transaction,
+                    timestamp = EVENT_TIMESTAMP,
+                )
+            )
         }
 
     @TearDown(Level.Trial)

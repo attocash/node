@@ -1,7 +1,6 @@
 package cash.atto.node.election
 
 import cash.atto.commons.AttoAmount
-import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoUnit
@@ -41,7 +40,10 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import java.math.BigDecimal
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
+import kotlin.concurrent.atomics.AtomicBoolean
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.time.toKotlinDuration
 
 @Service
@@ -57,20 +59,14 @@ class ElectionVoter(
 
     companion object {
         val MIN_WEIGHT = AttoAmount.from(AttoUnit.ATTO, BigDecimal.valueOf(1_000_000).toString()) // 1M
-        val finalVoteTimestamp = AttoVote.finalTimestamp.toJavaInstant()
     }
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
-    private val mutex = Mutex()
-
-    private val consensusMap = HashMap<PublicKeyHeight, Consensus>()
-
-    private val pending = HashMap<PublicKeyHeight, Job>()
+    private val consensusMap = ConcurrentHashMap<PublicKeyHeight, Consensus>()
 
     override fun clear() {
         consensusMap.clear()
-        pending.clear()
     }
 
     @PreDestroy
@@ -80,81 +76,40 @@ class ElectionVoter(
         scope.cancel()
     }
 
-    private suspend fun consensed(
-        transaction: Transaction,
-        consensusTimestamp: Instant,
-    ) {
+    private fun consensusFor(transaction: Transaction): Consensus {
         val publicKeyHeight = transaction.toPublicKeyHeight()
-
-        val oldConsensus = consensusMap[publicKeyHeight]
-        val newConsensus = Consensus(transaction, consensusTimestamp)
-
-        if (oldConsensus != null && oldConsensus.consensusTimestamp > newConsensus.consensusTimestamp) {
-            return
-        }
-
-        consensusMap[publicKeyHeight] = newConsensus
-
-        if (oldConsensus != null && oldConsensus.transaction == newConsensus.transaction) {
-            return
-        }
-
-        logger.trace { "Consensus changed from ${oldConsensus?.hash} to ${transaction.hash}" }
-
-        if (oldConsensus == null) {
-            vote(transaction, Instant.now())
-        } else {
-            voteAsynchronously(transaction, consensusTimestamp)
-        }
+        return consensusMap.computeIfAbsent(publicKeyHeight) { Consensus(transaction) }
     }
 
     @EventListener
     suspend fun process(event: ElectionStarted) {
-        val publicKeyHeight = event.transaction.toPublicKeyHeight()
-
-        mutex.withLock {
-            if (consensusMap[publicKeyHeight] != null) {
-                return
-            }
-
-            consensed(event.transaction, event.timestamp)
-        }
-    }
-
-    private suspend fun consensusReached(transaction: Transaction) {
-        remove(transaction)
+        val consensus = consensusFor(event.transaction)
+        consensus.start(event.timestamp)
     }
 
     @EventListener
     suspend fun process(event: ElectionConsensusChanged) {
-        val transaction = event.transaction
-
-        mutex.withLock {
-            consensed(transaction, event.timestamp)
-        }
+        val consensus = consensusFor(event.transaction)
+        consensus.update(event.transaction, event.timestamp)
     }
 
     @EventListener
     suspend fun process(event: ElectionConsensusReached) {
-        mutex.withLock {
-            consensusReached(event.transaction)
-        }
+        val consensus = consensusFor(event.transaction)
+        consensus.update(event.transaction, event.timestamp)
     }
 
     @EventListener
     suspend fun process(event: ElectionExpiring) {
-        val publicKeyHeight = event.transaction.toPublicKeyHeight()
-        mutex.withLock {
-            val consensus = consensusMap[publicKeyHeight] ?: return
-            vote(consensus.transaction, Instant.now())
-        }
+        val consensus = consensusFor(event.transaction)
+        consensus.reaffirm()
     }
 
     @EventListener
-    suspend fun process(event: ElectionExpired) =
-        mutex.withLock {
-            remove(event.transaction)
-        }
+    suspend fun process(event: ElectionExpired) {
+        val consensus = consensusFor(event.transaction)
+        consensus.remove()
+    }
 
     @EventListener
     suspend fun process(event: AccountUpdated) {
@@ -162,9 +117,9 @@ class ElectionVoter(
             return
         }
 
-        mutex.withLock {
-            vote(event.transaction, finalVoteTimestamp)
-        }
+        val consensus = consensusFor(event.transaction)
+        consensus.finalVote(event.transaction)
+        consensus.remove()
     }
 
     @EventListener
@@ -178,92 +133,148 @@ class ElectionVoter(
             return
         }
 
-        mutex.withLock {
-            vote(event.transaction, finalVoteTimestamp)
-        }
-    }
-
-    /**
-     * During the election phase, multiple transactions at the same height can trigger a flurry of votes,
-     * making the provisional consensus bounce back and forth.
-     *
-     * Pausing for 5 seconds lets the network accumulate all votes first, so we cast a new vote
-     * against a more stable consensus instead of chasing transient shifts.
-     */
-    private suspend fun voteAsynchronously(
-        transaction: Transaction,
-        timestamp: Instant,
-    ) {
-        val publicKeyHeight = transaction.toPublicKeyHeight()
-        pending.remove(publicKeyHeight)?.cancel()
-        val job =
-            scope.launch {
-                delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
-                mutex.withLock {
-                    vote(transaction, timestamp)
-                    pending.remove(publicKeyHeight)
-                }
-            }
-        pending[publicKeyHeight] = job
-    }
-
-    private suspend fun vote(
-        transaction: Transaction,
-        timestamp: Instant,
-    ) {
-        val weight = voteWeighter.get()
-        if (!canVote(weight)) {
-            logger.trace { "This node can't vote yet" }
-            return
-        }
-
-        val attoVote =
-            AttoVote(
-                version = 0U.toAttoVersion(),
-                algorithm = thisNode.algorithm,
-                publicKey = thisNode.publicKey,
-                blockAlgorithm = transaction.algorithm,
-                blockHash = transaction.hash,
-                timestamp = timestamp.toAtto(),
-            )
-        val attoSignedVote =
-            AttoSignedVote(
-                vote = attoVote,
-                signature = signer.sign(attoVote),
-            )
-
-        val votePush =
-            AttoVotePush(
-                vote = attoSignedVote,
-            )
-
-        val strategy =
-            if (attoVote.isFinal()) {
-                BroadcastStrategy.EVERYONE
-            } else {
-                BroadcastStrategy.VOTERS
-            }
-
-        logger.debug { "Sending to $strategy $votePush" }
-
-        messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
-        eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
+        val consensus = consensusFor(event.transaction)
+        consensus.finalVote(event.transaction)
     }
 
     private fun canVote(weight: AttoAmount): Boolean = thisNode.isVoter() && weight >= MIN_WEIGHT
 
-    private suspend fun remove(transaction: Transaction) {
-        val publicKeyHeight = transaction.toPublicKeyHeight()
-        consensusMap.remove(publicKeyHeight)
-        pending.remove(publicKeyHeight)?.cancel()
-        logger.trace { "Removed ${transaction.hash} from the voter queue" }
-    }
 
-    private data class Consensus(
-        val transaction: Transaction,
-        val consensusTimestamp: Instant,
+    @OptIn(ExperimentalAtomicApi::class)
+    private inner class Consensus(
+        private var transaction: Transaction,
     ) {
-        val hash: AttoHash
-            get() = transaction.hash
+        private val mutex = Mutex()
+        private val started = AtomicBoolean(false)
+        private val publicKeyHeight = transaction.toPublicKeyHeight()
+        private var consensusTimestamp = transaction.block.timestamp.toJavaInstant()
+        private var pendingJob: Job? = null
+
+        suspend fun start(
+            timestamp: Instant,
+        ) = mutex.withLock {
+            if (!started.compareAndSet(expectedValue = false, newValue = true)) {
+                return@withLock
+            }
+            applyConsensus(transaction, timestamp, forceVote = true)
+        }
+
+        private fun checkStarted() {
+            require(started.load()) { "Consensus must be started before calling this method" }
+        }
+
+        suspend fun update(
+            transaction: Transaction,
+            timestamp: Instant,
+        ) = mutex.withLock {
+            checkStarted()
+            applyConsensus(transaction, timestamp)
+        }
+
+        suspend fun reaffirm() = mutex.withLock {
+            checkStarted()
+            publishVote(transaction, Instant.now())
+        }
+
+
+        suspend fun finalVote(transaction: Transaction) = mutex.withLock {
+            checkStarted()
+            publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant())
+        }
+
+        private suspend fun publishVote(
+            transaction: Transaction,
+            timestamp: Instant,
+        ) {
+            val weight = voteWeighter.get()
+            if (!canVote(weight)) {
+                logger.trace { "This node can't vote yet" }
+                return
+            }
+
+            val attoVote =
+                AttoVote(
+                    version = 0U.toAttoVersion(),
+                    algorithm = thisNode.algorithm,
+                    publicKey = thisNode.publicKey,
+                    blockAlgorithm = transaction.algorithm,
+                    blockHash = transaction.hash,
+                    timestamp = timestamp.toAtto(),
+                )
+            val attoSignedVote =
+                AttoSignedVote(
+                    vote = attoVote,
+                    signature = signer.sign(attoVote),
+                )
+
+            val votePush =
+                AttoVotePush(
+                    vote = attoSignedVote,
+                )
+
+            val strategy =
+                if (attoVote.isFinal()) {
+                    BroadcastStrategy.EVERYONE
+                } else {
+                    BroadcastStrategy.VOTERS
+                }
+
+            logger.debug { "Sending to $strategy $votePush" }
+
+            messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
+            eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
+        }
+
+
+        private suspend fun applyConsensus(
+            transaction: Transaction,
+            timestamp: Instant,
+            forceVote: Boolean = false
+        ) {
+            val oldTransaction = this.transaction
+            val oldTimestamp = this.consensusTimestamp
+
+            if (oldTimestamp >= timestamp) {
+                return
+            }
+
+            this.transaction = transaction
+            this.consensusTimestamp = timestamp
+
+            if (!forceVote && oldTransaction == transaction) {
+                return
+            }
+
+            logger.trace { "Consensus changed from ${oldTransaction.hash} to ${transaction.hash}" }
+
+            if (oldTransaction == transaction) {
+                publishVote(transaction, timestamp)
+            } else {
+                scheduleDelayedVote(transaction, timestamp)
+            }
+        }
+
+        private fun scheduleDelayedVote(
+            transaction: Transaction,
+            timestamp: Instant,
+        ) {
+            pendingJob?.cancel()
+            val job =
+                scope.launch {
+                    delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
+                    mutex.withLock {
+                        publishVote(transaction, timestamp)
+                        pendingJob = null
+                    }
+                }
+            pendingJob = job
+        }
+
+
+        suspend fun remove() = mutex.withLock {
+            pendingJob?.cancel()
+            consensusMap.remove(publicKeyHeight)
+            logger.trace { "Removed ${transaction.hash} from the voter queue" }
+        }
     }
 }
