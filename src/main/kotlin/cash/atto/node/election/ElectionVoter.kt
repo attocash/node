@@ -171,12 +171,12 @@ class ElectionVoter(
 
         suspend fun reaffirm() =
             mutex.withLock {
-                publishVote(transaction, Instant.now(), consensusChanged = false)
+                publishVote(transaction, Instant.now())
             }
 
         suspend fun finalVote(transaction: Transaction) =
             mutex.withLock {
-                publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant(), consensusChanged = false)
+                publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant())
                 remove()
             }
 
