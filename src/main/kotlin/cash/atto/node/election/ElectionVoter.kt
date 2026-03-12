@@ -76,9 +76,7 @@ class ElectionVoter(
         scope.cancel()
     }
 
-    private fun consensusFor(transaction: Transaction): Consensus? {
-        return consensusMap[transaction.toPublicKeyHeight()]
-    }
+    private fun consensusFor(transaction: Transaction): Consensus? = consensusMap[transaction.toPublicKeyHeight()]
 
     @EventListener
     suspend fun process(event: ElectionStarted) {
@@ -139,7 +137,6 @@ class ElectionVoter(
 
     private fun canVote(weight: AttoAmount): Boolean = thisNode.isVoter() && weight >= MIN_WEIGHT
 
-
     @OptIn(ExperimentalAtomicApi::class)
     private inner class Consensus(
         private var transaction: Transaction,
@@ -150,14 +147,13 @@ class ElectionVoter(
         private var consensusTimestamp = transaction.block.timestamp.toJavaInstant()
         private var job: Job? = null
 
-        suspend fun start(
-            timestamp: Instant,
-        ) = mutex.withLock {
-            if (!started.compareAndSet(expectedValue = false, newValue = true)) {
-                return@withLock
+        suspend fun start(timestamp: Instant) =
+            mutex.withLock {
+                if (!started.compareAndSet(expectedValue = false, newValue = true)) {
+                    return@withLock
+                }
+                applyConsensus(transaction, timestamp, forceVote = true)
             }
-            applyConsensus(transaction, timestamp, forceVote = true)
-        }
 
         private fun remove() {
             job?.cancel()
@@ -173,19 +169,21 @@ class ElectionVoter(
             applyConsensus(transaction, timestamp)
         }
 
-        suspend fun reaffirm() = mutex.withLock {
-            publishVote(transaction, Instant.now(), consensusChanged = false)
-        }
+        suspend fun reaffirm() =
+            mutex.withLock {
+                publishVote(transaction, Instant.now(), consensusChanged = false)
+            }
 
+        suspend fun finalVote(transaction: Transaction) =
+            mutex.withLock {
+                publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant(), consensusChanged = false)
+                remove()
+            }
 
-        suspend fun finalVote(transaction: Transaction) = mutex.withLock {
-            publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant(), consensusChanged = false)
-            remove()
-        }
-
-        suspend fun expire() = mutex.withLock {
-            remove()
-        }
+        suspend fun expire() =
+            mutex.withLock {
+                remove()
+            }
 
         private suspend fun publishVote(
             transaction: Transaction,
@@ -199,52 +197,52 @@ class ElectionVoter(
             }
 
             job?.cancel()
-            val newJob = scope.launch {
-                if (consensusChanged) {
-                    delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
-                }
-
-                val attoVote =
-                    AttoVote(
-                        version = 0U.toAttoVersion(),
-                        algorithm = thisNode.algorithm,
-                        publicKey = thisNode.publicKey,
-                        blockAlgorithm = transaction.algorithm,
-                        blockHash = transaction.hash,
-                        timestamp = timestamp.toAtto(),
-                    )
-                val attoSignedVote =
-                    AttoSignedVote(
-                        vote = attoVote,
-                        signature = signer.sign(attoVote),
-                    )
-
-                val votePush =
-                    AttoVotePush(
-                        vote = attoSignedVote,
-                    )
-
-                val strategy =
-                    if (attoVote.isFinal()) {
-                        BroadcastStrategy.EVERYONE
-                    } else {
-                        BroadcastStrategy.VOTERS
+            val newJob =
+                scope.launch {
+                    if (consensusChanged) {
+                        delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
                     }
 
-                logger.debug { "Sending to $strategy $votePush" }
+                    val attoVote =
+                        AttoVote(
+                            version = 0U.toAttoVersion(),
+                            algorithm = thisNode.algorithm,
+                            publicKey = thisNode.publicKey,
+                            blockAlgorithm = transaction.algorithm,
+                            blockHash = transaction.hash,
+                            timestamp = timestamp.toAtto(),
+                        )
+                    val attoSignedVote =
+                        AttoSignedVote(
+                            vote = attoVote,
+                            signature = signer.sign(attoVote),
+                        )
 
-                messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
-                eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
-            }
+                    val votePush =
+                        AttoVotePush(
+                            vote = attoSignedVote,
+                        )
+
+                    val strategy =
+                        if (attoVote.isFinal()) {
+                            BroadcastStrategy.EVERYONE
+                        } else {
+                            BroadcastStrategy.VOTERS
+                        }
+
+                    logger.debug { "Sending to $strategy $votePush" }
+
+                    messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
+                    eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
+                }
             job = newJob
             newJob.join()
         }
 
-
         private suspend fun applyConsensus(
             transaction: Transaction,
             timestamp: Instant,
-            forceVote: Boolean = false
+            forceVote: Boolean = false,
         ) {
             val oldTransaction = this.transaction
             val oldTimestamp = this.consensusTimestamp

@@ -1,5 +1,3 @@
-import kotlinx.benchmark.gradle.JvmBenchmarkTarget
-
 plugins {
     val kotlinVersion = "2.3.0"
 
@@ -137,7 +135,6 @@ dependencies {
     testImplementation("org.testcontainers:mysql")
     testImplementation("org.testcontainers:r2dbc")
     add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.4.14")
-
 }
 
 tasks.withType<Test> {

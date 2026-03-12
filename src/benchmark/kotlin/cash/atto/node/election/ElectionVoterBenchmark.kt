@@ -48,7 +48,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 
 @State(Scope.Benchmark)
-class ElectionVoterFlowBenchmark {
+class ElectionVoterBenchmark {
     private companion object {
         val EVENT_TIMESTAMP: Instant = Instant.EPOCH
     }
@@ -121,7 +121,7 @@ class ElectionVoterFlowBenchmark {
                     updatedAccount = account,
                     transaction = transaction,
                     timestamp = EVENT_TIMESTAMP,
-                )
+                ),
             )
         }
 
