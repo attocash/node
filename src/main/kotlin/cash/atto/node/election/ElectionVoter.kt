@@ -44,7 +44,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
 import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
-import kotlin.time.toKotlinDuration
+import kotlin.random.Random
 
 @Service
 class ElectionVoter(
@@ -200,7 +200,15 @@ class ElectionVoter(
             val newJob =
                 scope.launch {
                     if (consensusChanged) {
-                        delay(Election.ELECTION_STABILITY_MINIMAL_TIME.toKotlinDuration())
+                        val baseDelay = Election.ELECTION_STABILITY_MINIMAL_TIME.toMillis()
+                        /*
+                         * Extra delay spreads votes across a 2s window so that not all nodes
+                         * cast their votes at the exact same instant, reducing the chance of
+                         * a race condition where simultaneous votes could cause more
+                         * consensus flips.
+                         */
+                        val extraDelay = Random.nextLong(0, 2001)
+                        delay(baseDelay + extraDelay)
                     }
 
                     val attoVote =
