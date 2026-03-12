@@ -219,16 +219,17 @@ class ElectionVoterTest {
     }
 
     @Test
-    fun `should send final vote when consensus reached`() {
+    fun `should NOT send additional vote when consensus reached`() {
         // given
         val transaction = Transaction.sample()
 
         // when
         runBlocking {
+            electionVoter.process(ElectionStarted(account, transaction))
             electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
         }
 
-        // then
+        // then — only the initial vote from ElectionStarted, no extra vote from ConsensusReached
         verify(exactly = 1) {
             messagePublisher.publish(
                 match { message ->
@@ -248,6 +249,38 @@ class ElectionVoterTest {
     }
 
     @Test
+    fun `should send only vote and final vote in election flow`() {
+        // given
+        val transaction = Transaction.sample()
+        val accountUpdated = AccountUpdated(TransactionSource.ELECTION, account, account, transaction)
+
+        // when
+        runBlocking {
+            electionVoter.process(ElectionStarted(account, transaction))
+            electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
+            electionVoter.process(accountUpdated)
+        }
+
+        // then
+        verify(exactly = 1) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
+        verify(exactly = 1) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.EVERYONE
+                },
+            )
+        }
+    }
+
+    @Test
     fun `should send final vote when account is updated`() {
         // given
         val transaction = Transaction.sample()
@@ -255,6 +288,7 @@ class ElectionVoterTest {
 
         // when
         runBlocking {
+            electionVoter.process(ElectionStarted(account, transaction))
             electionVoter.process(accountUpdated)
         }
 
@@ -287,23 +321,24 @@ class ElectionVoterTest {
 
         // when
         runBlocking {
+            electionVoter.process(ElectionStarted(account, transaction))
             electionVoter.process(TransactionRejected(TransactionRejectionReason.OLD_TRANSACTION, "Test", account, transaction))
         }
 
-        // then
+        // then — initial vote (VOTERS) + final vote (EVERYONE)
+        verify(exactly = 1) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
         verify(exactly = 1) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
                     message.strategy == BroadcastStrategy.EVERYONE
-                },
-            )
-        }
-        verify(exactly = 1) {
-            eventPublisher.publish(
-                match { event ->
-                    event as VoteValidated
-                    event.transaction == transaction
                 },
             )
         }

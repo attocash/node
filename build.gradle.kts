@@ -4,7 +4,9 @@ plugins {
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
+    kotlin("plugin.allopen") version kotlinVersion
 
+    id("org.jetbrains.kotlinx.benchmark") version "0.4.14"
     id("org.springframework.boot") version "3.5.11"
     id("org.graalvm.buildtools.native") version "0.11.4"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
@@ -18,10 +20,18 @@ java {
     }
 }
 
+sourceSets {
+    create("benchmark")
+}
+
 kotlin {
     compilerOptions {
         freeCompilerArgs.addAll("-Xjsr305=strict")
     }
+
+    target.compilations
+        .getByName("benchmark")
+        .associateWith(target.compilations.getByName("main"))
 }
 
 repositories {
@@ -39,6 +49,10 @@ configurations {
     all {
         exclude(group = "commons-logging", module = "commons-logging")
     }
+}
+
+allOpen {
+    annotation("org.openjdk.jmh.annotations.State")
 }
 
 ext["kotlin-coroutines.version"] = "1.9.0"
@@ -120,6 +134,7 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation("org.testcontainers:mysql")
     testImplementation("org.testcontainers:r2dbc")
+    add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.4.14")
 }
 
 tasks.withType<Test> {
@@ -136,5 +151,11 @@ graalvmNative {
         named("main") {
             buildArgs.add("-march=compatibility")
         }
+    }
+}
+
+benchmark {
+    targets {
+        register("benchmark")
     }
 }
