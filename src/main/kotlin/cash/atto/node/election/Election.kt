@@ -99,6 +99,7 @@ class Election(
             return@withLock
         }
 
+        val previousProvisionalTransactionElection = publicKeyHeightElection.getProvisionalLeader()
         if (!publicKeyHeightElection.add(vote)) {
             logger.trace { "Vote is old and it won't be considered in the election $publicKeyHeight $vote" }
             return@withLock
@@ -126,7 +127,10 @@ class Election(
             "Transaction ${provisionalTransactionElection.transaction.hash} is the current provisional leader but " +
                 "totalWeight(${provisionalTransactionElection.totalWeight}) < minimalConfirmationWeight($minimalConfirmationWeight)."
         }
-        eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
+
+        if (provisionalTransactionElection.transaction != previousProvisionalTransactionElection.transaction) {
+            eventPublisher.publish(ElectionConsensusChanged(account, provisionalTransactionElection.transaction))
+        }
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
