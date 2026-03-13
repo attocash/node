@@ -42,7 +42,6 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-import kotlin.concurrent.atomics.AtomicBoolean
 import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.random.Random
 
@@ -142,18 +141,23 @@ class ElectionVoter(
         private var transaction: Transaction,
     ) {
         private val mutex = Mutex()
-        private val started = AtomicBoolean(false)
+        private var started = false
         private val publicKeyHeight = transaction.toPublicKeyHeight()
         private var consensusTimestamp = transaction.block.timestamp.toJavaInstant()
         private var job: Job? = null
 
-        suspend fun start(timestamp: Instant) =
+        suspend fun start(timestamp: Instant) {
+            if (started) {
+                return
+            }
             mutex.withLock {
-                if (!started.compareAndSet(expectedValue = false, newValue = true)) {
+                if (started) {
                     return@withLock
                 }
+                started = true
                 applyConsensus(transaction, timestamp, forceVote = true)
             }
+        }
 
         private fun remove() {
             job?.cancel()
@@ -185,7 +189,7 @@ class ElectionVoter(
                 remove()
             }
 
-        private suspend fun publishVote(
+        private fun publishVote(
             transaction: Transaction,
             timestamp: Instant,
             consensusChanged: Boolean = false,
@@ -197,7 +201,7 @@ class ElectionVoter(
             }
 
             job?.cancel()
-            val newJob =
+            job =
                 scope.launch {
                     if (consensusChanged) {
                         val baseDelay = Election.ELECTION_STABILITY_MINIMAL_TIME.toMillis()
@@ -243,8 +247,6 @@ class ElectionVoter(
                     messagePublisher.publish(BroadcastNetworkMessage(strategy, emptySet(), votePush))
                     eventPublisher.publish(VoteValidated(transaction, Vote.from(weight, attoSignedVote)))
                 }
-            job = newJob
-            newJob.join()
         }
 
         private suspend fun applyConsensus(
