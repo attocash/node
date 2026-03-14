@@ -75,7 +75,6 @@ class VoteWeighter(
     override fun clear() {
         weightMap.clear()
         latestVoteMap.clear()
-        init()
     }
 
     @EventListener
