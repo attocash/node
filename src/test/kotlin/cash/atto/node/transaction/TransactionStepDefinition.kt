@@ -15,6 +15,7 @@ import cash.atto.commons.worker.cpu
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
+import cash.atto.node.Waiter.waitUntilNonNull
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -25,6 +26,8 @@ import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
 import java.time.Duration
+import java.util.concurrent.TimeoutException
+import kotlin.jvm.optionals.getOrNull
 
 class TransactionStepDefinition(
     private val webClient: WebClient,
@@ -164,15 +167,20 @@ class TransactionStepDefinition(
         hash: AttoHash,
     ): AttoTransaction {
         try {
-            return webClient
-                .get()
-                .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
-                .retrieve()
-                .onStatus({ it.value() == 404 }, { Mono.empty() })
-                .bodyToMono<AttoTransaction>()
-                .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
-                .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
-                .block(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+            return waitUntilNonNull {
+                webClient
+                    .get()
+                    .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
+                    .retrieve()
+                    .onStatus({ it.value() == 404 }, { Mono.empty() })
+                    .bodyToMono<AttoTransaction>()
+                    .timeout(Duration.ofSeconds(1))
+                    .onErrorResume(TimeoutException::class.java) { Mono.empty() }
+                    .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
+                    .doOnTerminate { logger.info { "Stopped streaming transaction $hash" } }
+                    .blockOptional()
+                    .getOrNull()
+            }!!
         } catch (e: Exception) {
             throw IllegalStateException("Exception while streaming transaction $hash (neighbour=$neighbour)", e)
         }
