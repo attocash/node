@@ -24,6 +24,10 @@ Feature: Bootstrap
     When the peer B
     And send transaction 3 from THIS account to A account
 
+    When transaction 2 missing votes are grabbed
+    When transaction 3 missing votes are grabbed
+    When peer THIS broadcast last sample
+
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
 
