@@ -33,6 +33,9 @@ class CucumberConfiguration(
     @Before
     fun before() =
         runBlocking {
+            NodeHolder.clear(context)
+            NodeHolder.add(context)
+
             repositories.forEach { it.deleteAll() }
 
             transactionConfiguration.initializeDatabase(genesisTransaction, thisNode)
@@ -51,9 +54,6 @@ class CucumberConfiguration(
             PropertyHolder.add("THIS", AttoAlgorithm.V1)
             PropertyHolder.add("THIS", signer.publicKey)
             PropertyHolder.add("THIS", Neighbour(8082U, 8080U))
-
-            NodeHolder.clear(context)
-            NodeHolder.add(context)
 
             ChallengeStore.clear()
         }

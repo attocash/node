@@ -23,7 +23,9 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -39,7 +41,8 @@ class NodeConnectionManager(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
+    private val supervisorJob = SupervisorJob()
+    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + supervisorJob)
 
     private val connectionMap =
         Caffeine
@@ -67,6 +70,9 @@ class NodeConnectionManager(
 
     override fun clear() {
         connectionMap.clear()
+        runBlocking {
+            supervisorJob.children.toList().joinAll()
+        }
     }
 
     @PreDestroy
