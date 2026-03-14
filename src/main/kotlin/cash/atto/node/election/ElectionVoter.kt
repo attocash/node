@@ -28,6 +28,7 @@ import cash.atto.protocol.AttoVotePush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -180,8 +181,8 @@ class ElectionVoter(
 
         suspend fun finalVote(transaction: Transaction) =
             mutex.withLock {
-                publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant())
                 remove()
+                publishVote(transaction, AttoVote.finalTimestamp.toJavaInstant())
             }
 
         suspend fun expire() =
@@ -202,7 +203,7 @@ class ElectionVoter(
 
             job?.cancel()
             job =
-                scope.launch {
+                scope.launch(start = CoroutineStart.UNDISPATCHED) {
                     if (consensusChanged) {
                         val baseDelay = Election.ELECTION_STABILITY_MINIMAL_TIME.toMillis()
                         /*

@@ -67,6 +67,7 @@ class ElectionVoterTest {
 
     @BeforeEach
     fun beforeEach() {
+        electionVoter.clear()
         every { voteWeighter.get() } returns AttoAmount.MAX
         every { thisNode.isVoter() } returns true
         every { signer.publicKey } returns AttoPublicKey(Random.nextBytes(ByteArray(32)))
@@ -84,7 +85,7 @@ class ElectionVoterTest {
         }
 
         // then
-        verify {
+        verify(timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -92,7 +93,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify {
+        verify(timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -114,7 +115,7 @@ class ElectionVoterTest {
         }
 
         // then
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -122,7 +123,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -154,7 +155,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -162,7 +163,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -192,7 +193,7 @@ class ElectionVoterTest {
         }
 
         // then
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -200,7 +201,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -208,7 +209,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 0) {
+        verify(exactly = 0, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -230,7 +231,7 @@ class ElectionVoterTest {
         }
 
         // then — only the initial vote from ElectionStarted, no extra vote from ConsensusReached
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -238,7 +239,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -252,17 +253,15 @@ class ElectionVoterTest {
     fun `should send only vote and final vote in election flow`() {
         // given
         val transaction = Transaction.sample()
-        val accountUpdated = AccountUpdated(TransactionSource.ELECTION, account, account, transaction)
 
         // when
         runBlocking {
             electionVoter.process(ElectionStarted(account, transaction))
             electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
-            electionVoter.process(accountUpdated)
         }
 
         // then
-        verify(exactly = 1) {
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -270,7 +269,14 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+
+        // when
+        runBlocking {
+            electionVoter.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+        }
+
+        // then
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -284,16 +290,29 @@ class ElectionVoterTest {
     fun `should send final vote when account is updated`() {
         // given
         val transaction = Transaction.sample()
-        val accountUpdated = AccountUpdated(TransactionSource.ELECTION, account, account, transaction)
 
         // when
         runBlocking {
             electionVoter.process(ElectionStarted(account, transaction))
-            electionVoter.process(accountUpdated)
         }
 
         // then
-        verify {
+        verify(exactly = 1, timeout = 3_000) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
+
+        // when
+        runBlocking {
+            electionVoter.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+        }
+
+        // then
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -301,7 +320,7 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify {
+        verify(timeout = 3_000) {
             eventPublisher.publish(
                 match { event ->
                     event as VoteValidated
@@ -322,11 +341,10 @@ class ElectionVoterTest {
         // when
         runBlocking {
             electionVoter.process(ElectionStarted(account, transaction))
-            electionVoter.process(TransactionRejected(TransactionRejectionReason.OLD_TRANSACTION, "Test", account, transaction))
         }
 
-        // then — initial vote (VOTERS) + final vote (EVERYONE)
-        verify(exactly = 1) {
+        // then — initial vote (VOTERS)
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
@@ -334,7 +352,14 @@ class ElectionVoterTest {
                 },
             )
         }
-        verify(exactly = 1) {
+
+        // when
+        runBlocking {
+            electionVoter.process(TransactionRejected(TransactionRejectionReason.OLD_TRANSACTION, "Test", account, transaction))
+        }
+
+        // then — final vote (EVERYONE)
+        verify(exactly = 1, timeout = 3_000) {
             messagePublisher.publish(
                 match { message ->
                     message as BroadcastNetworkMessage
