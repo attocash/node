@@ -8,6 +8,7 @@ import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toBigInteger
+import cash.atto.node.CacheSupport
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
@@ -42,7 +43,7 @@ class VoteKeeper(
     private val voteService: VoteService,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val signer: AttoSigner,
-) {
+) : CacheSupport {
     companion object {
         internal val cacheExpiration = Duration.ofSeconds(10)
     }
@@ -153,5 +154,10 @@ class VoteKeeper(
                 }
             } while (batch.isNotEmpty())
         }
+    }
+
+    override fun clear() {
+        peers.clear()
+        missingVoteMap.clear()
     }
 }

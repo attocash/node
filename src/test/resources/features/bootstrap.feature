@@ -18,8 +18,11 @@ Feature: Bootstrap
     And send transaction 1 from THIS account to A account
     And transaction 1 is confirmed
 
+    And receive transaction 2 from 1 send transaction to A account
+    Then transaction 2 is confirmed
+
     When the peer B
-    And send transaction 2 from THIS account to A account
+    And send transaction 3 from THIS account to A account
 
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
