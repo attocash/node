@@ -7,11 +7,17 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.reactive.TransactionSynchronization
 import org.springframework.transaction.reactive.TransactionSynchronizationManager
 import reactor.core.publisher.Mono
+import java.net.InetAddress
 import java.time.Instant
 
 interface Event {
     val timestamp: Instant
 }
+
+data class InboundConnectionRequested(
+    val address: InetAddress,
+    override val timestamp: Instant = Instant.now(),
+) : Event
 
 @Component
 class EventPublisher(
