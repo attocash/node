@@ -3,6 +3,7 @@ package cash.atto.node.network.guardian
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.InboundConnectionRequested
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NodeBanned
@@ -76,6 +77,14 @@ class Guardian(
     }
 
     @EventListener
+    fun count(event: InboundConnectionRequested) {
+        val socketAddress = InetSocketAddress(event.address, 0)
+        statisticsMap.compute(socketAddress) { _, v ->
+            (v ?: 0UL) + 1UL
+        }
+    }
+
+    @EventListener
     fun add(nodeEvent: NodeConnected) {
         if (nodeEvent.node.isNotVoter()) {
             return
@@ -89,17 +98,26 @@ class Guardian(
         voterMap.remove(nodeEvent.connectionSocketAddress)
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRate = 15, timeUnit = TimeUnit.SECONDS)
     @Synchronized
     fun guard() {
         val newSnapshot = statisticsMap.toMap()
 
         val differenceMap = calculateDifference(newSnapshot, snapshot)
-        val median = median(extractVoters(differenceMap).values)
+        snapshot = newSnapshot
+
+        val voterValues = extractVoters(differenceMap).values
+        if (voterValues.isEmpty()) {
+            return
+        }
+
+        val median = median(voterValues)
 
         if (median < guardianProperties.minimalMedian) {
             return
         }
+
+        val threshold = median * guardianProperties.toleranceMultiplier
 
         val mergedDifferenceMap =
             differenceMap
@@ -107,19 +125,12 @@ class Guardian(
                 .groupBy({ it.key.address }, { it.value })
                 .mapValues { it.value.sum() }
 
-        val maliciousActors =
-            mergedDifferenceMap
-                .entries
-                .associateBy({ it.value }, { it.key })
-                .toSortedMap()
-                .tailMap(median * guardianProperties.toleranceMultiplier)
-
-        maliciousActors.forEach {
-            logger.info { "Banning ${it.value}. Received ${it.key} requests while median of voters is $median per second" }
-            eventPublisher.publish(NodeBanned(it.value))
-        }
-
-        snapshot = newSnapshot
+        mergedDifferenceMap
+            .filter { it.value >= threshold }
+            .forEach { (address, count) ->
+                logger.info { "Banning $address. Received $count requests while median of voters is $median per second" }
+                eventPublisher.publish(NodeBanned(address))
+            }
     }
 
     private fun calculateDifference(
@@ -143,9 +154,7 @@ class Guardian(
     }
 
     private fun median(hits: Collection<ULong>): ULong {
-        if (hits.isEmpty()) {
-            return ULong.MAX_VALUE
-        }
+        require(hits.isNotEmpty()) { "Cannot compute median of empty collection" }
         val sortedHits = hits.sorted()
         val middle = sortedHits.size / 2
         return if (sortedHits.size % 2 == 0) {

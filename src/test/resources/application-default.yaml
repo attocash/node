@@ -13,6 +13,8 @@ spring:
       include-stacktrace: ALWAYS
 
 atto:
+  network:
+    loopback-blocked: false
   transaction:
     prioritization:
       frequency: 1

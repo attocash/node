@@ -11,6 +11,7 @@ import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.websocket.Frame
 import io.ktor.websocket.WebSocketSession
+import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CoroutineScope
@@ -92,9 +93,10 @@ class NodeConnectionManager(
         val publicUri = node.publicUri
         val connection = NodeConnection(node, connectionSocketAddress, session)
 
-        if (connectionMap.putIfAbsent(publicUri, connection) != null) {
-            logger.trace { "Connection to ${node.publicUri} already managed. New connection will be ignored" }
-            connection.disconnect()
+        val previousConnection = connectionMap.put(publicUri, connection)
+        if (previousConnection != null) {
+            logger.trace { "Connection to ${node.publicUri} already managed. Replacing with new connection (last wins)" }
+            previousConnection.disconnect()
         }
 
         try {
@@ -163,18 +165,28 @@ class NodeConnectionManager(
 
     @EventListener
     fun send(networkMessage: BroadcastNetworkMessage<*>) {
-        val strategy = networkMessage.strategy
         val message = networkMessage.payload
 
         logger.trace { "Sending $networkMessage" }
 
         connectionMap.values
             .asSequence()
-            .filter { strategy.shouldBroadcast(it.node) }
+            .filter { networkMessage.accepts(it.node.publicUri, it.node) }
             .forEach { connection ->
                 scope.launch {
                     send(connection.node.publicUri, message)
                 }
+            }
+    }
+
+    @EventListener
+    fun ban(event: NodeBanned) {
+        connectionMap
+            .entries
+            .filter { it.value.connectionInetSocketAddress.address == event.address }
+            .forEach { (uri, _) ->
+                logger.info { "Disconnecting $uri due to ban of ${event.address}" }
+                connectionMap.remove(uri)
             }
     }
 
@@ -184,12 +196,6 @@ class NodeConnectionManager(
         val message = AttoKeepAlive(sample?.node?.publicUri)
         send(BroadcastNetworkMessage(strategy = BroadcastStrategy.EVERYONE, payload = message))
     }
-
-    private fun BroadcastStrategy.shouldBroadcast(node: AttoNode): Boolean =
-        when (this) {
-            BroadcastStrategy.EVERYONE -> true
-            BroadcastStrategy.VOTERS -> node.isVoter()
-        }
 
     private inner class NodeConnection(
         val node: AttoNode,
@@ -205,8 +211,13 @@ class NodeConnectionManager(
                 .onCompletion { cause -> logger.info(cause) { "Disconnected from ${node.publicUri}" } }
                 .map { it.readBytes() }
 
-        fun disconnect() {
-            session.cancel()
+        suspend fun disconnect() {
+            try {
+                session.close()
+            } catch (e: Exception) {
+                logger.trace(e) { "Exception during graceful close of ${node.publicUri}, cancelling session" }
+                session.cancel()
+            }
         }
 
         suspend fun send(message: ByteArray) {

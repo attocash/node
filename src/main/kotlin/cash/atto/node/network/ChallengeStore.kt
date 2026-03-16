@@ -17,13 +17,10 @@ internal object ChallengeStore {
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(5, TimeUnit.SECONDS)
             .maximumSize(100_000)
-            .build<URI, String>()
+            .build<String, URI>()
             .asMap()
 
-    fun remove(
-        publicUri: URI,
-        challenge: String,
-    ): Boolean = challenges.remove(publicUri, challenge)
+    fun remove(challenge: String): URI? = challenges.remove(challenge)
 
     fun generate(publicUri: URI): String {
         val challengePrefix = publicUri.toString().toByteArray()
@@ -33,7 +30,7 @@ internal object ChallengeStore {
                 (challengePrefix + it).toHex()
             }
 
-        challenges[publicUri] = challenge
+        challenges[challenge] = publicUri
         return challenge
     }
 

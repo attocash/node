@@ -26,7 +26,7 @@ class PeerStepDefinition(
         nodeStepDefinition.startNeighbour(shortId)
         nodeStepDefinition.setAsDefaultNode()
         runBlocking {
-            networkProcessor.boostrap()
+            networkProcessor.bootstrap()
         }
 
         checkPeer("THIS", shortId)
@@ -36,7 +36,7 @@ class PeerStepDefinition(
     @When("default handshake starts")
     fun startDefaultHandshake() {
         runBlocking {
-            networkProcessor.boostrap()
+            networkProcessor.bootstrap()
         }
     }
 
