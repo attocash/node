@@ -92,6 +92,10 @@ class VoteKeeper(
 
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)
     suspend fun keep() {
+        if (!thisNode.isHistorical()) {
+            return
+        }
+
         val minimalWeight = voteWeighter.getMinimalConfirmationWeight()
         val missingVote = voteRepository.findMissingVote(minimalWeight.raw.toBigInteger())
 
