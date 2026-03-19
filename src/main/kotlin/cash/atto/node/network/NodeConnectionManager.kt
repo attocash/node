@@ -14,6 +14,7 @@ import io.ktor.websocket.WebSocketSession
 import io.ktor.websocket.close
 import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -105,7 +106,8 @@ class NodeConnectionManager(
                 .onStart {
                     eventPublisher.publish(NodeConnected(connectionSocketAddress, node))
                 }.onCompletion {
-                    logger.trace(it) { "Inbound message stream from ${node.publicUri} completed" }
+                    val cause = it?.takeUnless { it is CancellationException }
+                    logger.trace(cause) { "Inbound message stream from ${node.publicUri} completed" }
                     connectionMap.remove(publicUri)
                 }.collect {
                     val message = NetworkSerializer.deserialize(it)
@@ -133,8 +135,8 @@ class NodeConnectionManager(
                     messagePublisher.publish(networkMessage)
                 }
         } catch (e: Exception) {
-            logger.debug(e) { "Exception during inbound message stream from ${node.publicUri}" }
             connectionMap.remove(publicUri)
+            throw e
         } finally {
             connection.disconnect()
         }
@@ -208,8 +210,9 @@ class NodeConnectionManager(
                 .consumeAsFlow()
                 .filterIsInstance<Frame.Binary>()
                 .onStart { logger.info { "Connected to ${node.publicUri} ${node.publicKey}" } }
-                .onCompletion { cause -> logger.info(cause) { "Disconnected from ${node.publicUri}" } }
-                .map { it.readBytes() }
+                .onCompletion { cause ->
+                    logger.info(cause?.takeUnless { it is CancellationException }) { "Disconnected from ${node.publicUri}" }
+                }.map { it.readBytes() }
 
         suspend fun disconnect() {
             try {

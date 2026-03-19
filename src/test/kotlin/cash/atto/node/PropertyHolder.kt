@@ -76,6 +76,7 @@ object PropertyHolder {
     ): String = createKey(value.javaClass, key)
 
     fun clear() {
+        activeKeys.clear()
         properties.clear()
     }
 }

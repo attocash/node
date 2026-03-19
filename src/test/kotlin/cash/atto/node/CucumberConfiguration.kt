@@ -35,7 +35,11 @@ class CucumberConfiguration(
     @Before
     fun before() =
         runBlocking {
-            NodeHolder.clear(context)
+            caches.forEach {
+                it.clear()
+            }
+
+            NodeHolder.clear(except = context)
             NodeHolder.add(context)
 
             Waiter.waitUntilTrue { connectionManager.connectionCount == 0 }
