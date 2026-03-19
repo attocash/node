@@ -38,6 +38,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -352,6 +353,7 @@ class NetworkProcessor(
                         val connectionSocketAddress = InetSocketAddress(call.request.origin.remoteHost, call.request.origin.remotePort)
 
                         connectionManager.manage(node, connectionSocketAddress, this)
+                    } catch (_: CancellationException) {
                     } catch (e: Exception) {
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                         call.respond(HttpStatusCode.InternalServerError)
@@ -370,8 +372,8 @@ class NetworkProcessor(
         clear()
         httpClient.close()
         websocketClient.close()
-        server.stop()
         scope.cancel()
+        server.stop()
     }
 
     @Scheduled(fixedRate = 1_000)
@@ -403,12 +405,8 @@ class NetworkProcessor(
         }
 
         scope.launch {
-            try {
-                logger.trace { "Start connection to $publicUri" }
-                connection(publicUri)
-            } catch (e: Exception) {
-                logger.trace(e) { "Exception during connection to $publicUri" }
-            }
+            logger.trace { "Start connection to $publicUri" }
+            connection(publicUri)
         }
     }
 
