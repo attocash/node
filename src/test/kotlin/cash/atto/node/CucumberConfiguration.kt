@@ -4,6 +4,7 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoSigner
 import cash.atto.node.network.ChallengeStore
 import cash.atto.node.network.NetworkProperties
+import cash.atto.node.network.NodeConnectionManager
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration
 import cash.atto.protocol.AttoNode
@@ -25,6 +26,7 @@ class CucumberConfiguration(
     val transactionConfiguration: TransactionConfiguration,
     val caches: List<CacheSupport>,
     val repositories: List<AttoRepository>,
+    val connectionManager: NodeConnectionManager,
 ) {
     init {
 //        DebugProbes.install()
@@ -35,6 +37,8 @@ class CucumberConfiguration(
         runBlocking {
             NodeHolder.clear(context)
             NodeHolder.add(context)
+
+            Waiter.waitUntilTrue { connectionManager.connectionCount == 0 }
 
             repositories.forEach { it.deleteAll() }
 
