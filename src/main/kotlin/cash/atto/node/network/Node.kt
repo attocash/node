@@ -17,6 +17,11 @@ data class NodeConnected(
     override val timestamp: Instant = Instant.now(),
 ) : Event
 
+data class NodeUnbanned(
+    val address: InetAddress,
+    override val timestamp: Instant = Instant.now(),
+) : Event
+
 data class NodeDisconnected(
     val connectionSocketAddress: InetSocketAddress,
     val node: AttoNode,

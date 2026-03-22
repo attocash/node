@@ -1,26 +1,23 @@
 package cash.atto.node.network
 
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.Scheduler
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.InetAddress
-import java.time.Duration
+import java.util.concurrent.ConcurrentHashMap
 
 @Component
 object BannedMonitor {
-    private val banned =
-        Caffeine
-            .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterWrite(Duration.ofHours(1))
-            .build<InetAddress, Boolean>()
-            .asMap()
+    private val banned = ConcurrentHashMap.newKeySet<InetAddress>()
 
     @EventListener
-    fun store(banned: NodeBanned) {
-        BannedMonitor.banned[banned.address] = true
+    fun ban(event: NodeBanned) {
+        banned.add(event.address)
     }
 
-    fun isBanned(address: InetAddress): Boolean = banned.containsKey(address)
+    @EventListener
+    fun unban(event: NodeUnbanned) {
+        banned.remove(event.address)
+    }
+
+    fun isBanned(address: InetAddress): Boolean = banned.contains(address)
 }
