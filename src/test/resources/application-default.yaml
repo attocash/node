@@ -27,6 +27,16 @@ atto:
     network: LOCAL
     public-uri: ws://localhost:${websocket.port}
 
+management:
+  endpoints:
+    web:
+      exposure:
+        include: prometheus
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+
 logging:
   level:
     cash.atto: INFO
