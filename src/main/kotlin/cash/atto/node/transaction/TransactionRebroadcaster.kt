@@ -9,6 +9,8 @@ import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoTransactionPush
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.Channel.Factory.UNLIMITED
@@ -16,7 +18,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.URI
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -55,9 +57,8 @@ class TransactionRebroadcaster(
                 broadcast(it.transaction)
             }
         }
-        if (broadcastQueue.enqueue(hash)) {
-            logger.trace { "Transaction queued for rebroadcast: ${event.transaction}" }
-        }
+        broadcastQueue.enqueue(event.transaction.toAttoTransaction())
+        logger.trace { "Transaction queued for rebroadcast: ${event.transaction}" }
     }
 
     @EventListener
@@ -114,7 +115,13 @@ private class TransactionSocketAddressHolder(
 }
 
 private class BroadcastQueue {
-    private val holderMap = ConcurrentHashMap<AttoHash, TransactionSocketAddressHolder>()
+    private val holderMap =
+        Caffeine
+            .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
+            .expireAfterWrite(1, TimeUnit.MINUTES)
+            .build<AttoHash, TransactionSocketAddressHolder>()
+            .asMap()
     private val transactionQueue = Channel<TransactionSocketAddressHolder>(capacity = UNLIMITED)
 
     fun seen(
@@ -137,10 +144,9 @@ private class BroadcastQueue {
         holderMap.remove(hash)
     }
 
-    suspend fun enqueue(hash: AttoHash): Boolean {
-        val holder = holderMap.remove(hash) ?: return false
+    suspend fun enqueue(transaction: AttoTransaction) {
+        val holder = holderMap.remove(transaction.hash) ?: TransactionSocketAddressHolder(MessageSource.WEBSOCKET, transaction)
         transactionQueue.send(holder)
-        return true
     }
 
     fun poll(): Pair<AttoTransaction?, Set<URI>> {

@@ -177,7 +177,10 @@ class ElectionVoterTest {
     fun `should send vote when election starts with older timestamp than block`() {
         // given
         val transaction = Transaction.sample()
-        val olderTimestamp = java.time.Instant.now().minusSeconds(10)
+        val olderTimestamp =
+            java.time.Instant
+                .now()
+                .minusSeconds(10)
         val electionStarted = ElectionStarted(account, transaction, olderTimestamp)
 
         // when
