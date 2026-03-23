@@ -250,7 +250,7 @@ class ElectionVoter(
                 }
         }
 
-        private suspend fun applyConsensus(
+        private fun applyConsensus(
             transaction: Transaction,
             timestamp: Instant,
             forceVote: Boolean = false,
@@ -258,7 +258,7 @@ class ElectionVoter(
             val oldTransaction = this.transaction
             val oldTimestamp = this.consensusTimestamp
 
-            if (oldTimestamp >= timestamp) {
+            if (!forceVote && oldTimestamp >= timestamp) {
                 return
             }
 

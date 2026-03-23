@@ -174,6 +174,37 @@ class ElectionVoterTest {
     }
 
     @Test
+    fun `should send vote when election starts with older timestamp than block`() {
+        // given
+        val transaction = Transaction.sample()
+        val olderTimestamp = java.time.Instant.now().minusSeconds(10)
+        val electionStarted = ElectionStarted(account, transaction, olderTimestamp)
+
+        // when
+        runBlocking {
+            electionVoter.process(electionStarted)
+        }
+
+        // then — node must still vote even though election timestamp is older than block timestamp
+        verify(timeout = 3_000) {
+            messagePublisher.publish(
+                match { message ->
+                    message as BroadcastNetworkMessage
+                    message.strategy == BroadcastStrategy.VOTERS
+                },
+            )
+        }
+        verify(timeout = 3_000) {
+            eventPublisher.publish(
+                match { event ->
+                    event as VoteValidated
+                    event.transaction == transaction
+                },
+            )
+        }
+    }
+
+    @Test
     fun `should NOT overwrite newer consensus with older one for different transaction`() {
         // given
         val transactionNewer = Transaction.sample()
