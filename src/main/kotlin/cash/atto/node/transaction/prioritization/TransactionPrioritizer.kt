@@ -85,6 +85,7 @@ class TransactionPrioritizer(
     @EventListener
     fun process(event: ElectionExpired) {
         electionDependencies.remove(event.transaction.hash)
+        duplicateDetector.remove(event.transaction.hash)
     }
 
     fun add(transaction: Transaction) {

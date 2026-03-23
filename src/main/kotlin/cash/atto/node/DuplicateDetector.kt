@@ -16,6 +16,10 @@ class DuplicateDetector<T : Any>(
 
     fun isDuplicate(t: T): Boolean = cache.putIfAbsent(t, t) != null
 
+    fun remove(t: T) {
+        cache.remove(t)
+    }
+
     fun clear() {
         cache.clear()
     }
