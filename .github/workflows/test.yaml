@@ -15,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: gradle/actions/wrapper-validation@v5
+      - uses: gradle/actions/wrapper-validation@v6
 
       - uses: graalvm/setup-graalvm@v1
         with:
@@ -24,7 +24,7 @@ jobs:
           native-image-musl: true
           cache: 'gradle'
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
 
       - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast
 
