@@ -26,6 +26,8 @@ interface TransactionRepository :
         """
             SELECT t.* from transaction t
             JOIN account a on t.hash = a.last_transaction_hash
+            LEFT JOIN receivable r ON r.hash = t.hash
+            WHERE t.block_type != 'SEND' OR r.hash IS NOT NULL OR t.block_type IS NULL
             ORDER BY RAND()
             LIMIT :limit
         """,

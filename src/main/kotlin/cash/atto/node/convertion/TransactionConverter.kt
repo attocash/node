@@ -21,6 +21,7 @@ class TransactionSerializerDBConverter : Converter<Transaction, OutboundRow> {
             put("hash", Parameter.from(block.hash))
             put("public_key", Parameter.from(block.publicKey))
             put("height", Parameter.from(block.height.value.toBigInteger()))
+            put("block_type", Parameter.from(block.type))
             put("timestamp", Parameter.from(block.timestamp.toJavaInstant()))
             put("serialized", Parameter.from(transaction.toAttoTransaction().toBuffer()))
             put("received_at", Parameter.from(transaction.receivedAt))
