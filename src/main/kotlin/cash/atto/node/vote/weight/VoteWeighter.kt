@@ -10,14 +10,11 @@ import cash.atto.commons.toAttoAmount
 import cash.atto.node.CacheSupport
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.transaction.Transaction
-import cash.atto.node.vote.Vote
-import cash.atto.node.vote.VoteRepository
 import cash.atto.node.vote.VoteValidated
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.runBlocking
 import org.springframework.context.annotation.DependsOn
@@ -38,13 +35,11 @@ class VoteWeighter(
     val thisNode: AttoNode,
     val properties: VoteWeightProperties,
     val weightService: WeightService,
-    val voteRepository: VoteRepository,
     val genesisTransaction: Transaction,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val weightMap = ConcurrentHashMap<AttoPublicKey, AttoAmount>()
-    private val latestVoteMap = ConcurrentHashMap<AttoPublicKey, Vote>()
+    private val weightMap = ConcurrentHashMap<AttoPublicKey, Weight>()
     private lateinit var onlineWeight: AttoAmount
     private lateinit var minimalRebroadcastWeight: AttoAmount
     private lateinit var minimalConfirmationWeight: AttoAmount
@@ -52,39 +47,28 @@ class VoteWeighter(
     @PostConstruct
     override fun init() =
         runBlocking {
-            val weights =
+            val allWeights =
                 weightService
                     .refresh()
-                    .map { it.representativePublicKey to it.weight }
                     .toList()
-                    .toMap()
 
-            weightMap.putAll(weights)
+            weightMap.putAll(allWeights.associateBy { it.representativePublicKey })
 
-            val minTimestamp = getMinTimestamp()
-            val voteMap =
-                voteRepository
-                    .findLatestAfter(minTimestamp)
-                    .asSequence()
-                    .map { it.publicKey to it }
-                    .toMap()
-            latestVoteMap.putAll(voteMap)
             calculateMinimalWeights()
         }
 
     override fun clear() {
         weightMap.clear()
-        latestVoteMap.clear()
     }
 
     @EventListener
     fun listen(event: VoteValidated) {
         val vote = event.vote
-        latestVoteMap.compute(vote.publicKey) { _, previousHashVote ->
-            if (previousHashVote == null || vote.receivedAt > previousHashVote.receivedAt) {
-                vote
+        weightMap.computeIfPresent(vote.publicKey) { _, existing ->
+            if (existing.lastVoteTimestamp == null || vote.receivedAt > existing.lastVoteTimestamp) {
+                existing.copy(lastVoteTimestamp = vote.receivedAt)
             } else {
-                previousHashVote
+                existing
             }
         }
     }
@@ -123,14 +107,7 @@ class VoteWeighter(
         logger.trace { "Weight updated $weightMap" }
     }
 
-    fun getMap(): LinkedHashMap<AttoPublicKey, AttoAmount> =
-        weightMap.entries
-            .asSequence()
-            .sortedByDescending { it.value }
-            .associate { it.key to it.value }
-            .toMap(LinkedHashMap())
-
-    fun getLastestVote(publicKey: AttoPublicKey): Vote? = latestVoteMap[publicKey]
+    fun getLatestVoteTimestamp(publicKey: AttoPublicKey): Instant? = weightMap[publicKey]?.lastVoteTimestamp
 
     private suspend fun add(
         publicKey: AttoPublicKey,
@@ -138,11 +115,11 @@ class VoteWeighter(
         defaultAmount: AttoAmount,
     ) {
         retryUntilSuccess {
-            weightMap.compute(publicKey) { _, weight ->
-                if (weight == null) {
-                    defaultAmount
+            weightMap.compute(publicKey) { _, existing ->
+                if (existing == null) {
+                    Weight(representativePublicKey = publicKey, weight = defaultAmount)
                 } else {
-                    weight + amount
+                    existing.copy(weight = existing.weight + amount)
                 }
             }
         }
@@ -154,15 +131,15 @@ class VoteWeighter(
         defaultAmount: AttoAmount,
     ) {
         retryUntilSuccess {
-            weightMap.compute(publicKey) { _, weight ->
+            weightMap.compute(publicKey) { _, existing ->
                 val newWeight =
-                    if (weight == null) {
+                    if (existing == null) {
                         defaultAmount
                     } else {
-                        weight - amount
+                        existing.weight - amount
                     }
                 if (newWeight > AttoAmount.MIN) {
-                    return@compute newWeight
+                    return@compute (existing ?: Weight(representativePublicKey = publicKey, weight = newWeight)).copy(weight = newWeight)
                 } else {
                     return@compute null
                 }
@@ -170,9 +147,9 @@ class VoteWeighter(
         }
     }
 
-    fun getAll(): Map<AttoPublicKey, AttoAmount> = weightMap.toMap()
+    fun getAll(): Map<AttoPublicKey, AttoAmount> = weightMap.mapValues { it.value.weight }
 
-    fun get(publicKey: AttoPublicKey): AttoAmount = weightMap[publicKey] ?: AttoAmount.MIN
+    fun get(publicKey: AttoPublicKey): AttoAmount = weightMap[publicKey]?.weight ?: AttoAmount.MIN
 
     fun get(): AttoAmount = get(thisNode.publicKey)
 
@@ -199,11 +176,11 @@ class VoteWeighter(
         val onlineWeights =
             weightMap
                 .asSequence()
-                .filter { minTimestamp < (latestVoteMap[it.key]?.receivedAt ?: Instant.MIN) }
-                .sortedByDescending { it.value.raw }
+                .filter { minTimestamp < (it.value.lastVoteTimestamp ?: Instant.MIN) }
+                .sortedByDescending { it.value.weight.raw }
                 .toList()
 
-        val onlineWeight = onlineWeights.sumOf { it.value.raw }
+        val onlineWeight = onlineWeights.sumOf { it.value.weight.raw }
 
         this.onlineWeight = onlineWeight.toAttoAmount()
 
@@ -223,9 +200,9 @@ class VoteWeighter(
         logger.info { "Minimal confirmation weight updated to ${this.minimalConfirmationWeight}" }
 
         if (onlineWeights.size >= 10) {
-            this.minimalRebroadcastWeight = onlineWeights[9].value
+            this.minimalRebroadcastWeight = onlineWeights[9].value.weight
         } else if (onlineWeights.isNotEmpty()) {
-            this.minimalRebroadcastWeight = onlineWeights.last().value
+            this.minimalRebroadcastWeight = onlineWeights.last().value.weight
         } else {
             this.minimalRebroadcastWeight = properties.minimalRebroadcastWeight!!.replace("_", "").toAttoAmount()
         }

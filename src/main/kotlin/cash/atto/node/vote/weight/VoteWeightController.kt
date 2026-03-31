@@ -39,7 +39,7 @@ class VoteWeightController(
         @PathVariable address: AttoAddress,
     ): ResponseEntity<AttoVoterWeight> {
         val weight = voteWeighter.get(address.publicKey)
-        val lastVotedAt = voteWeighter.getLastestVote(address.publicKey)?.receivedAt?.toAtto() ?: Instant.EPOCH.toAtto()
+        val lastVotedAt = voteWeighter.getLatestVoteTimestamp(address.publicKey)?.toAtto() ?: Instant.EPOCH.toAtto()
         val voterWeight = AttoVoterWeight(address, weight, lastVotedAt)
         return ResponseEntity.ok(voterWeight)
     }
