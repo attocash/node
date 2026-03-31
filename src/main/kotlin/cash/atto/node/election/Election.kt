@@ -133,8 +133,8 @@ class Election(
         }
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    suspend fun processExpiring() =
+    @Scheduled(fixedRate = 5, timeUnit = TimeUnit.SECONDS)
+    suspend fun notifyExpiring() =
         mutex.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
 
@@ -149,8 +149,8 @@ class Election(
                 }
         }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
-    suspend fun stopObservingStaled() =
+    @Scheduled(initialDelay = 1, fixedRate = 5, timeUnit = TimeUnit.SECONDS)
+    suspend fun expireOld() =
         mutex.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
 

@@ -192,7 +192,7 @@ class ElectionTest {
         // when
         runBlocking {
             election.start(TransactionValidated(account, oldTransaction))
-            election.processExpiring()
+            election.notifyExpiring()
         }
 
         // then
@@ -211,7 +211,7 @@ class ElectionTest {
         // when
         runBlocking {
             election.start(TransactionValidated(account, oldTransaction))
-            election.stopObservingStaled()
+            election.expireOld()
         }
 
         // then
