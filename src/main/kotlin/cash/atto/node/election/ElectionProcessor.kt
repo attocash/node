@@ -5,8 +5,6 @@ import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.TransactionSource
-import cash.atto.node.vote.VoteService
-import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -23,10 +21,8 @@ import java.util.concurrent.TimeUnit
 
 @Service
 class ElectionProcessor(
-    private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val accountService: AccountService,
-    private val voteService: VoteService,
     transactionManager: ReactiveTransactionManager,
 ) {
     private val logger = KotlinLogging.logger {}
@@ -85,11 +81,6 @@ class ElectionProcessor(
 
             transactionalOperator.executeAndAwait {
                 accountService.add(TransactionSource.ELECTION, transactions)
-
-                if (thisNode.isHistorical()) {
-                    val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
-                    voteService.saveAll(finalVotes)
-                }
             }
         } catch (e: Exception) {
             throw RuntimeException("Error while processing ${events.map { it.transaction.hash }}", e)
