@@ -30,7 +30,7 @@ jobs:
           native-image-pr-reports-update-existing: true
           cache: 'gradle'
 
-      - uses: gradle/actions/setup-gradle@v5
+      - uses: gradle/actions/setup-gradle@v6
 
       - run: ./gradlew --no-daemon nativeCompile
 
