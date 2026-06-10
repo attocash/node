@@ -13,6 +13,7 @@ import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionDropped
 import cash.atto.node.transaction.TransactionReceived
+import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -106,6 +107,13 @@ class TransactionPrioritizer(
     fun process(event: ElectionExpired) {
         electionDependencies.remove(event.transaction.hash)
         duplicateDetector.remove(event.transaction.hash)
+    }
+
+    @EventListener
+    fun process(event: TransactionRejected) {
+        if (event.reason.recoverable) {
+            duplicateDetector.remove(event.transaction.hash)
+        }
     }
 
     fun add(transaction: Transaction) {
