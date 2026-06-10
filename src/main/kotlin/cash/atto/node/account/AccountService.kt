@@ -162,6 +162,8 @@ class AccountService(
         source: TransactionSource,
         transactions: List<Transaction>,
     ): List<Account> {
+        transactions.requireDistinctPublicKeys()
+
         val accountTransactionMap = transactions.getAccountMap()
 
         val updatedAccounts =
@@ -196,4 +198,14 @@ class AccountService(
         val account: Account,
         val transaction: Transaction,
     )
+}
+
+private fun List<Transaction>.requireDistinctPublicKeys() {
+    val publicKeys = mutableSetOf<AttoPublicKey>()
+    val duplicate = firstOrNull { !publicKeys.add(it.publicKey) }
+    if (duplicate != null) {
+        throw IllegalArgumentException(
+            "Cannot add multiple transactions for the same public key in one account batch: ${duplicate.publicKey}",
+        )
+    }
 }

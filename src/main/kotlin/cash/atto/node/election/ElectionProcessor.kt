@@ -14,8 +14,6 @@ import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import jakarta.annotation.PostConstruct
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.sync.Mutex
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
@@ -23,6 +21,7 @@ import org.springframework.stereotype.Service
 import org.springframework.transaction.ReactiveTransactionManager
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
+import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -37,11 +36,11 @@ class ElectionProcessor(
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val buffer = Channel<ElectionConsensusReached>(Channel.UNLIMITED)
+    private val buffer = ConcurrentLinkedDeque<ElectionConsensusReached>()
     private val bufferDepth = AtomicInteger()
 
     private val transactionalOperator = TransactionalOperator.create(transactionManager)
-    private val mutex = Mutex()
+    private val flushMutex = Mutex()
     private lateinit var batchTimer: Timer
     private lateinit var batchSizeSummary: DistributionSummary
 
@@ -81,14 +80,13 @@ class ElectionProcessor(
 
     @EventListener
     suspend fun process(event: ElectionConsensusReached) {
+        buffer.addLast(event)
         bufferDepth.incrementAndGet()
-        buffer.send(event)
     }
 
-    @OptIn(ExperimentalCoroutinesApi::class)
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MILLISECONDS)
     suspend fun flush() {
-        if (!mutex.tryLock()) {
+        if (!flushMutex.tryLock()) {
             return
         }
         try {
@@ -100,20 +98,16 @@ class ElectionProcessor(
                 batchSizeSummary.record(processed.toDouble())
             }
         } finally {
-            mutex.unlock()
+            flushMutex.unlock()
         }
     }
 
+    fun getBufferSize(): Int = bufferDepth.get()
+
     private suspend fun flushBatch(size: Int): Int {
-        val events = mutableListOf<ElectionConsensusReached>()
+        val events = drainBatch(size)
 
         try {
-            for (i in 1..size) {
-                val event = buffer.tryReceive().getOrNull() ?: break
-                bufferDepth.decrementAndGet()
-                events += event
-            }
-
             if (events.isEmpty()) return 0
 
             val transactions = events.map { it.transaction }
@@ -129,7 +123,28 @@ class ElectionProcessor(
 
             return events.size
         } catch (e: Exception) {
+            requeue(events)
             throw RuntimeException("Error while processing ${events.map { it.transaction.hash }}", e)
         }
+    }
+
+    private fun drainBatch(size: Int): List<ElectionConsensusReached> {
+        val events = mutableListOf<ElectionConsensusReached>()
+
+        for (i in 1..size) {
+            val event = buffer.pollFirst() ?: break
+            events += event
+        }
+
+        if (events.isNotEmpty()) {
+            bufferDepth.addAndGet(-events.size)
+        }
+
+        return events
+    }
+
+    private fun requeue(events: List<ElectionConsensusReached>) {
+        events.asReversed().forEach { buffer.addFirst(it) }
+        bufferDepth.addAndGet(events.size)
     }
 }
