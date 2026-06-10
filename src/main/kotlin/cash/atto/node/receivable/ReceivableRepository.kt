@@ -10,7 +10,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
 import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
@@ -40,8 +39,13 @@ interface ReceivableRepository : AttoRepository {
     ): Flow<Receivable>
 }
 
+interface ReceivableBulkRepository {
+    suspend fun insertAll(receivables: Collection<Receivable>): Long
+}
+
 interface ReceivableCrudRepository :
     CoroutineCrudRepository<Receivable, AttoHash>,
+    ReceivableBulkRepository,
     ReceivableRepository {
     @Modifying
     @Query("DELETE FROM receivable r WHERE r.hash in (:ids)")
@@ -88,19 +92,30 @@ class ReceivableCachedRepository(
             .asMap()
 
     override suspend fun saveAll(entities: Iterable<Receivable>): Flow<Receivable> =
-        receivableCrudRepository.saveAll(entities).onEach {
-            val saved = it.copy(persistedAt = Instant.now())
+        flow {
+            val receivables = entities.toList()
+            if (receivables.isEmpty()) {
+                return@flow
+            }
 
-            getCurrentTransaction()!!.apply {
-                this.unbindResourceIfPossible(saved.hash)
-                this.bindResource(saved.hash, saved)
+            val now = Instant.now()
+            val savedReceivables = receivables.map { it.copy(persistedAt = now) }
+
+            receivableCrudRepository.insertAll(savedReceivables)
+
+            val currentTransaction = getCurrentTransaction()!!
+            savedReceivables.forEach { saved ->
+                currentTransaction.unbindResourceIfPossible(saved.hash)
+                currentTransaction.bindResource(saved.hash, saved)
             }
 
             executeAfterCompletion { status ->
                 if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    cache[saved.hash] = saved
+                    savedReceivables.forEach { cache[it.hash] = it }
                 }
             }
+
+            savedReceivables.forEach { emit(it) }
         }
 
     override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int {

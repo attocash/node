@@ -18,7 +18,9 @@ class TransactionService(
 
     @Transactional
     suspend fun saveAll(transactions: List<Transaction>) {
-        transactionRepository.saveAll(transactions).collect { transaction ->
+        transactionRepository.insertAll(transactions)
+
+        transactions.forEach { transaction ->
             logger.debug { "Saved $transaction" }
         }
 

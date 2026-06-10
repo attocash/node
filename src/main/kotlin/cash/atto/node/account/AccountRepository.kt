@@ -7,18 +7,19 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
-import cash.atto.node.executeAfterCompletion
+import cash.atto.node.executeAfterCommit
 import cash.atto.node.getCurrentTransaction
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.onEach
 import org.springframework.context.annotation.Primary
+import org.springframework.context.event.EventListener
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
-import org.springframework.transaction.reactive.TransactionSynchronization
 import java.time.Duration
 import java.time.Instant
 
@@ -30,8 +31,13 @@ interface AccountRepository : AttoRepository {
     fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account>
 }
 
+interface AccountBulkRepository {
+    suspend fun upsertAll(accounts: Collection<Account>): Long
+}
+
 interface AccountCrudRepository :
     CoroutineCrudRepository<Account, AttoPublicKey>,
+    AccountBulkRepository,
     AccountRepository {
     @Query("SELECT COALESCE(SUM(height), 0) FROM account")
     suspend fun sumHeight(): Long
@@ -55,27 +61,34 @@ class AccountCachedRepository(
             .asMap()
 
     override fun saveAll(entities: List<Account>): Flow<Account> =
-        accountCrudRepository.saveAll(entities).onEach { it ->
-            val saved =
-                it.copy(
-                    persistedAt = it.persistedAt ?: Instant.now(),
-                    updatedAt = Instant.now(),
-                )
+        flow {
+            if (entities.isEmpty()) {
+                return@flow
+            }
 
-            getCurrentTransaction()!!.apply {
-                this.unbindResourceIfPossible(saved.publicKey)
-                this.bindResource(saved.publicKey, saved)
-            }
-            executeAfterCompletion { status ->
-                if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    cache.compute(saved.publicKey) { _, existingValue ->
-                        if (existingValue != null && existingValue.height > saved.height) {
-                            existingValue
-                        }
-                        saved
-                    }
+            val now = Instant.now()
+            val accounts =
+                entities.map {
+                    it.copy(
+                        height = it.height + 1,
+                        persistedAt = it.persistedAt ?: now,
+                        updatedAt = now,
+                    )
                 }
+
+            accountCrudRepository.upsertAll(accounts)
+
+            val currentTransaction = getCurrentTransaction()!!
+            accounts.forEach { saved ->
+                currentTransaction.unbindResourceIfPossible(saved.publicKey)
+                currentTransaction.bindResource(saved.publicKey, saved)
             }
+
+            executeAfterCommit {
+                accounts.forEach { putIfNewer(it) }
+            }
+
+            accounts.forEach { emit(it) }
         }
 
     override suspend fun findById(id: AttoPublicKey): Account? = findAllById(listOf(id)).firstOrNull()
@@ -105,8 +118,23 @@ class AccountCachedRepository(
             }
 
             accountCrudRepository.findAllById(missing).collect { account ->
-                cache[account.publicKey] = account
-                emit(account)
+                val cached = putIfNewer(account)
+                emit(cached ?: account)
+            }
+        }
+
+    @Order(Ordered.HIGHEST_PRECEDENCE)
+    @EventListener
+    fun process(event: AccountUpdated) {
+        putIfNewer(event.updatedAccount)
+    }
+
+    private fun putIfNewer(account: Account): Account? =
+        cache.compute(account.publicKey) { _, existingValue ->
+            if (existingValue != null && existingValue.height > account.height) {
+                existingValue
+            } else {
+                account
             }
         }
 

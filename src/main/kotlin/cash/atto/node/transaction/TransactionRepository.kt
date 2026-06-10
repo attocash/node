@@ -9,8 +9,13 @@ import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.math.BigInteger
 
+interface TransactionBulkRepository {
+    suspend fun insertAll(transactions: Collection<Transaction>): Long
+}
+
 interface TransactionRepository :
     CoroutineCrudRepository<Transaction, AttoHash>,
+    TransactionBulkRepository,
     AttoRepository {
     @Query(
         """
