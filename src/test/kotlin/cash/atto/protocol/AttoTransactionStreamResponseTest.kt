@@ -26,6 +26,20 @@ class AttoTransactionStreamResponseTest {
     private val privateKey = AttoPrivateKey.generate()
 
     @Test
+    fun `should accept valid transaction stream response at p2p ingress`() {
+        val message = AttoTransactionStreamResponse(localTransaction())
+
+        assertAcceptedAtP2PIngress(message, AttoNetwork.LOCAL)
+    }
+
+    @Test
+    fun `should reject transaction stream response for another network at p2p ingress`() {
+        val message = AttoTransactionStreamResponse(localTransaction())
+
+        assertRejectedAtP2PIngress(message, AttoNetwork.LIVE)
+    }
+
+    @Test
     fun `should serialize and deserialize`() {
         // given
         val block =

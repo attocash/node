@@ -38,6 +38,7 @@ import java.util.concurrent.Executors
 
 @Component
 class NodeConnectionManager(
+    private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
 ) : CacheSupport {
@@ -110,7 +111,7 @@ class NodeConnectionManager(
                     logger.trace(cause) { "Inbound message stream from ${node.publicUri} completed" }
                     connectionMap.remove(publicUri)
                 }.collect {
-                    val message = NetworkSerializer.deserialize(it)
+                    val message = NetworkSerializer.deserialize(it, thisNode.network)
 
                     if (message == null) {
                         logger.debug { "Received invalid message from $publicUri ${it.toHex()}" }
