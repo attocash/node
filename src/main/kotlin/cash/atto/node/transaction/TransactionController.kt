@@ -25,17 +25,17 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
-import kotlinx.coroutines.flow.timeout
+import kotlinx.coroutines.withTimeout
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
@@ -50,6 +50,8 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.net.InetSocketAddress
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
 @RestController
@@ -70,21 +72,65 @@ class TransactionController(
     private val useXForwardedForKey = "X-FORWARDED-FOR"
 
     private val transactionFlow = MutableSharedFlow<AttoTransaction>()
-    private val rejectionFlow = MutableSharedFlow<Rejection>()
+    private val pendingTransactionStreams = ConcurrentHashMap<AttoHash, PendingTransactionStream>()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
-        transactionFlow.emit(accountUpdated.transaction.toAttoTransaction())
+        val transaction = accountUpdated.transaction.toAttoTransaction()
+        emitPending(transaction.hash, PendingTransactionResult.Confirmed(transaction))
+        transactionFlow.emit(transaction)
     }
 
     @EventListener
     suspend fun process(rejection: TransactionRejected) {
-        rejectionFlow.emit(Rejection(rejection.transaction, rejection.reason.toString(), rejection.message))
+        val reason = rejection.reason.toString()
+
+        if (rejection.reason == TransactionRejectionReason.ALREADY_CONFIRMED) {
+            emitPending(
+                rejection.transaction.hash,
+                PendingTransactionResult.Confirmed(rejection.transaction.toAttoTransaction()),
+            )
+        } else {
+            emitPending(
+                rejection.transaction.hash,
+                PendingTransactionResult.Failed(
+                    ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Transaction rejected due to $reason: ${rejection.message}",
+                    ),
+                ),
+            )
+        }
     }
 
     @EventListener
     suspend fun process(expired: ElectionExpired) {
-        rejectionFlow.emit(Rejection(expired.transaction, "ELECTION_EXPIRED", "Election took too long"))
+        val reason = "ELECTION_EXPIRED"
+        val message = "Election took too long"
+        emitPending(
+            expired.transaction.hash,
+            PendingTransactionResult.Failed(
+                ResponseStatusException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Transaction rejected due to $reason: $message",
+                ),
+            ),
+        )
+    }
+
+    @EventListener
+    suspend fun process(dropped: TransactionDropped) {
+        val reason = "TRANSACTION_DROPPED"
+        val message = "Transaction queue dropped the transaction"
+        emitPending(
+            dropped.transaction.hash,
+            PendingTransactionResult.Failed(
+                ResponseStatusException(
+                    HttpStatus.TOO_MANY_REQUESTS,
+                    "Transaction rejected due to $reason: $message",
+                ),
+            ),
+        )
     }
 
     @Operation(
@@ -259,15 +305,49 @@ class TransactionController(
         responses = [
             ApiResponse(
                 responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = AttoTransaction::class),
+                    ),
+                ],
             ),
         ],
     )
     suspend fun publish(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
-    ) {
-        logger.debug { "Received $transaction" }
+        @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
+    ): AttoTransaction = publishAndConfirm(transaction, request, deduplicate)
 
+    private suspend fun publishAndConfirm(
+        transaction: AttoTransaction,
+        request: ServerHttpRequest,
+        deduplicate: Boolean,
+    ): AttoTransaction {
+        logger.debug { "Received $transaction" }
+        validate(transaction)
+
+        if (deduplicate) {
+            repository.findById(transaction.hash)?.let {
+                return it.toAttoTransaction()
+            }
+        }
+
+        val socketAddress = getSocketAddress(transaction, request)
+        val pending = registerPending(transaction.hash)
+
+        try {
+            if (!deduplicate || pending.created) {
+                publish(transaction, socketAddress)
+            }
+
+            return awaitPending(pending.stream)
+        } finally {
+            removePending(transaction.hash, pending.stream)
+        }
+    }
+
+    private fun validate(transaction: AttoTransaction) {
         if (!transaction.isValid()) {
             logger.debug { "Invalid! $transaction" }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction")
@@ -277,23 +357,32 @@ class TransactionController(
             logger.debug { "Invalid network! $transaction" }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction network")
         }
+    }
 
+    private fun getSocketAddress(
+        transaction: AttoTransaction,
+        request: ServerHttpRequest,
+    ): InetSocketAddress {
         val ips = request.headers[useXForwardedForKey] ?: listOf()
         val remoteAddress = request.remoteAddress!!
 
-        val socketAddress =
-            if (!applicationProperties.useXForwardedFor) {
-                remoteAddress
-            } else if (ips.isNotEmpty()) {
-                InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
-            } else {
-                logger.debug { "X-Forwarded-For header is empty. Are you sure you are behind a load balancer? $transaction" }
-                throw ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?",
-                )
-            }
+        return if (!applicationProperties.useXForwardedFor) {
+            remoteAddress
+        } else if (ips.isNotEmpty()) {
+            InetSocketAddress.createUnresolved(ips[0], remoteAddress.port)
+        } else {
+            logger.debug { "X-Forwarded-For header is empty. Are you sure you are behind a load balancer? $transaction" }
+            throw ResponseStatusException(
+                HttpStatus.BAD_REQUEST,
+                "X-Forwarded-For header is empty. Are you sure you are behind a load balancer?",
+            )
+        }
+    }
 
+    private fun publish(
+        transaction: AttoTransaction,
+        socketAddress: InetSocketAddress,
+    ) {
         messagePublisher.publish(
             InboundNetworkMessage(
                 MessageSource.REST,
@@ -304,7 +393,6 @@ class TransactionController(
         )
     }
 
-    @OptIn(FlowPreview::class)
     @PostMapping(
         "/transactions/stream",
         consumes = [MediaType.APPLICATION_JSON_VALUE],
@@ -326,29 +414,78 @@ class TransactionController(
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
-    ): Flow<AttoTransaction> {
-        val rejectionErrorFlow =
-            rejectionFlow
-                .filter { it.transaction.hash == transaction.hash }
-                .filter { it.reason != TransactionRejectionReason.ALREADY_CONFIRMED.name }
-                .map<Rejection, AttoTransaction> { rejection ->
-                    throw ResponseStatusException(
-                        HttpStatus.BAD_REQUEST,
-                        "Transaction rejected due to ${rejection.reason}: ${rejection.message}",
-                    )
+        @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
+    ): Flow<AttoTransaction> =
+        flow {
+            emit(publishAndConfirm(transaction, request, deduplicate))
+        }
+
+    private suspend fun awaitPending(stream: PendingTransactionStream): AttoTransaction =
+        withTimeout(40.seconds) {
+            stream
+                .flow
+                .map {
+                    when (it) {
+                        is PendingTransactionResult.Confirmed -> it.transaction
+                        is PendingTransactionResult.Failed -> throw it.failure
+                    }
+                }.first()
+        }
+
+    private fun registerPending(hash: AttoHash): PendingTransactionRegistration {
+        var created = false
+        var stream: PendingTransactionStream? = null
+
+        pendingTransactionStreams.compute(hash) { _, existing ->
+            val value =
+                existing ?: PendingTransactionStream().also {
+                    created = true
                 }
+            value.waiters.incrementAndGet()
+            stream = value
+            value
+        }
 
-        val successStream = stream(transaction.hash)
-
-        return merge(rejectionErrorFlow, successStream)
-            .onStart { publish(transaction, request) }
-            .take(1)
-            .timeout(40.seconds)
+        return PendingTransactionRegistration(stream!!, created)
     }
 
-    private class Rejection(
-        val transaction: Transaction,
-        val reason: String,
-        val message: String,
+    private fun removePending(
+        hash: AttoHash,
+        stream: PendingTransactionStream,
+    ) {
+        if (stream.waiters.decrementAndGet() != 0) {
+            return
+        }
+
+        pendingTransactionStreams.computeIfPresent(hash) { _, existing ->
+            existing.takeUnless { it === stream }
+        }
+    }
+
+    private suspend fun emitPending(
+        hash: AttoHash,
+        result: PendingTransactionResult,
+    ) {
+        pendingTransactionStreams.remove(hash)?.flow?.emit(result)
+    }
+
+    private class PendingTransactionStream {
+        val flow = MutableSharedFlow<PendingTransactionResult>(replay = 1)
+        val waiters = AtomicInteger()
+    }
+
+    private class PendingTransactionRegistration(
+        val stream: PendingTransactionStream,
+        val created: Boolean,
     )
+
+    private sealed interface PendingTransactionResult {
+        data class Confirmed(
+            val transaction: AttoTransaction,
+        ) : PendingTransactionResult
+
+        data class Failed(
+            val failure: Throwable,
+        ) : PendingTransactionResult
+    }
 }
