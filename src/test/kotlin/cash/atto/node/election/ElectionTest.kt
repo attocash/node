@@ -21,6 +21,7 @@ import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
+import io.micrometer.core.instrument.MeterRegistry
 import io.mockk.every
 import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.MockK
@@ -45,6 +46,9 @@ class ElectionTest {
 
     @RelaxedMockK
     lateinit var eventPublisher: EventPublisher
+
+    @RelaxedMockK
+    lateinit var meterRegistry: MeterRegistry
 
     @RelaxedMockK
     lateinit var account: Account

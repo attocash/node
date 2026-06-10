@@ -16,6 +16,9 @@ import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
+import jakarta.annotation.PostConstruct
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
@@ -26,12 +29,29 @@ import kotlin.time.Duration.Companion.seconds
 class TransactionPrioritizer(
     properties: TransactionPrioritizationProperties,
     private val eventPublisher: EventPublisher,
+    private val meterRegistry: MeterRegistry,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
     private val electionDependencies = ConcurrentHashMap<AttoHash, MutableSet<Transaction>>()
+
+    @PostConstruct
+    fun start() {
+        Gauge
+            .builder("transactions.prioritizer.queue.size", this) { it.getQueueSize().toDouble() }
+            .description("Current transaction prioritizer queue size")
+            .register(meterRegistry)
+        Gauge
+            .builder("transactions.prioritizer.active.elections", this) { it.electionDependencies.size.toDouble() }
+            .description("Current transaction dependencies waiting on active elections")
+            .register(meterRegistry)
+        Gauge
+            .builder("transactions.prioritizer.buffer.size", this) { it.getBufferSize().toDouble() }
+            .description("Current dependent transactions buffered by the prioritizer")
+            .register(meterRegistry)
+    }
 
     @Scheduled(fixedRateString = "\${atto.transaction.prioritization.frequency}")
     fun process() {

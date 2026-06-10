@@ -16,6 +16,9 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.core.instrument.Gauge
+import io.micrometer.core.instrument.MeterRegistry
+import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
@@ -30,6 +33,7 @@ class Election(
     private val properties: ElectionProperties,
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
+    private val meterRegistry: MeterRegistry,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -40,6 +44,14 @@ class Election(
     private val mutex = Mutex()
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
+
+    @PostConstruct
+    fun start() {
+        Gauge
+            .builder("elections.active", this) { it.getSize().toDouble() }
+            .description("Current active elections")
+            .register(meterRegistry)
+    }
 
     fun getSize(): Int = publicKeyHeightElectionMap.size
 

@@ -38,12 +38,12 @@ atto:
     public-uri: ${ATTO_PUBLIC_URI}
   transaction:
     prioritization:
-      frequency: 1
-      group-max-size: 1_000
+      frequency: ${ATTO_TRANSACTION_PRIORITIZATION_FREQUENCY:1}
+      group-max-size: ${ATTO_TRANSACTION_GROUP_MAX_SIZE:1000}
   vote:
     prioritization:
-      frequency: 1
-      group-max-size: 1_000
+      frequency: ${ATTO_VOTE_PRIORITIZATION_FREQUENCY:1}
+      group-max-size: ${ATTO_VOTE_GROUP_MAX_SIZE:1000}
       cache-max-size: 20_000
     weight:
       minimal-rebroadcast-weight: ${ATTO_MINIMAL_REBROADCAST_WEIGHT:180_000_000_000_000_000} #180m
