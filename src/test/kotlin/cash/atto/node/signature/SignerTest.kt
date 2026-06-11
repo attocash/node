@@ -39,11 +39,13 @@ import org.junit.jupiter.api.AfterAll
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
+import java.net.ServerSocket
 import kotlin.random.Random
 
 class SignerTest {
     companion object {
-        val signerServer = MocktRemoteSigner(9999)
+        private val signerPort = randomPort()
+        private val signerServer = MocktRemoteSigner(signerPort)
 
         @JvmStatic
         @BeforeAll
@@ -56,10 +58,15 @@ class SignerTest {
         fun stop() {
             signerServer.stop()
         }
+
+        private fun randomPort(): Int =
+            ServerSocket(0).use {
+                it.localPort
+            }
     }
 
     val signer =
-        AttoSigner.remote("http://localhost:9999") {
+        AttoSigner.remote("http://localhost:$signerPort") {
             mapOf("Authorization" to "mock_test")
         }
 
