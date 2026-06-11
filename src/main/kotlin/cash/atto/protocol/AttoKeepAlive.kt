@@ -19,5 +19,11 @@ data class AttoKeepAlive(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.KEEP_ALIVE
 
-    override fun isValid(network: AttoNetwork): Boolean = neighbour?.path == null
+    override fun isValid(network: AttoNetwork): Boolean =
+        neighbour == null ||
+            (
+                neighbour.path.isNullOrEmpty() &&
+                    neighbour.query == null &&
+                    neighbour.fragment == null
+            )
 }

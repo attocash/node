@@ -4,7 +4,6 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoPublicKeyAsByteArraySerializer
-import cash.atto.commons.toAttoHeight
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -35,6 +34,12 @@ data class AttoTransactionStreamRequest(
 
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_REQUEST
 
-    override fun isValid(network: AttoNetwork): Boolean =
-        startHeight < endHeight && endHeight - startHeight <= MAX_TRANSACTIONS.toAttoHeight()
+    override fun isValid(network: AttoNetwork): Boolean {
+        if (startHeight > endHeight) {
+            return false
+        }
+
+        val count = endHeight.value - startHeight.value + 1UL
+        return count <= MAX_TRANSACTIONS
+    }
 }
