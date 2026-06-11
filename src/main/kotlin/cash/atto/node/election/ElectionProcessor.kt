@@ -5,8 +5,6 @@ import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.TransactionSource
-import cash.atto.node.vote.VoteService
-import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.DistributionSummary
@@ -27,10 +25,8 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class ElectionProcessor(
-    private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val accountService: AccountService,
-    private val voteService: VoteService,
     private val meterRegistry: MeterRegistry,
     transactionManager: ReactiveTransactionManager,
 ) {
@@ -114,11 +110,6 @@ class ElectionProcessor(
 
             transactionalOperator.executeAndAwait {
                 accountService.add(TransactionSource.ELECTION, transactions)
-
-                if (thisNode.isHistorical()) {
-                    val finalVotes = events.flatMap { it.votes }.filter { it.isFinal() }
-                    voteService.saveAll(finalVotes)
-                }
             }
 
             return events.size

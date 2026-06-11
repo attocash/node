@@ -15,9 +15,6 @@ import cash.atto.node.account.AccountService
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
-import cash.atto.node.vote.VoteService
-import cash.atto.protocol.AttoNode
-import cash.atto.protocol.NodeFeature
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -29,7 +26,6 @@ import org.springframework.transaction.ReactiveTransaction
 import org.springframework.transaction.ReactiveTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import reactor.core.publisher.Mono
-import java.net.URI
 import kotlin.random.Random
 
 class ElectionProcessorTest {
@@ -113,10 +109,8 @@ class ElectionProcessorTest {
         transactionManager: ReactiveTransactionManager,
     ): ElectionProcessor =
         ElectionProcessor(
-            thisNode = sampleNode(),
             messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true),
             accountService = accountService,
-            voteService = mockk<VoteService>(relaxed = true),
             meterRegistry = SimpleMeterRegistry(),
             transactionManager = transactionManager,
         ).also { it.start() }
@@ -136,16 +130,6 @@ class ElectionProcessorTest {
     }
 
     private object SimpleReactiveTransaction : ReactiveTransaction
-
-    private fun sampleNode(): AttoNode =
-        AttoNode(
-            network = AttoNetwork.LOCAL,
-            protocolVersion = 0U.toUShort(),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
-            publicUri = URI("ws://127.0.0.1:8081"),
-            features = setOf(NodeFeature.VOTING),
-        )
 
     private fun Transaction.Companion.sample(
         publicKey: AttoPublicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
