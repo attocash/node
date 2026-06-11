@@ -3,15 +3,13 @@ package cash.atto.node.network
 import cash.atto.commons.AttoChallenge
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoInstant
-import cash.atto.commons.AttoInstantAsStringSerializer
-import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.isValid
 import cash.atto.commons.toByteArray
 import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
-import cash.atto.node.InboundConnectionRequested
+import cash.atto.node.network.guardian.Guardian
+import cash.atto.node.network.guardian.InboundConnectionDecision
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
@@ -19,16 +17,12 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.header
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
+import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.origin
@@ -47,12 +41,10 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.serialization.Serializable
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
 import java.time.Duration
@@ -66,8 +58,11 @@ class NetworkProcessor(
     private val signer: AttoSigner,
     environment: Environment,
     private val networkProperties: NetworkProperties,
+    private val peerUriValidator: PeerUriValidator,
+    private val handshakeCallbackService: HandshakeCallbackService,
+    private val dnsResolver: NetworkDnsResolver,
     private val connectionManager: NodeConnectionManager,
-    private val eventPublisher: EventPublisher,
+    private val guardian: Guardian,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -77,24 +72,6 @@ class NetworkProcessor(
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
     }
-
-    private val httpClient =
-        HttpClient(io.ktor.client.engine.cio.CIO) {
-            install(
-                io
-                    .ktor
-                    .client
-                    .plugins
-                    .contentnegotiation
-                    .ContentNegotiation,
-            ) {
-                json()
-            }
-
-            install(HttpTimeout) {
-                requestTimeoutMillis = CONNECTION_TIMEOUT_IN_SECONDS.seconds.inWholeMilliseconds
-            }
-        }
 
     private val websocketClient =
         HttpClient(io.ktor.client.engine.cio.CIO) {
@@ -147,13 +124,7 @@ class NetworkProcessor(
                     try {
                         val remoteHost = call.request.origin.remoteHost
 
-                        if (BannedMonitor.isBanned(InetAddress.getByName(remoteHost))) {
-                            logger.trace { "Rejected handshake from banned address $remoteHost" }
-                            call.respond(HttpStatusCode.Forbidden)
-                            return@post
-                        }
-
-                        eventPublisher.publish(InboundConnectionRequested(InetAddress.getByName(remoteHost)))
+                        if (!call.acceptInboundConnection(remoteHost, "handshake")) return@post
 
                         val counterResponse = call.receive<CounterChallengeResponse>()
                         val challenge = counterResponse.challenge
@@ -228,13 +199,7 @@ class NetworkProcessor(
 
                         logger.trace { "New websocket connection attempt from $remoteHost" }
 
-                        if (BannedMonitor.isBanned(InetAddress.getByName(remoteHost))) {
-                            logger.trace { "Rejected websocket from banned address $remoteHost" }
-                            call.respond(HttpStatusCode.Forbidden)
-                            return@webSocket
-                        }
-
-                        eventPublisher.publish(InboundConnectionRequested(InetAddress.getByName(remoteHost)))
+                        if (!call.acceptInboundConnection(remoteHost, "websocket")) return@webSocket
 
                         val publicUriHeader = call.request.headers[PUBLIC_URI_HEADER]
                         val challengeHeader = call.request.headers[CHALLENGE_HEADER]
@@ -245,17 +210,17 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val publicUri = URI(publicUriHeader)
+                        val publicUri =
+                            runCatching { URI(publicUriHeader) }
+                                .getOrElse {
+                                    logger.trace { "Invalid public URI header '$publicUriHeader' from $remoteHost" }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@webSocket
+                                }
 
                         val scheme = publicUri.scheme
                         if (scheme != "ws" && scheme != "wss") {
                             logger.trace { "Invalid URI scheme '$scheme' from $remoteHost" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@webSocket
-                        }
-
-                        if (networkProperties.loopbackBlocked && InetAddress.getByName(publicUri.host).isLoopbackAddress) {
-                            logger.trace { "Loopback address not allowed for $publicUri from $remoteHost" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
                         }
@@ -282,37 +247,31 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val httpUri =
-                            publicUri
-                                .toString()
-                                .replaceFirst("wss://", "https://")
-                                .replaceFirst("ws://", "http://")
-
                         val timestamp = AttoInstant.now()
-                        val counterChallenge = ChallengeStore.generate(publicUri)
-                        val counterResponse =
-                            CounterChallengeResponse(
-                                challengeHeader,
-                                genesisTransaction.hash,
-                                thisNode,
-                                timestamp,
-                                signer.sign(AttoChallenge(challengeHeader.fromHexToByteArray()), timestamp),
-                                counterChallenge,
-                            )
-                        val result =
-                            httpClient.post("$httpUri/handshakes") {
-                                contentType(
-                                    io
-                                        .ktor
-                                        .http
-                                        .ContentType
-                                        .Application
-                                        .Json,
+                        var counterChallenge: String? = null
+                        val callbackResult =
+                            handshakeCallbackService.post(remoteHost, publicUri) {
+                                val generatedCounterChallenge = ChallengeStore.generate(publicUri)
+                                counterChallenge = generatedCounterChallenge
+                                CounterChallengeResponse(
+                                    challengeHeader,
+                                    genesisTransaction.hash,
+                                    thisNode,
+                                    timestamp,
+                                    signer.sign(AttoChallenge(challengeHeader.fromHexToByteArray()), timestamp),
+                                    generatedCounterChallenge,
                                 )
-                                setBody(counterResponse)
                             }
 
-                        logger.trace { "Challenge response status from $httpUri: ${result.status}" }
+                        if (callbackResult is HandshakeCallbackResult.Rejected) {
+                            connectingMap.remove(publicUri)
+                            call.respond(callbackResult.status)
+                            return@webSocket
+                        }
+
+                        val result = callbackResult as HandshakeCallbackResult.Completed
+
+                        logger.trace { "Challenge response status from ${publicUri.toHandshakeHttpUri()}: ${result.status}" }
 
                         if (!result.status.isSuccess()) {
                             connectingMap.remove(publicUri)
@@ -321,9 +280,16 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val response = result.body<ChallengeResponse>()
+                        val response = result.response
+                        if (response == null) {
+                            connectingMap.remove(publicUri)
+                            logger.trace { "Received empty challenge response from $publicUri $remoteHost" }
+                            call.respond(HttpStatusCode.BadRequest)
+                            return@webSocket
+                        }
 
-                        if (ChallengeStore.remove(counterChallenge) == null) {
+                        val expectedCounterChallenge = counterChallenge
+                        if (expectedCounterChallenge == null || ChallengeStore.remove(expectedCounterChallenge) == null) {
                             connectingMap.remove(publicUri)
                             logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
                             call.respond(HttpStatusCode.BadRequest)
@@ -340,7 +306,12 @@ class NetworkProcessor(
                         }
 
                         val counterHash =
-                            AttoHash.hash(64, node.publicKey.value, counterChallenge.fromHexToByteArray(), response.timestamp.toByteArray())
+                            AttoHash.hash(
+                                64,
+                                node.publicKey.value,
+                                expectedCounterChallenge.fromHexToByteArray(),
+                                response.timestamp.toByteArray(),
+                            )
 
                         val signature = response.signature
                         if (!signature.isValid(node.publicKey, counterHash)) {
@@ -370,7 +341,6 @@ class NetworkProcessor(
     fun stop() {
         logger.info { "Network Processor is stopping..." }
         clear()
-        httpClient.close()
         websocketClient.close()
         scope.cancel()
         server.stop()
@@ -400,6 +370,12 @@ class NetworkProcessor(
             return
         }
 
+        val validation = peerUriValidator.validate(publicUri)
+        if (validation is PeerUriValidationResult.Rejected) {
+            logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
+            return
+        }
+
         if (connectionManager.isConnected(publicUri)) {
             return
         }
@@ -409,6 +385,28 @@ class NetworkProcessor(
             connection(publicUri)
         }
     }
+
+    private suspend fun ApplicationCall.acceptInboundConnection(
+        remoteHost: String,
+        requestType: String,
+    ): Boolean =
+        when (guardian.requestInboundConnection(dnsResolver.getByName(remoteHost))) {
+            InboundConnectionDecision.Accepted -> {
+                true
+            }
+
+            InboundConnectionDecision.Banned -> {
+                logger.trace { "Rejected $requestType from banned address $remoteHost" }
+                respond(HttpStatusCode.Forbidden)
+                false
+            }
+
+            InboundConnectionDecision.RateLimited -> {
+                logger.trace { "Rejected $requestType from rate limited address $remoteHost" }
+                respond(HttpStatusCode.TooManyRequests)
+                false
+            }
+        }
 
     private suspend fun connection(publicUri: URI) {
         if (publicUri == thisNode.publicUri) {
@@ -487,23 +485,4 @@ class NetworkProcessor(
 
         return url == thisNode.publicUri.toString()
     }
-
-    @Serializable
-    private data class ChallengeResponse(
-        val node: AttoNode,
-        @Serializable(with = AttoInstantAsStringSerializer::class)
-        val timestamp: AttoInstant,
-        val signature: AttoSignature,
-    )
-
-    @Serializable
-    private data class CounterChallengeResponse(
-        val challenge: String,
-        val genesis: AttoHash,
-        val node: AttoNode,
-        @Serializable(with = AttoInstantAsStringSerializer::class)
-        val timestamp: AttoInstant,
-        val signature: AttoSignature,
-        val counterChallenge: String,
-    )
 }

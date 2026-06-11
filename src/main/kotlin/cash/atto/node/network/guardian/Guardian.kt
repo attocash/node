@@ -3,22 +3,27 @@ package cash.atto.node.network.guardian
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
-import cash.atto.node.InboundConnectionRequested
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NodeBanned
 import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
+import cash.atto.node.network.NodeUnbanned
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
+import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class Guardian(
@@ -31,6 +36,15 @@ class Guardian(
 
     private val statisticsMap = ConcurrentHashMap<InetSocketAddress, ULong>()
     private val voterMap = ConcurrentHashMap<InetSocketAddress, AttoPublicKey>()
+    private val banned = ConcurrentHashMap.newKeySet<InetAddress>()
+    private val connectionRequestCounters =
+        Caffeine
+            .newBuilder()
+            .scheduler(Scheduler.systemScheduler())
+            .expireAfterWrite(Duration.ofMinutes(1))
+            .maximumSize(100_000)
+            .build<InetAddress, AtomicInteger>()
+            .asMap()
 
     /**
      * Allow extra requests when messages were actually requested
@@ -39,6 +53,26 @@ class Guardian(
 
     @Volatile
     private var snapshot: Map<InetSocketAddress, ULong> = mapOf()
+
+    fun requestInboundConnection(address: InetAddress): InboundConnectionDecision {
+        if (address in banned) {
+            return InboundConnectionDecision.Banned
+        }
+
+        countInboundConnection(address)
+
+        val limit = guardianProperties.connectionRequestLimitPerMinute
+        if (limit <= 0) {
+            return InboundConnectionDecision.RateLimited
+        }
+
+        val count = connectionRequestCounters.computeIfAbsent(address) { AtomicInteger() }.incrementAndGet()
+        if (count > limit) {
+            return InboundConnectionDecision.RateLimited
+        }
+
+        return InboundConnectionDecision.Accepted
+    }
 
     @EventListener
     fun count(message: DirectNetworkMessage<*>) {
@@ -77,11 +111,13 @@ class Guardian(
     }
 
     @EventListener
-    fun count(event: InboundConnectionRequested) {
-        val socketAddress = InetSocketAddress(event.address, 0)
-        statisticsMap.compute(socketAddress) { _, v ->
-            (v ?: 0UL) + 1UL
-        }
+    fun ban(event: NodeBanned) {
+        banned += event.address
+    }
+
+    @EventListener
+    fun unban(event: NodeUnbanned) {
+        banned -= event.address
     }
 
     @EventListener
@@ -168,9 +204,27 @@ class Guardian(
 
     fun getVoters(): Map<InetSocketAddress, AttoPublicKey> = voterMap.toMap()
 
+    private fun countInboundConnection(address: InetAddress) {
+        val socketAddress = InetSocketAddress(address, 0)
+        statisticsMap.compute(socketAddress) { _, v ->
+            (v ?: 0UL) + 1UL
+        }
+    }
+
     override fun clear() {
         statisticsMap.clear()
         snapshot = mapOf()
         voterMap.clear()
+        expectedResponseCountMap.clear()
+        banned.clear()
+        connectionRequestCounters.clear()
     }
+}
+
+sealed interface InboundConnectionDecision {
+    data object Accepted : InboundConnectionDecision
+
+    data object Banned : InboundConnectionDecision
+
+    data object RateLimited : InboundConnectionDecision
 }

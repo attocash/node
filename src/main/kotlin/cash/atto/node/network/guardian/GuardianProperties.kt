@@ -8,4 +8,5 @@ import org.springframework.context.annotation.Configuration
 class GuardianProperties {
     var minimalMedian: ULong = 100U
     var toleranceMultiplier: ULong = 10U
+    var connectionRequestLimitPerMinute: Int = 60
 }

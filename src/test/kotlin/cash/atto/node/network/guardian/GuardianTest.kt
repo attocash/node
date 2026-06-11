@@ -48,15 +48,14 @@ class GuardianTest {
 
     @BeforeEach
     fun beforeEach() {
+        every { guardianProperties.minimalMedian } returns minimalMedian
+        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
+        every { guardianProperties.connectionRequestLimitPerMinute } returns 60
         guardian.clear()
     }
 
     @Test
     fun `should take snapshot`() {
-        // given
-        every { guardianProperties.minimalMedian } returns minimalMedian
-        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
-
         val node = createNode(AttoAmount.MAX)
         val event = NodeConnected(randomSocketAddress(), node)
         guardian.add(NodeConnected(randomSocketAddress(), node))
@@ -72,10 +71,6 @@ class GuardianTest {
 
     @Test
     fun `should ban when node deviate from single voter`() {
-        // given
-        every { guardianProperties.minimalMedian } returns minimalMedian
-        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
-
         val voteNode = createNode(AttoAmount.MAX)
         val voterEvent = NodeConnected(randomSocketAddress(), voteNode)
         guardian.add(voterEvent)
@@ -106,10 +101,6 @@ class GuardianTest {
 
     @Test
     fun `should ban when node deviate from voters median`() {
-        // given
-        every { guardianProperties.minimalMedian } returns minimalMedian
-        every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
-
         val votePeer1 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
         val voterEvent1 = NodeConnected(randomSocketAddress(), votePeer1)
         guardian.add(voterEvent1)
@@ -156,6 +147,44 @@ class GuardianTest {
 
         // then
         assertThat(guardian.getVoters()).isEmpty()
+    }
+
+    @Test
+    fun `should accept inbound connection under limit and record statistics`() {
+        val address = InetAddress.getByName("8.8.8.8")
+
+        val decision = guardian.requestInboundConnection(address)
+        guardian.guard()
+
+        assertEquals(InboundConnectionDecision.Accepted, decision)
+        assertEquals(mapOf(InetSocketAddress(address, 0) to 1UL), guardian.getSnapshot())
+    }
+
+    @Test
+    fun `should rate limit inbound connection over limit without banning peer`() {
+        every { guardianProperties.connectionRequestLimitPerMinute } returns 1
+        val address = InetAddress.getByName("8.8.4.4")
+
+        val firstDecision = guardian.requestInboundConnection(address)
+        val secondDecision = guardian.requestInboundConnection(address)
+        guardian.guard()
+
+        assertEquals(InboundConnectionDecision.Accepted, firstDecision)
+        assertEquals(InboundConnectionDecision.RateLimited, secondDecision)
+        assertEquals(mapOf(InetSocketAddress(address, 0) to 2UL), guardian.getSnapshot())
+        verify(exactly = 0) { eventPublisher.publish(match { it is NodeBanned }) }
+    }
+
+    @Test
+    fun `should reject banned inbound connection without recording statistics`() {
+        val address = InetAddress.getByName("1.1.1.1")
+        guardian.ban(NodeBanned(address))
+
+        val decision = guardian.requestInboundConnection(address)
+        guardian.guard()
+
+        assertEquals(InboundConnectionDecision.Banned, decision)
+        assertThat(guardian.getSnapshot()).isEmpty()
     }
 
     private fun createNode(weight: AttoAmount): AttoNode {
