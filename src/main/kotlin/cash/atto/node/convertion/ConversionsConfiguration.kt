@@ -18,6 +18,7 @@ class ConversionsConfiguration {
                 UncheckedTransactionDeserializerDBConverter(),
                 VoteSerializerDBConverter(),
                 VoteDeserializerDBConverter(),
+                WeightDeserializerDBConverter(),
             )
 
         val converters = AttoConverters.all + nodeConverters

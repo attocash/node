@@ -68,6 +68,15 @@ class VoteWeighterTest {
         assertEquals(AttoAmount(100UL), voteWeighter.get(publicKey))
     }
 
+    @Test
+    fun `should use epoch as latest vote timestamp for unknown representative`() {
+        val voteWeighter = voteWeighter()
+        val publicKey = randomPublicKey()
+        voteWeighter.init()
+
+        assertEquals(Weight.NEVER_VOTED_AT, voteWeighter.getLatestVoteTimestamp(publicKey))
+    }
+
     private fun voteWeighter(vararg weights: Weight): VoteWeighter {
         val weightService = mockk<WeightService>()
         coEvery { weightService.refresh() } returns weights.toList().asFlow()

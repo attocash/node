@@ -16,7 +16,6 @@ import cash.atto.commons.toJavaInstant
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteService
-import cash.atto.node.vote.weight.WeightService
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.mockk.coEvery
@@ -26,84 +25,64 @@ import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
-import org.springframework.transaction.ReactiveTransaction
-import org.springframework.transaction.ReactiveTransactionManager
-import org.springframework.transaction.TransactionDefinition
-import reactor.core.publisher.Mono
 import java.net.URI
 import java.time.Instant
 import kotlin.random.Random
 
-class ElectionVoteProcessorTest {
+class FinalVoteRecorderTest {
     @Test
-    fun `should save final votes and update latest vote timestamps for historical node`() =
+    fun `should save final votes for historical node`() =
         runBlocking {
-            val transactionManager = RecordingReactiveTransactionManager()
+            // given
             val voteService = mockk<VoteService>()
-            val weightService = mockk<WeightService>()
-            val processor = newProcessor(historical = true, voteService, weightService, transactionManager)
+            val recorder = newRecorder(historical = true, voteService)
             val transaction = Transaction.sample()
             val finalVote = Vote.sample(transaction.hash, final = true)
             val provisionalVote = Vote.sample(transaction.hash, final = false)
             val savedVotes = mutableListOf<List<Vote>>()
-            val timestampUpdates = mutableListOf<Map<AttoPublicKey, Instant>>()
 
             coEvery { voteService.saveAll(any()) } coAnswers {
                 savedVotes += firstArg<Collection<Vote>>().toList()
                 emptyList()
             }
-            coEvery { weightService.updateLastVoteTimestamps(any()) } coAnswers {
-                timestampUpdates += firstArg<Map<AttoPublicKey, Instant>>()
-            }
 
-            processor.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote, provisionalVote)))
-            processor.flush()
+            // when
+            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote, provisionalVote)))
+            recorder.flush()
 
-            assertEquals(0, processor.getBufferSize())
+            // then
+            assertEquals(0, recorder.getBufferSize())
             assertEquals(listOf(listOf(finalVote)), savedVotes)
-            assertEquals(
-                mapOf(
-                    finalVote.publicKey to finalVote.receivedAt,
-                    provisionalVote.publicKey to provisionalVote.receivedAt,
-                ),
-                timestampUpdates.single(),
-            )
-            assertEquals(1, transactionManager.commits)
-            assertEquals(0, transactionManager.rollbacks)
         }
 
     @Test
-    fun `should not save votes for non historical node`() =
+    fun `should not queue votes for non historical node`() =
         runBlocking {
-            val transactionManager = RecordingReactiveTransactionManager()
+            // given
             val voteService = mockk<VoteService>(relaxed = true)
-            val weightService = mockk<WeightService>()
-            val processor = newProcessor(historical = false, voteService, weightService, transactionManager)
+            val recorder = newRecorder(historical = false, voteService)
             val transaction = Transaction.sample()
             val finalVote = Vote.sample(transaction.hash, final = true)
 
-            coEvery { weightService.updateLastVoteTimestamps(any()) } returns Unit
+            // when
+            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
+            recorder.flush()
 
-            processor.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
-            processor.flush()
-
-            assertEquals(0, processor.getBufferSize())
+            // then
+            assertEquals(0, recorder.getBufferSize())
             coVerify(exactly = 0) { voteService.saveAll(any()) }
-            coVerify(exactly = 1) { weightService.updateLastVoteTimestamps(mapOf(finalVote.publicKey to finalVote.receivedAt)) }
         }
 
     @Test
-    fun `should requeue events when vote persistence fails`() =
+    fun `should requeue final votes when vote persistence fails`() =
         runBlocking {
-            val transactionManager = RecordingReactiveTransactionManager()
+            // given
             val voteService = mockk<VoteService>()
-            val weightService = mockk<WeightService>()
-            val processor = newProcessor(historical = true, voteService, weightService, transactionManager)
+            val recorder = newRecorder(historical = true, voteService)
             val transaction = Transaction.sample()
             val finalVote = Vote.sample(transaction.hash, final = true)
             var attempts = 0
 
-            coEvery { weightService.updateLastVoteTimestamps(any()) } returns Unit
             coEvery { voteService.saveAll(any()) } coAnswers {
                 attempts++
                 if (attempts == 1) {
@@ -112,55 +91,67 @@ class ElectionVoteProcessorTest {
                 emptyList()
             }
 
-            processor.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
+            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
 
+            // when
             assertThrows<RuntimeException> {
                 runBlocking {
-                    processor.flush()
+                    recorder.flush()
                 }
             }
 
-            assertEquals(1, processor.getBufferSize())
+            // then
+            assertEquals(1, recorder.getBufferSize())
             assertEquals(1, attempts)
-            assertEquals(0, transactionManager.commits)
-            assertEquals(1, transactionManager.rollbacks)
 
-            processor.flush()
+            // when
+            recorder.flush()
 
-            assertEquals(0, processor.getBufferSize())
+            // then
+            assertEquals(0, recorder.getBufferSize())
             assertEquals(2, attempts)
-            assertEquals(1, transactionManager.commits)
-            assertEquals(1, transactionManager.rollbacks)
         }
 
-    private fun newProcessor(
+    @Test
+    fun `should flush at most one thousand votes at a time`() =
+        runBlocking {
+            // given
+            val voteService = mockk<VoteService>()
+            val recorder = newRecorder(historical = true, voteService)
+            val transaction = Transaction.sample()
+            val finalVotes = List(1_001) { Vote.sample(transaction.hash, final = true) }
+            val savedVotes = mutableListOf<List<Vote>>()
+
+            coEvery { voteService.saveAll(any()) } coAnswers {
+                savedVotes += firstArg<Collection<Vote>>().toList()
+                emptyList()
+            }
+
+            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, finalVotes))
+
+            // when
+            recorder.flush()
+
+            // then
+            assertEquals(1, recorder.getBufferSize())
+            assertEquals(listOf(finalVotes.take(1_000)), savedVotes)
+
+            // when
+            recorder.flush()
+
+            // then
+            assertEquals(0, recorder.getBufferSize())
+            assertEquals(listOf(finalVotes.take(1_000), finalVotes.drop(1_000)), savedVotes)
+        }
+
+    private fun newRecorder(
         historical: Boolean,
         voteService: VoteService,
-        weightService: WeightService,
-        transactionManager: ReactiveTransactionManager,
-    ): ElectionVoteProcessor =
-        ElectionVoteProcessor(
+    ): FinalVoteRecorder =
+        FinalVoteRecorder(
             thisNode = sampleNode(historical),
             voteService = voteService,
-            weightService = weightService,
-            transactionManager = transactionManager,
         )
-
-    private class RecordingReactiveTransactionManager : ReactiveTransactionManager {
-        var commits = 0
-            private set
-        var rollbacks = 0
-            private set
-
-        override fun getReactiveTransaction(definition: TransactionDefinition?): Mono<ReactiveTransaction> =
-            Mono.just(SimpleReactiveTransaction)
-
-        override fun commit(transaction: ReactiveTransaction): Mono<Void> = Mono.fromRunnable<Void> { commits++ }
-
-        override fun rollback(transaction: ReactiveTransaction): Mono<Void> = Mono.fromRunnable<Void> { rollbacks++ }
-    }
-
-    private object SimpleReactiveTransaction : ReactiveTransaction
 
     private fun sampleNode(historical: Boolean): AttoNode {
         val features =

@@ -6,6 +6,8 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import org.springframework.transaction.annotation.Transactional
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.concurrent.TimeUnit
 
 @Service
@@ -21,9 +23,11 @@ class WeightService(
     }
 
     @Transactional
-    suspend fun updateLastVoteTimestamps(timestamps: Map<AttoPublicKey, Instant>) {
+    suspend fun recordLastVoteTimestamps(timestamps: Map<AttoPublicKey, Instant>) {
         for ((publicKey, timestamp) in timestamps) {
-            weightRepository.updateLastVoteTimestamp(publicKey, timestamp)
+            weightRepository.recordLastVoteTimestamp(publicKey, timestamp.toUtcDateTime())
         }
     }
+
+    private fun Instant.toUtcDateTime(): LocalDateTime = LocalDateTime.ofInstant(this, ZoneOffset.UTC)
 }

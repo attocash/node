@@ -13,6 +13,8 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.time.LocalDateTime
+import java.time.ZoneOffset
 import kotlin.random.Random
 
 class WeightServiceTest {
@@ -46,18 +48,20 @@ class WeightServiceTest {
             val firstTimestamp = Instant.now()
             val secondTimestamp = firstTimestamp.plusSeconds(1)
 
-            coEvery { repository.updateLastVoteTimestamp(any(), any()) } returns Unit
+            coEvery { repository.recordLastVoteTimestamp(any(), any()) } returns Unit
 
-            service.updateLastVoteTimestamps(
+            service.recordLastVoteTimestamps(
                 mapOf(
                     firstPublicKey to firstTimestamp,
                     secondPublicKey to secondTimestamp,
                 ),
             )
 
-            coVerify(exactly = 1) { repository.updateLastVoteTimestamp(firstPublicKey, firstTimestamp) }
-            coVerify(exactly = 1) { repository.updateLastVoteTimestamp(secondPublicKey, secondTimestamp) }
+            coVerify(exactly = 1) { repository.recordLastVoteTimestamp(firstPublicKey, firstTimestamp.toUtcDateTime()) }
+            coVerify(exactly = 1) { repository.recordLastVoteTimestamp(secondPublicKey, secondTimestamp.toUtcDateTime()) }
         }
 
     private fun randomPublicKey(): AttoPublicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+
+    private fun Instant.toUtcDateTime(): LocalDateTime = LocalDateTime.ofInstant(this, ZoneOffset.UTC)
 }

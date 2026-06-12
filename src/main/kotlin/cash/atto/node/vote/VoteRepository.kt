@@ -11,6 +11,7 @@ import java.time.Instant
 
 interface VoteRepository :
     CoroutineCrudRepository<Vote, AttoHash>,
+    VoteBulkRepository,
     AttoRepository {
     @Query(
         """
@@ -78,6 +79,10 @@ interface VoteRepository :
         """,
     )
     suspend fun findMissingVote(onlineWeight: BigInteger): List<MissingVote>
+}
+
+interface VoteBulkRepository {
+    suspend fun insertIgnoreAll(votes: Collection<Vote>): Long
 }
 
 data class MissingVote(

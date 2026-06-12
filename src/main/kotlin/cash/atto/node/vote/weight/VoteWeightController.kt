@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
-import java.time.Instant
 
 @RestController
 @RequestMapping("/vote-weights")
@@ -39,7 +38,7 @@ class VoteWeightController(
         @PathVariable address: AttoAddress,
     ): ResponseEntity<AttoVoterWeight> {
         val weight = voteWeighter.get(address.publicKey)
-        val lastVotedAt = voteWeighter.getLatestVoteTimestamp(address.publicKey)?.toAtto() ?: Instant.EPOCH.toAtto()
+        val lastVotedAt = voteWeighter.getLatestVoteTimestamp(address.publicKey).toAtto()
         val voterWeight = AttoVoterWeight(address, weight, lastVotedAt)
         return ResponseEntity.ok(voterWeight)
     }

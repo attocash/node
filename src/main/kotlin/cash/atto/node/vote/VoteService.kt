@@ -1,6 +1,5 @@
 package cash.atto.node.vote
 
-import kotlinx.coroutines.flow.toList
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.util.concurrent.TimeUnit
@@ -9,7 +8,11 @@ import java.util.concurrent.TimeUnit
 class VoteService(
     private val voteRepository: VoteRepository,
 ) {
-    suspend fun saveAll(votes: Collection<Vote>): List<Vote> = voteRepository.saveAll(votes).toList()
+    suspend fun saveAll(votes: Collection<Vote>): List<Vote> {
+        val distinctVotes = votes.distinctBy { it.signature }
+        voteRepository.insertIgnoreAll(distinctVotes)
+        return distinctVotes
+    }
 
     @Scheduled(initialDelay = 1, fixedRate = 1, timeUnit = TimeUnit.HOURS)
     suspend fun removeOld() {

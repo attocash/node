@@ -64,7 +64,7 @@ class VoteWeighter(
     fun listen(event: VoteValidated) {
         val vote = event.vote
         weightMap.computeIfPresent(vote.publicKey) { _, existing ->
-            if (existing.lastVoteTimestamp == null || vote.receivedAt > existing.lastVoteTimestamp) {
+            if (vote.receivedAt > existing.lastVoteTimestamp) {
                 existing.copy(lastVoteTimestamp = vote.receivedAt)
             } else {
                 existing
@@ -106,7 +106,7 @@ class VoteWeighter(
         logger.trace { "Weight updated $weightMap" }
     }
 
-    fun getLatestVoteTimestamp(publicKey: AttoPublicKey): Instant? = weightMap[publicKey]?.lastVoteTimestamp
+    fun getLatestVoteTimestamp(publicKey: AttoPublicKey): Instant = weightMap[publicKey]?.lastVoteTimestamp ?: Weight.NEVER_VOTED_AT
 
     private suspend fun add(
         publicKey: AttoPublicKey,
@@ -175,7 +175,7 @@ class VoteWeighter(
         val onlineWeights =
             weightMap
                 .asSequence()
-                .filter { minTimestamp < (it.value.lastVoteTimestamp ?: Instant.MIN) }
+                .filter { minTimestamp < it.value.lastVoteTimestamp }
                 .sortedByDescending { it.value.weight.raw }
                 .toList()
 
