@@ -35,6 +35,8 @@ class CucumberConfiguration(
     @Before
     fun before() =
         runBlocking {
+            networkProperties.defaultNodes = mutableSetOf()
+
             caches.forEach {
                 it.clear()
             }
@@ -52,8 +54,6 @@ class CucumberConfiguration(
                 it.clear()
                 it.init()
             }
-
-            networkProperties.defaultNodes = mutableSetOf()
 
             PropertyHolder.clear()
             PropertyHolder.add("THIS", context)

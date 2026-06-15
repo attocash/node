@@ -41,7 +41,7 @@ The node can behave as:
 
 ### Prerequisites
 
-- **Java 24** (the Gradle toolchain is pinned to 24 in `build.gradle.kts`)
+- **Java 25** (the Gradle toolchain is pinned to 25 in `build.gradle.kts`)
 - **Docker** available locally (required by Testcontainers)
 
 ### 1) Run the quickest local node (`TestApplication`)

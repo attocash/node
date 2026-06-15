@@ -7,7 +7,7 @@ plugins {
     kotlin("plugin.allopen") version kotlinVersion
 
     id("org.jetbrains.kotlinx.benchmark") version "0.4.14"
-    id("org.springframework.boot") version "3.5.11"
+    id("org.springframework.boot") version "4.1.0"
     id("org.graalvm.buildtools.native") version "0.11.4"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
@@ -16,7 +16,7 @@ group = "cash.atto"
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(24)
+        languageVersion = JavaLanguageVersion.of(25)
     }
 }
 
@@ -46,9 +46,6 @@ configurations {
     compileOnly {
         extendsFrom(configurations.annotationProcessor.get())
     }
-    all {
-        exclude(group = "commons-logging", module = "commons-logging")
-    }
 }
 
 allOpen {
@@ -59,9 +56,9 @@ ext["kotlin-coroutines.version"] = "1.9.0"
 ext["kotlin-serialization.version"] = "1.8.0"
 
 dependencies {
-    val commonsVersion = "6.1.0"
+    val commonsVersion = "6.7.1"
     val cucumberVersion = "7.34.3"
-    val springdocVersion = "2.8.14"
+    val springdocVersion = "3.0.3"
     val ktorVersion = "3.3.3"
 
     implementation("cash.atto:commons-core:$commonsVersion")
@@ -110,6 +107,7 @@ dependencies {
     implementation("io.asyncer:r2dbc-mysql:1.4.1")
 
     implementation("com.mysql:mysql-connector-j")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
 
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
@@ -117,7 +115,7 @@ dependencies {
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
-    testImplementation("org.springframework.boot:spring-boot-starter-test") {
+    testImplementation("org.springframework.boot:spring-boot-starter-webflux-test") {
         exclude(group = "org.mockito")
     }
     testImplementation("io.mockk:mockk:1.14.7")
@@ -131,9 +129,9 @@ dependencies {
     testImplementation("org.awaitility:awaitility:4.3.0")
 
     testImplementation("org.springframework.boot:spring-boot-testcontainers")
-    testImplementation("org.testcontainers:junit-jupiter")
-    testImplementation("org.testcontainers:mysql")
-    testImplementation("org.testcontainers:r2dbc")
+    testImplementation("org.testcontainers:testcontainers-junit-jupiter")
+    testImplementation("org.testcontainers:testcontainers-mysql")
+    testImplementation("org.testcontainers:testcontainers-r2dbc")
     add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.4.14")
 }
 

@@ -9,8 +9,9 @@ import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import io.cucumber.java.en.Given
 import io.r2dbc.spi.Option
-import org.springframework.boot.autoconfigure.r2dbc.R2dbcConnectionDetails
 import org.springframework.boot.builder.SpringApplicationBuilder
+import org.springframework.boot.r2dbc.autoconfigure.R2dbcConnectionDetails
+import org.springframework.core.io.DefaultResourceLoader
 import org.springframework.r2dbc.core.DatabaseClient
 import java.io.Closeable
 import java.io.File
@@ -27,20 +28,14 @@ class NodeStepDefinition(
     @Given("^the neighbour node (\\w+)$")
     fun startNeighbour(shortId: String) {
         val nodeName = "Node $shortId"
+        val classLoader = createClassLoader()
         val starter =
             Runnable {
+                Thread.currentThread().contextClassLoader = classLoader
+
                 val ports = randomPorts()
                 val websocketPort = ports[0]
                 val httpPort = ports[1]
-
-                val classLoader = Thread.currentThread().contextClassLoader
-                val applicationClass = arrayOf(classLoader.loadClass(Application::class.java.canonicalName))
-                val springApplicationBuilder = classLoader.loadClass(SpringApplicationBuilder::class.java.canonicalName)
-
-                val builderInstance =
-                    springApplicationBuilder
-                        .getConstructor(applicationClass::class.java)
-                        .newInstance(applicationClass)
 
                 val sql = "DROP DATABASE IF EXISTS $shortId; CREATE DATABASE $shortId"
                 databaseClient
@@ -77,11 +72,11 @@ class NodeStepDefinition(
                         "--atto.transaction.genesis=${transaction.toAttoTransaction().toBuffer().toHex()}",
                     )
                 val context =
-                    springApplicationBuilder
-                        .getMethod("run", Array<String>::class.java)
-                        .invoke(builderInstance, args) as Closeable
+                    SpringApplicationBuilder(Application::class.java)
+                        .resourceLoader(DefaultResourceLoader(classLoader))
+                        .run(*args) as Closeable
 
-                NodeHolder.add(context)
+                NodeHolder.add(context, classLoader)
 
                 PropertyHolder.add(shortId, context)
                 PropertyHolder.add(shortId, privateKey.toSigner())
@@ -93,7 +88,7 @@ class NodeStepDefinition(
         val futureTask = FutureTask(starter, null)
         val neighbourThread = Thread(futureTask)
 
-        neighbourThread.contextClassLoader = createClassLoader()
+        neighbourThread.contextClassLoader = classLoader
         neighbourThread.name = nodeName
         neighbourThread.start()
 
@@ -124,6 +119,6 @@ class NodeStepDefinition(
                 .map { File(it).toURI().toURL() }
                 .toList()
         val urlArray = Array(urlList.size) { urlList[it] }
-        return URLClassLoader(urlArray, ClassLoader.getSystemClassLoader().parent)
+        return URLClassLoader(urlArray, ClassLoader.getSystemClassLoader())
     }
 }
