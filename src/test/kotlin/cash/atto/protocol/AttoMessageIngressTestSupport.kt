@@ -80,6 +80,10 @@ internal fun forgedVote(): AttoSignedVote {
     )
 }
 
+internal fun validHash(): AttoHash = AttoHash(ByteArray(32))
+
+internal fun invalidHash(): AttoHash = AttoHash(ByteArray(1))
+
 private fun vote(
     privateKey: AttoPrivateKey,
     timestamp: AttoInstant,

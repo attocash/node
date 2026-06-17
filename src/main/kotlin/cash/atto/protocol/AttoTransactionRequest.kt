@@ -18,5 +18,5 @@ data class AttoTransactionRequest(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_REQUEST
 
-    override fun isValid(network: AttoNetwork): Boolean = true
+    override fun isValid(network: AttoNetwork): Boolean = hash.isValid()
 }
