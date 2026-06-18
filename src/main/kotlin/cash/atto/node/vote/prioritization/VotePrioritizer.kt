@@ -37,7 +37,7 @@ class VotePrioritizer(
     private val logger = KotlinLogging.logger {}
 
     private val mutex = Mutex()
-    private val queue = VoteQueue(properties.groupMaxSize!!)
+    private val queue = VoteQueue(properties.queueMaxSize!!)
 
     private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
 

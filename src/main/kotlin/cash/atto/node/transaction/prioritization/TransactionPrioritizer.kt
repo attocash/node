@@ -35,6 +35,7 @@ class TransactionPrioritizer(
     private val logger = KotlinLogging.logger {}
 
     private val queue = TransactionQueue(properties.groupMaxSize!!, 8)
+    private val maxActiveElections = properties.maxActiveElections!!
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
     private val electionDependencies = ConcurrentHashMap<AttoHash, MutableSet<Transaction>>()
 
@@ -58,7 +59,7 @@ class TransactionPrioritizer(
     fun process() {
         do {
             val electionsSize = electionDependencies.size
-            if (electionsSize >= 1000) {
+            if (electionsSize >= maxActiveElections) {
                 logger.debug { "There are $electionsSize active elections. Skipping prioritization for now." }
                 return
             }

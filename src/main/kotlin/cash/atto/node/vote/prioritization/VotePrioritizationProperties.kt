@@ -6,6 +6,6 @@ import org.springframework.context.annotation.Configuration
 @Configuration
 @ConfigurationProperties(prefix = "atto.vote.prioritization")
 class VotePrioritizationProperties {
-    var groupMaxSize: Int? = null
+    var queueMaxSize: Int? = null
     var cacheMaxSize: Long? = null
 }

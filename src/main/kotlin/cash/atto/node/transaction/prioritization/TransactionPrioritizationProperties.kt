@@ -7,4 +7,5 @@ import org.springframework.context.annotation.Configuration
 @ConfigurationProperties(prefix = "atto.transaction.prioritization")
 class TransactionPrioritizationProperties {
     var groupMaxSize: Int? = null
+    var maxActiveElections: Int? = null
 }

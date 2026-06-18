@@ -75,7 +75,10 @@ internal class TransactionPrioritizerTest {
         }
         val prioritizer =
             TransactionPrioritizer(
-                TransactionPrioritizationProperties().apply { groupMaxSize = 10 },
+                TransactionPrioritizationProperties().apply {
+                    groupMaxSize = 10
+                    maxActiveElections = 1_000
+                },
                 eventPublisher,
                 SimpleMeterRegistry(),
             )
