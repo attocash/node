@@ -176,6 +176,54 @@ internal class PublicKeyHeightElectionTest {
     }
 
     @Test
+    fun `should reject older cross-block vote from same voter`() {
+        // given
+        val account = sampleAccount()
+        val election = PublicKeyHeightElection(account, minimalConfirmationWeightProvider())
+        val transactionA = Transaction.sample()
+        val transactionB = Transaction.sample()
+        val voter = AttoPublicKey(ByteArray(32) { 21 })
+        val baseTime = Instant.now()
+        val newerVote = vote(voter, transactionA.hash, baseTime.plusSeconds(1), AttoAmount(8u))
+        val olderVote = vote(voter, transactionB.hash, baseTime, AttoAmount(9u))
+
+        // when
+        election.add(transactionA)
+        election.add(transactionB)
+        assertTrue(election.add(newerVote))
+        assertFalse(election.add(olderVote))
+
+        // then
+        val provisionalLeader = election.getProvisionalLeader()
+        assertSame(transactionA, provisionalLeader.transaction)
+        assertEquals(AttoAmount(8u), provisionalLeader.totalWeight)
+    }
+
+    @Test
+    fun `should reject equal timestamp cross-block vote from same voter`() {
+        // given
+        val account = sampleAccount()
+        val election = PublicKeyHeightElection(account, minimalConfirmationWeightProvider())
+        val transactionA = Transaction.sample()
+        val transactionB = Transaction.sample()
+        val voter = AttoPublicKey(ByteArray(32) { 22 })
+        val timestamp = Instant.now()
+        val voteA = vote(voter, transactionA.hash, timestamp, AttoAmount(8u))
+        val voteB = vote(voter, transactionB.hash, timestamp, AttoAmount(9u))
+
+        // when
+        election.add(transactionA)
+        election.add(transactionB)
+        assertTrue(election.add(voteA))
+        assertFalse(election.add(voteB))
+
+        // then
+        val provisionalLeader = election.getProvisionalLeader()
+        assertSame(transactionA, provisionalLeader.transaction)
+        assertEquals(AttoAmount(8u), provisionalLeader.totalWeight)
+    }
+
+    @Test
     fun `should move provisional leader to transaction with higher weight`() {
         // given
         val account = sampleAccount()

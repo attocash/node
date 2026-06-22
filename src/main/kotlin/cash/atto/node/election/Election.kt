@@ -194,6 +194,7 @@ class PublicKeyHeightElection(
 ) {
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
     private val voterChangeMap = HashMap<AttoPublicKey, VoterChange>()
+    private val latestVoteTimestampMap = HashMap<AttoPublicKey, Instant>()
 
     fun add(transaction: Transaction) {
         if (transactionElectionMap.containsKey(transaction.hash)) {
@@ -209,9 +210,16 @@ class PublicKeyHeightElection(
             transactionElectionMap[vote.blockHash]
                 ?: return false
 
+        val latestVoteTimestamp = latestVoteTimestampMap[vote.publicKey]
+        if (latestVoteTimestamp != null && vote.timestamp <= latestVoteTimestamp) {
+            return false
+        }
+
         if (!transactionElection.add(vote)) {
             return false
         }
+
+        latestVoteTimestampMap[vote.publicKey] = vote.timestamp
 
         val oldChange = voterChangeMap[vote.publicKey]
 
