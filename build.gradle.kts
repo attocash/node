@@ -144,6 +144,7 @@ graalvmNative {
     binaries {
         named("main") {
             buildArgs.add("-march=compatibility")
+            buildArgs.add("-R:MinHeapSize=400m")
         }
     }
 }
