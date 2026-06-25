@@ -146,8 +146,6 @@ tasks.withType<Test> {
 graalvmNative {
     agent {
         tasksToInstrumentPredicate.set(Predicate<Task> { task -> task.name == "test" })
-        trackReflectionMetadata.set(false)
-        enableExperimentalUnsafeAllocationTracing.set(false)
     }
 
     binaries {
