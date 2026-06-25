@@ -1,3 +1,6 @@
+import org.gradle.api.Task
+import java.util.function.Predicate
+
 plugins {
     val kotlinVersion = "2.3.0"
 
@@ -141,6 +144,12 @@ tasks.withType<Test> {
 }
 
 graalvmNative {
+    agent {
+        tasksToInstrumentPredicate.set(Predicate<Task> { task -> task.name == "test" })
+        trackReflectionMetadata.set(false)
+        enableExperimentalUnsafeAllocationTracing.set(false)
+    }
+
     binaries {
         named("main") {
             buildArgs.add("-march=compatibility")
