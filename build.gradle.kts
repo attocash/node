@@ -11,7 +11,7 @@ plugins {
 
     id("org.jetbrains.kotlinx.benchmark") version "0.4.14"
     id("org.springframework.boot") version "4.1.0"
-    id("org.graalvm.buildtools.native") version "0.11.4"
+    id("org.graalvm.buildtools.native") version "1.1.2"
     id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
 }
 
@@ -146,6 +146,7 @@ tasks.withType<Test> {
 graalvmNative {
     agent {
         tasksToInstrumentPredicate.set(Predicate<Task> { task -> task.name == "test" })
+        trackReflectionMetadata.set(false)
     }
 
     binaries {
