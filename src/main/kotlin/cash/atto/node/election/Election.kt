@@ -44,6 +44,7 @@ class Election(
     private val mutex = Mutex()
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
+    private val pendingConsensus = HashSet<PublicKeyHeight>()
 
     @PostConstruct
     fun start() {
@@ -73,7 +74,9 @@ class Election(
     suspend fun process(event: AccountUpdated) =
         mutex.withLock {
             val transaction = event.transaction
-            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())?.let {
+            val publicKeyHeight = transaction.toPublicKeyHeight()
+            pendingConsensus.remove(publicKeyHeight)
+            publicKeyHeightElectionMap.remove(publicKeyHeight)?.let {
                 logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
             }
         }
@@ -82,7 +85,13 @@ class Election(
         account: Account,
         transaction: Transaction,
     ) = mutex.withLock {
-        publicKeyHeightElectionMap.compute(transaction.toPublicKeyHeight()) { _, v ->
+        val publicKeyHeight = transaction.toPublicKeyHeight()
+        if (publicKeyHeight in pendingConsensus) {
+            logger.trace { "Ignoring $transaction since consensus is pending for $publicKeyHeight" }
+            return@withLock
+        }
+
+        publicKeyHeightElectionMap.compute(publicKeyHeight) { _, v ->
             val publicKeyHeightElection =
                 v ?: PublicKeyHeightElection(account) {
                     voteWeighter.getMinimalConfirmationWeight()
@@ -103,6 +112,11 @@ class Election(
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         logger.trace { "Processing $vote" }
+
+        if (publicKeyHeight in pendingConsensus) {
+            logger.trace { "Election for $publicKeyHeight is pending persistence. Vote will be ignored" }
+            return@withLock
+        }
 
         val publicKeyHeightElection = publicKeyHeightElectionMap[publicKeyHeight]
 
@@ -129,7 +143,8 @@ class Election(
                 "Consensus reached because totalWeight($totalWeight) >= minimalConfirmationWeight($minimalConfirmationWeight). " +
                     "Transaction ${finalTransaction.hash} was chosen by ${votes.map { "${it.publicKey}=${it.weight}" }}."
             }
-            publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+            pendingConsensus.add(publicKeyHeight)
+            publicKeyHeightElectionMap.remove(publicKeyHeight)
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withLock
         }
@@ -180,6 +195,7 @@ class Election(
 
     override fun clear() {
         publicKeyHeightElectionMap.clear()
+        pendingConsensus.clear()
     }
 }
 

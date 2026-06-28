@@ -160,6 +160,42 @@ class ElectionTest {
     }
 
     @Test
+    fun `should ignore same public key height election while consensus is pending persistence`() {
+        // given
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val transactionA = Transaction.sample(publicKey = publicKey)
+        val transactionB = Transaction.sample(publicKey = publicKey)
+        val voteA = Vote.sample(blockHash = transactionA.hash, weight = minimalWeight)
+        val voteB = Vote.sample(blockHash = transactionB.hash, weight = minimalWeight)
+
+        // when
+        runBlocking {
+            election.start(TransactionValidated(account, transactionA))
+            election.process(VoteValidated(transactionA, voteA))
+            assertEquals(0, election.getSize())
+
+            election.start(TransactionValidated(account, transactionB))
+            election.process(VoteValidated(transactionB, voteB))
+            assertEquals(0, election.getSize())
+
+            election.process(AccountUpdated(TransactionSource.ELECTION, account, account, transactionA))
+            election.start(TransactionValidated(account, transactionB))
+        }
+
+        // then
+        assertEquals(1, election.getSize())
+        verify(exactly = 2) {
+            eventPublisher.publish(match { it is ElectionStarted })
+        }
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionA })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionB })
+        }
+    }
+
+    @Test
     fun `should publish consensus changed when provisional leader changes`() {
         // given
         every { voteWeighter.getMinimalConfirmationWeight() } returns AttoAmount(2000UL)
