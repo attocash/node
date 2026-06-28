@@ -146,11 +146,19 @@ tasks.withType<Test> {
 graalvmNative {
     agent {
         tasksToInstrumentPredicate.set(Predicate<Task> { task -> task.name == "test" })
-        trackReflectionMetadata.set(false)
+        trackReflectionMetadata.set(true)
     }
 
     binaries {
         named("main") {
+            providers.gradleProperty("nativePreserve").orNull?.takeIf { it.isNotBlank() }?.let {
+                buildArgs.add("-H:Preserve=$it")
+            }
+
+            providers.gradleProperty("nativeConfigurationFileDirectories").orNull?.takeIf { it.isNotBlank() }?.let {
+                buildArgs.add("-H:ConfigurationFileDirectories=$it")
+            }
+
             buildArgs.add("-march=compatibility")
             buildArgs.add("-R:MinHeapSize=400m")
         }
