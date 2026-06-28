@@ -14,6 +14,7 @@ import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.NodeConnectionManager
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionRepository
@@ -49,6 +50,7 @@ class LastDiscoverer(
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
+    private val nodeConnectionManager: NodeConnectionManager,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
     private val voteConverter: VoteConverter,
@@ -102,7 +104,7 @@ class LastDiscoverer(
             transactions
                 .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
                 .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
-                .collect { networkMessagePublisher.publish(it) }
+                .collect { nodeConnectionManager.send(it) }
         }
     }
 
