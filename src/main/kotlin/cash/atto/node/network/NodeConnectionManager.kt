@@ -167,7 +167,7 @@ class NodeConnectionManager(
     }
 
     @EventListener
-    fun send(networkMessage: BroadcastNetworkMessage<*>) {
+    suspend fun send(networkMessage: BroadcastNetworkMessage<*>) {
         val message = networkMessage.payload
 
         logger.trace { "Sending $networkMessage" }
@@ -175,11 +175,9 @@ class NodeConnectionManager(
         connectionMap.values
             .asSequence()
             .filter { networkMessage.accepts(it.node.publicUri, it.node) }
-            .forEach { connection ->
-                scope.launch {
-                    send(connection.node.publicUri, message)
-                }
-            }
+            .map { it.node.publicUri }
+            .toList()
+            .forEach { send(it, message) }
     }
 
     @EventListener
@@ -194,7 +192,7 @@ class NodeConnectionManager(
     }
 
     @Scheduled(fixedRate = 10_000)
-    fun keepAlive() {
+    suspend fun keepAlive() {
         val sample = connectionMap.toMap().values.randomOrNull()
         val message = AttoKeepAlive(sample?.node?.publicUri)
         send(BroadcastNetworkMessage(strategy = BroadcastStrategy.EVERYONE, payload = message))

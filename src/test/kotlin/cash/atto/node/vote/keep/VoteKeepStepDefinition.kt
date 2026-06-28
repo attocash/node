@@ -8,6 +8,7 @@ import cash.atto.node.vote.VoteRepository
 import cash.atto.node.vote.keeping.VoteKeeper
 import cash.atto.node.vote.weight.VoteWeighter
 import io.cucumber.java.en.When
+import kotlinx.coroutines.flow.count
 import kotlinx.coroutines.runBlocking
 
 class VoteKeepStepDefinition(
@@ -25,7 +26,12 @@ class VoteKeepStepDefinition(
                     voteKeeper.keep()
                     voteKeeper.flush()
                     val minimalWeight = voteWeighter.getMinimalConfirmationWeight()
-                    voteRepository.findMissingVote(minimalWeight.raw.toBigInteger()).none { it.lastTransactionHash == transaction.hash }
+                    val hasFinalVote = voteRepository.findByBlockHash(transaction.hash).count() > 0
+                    val hasMissingVote =
+                        voteRepository
+                            .findMissingVote(minimalWeight.raw.toBigInteger())
+                            .any { it.lastTransactionHash == transaction.hash }
+                    hasFinalVote && !hasMissingVote
                 }
             }
         }
