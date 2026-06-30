@@ -13,6 +13,9 @@ spring:
       include-stacktrace: ALWAYS
 
 atto:
+  test:
+    web-client-wiretap:
+      enabled: false
   network:
     loopback-blocked: false
   transaction:

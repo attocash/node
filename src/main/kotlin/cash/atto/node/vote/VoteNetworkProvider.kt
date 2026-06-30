@@ -6,6 +6,7 @@ import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoVersion
+import cash.atto.node.CacheSupport
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
@@ -33,8 +34,12 @@ class VoteNetworkProvider(
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val signer: AttoSigner,
-) {
+) : CacheSupport {
     private val voteStreams = ConcurrentHashMap.newKeySet<VoteStream>()
+
+    override fun clear() {
+        voteStreams.clear()
+    }
 
     @EventListener
     suspend fun get(message: InboundNetworkMessage<AttoVoteRequest>) {

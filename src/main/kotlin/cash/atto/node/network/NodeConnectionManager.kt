@@ -1,5 +1,6 @@
 package cash.atto.node.network
 
+import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toHex
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
@@ -71,6 +72,12 @@ class NodeConnectionManager(
     val connectionCount: Int
         get() = connectionMap.size
 
+    val connectedPublicKeys: Set<AttoPublicKey>
+        get() =
+            connectionMap
+                .values
+                .mapTo(HashSet()) { it.node.publicKey }
+
     override fun clear() {
         connectionMap.clear()
         runBlocking {
@@ -109,13 +116,13 @@ class NodeConnectionManager(
                 }.onCompletion {
                     val cause = it?.takeUnless { it is CancellationException }
                     logger.trace(cause) { "Inbound message stream from ${node.publicUri} completed" }
-                    connectionMap.remove(publicUri)
+                    connectionMap.remove(publicUri, connection)
                 }.collect {
                     val message = NetworkSerializer.deserialize(it, thisNode.network)
 
                     if (message == null) {
                         logger.debug { "Received invalid message from $publicUri ${it.toHex()}" }
-                        connectionMap.remove(publicUri)
+                        connectionMap.remove(publicUri, connection)
                         return@collect
                     }
 
@@ -136,7 +143,7 @@ class NodeConnectionManager(
                     messagePublisher.publish(networkMessage)
                 }
         } catch (e: Exception) {
-            connectionMap.remove(publicUri)
+            connectionMap.remove(publicUri, connection)
             throw e
         } finally {
             connection.disconnect()
@@ -150,11 +157,12 @@ class NodeConnectionManager(
         val serialized = NetworkSerializer.serialize(message)
 
         logger.trace { "Sending to $publicUri $message ${serialized.toHex()}" }
+        val connection = connectionMap[publicUri] ?: return
         try {
-            connectionMap[publicUri]?.send(serialized)
+            connection.send(serialized)
         } catch (e: Exception) {
             logger.debug(e) { "Exception during sending to $publicUri $message ${serialized.toHex()}" }
-            connectionMap.remove(publicUri)
+            connectionMap.remove(publicUri, connection)
         }
     }
 

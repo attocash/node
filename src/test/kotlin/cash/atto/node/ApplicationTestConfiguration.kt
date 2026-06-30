@@ -1,6 +1,7 @@
 package cash.atto.node
 
 import io.netty.handler.logging.LogLevel
+import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection
 import org.springframework.context.annotation.Bean
@@ -28,15 +29,19 @@ class ApplicationTestConfiguration {
             }.build()
 
     @Bean
-    fun webClient(exchangeStrategies: ExchangeStrategies): WebClient {
-        val httpClient: HttpClient =
-            HttpClient
-                .create()
-                .wiretap(
+    fun webClient(
+        exchangeStrategies: ExchangeStrategies,
+        @Value("\${atto.test.web-client-wiretap.enabled:false}") wiretapEnabled: Boolean,
+    ): WebClient {
+        var httpClient = HttpClient.create()
+        if (wiretapEnabled) {
+            httpClient =
+                httpClient.wiretap(
                     this.javaClass.canonicalName,
                     LogLevel.DEBUG,
                     AdvancedByteBufFormat.TEXTUAL,
                 )
+        }
         val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
         return WebClient
             .builder()

@@ -26,7 +26,7 @@ Feature: Bootstrap
 
     When transaction 2 missing votes are grabbed
     When transaction 3 missing votes are grabbed
-    When peer THIS broadcast last sample
+    When peer THIS broadcasts last sample until peer B receives transaction 2
 
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
@@ -40,7 +40,7 @@ Feature: Bootstrap
     And the peer B
 
     When transaction 1 missing votes are grabbed
-    When peer THIS broadcast last sample
+    When peer THIS broadcasts last sample until peer B receives transaction 1
 
     Then transaction 1 is confirmed
 
@@ -62,9 +62,8 @@ Feature: Bootstrap
     When the peer B
     When transaction 3 missing votes are grabbed
     When transaction 4 missing votes are grabbed
-    When peer THIS broadcast last sample
+    When peer THIS broadcasts last sample until peer B receives transaction 3
 
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed
     Then transaction 3 is confirmed
-

@@ -134,24 +134,21 @@ class LastDiscoverer(
             return
         }
 
-        transactionElectionMap.computeIfAbsent(transaction.hash) {
-            val election =
-                TransactionElection(transaction) {
-                    voteWeighter.getMinimalConfirmationWeight()
-                }
-
-            val request = AttoVoteStreamRequest(transaction.hash)
-            networkMessagePublisher.publish(
-                DirectNetworkMessage(
-                    message.publicUri,
-                    request,
-                ),
-            )
-
-            logger.trace { "Bootstrap election for ${transaction.hash} started" }
-
-            election
+        transactionElectionMap.compute(transaction.hash) { _, existing ->
+            existing ?: TransactionElection(transaction) {
+                voteWeighter.getMinimalConfirmationWeight()
+            }
         }
+
+        val request = AttoVoteStreamRequest(transaction.hash)
+        networkMessagePublisher.publish(
+            DirectNetworkMessage(
+                message.publicUri,
+                request,
+            ),
+        )
+
+        logger.trace { "Bootstrap election for ${transaction.hash} requested" }
     }
 
     @EventListener
@@ -190,7 +187,7 @@ class LastDiscoverer(
         }
     }
 
-    private suspend fun startElection(transaction: Transaction) {
+    private fun startElection(transaction: Transaction) {
         eventPublisher.publish(TransactionReceived(transaction))
     }
 }

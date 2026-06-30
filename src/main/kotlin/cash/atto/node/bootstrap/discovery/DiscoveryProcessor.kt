@@ -1,6 +1,7 @@
 package cash.atto.node.bootstrap.discovery
 
 import cash.atto.commons.AttoHash
+import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
@@ -20,12 +21,19 @@ import kotlin.time.measureTime
 @Component
 class DiscoveryProcessor(
     val uncheckedTransactionService: UncheckedTransactionService,
-) {
+) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     private val mutex = Mutex()
     private val duplicateDetector = DuplicateDetector<AttoHash>(10.minutes)
     private val buffer = Channel<UncheckedTransaction>(Channel.UNLIMITED)
+
+    override fun clear() {
+        duplicateDetector.clear()
+        do {
+            val transaction = buffer.tryReceive().getOrNull()
+        } while (transaction != null)
+    }
 
     @EventListener
     suspend fun process(event: TransactionDiscovered) {

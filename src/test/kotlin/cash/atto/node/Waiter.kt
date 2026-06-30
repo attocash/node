@@ -8,7 +8,12 @@ import java.util.concurrent.TimeUnit
 object Waiter {
     val timeoutInSeconds = 60L // CHANGE ME DURING TESTS
 
-    fun <T> waitUntilNonNull(callable: Callable<T>): T =
+    fun <T> waitUntilNonNull(callable: Callable<T>): T = waitUntilNonNull(timeoutInSeconds, callable)
+
+    fun <T> waitUntilNonNull(
+        timeoutInSeconds: Long,
+        callable: Callable<T>,
+    ): T =
         Awaitility
             .await()
             .atMost(timeoutInSeconds, TimeUnit.SECONDS)
@@ -17,6 +22,13 @@ object Waiter {
             .until(callable, Matchers.notNullValue())
 
     fun waitUntilTrue(callable: Callable<Boolean>?) {
+        waitUntilTrue(timeoutInSeconds, callable)
+    }
+
+    fun waitUntilTrue(
+        timeoutInSeconds: Long,
+        callable: Callable<Boolean>?,
+    ) {
         Awaitility
             .await()
             .atMost(timeoutInSeconds, TimeUnit.SECONDS)

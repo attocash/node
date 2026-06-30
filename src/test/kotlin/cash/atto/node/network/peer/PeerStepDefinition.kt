@@ -13,6 +13,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToMono
+import java.time.Duration
 
 class PeerStepDefinition(
     private val nodeStepDefinition: NodeStepDefinition,
@@ -20,6 +21,7 @@ class PeerStepDefinition(
     private val webClient: WebClient,
 ) {
     private val logger = KotlinLogging.logger {}
+    private val bootstrapPeerTimeoutInSeconds = 180L
 
     @Given("^the peer (\\w+)$")
     fun startPeer(shortId: String) {
@@ -50,7 +52,16 @@ class PeerStepDefinition(
 
         logger.info { "Checking if $sourceNeighbour is connected to $peerPublicKey..." }
 
-        waitUntilNonNull {
+        waitUntilNonNull(bootstrapPeerTimeoutInSeconds) {
+            findPeer(sourceNeighbour, peerPublicKey)
+        }
+    }
+
+    private fun findPeer(
+        sourceNeighbour: Neighbour,
+        peerPublicKey: AttoPublicKey,
+    ): AttoPublicKey? =
+        runCatching {
             webClient
                 .get()
                 .uri("http://localhost:${sourceNeighbour.httpPort}/nodes/peers")
@@ -58,7 +69,6 @@ class PeerStepDefinition(
                 .bodyToMono<List<AttoPublicKey>>()
                 .flatMapIterable { it }
                 .filter { it == peerPublicKey }
-                .blockFirst()
-        }
-    }
+                .blockFirst(Duration.ofSeconds(1))
+        }.getOrNull()
 }
