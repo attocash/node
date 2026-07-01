@@ -48,9 +48,9 @@ management:
 
 logging:
   level:
-    root: WARN
-    cash.atto: WARN
-    io.asyncer.r2dbc.mysql.client.ReactorNettyClient: ERROR
-    io.r2dbc.h2: WARN
-    org.springframework.boot.autoconfigure: WARN
-    org.springframework.scheduling.annotation.ScheduledAnnotationReactiveSupport: ERROR
+    cash.atto: INFO
+    cash.atto.node.network: INFO
+    cash.atto.node.bootstrap: INFO
+    cash.atto.node.EventPublisher: INFO
+    io.r2dbc.h2: INFO
+    org.springframework.boot.autoconfigure: INFO
