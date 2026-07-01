@@ -8,6 +8,7 @@ Feature: Bootstrap
 
     When the peer B
     And receive transaction 2 from 1 send transaction to A account
+    And peer B settles discoveries until transaction 1 is received
 
     Then transaction 1 is confirmed
     Then transaction 2 is confirmed

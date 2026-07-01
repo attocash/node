@@ -111,6 +111,40 @@ class UncheckedTransactionStepDefinition(
         )
     }
 
+    @When("^peer (\\w+) settles discoveries until transaction (\\w+) is received$")
+    fun settleDiscoveriesUntilReceived(
+        targetShortId: String,
+        transactionShortId: String,
+    ) {
+        val target = PropertyHolder[Neighbour::class.java, targetShortId]
+        val transaction = PropertyHolder[Transaction::class.java, transactionShortId]
+
+        val deadline = System.nanoTime() + bootstrapDiscoveryTimeoutInSeconds.seconds.inWholeNanoseconds
+        var lastFailure: Throwable? = null
+
+        while (System.nanoTime() < deadline) {
+            runCatching {
+                refreshNetwork(target)
+                settleDiscoveries(target)
+
+                if (hasTransaction(target, transaction.hash)) {
+                    return
+                }
+            }.onFailure {
+                lastFailure = it
+            }
+
+            Thread.sleep(250)
+        }
+
+        error(
+            "Peer $targetShortId did not receive transaction $transactionShortId (${transaction.hash}) " +
+                "after settling discoveries within ${bootstrapDiscoveryTimeoutInSeconds}s. " +
+                "Target state: ${describeDiscoveryState(target, transaction.hash)}. " +
+                "Last failure: ${lastFailure?.javaClass?.simpleName ?: "none"} ${lastFailure?.message ?: ""}",
+        )
+    }
+
     private fun refreshNetwork(neighbour: Neighbour) {
         post(neighbour, "/nodes/bootstrap")
     }
