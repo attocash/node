@@ -18,6 +18,19 @@ jobs:
       - uses: gradle/actions/wrapper-validation@v6
 
       - uses: graalvm/setup-graalvm@v1
+        if: inputs.agent_enabled
+        with:
+          distribution: 'graalvm'
+          java-version: '24'
+          native-image-musl: true
+
+      - name: Preserve GraalVM 24 native-image-agent
+        if: inputs.agent_enabled
+        run: |
+          mkdir -p "$RUNNER_TEMP/graalvm24-agent"
+          cp "$JAVA_HOME/lib/libnative-image-agent.so" "$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
+
+      - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
           java-version: '25'
@@ -26,7 +39,11 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast
+      - run: ./gradlew test --no-daemon --fail-fast
+        if: ${{ !inputs.agent_enabled }}
+
+      - run: ./gradlew -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" test --no-daemon --fail-fast
+        if: ${{ inputs.agent_enabled }}
 
       - uses: actions/upload-artifact@v7
         with:

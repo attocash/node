@@ -22,6 +22,12 @@ atto:
     prioritization:
       frequency: 1
   vote:
+    weight:
+      # The default profile uses a synthetic local topology where the bootstrap
+      # discovery path can have one distinct final voter worth 9e18. Keep the
+      # threshold at that weight so the test can reach consensus without
+      # weakening production's 10e18 confirmation requirement.
+      minimal-confirmation-weight: 9_000_000_000_000_000_000
     prioritization:
       frequency: 1_000
   node:
@@ -42,9 +48,9 @@ management:
 
 logging:
   level:
-    cash.atto: INFO
-    cash.atto.node.network: INFO
-    cash.atto.node.bootstrap: INFO
-    cash.atto.node.EventPublisher: INFO
-    io.r2dbc.h2: INFO
-    org.springframework.boot.autoconfigure: INFO
+    root: WARN
+    cash.atto: WARN
+    io.asyncer.r2dbc.mysql.client.ReactorNettyClient: ERROR
+    io.r2dbc.h2: WARN
+    org.springframework.boot.autoconfigure: WARN
+    org.springframework.scheduling.annotation.ScheduledAnnotationReactiveSupport: ERROR

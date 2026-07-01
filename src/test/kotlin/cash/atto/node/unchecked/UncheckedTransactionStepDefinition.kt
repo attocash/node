@@ -105,6 +105,7 @@ class UncheckedTransactionStepDefinition(
         error(
             "Peer $targetShortId did not receive transaction $transactionShortId (${transaction.hash}) " +
                 "from $sourceShortId last sample within ${bootstrapDiscoveryTimeoutInSeconds}s. " +
+                "Source state: ${describeDiscoveryState(source, transaction.hash)}. " +
                 "Target state: ${describeDiscoveryState(target, transaction.hash)}. " +
                 "Last failure: ${lastFailure?.javaClass?.simpleName ?: "none"} ${lastFailure?.message ?: ""}",
         )
