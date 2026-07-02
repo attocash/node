@@ -26,8 +26,6 @@ import org.springframework.web.reactive.function.client.bodyToFlux
 import org.springframework.web.reactive.function.client.bodyToMono
 import reactor.core.publisher.Mono
 import java.time.Duration
-import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.TimeoutException
 import kotlin.jvm.optionals.getOrNull
 
@@ -72,20 +70,6 @@ class TransactionStepDefinition(
         transactionShortId: String,
         sendTransactionShortId: String,
         receiverShortId: String,
-    ) = receiveTransaction(transactionShortId, sendTransactionShortId, receiverShortId, waitForConfirmation = true)
-
-    @When("^receive transaction (\\w+) from (\\w+) send transaction to (\\w+) account without waiting$")
-    fun receiveTransactionWithoutWaiting(
-        transactionShortId: String,
-        sendTransactionShortId: String,
-        receiverShortId: String,
-    ) = receiveTransaction(transactionShortId, sendTransactionShortId, receiverShortId, waitForConfirmation = false)
-
-    private fun receiveTransaction(
-        transactionShortId: String,
-        sendTransactionShortId: String,
-        receiverShortId: String,
-        waitForConfirmation: Boolean,
     ) {
         val signer = PropertyHolder.get(InMemorySigner::class.java, receiverShortId)
         val publicKey = PropertyHolder.get(AttoPublicKey::class.java, receiverShortId)
@@ -116,11 +100,7 @@ class TransactionStepDefinition(
 
         logger.info { "Publishing $transaction" }
 
-        if (waitForConfirmation) {
-            publish("THIS", transaction)
-        } else {
-            PropertyHolder.add(transactionShortId, publishAndStreamAsync("THIS", transaction))
-        }
+        publish("THIS", transaction)
 
         PropertyHolder.add(transactionShortId, transaction)
     }
@@ -158,7 +138,6 @@ class TransactionStepDefinition(
             streamTransaction(neighbour, expectedTransaction.hash)
             streamAccountEntries(neighbour, expectedTransaction.publicKey, expectedTransaction.hash, expectedTransaction.height)
         }
-        awaitAsyncPublish(transactionShortId)
     }
 
     @Then("^transaction (\\w+) is confirmed for (\\w+) peer$")
@@ -256,33 +235,4 @@ class TransactionStepDefinition(
             .bodyToMono<Void>()
             .block()
     }
-
-    private fun publishAndStreamAsync(
-        neighbourShortId: String,
-        transaction: Transaction,
-    ): AsyncTransactionPublish {
-        val neighbour = PropertyHolder[Neighbour::class.java, neighbourShortId]
-        return AsyncTransactionPublish(
-            webClient
-                .post()
-                .uri("http://localhost:${neighbour.httpPort}/transactions/stream")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(transaction.toAttoTransaction())
-                .retrieve()
-                .bodyToFlux<AttoTransaction>()
-                .next()
-                .toFuture(),
-        )
-    }
-
-    private fun awaitAsyncPublish(transactionShortId: String) {
-        if (!PropertyHolder.contains(AsyncTransactionPublish::class.java, transactionShortId)) {
-            return
-        }
-        PropertyHolder[AsyncTransactionPublish::class.java, transactionShortId].future.get(Waiter.timeoutInSeconds, TimeUnit.SECONDS)
-    }
 }
-
-private data class AsyncTransactionPublish(
-    val future: CompletableFuture<*>,
-)
