@@ -111,6 +111,7 @@ jobs:
           find "$smoke_output" -maxdepth 2 -type f -print -exec ls -l {} \;
 
       - name: Gradle smoke test without native-image agent
+        continue-on-error: true
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
         run: |
@@ -125,6 +126,7 @@ jobs:
             --fail-fast
 
       - name: Gradle smoke test with copied GraalVM 24 agent
+        continue-on-error: true
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
         run: |
@@ -140,6 +142,7 @@ jobs:
             --fail-fast
 
       - name: Gradle smoke test with copied GraalVM 24 agent and test AOT disabled
+        continue-on-error: true
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
         run: |
@@ -156,6 +159,7 @@ jobs:
             --fail-fast
 
       - name: Gradle smoke test with default GraalVM 25 agent
+        continue-on-error: true
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
         run: |
@@ -171,7 +175,8 @@ jobs:
             --fail-fast
 
       - name: Full Gradle test suite without native-image agent
-        if: ${{ github.event.inputs.run_full_tests == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.run_full_tests == 'true' }}
+        continue-on-error: true
         run: |
           set -euxo pipefail
 
@@ -183,7 +188,8 @@ jobs:
             --fail-fast
 
       - name: Full Gradle test suite with copied GraalVM 24 agent
-        if: ${{ github.event.inputs.run_full_tests == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.run_full_tests == 'true' }}
+        continue-on-error: true
         run: |
           set -euxo pipefail
 
@@ -196,7 +202,8 @@ jobs:
             --fail-fast
 
       - name: Full Gradle test suite with copied GraalVM 24 agent and test AOT disabled
-        if: ${{ github.event.inputs.run_full_tests == 'true' }}
+        if: ${{ github.event_name == 'push' || github.event.inputs.run_full_tests == 'true' }}
+        continue-on-error: true
         run: |
           set -euxo pipefail
 
