@@ -1,27 +1,20 @@
 package cash.atto.node
 
-import cash.atto.node.network.ChallengeResponse
-import cash.atto.node.network.CounterChallengeResponse
 import com.github.benmanes.caffeine.cache.Cache
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.RemovalListener
 import com.github.benmanes.caffeine.cache.Scheduler
 import com.github.benmanes.caffeine.cache.Weigher
-import kotlinx.serialization.serializer
 import org.flywaydb.core.internal.exception.FlywaySqlException
 import org.flywaydb.core.internal.exception.sqlExceptions.FlywaySqlNoDriversForInteractiveAuthException
 import org.flywaydb.core.internal.exception.sqlExceptions.FlywaySqlNoIntegratedAuthException
 import org.flywaydb.core.internal.exception.sqlExceptions.FlywaySqlServerUntrustedCertificateSqlException
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
-import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
-import java.io.File
 import java.sql.SQLException
 import java.time.Duration
-import java.util.jar.JarFile
 import javax.sql.DataSource
-import kotlin.reflect.typeOf
 
 class NativeImageMetadataTest {
     @Test
@@ -105,36 +98,6 @@ class NativeImageMetadataTest {
         }
     }
 
-    @Test
-    fun `exercise ktor style serializer lookup used by native image`() {
-        // Ktor resolves request and response serializers from KType at runtime.
-        val serializers =
-            listOf(
-                serializer(typeOf<CounterChallengeResponse>()),
-                serializer(typeOf<ChallengeResponse>()),
-            )
-
-        assertEquals(
-            listOf(
-                "cash.atto.node.network.CounterChallengeResponse",
-                "cash.atto.node.network.ChallengeResponse",
-            ),
-            serializers.map { it.descriptor.serialName },
-        )
-    }
-
-    @Test
-    fun `exercise atto serializer singleton reflection used by native image`() {
-        val touchedSerializers =
-            attoSerializerClassNames()
-                .mapNotNull(::readSerializerSingleton)
-
-        assertTrue(
-            touchedSerializers.contains("cash.atto.node.network.CounterChallengeResponse\$\$serializer"),
-            "CounterChallengeResponse serializer singleton should be covered by native metadata tests",
-        )
-    }
-
     private fun exerciseCache(
         index: Int,
         cache: Cache<String, String>,
@@ -149,56 +112,5 @@ class NativeImageMetadataTest {
 
         cache.invalidate(key)
         cache.cleanUp()
-    }
-
-    private fun attoSerializerClassNames(): List<String> =
-        System
-            .getProperty("java.class.path")
-            .split(File.pathSeparator)
-            .asSequence()
-            .map(::File)
-            .flatMap { it.attoSerializerClassNames().asSequence() }
-            .distinct()
-            .sorted()
-            .toList()
-
-    private fun File.attoSerializerClassNames(): List<String> =
-        when {
-            isDirectory -> directoryAttoSerializerClassNames()
-            isFile && extension == "jar" -> jarAttoSerializerClassNames()
-            else -> emptyList()
-        }
-
-    private fun File.directoryAttoSerializerClassNames(): List<String> =
-        walkTopDown()
-            .filter { it.isFile }
-            .map { it.relativeTo(this).path.replace(File.separatorChar, '/') }
-            .filter(::isAttoSerializerClassFile)
-            .map(::toClassName)
-            .toList()
-
-    private fun File.jarAttoSerializerClassNames(): List<String> =
-        JarFile(this).use { jar ->
-            jar
-                .entries()
-                .asSequence()
-                .map { it.name }
-                .filter(::isAttoSerializerClassFile)
-                .map(::toClassName)
-                .toList()
-        }
-
-    private fun isAttoSerializerClassFile(path: String): Boolean = path.startsWith("cash/atto/") && path.endsWith("\$\$serializer.class")
-
-    private fun toClassName(path: String): String = path.removeSuffix(".class").replace('/', '.')
-
-    private fun readSerializerSingleton(className: String): String? {
-        val instanceField =
-            runCatching {
-                Class.forName(className).getField("INSTANCE")
-            }.getOrNull() ?: return null
-
-        assertNotNull(instanceField.get(null), className)
-        return className
     }
 }

@@ -14,11 +14,6 @@ plugins {
 
 group = "cash.atto"
 
-// Lets CI run on Java 25 while selecting the faster GraalVM 24 tracing agent
-// explicitly. Keeping track-reflection-metadata enabled is required for precise
-// serializer fields such as kotlinx.serialization $$serializer.INSTANCE.
-val nativeAgentPath = providers.gradleProperty("nativeAgentPath")
-
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(25)
@@ -142,34 +137,12 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    maxHeapSize = "8g"
-
-    // Native Build Tools cannot choose an agent library from a different
-    // GraalVM installation. This hook is only used when CI passes
-    // -PnativeAgentPath=<graalvm24>/lib/libnative-image-agent.so.
-    nativeAgentPath.orNull?.takeIf { it.isNotBlank() }?.let { agentPath ->
-        val agentOutput =
-            layout.buildDirectory
-                .dir("native/agent-output/$name")
-                .get()
-                .asFile
-                .absolutePath
-        jvmArgs(
-            "-agentpath:$agentPath=config-output-dir=$agentOutput,track-reflection-metadata=true",
-            "-Dorg.graalvm.nativeimage.imagecode=agent",
-        )
-    }
+    maxHeapSize = "4g"
 }
 
 graalvmNative {
     binaries {
         named("main") {
-            // Allows CI/local smoke builds to compile from generated agent
-            // metadata without committing reachability-metadata.json.
-            providers.gradleProperty("nativeConfigurationFileDirectories").orNull?.takeIf { it.isNotBlank() }?.let {
-                buildArgs.add("-H:ConfigurationFileDirectories=$it")
-            }
-
             buildArgs.add("-march=compatibility")
             buildArgs.add("-R:MinHeapSize=400m")
         }

@@ -17,6 +17,7 @@ This repository is a **Kotlin + Spring Boot (WebFlux)** application with a small
 - [Bootstrapping / catching up](#bootstrapping--catching-up)
 - [Code map](#code-map)
 - [Docker images](#docker-images)
+- [Native image metadata](#native-image-metadata)
 - [Troubleshooting](#troubleshooting)
 
 ## What this node does
@@ -223,6 +224,32 @@ Example: `Dockerfile.dev` builds on `ghcr.io/attocash/node` and sets:
 - `SPRING_PROFILES_ACTIVE=dev,json`
 
 If you want a “container-first” run, pick the profile and pass env vars for DB + `ATTO_PUBLIC_URI`.
+
+## Native image metadata
+
+CI uses committed GraalVM reachability metadata from `src/main/resources/META-INF/native-image/cash.atto/node/reachability-metadata.json`. It does not run the native-image agent in the release pipeline because the GraalVM 25 agent is too slow for the full integration suite.
+
+Regenerate the metadata locally only from a successful full agent run:
+
+```bash
+rm -rf build/native/agent-output/test
+JAVA_HOME=/var/home/felipe/.jdks/graalvm-jdk-25 \
+  GRADLE_USER_HOME=/tmp/gradle-home \
+  ./gradlew -Pagent test --no-daemon --info --fail-fast
+mkdir -p src/main/resources/META-INF/native-image/cash.atto/node
+cp build/native/agent-output/test/reachability-metadata.json \
+  src/main/resources/META-INF/native-image/cash.atto/node/reachability-metadata.json
+```
+
+Do not commit metadata from a failed test run. After copying the file, verify it with:
+
+```bash
+grep -n 'CounterChallengeResponse\$\$serializer' \
+  src/main/resources/META-INF/native-image/cash.atto/node/reachability-metadata.json
+./gradlew test --no-daemon --fail-fast
+NATIVE_IMAGE_OPTIONS="--static --libc=musl --gc=G1 -R:MaxRAMPercentage=90" \
+  ./gradlew nativeCompile --no-daemon
+```
 
 ## Troubleshooting
 
