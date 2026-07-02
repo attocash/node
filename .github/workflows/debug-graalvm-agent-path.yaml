@@ -110,6 +110,20 @@ jobs:
 
           find "$smoke_output" -maxdepth 2 -type f -print -exec ls -l {} \;
 
+      - name: Gradle smoke test without native-image agent
+        env:
+          TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            cleanTest \
+            test \
+            --tests "$TEST_SELECTOR" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
       - name: Gradle smoke test with copied GraalVM 24 agent
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
@@ -118,8 +132,36 @@ jobs:
 
           ./gradlew \
             -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            cleanTest \
             test \
             --tests "$TEST_SELECTOR" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - name: Gradle smoke test with default GraalVM 25 agent
+        env:
+          TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -Pagent \
+            cleanTest \
+            test \
+            --tests "$TEST_SELECTOR" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - name: Full Gradle test suite without native-image agent
+        if: ${{ github.event.inputs.run_full_tests == 'true' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            cleanTest \
+            test \
             --no-daemon \
             --info \
             --fail-fast
@@ -131,6 +173,20 @@ jobs:
 
           ./gradlew \
             -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            cleanTest \
+            test \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - name: Full Gradle test suite with default GraalVM 25 agent
+        if: ${{ github.event.inputs.run_full_tests == 'true' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -Pagent \
+            cleanTest \
             test \
             --no-daemon \
             --info \
