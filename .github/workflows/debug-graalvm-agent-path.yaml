@@ -16,6 +16,11 @@ on:
         required: false
         default: false
         type: boolean
+      cucumber_filter_name:
+        description: "Cucumber scenario name used by the focused initialization comparison"
+        required: false
+        default: "Missing transaction should be requested when missing"
+        type: string
 
 jobs:
   debug-agent-path:
@@ -173,6 +178,56 @@ jobs:
             --no-daemon \
             --info \
             --fail-fast
+
+      - name: Focused Cucumber initialization without native-image agent
+        continue-on-error: true
+        env:
+          CUCUMBER_FILTER_NAME: ${{ github.event.inputs.cucumber_filter_name || 'Missing transaction should be requested when missing' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            cleanTest \
+            test \
+            --tests cash.atto.node.CucumberTest \
+            --no-daemon \
+            --info \
+            --fail-fast \
+            -Dcucumber.filter.name="$CUCUMBER_FILTER_NAME"
+
+      - name: Focused Cucumber initialization with copied GraalVM 24 agent
+        continue-on-error: true
+        env:
+          CUCUMBER_FILTER_NAME: ${{ github.event.inputs.cucumber_filter_name || 'Missing transaction should be requested when missing' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            cleanTest \
+            test \
+            --tests cash.atto.node.CucumberTest \
+            --no-daemon \
+            --info \
+            --fail-fast \
+            -Dcucumber.filter.name="$CUCUMBER_FILTER_NAME"
+
+      - name: Focused Cucumber initialization with default GraalVM 25 agent
+        continue-on-error: true
+        env:
+          CUCUMBER_FILTER_NAME: ${{ github.event.inputs.cucumber_filter_name || 'Missing transaction should be requested when missing' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -Pagent \
+            cleanTest \
+            test \
+            --tests cash.atto.node.CucumberTest \
+            --no-daemon \
+            --info \
+            --fail-fast \
+            -Dcucumber.filter.name="$CUCUMBER_FILTER_NAME"
 
       - name: Full Gradle test suite without native-image agent
         if: ${{ github.event_name == 'push' || github.event.inputs.run_full_tests == 'true' }}
