@@ -14,9 +14,10 @@ plugins {
 
 group = "cash.atto"
 
-// Lets CI run on Java 25 while selecting the faster GraalVM 24 tracing agent
-// explicitly. Keeping track-reflection-metadata enabled is required for precise
-// serializer fields such as kotlinx.serialization $$serializer.INSTANCE.
+// Lets CI run on Java 25 while selecting a faster GraalVM tracing agent from
+// another installation explicitly. Keeping track-reflection-metadata enabled is
+// required for precise serializer fields such as kotlinx.serialization
+// $$serializer.INSTANCE.
 val nativeAgentPath = providers.gradleProperty("nativeAgentPath")
 val skipTestAotForNativeAgent =
     providers
@@ -184,9 +185,15 @@ tasks.withType<Test> {
     useJUnitPlatform()
     maxHeapSize = "8g"
 
+    // Allow CI debug workflows to run one Cucumber scenario without changing
+    // the test sources or junit-platform.properties.
+    providers.systemProperty("cucumber.filter.name").orNull?.takeIf { it.isNotBlank() }?.let {
+        systemProperty("cucumber.filter.name", it)
+    }
+
     // Native Build Tools cannot choose an agent library from a different
     // GraalVM installation. This hook is only used when CI passes
-    // -PnativeAgentPath=<graalvm24>/lib/libnative-image-agent.so.
+    // -PnativeAgentPath=<graalvm>/lib/libnative-image-agent.so.
     nativeAgentPath.orNull?.takeIf { it.isNotBlank() }?.let { agentPath ->
         val agentOutput =
             layout.buildDirectory

@@ -30,6 +30,33 @@ jobs:
 
       - uses: gradle/actions/wrapper-validation@v6
 
+      - name: Setup GraalVM 21
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: "graalvm"
+          java-version: "21"
+          native-image-musl: true
+
+      - name: Inspect and preserve GraalVM 21 agent
+        run: |
+          set -euxo pipefail
+
+          echo "GraalVM 21 JAVA_HOME=$JAVA_HOME"
+          java -version
+          native-image --version
+
+          agent21="$JAVA_HOME/lib/libnative-image-agent.so"
+          test -f "$agent21"
+
+          ls -l "$agent21"
+          file "$agent21"
+          ldd "$agent21" || true
+          sha256sum "$agent21"
+
+          mkdir -p "$RUNNER_TEMP/graalvm21-agent"
+          cp "$agent21" "$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so"
+          sha256sum "$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so"
+
       - name: Setup GraalVM 24
         uses: graalvm/setup-graalvm@v1
         with:
@@ -67,7 +94,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - name: Compare GraalVM 24 copied agent with GraalVM 25 agent
+      - name: Compare copied GraalVM agents
         run: |
           set -euxo pipefail
 
@@ -75,11 +102,19 @@ jobs:
           java -version
           native-image --version
 
+          copied_agent21="$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so"
           copied_agent="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
           agent25="$JAVA_HOME/lib/libnative-image-agent.so"
 
+          test -f "$copied_agent21"
           test -f "$copied_agent"
           test -f "$agent25"
+
+          echo "Copied GraalVM 21 agent:"
+          ls -l "$copied_agent21"
+          file "$copied_agent21"
+          ldd "$copied_agent21" || true
+          sha256sum "$copied_agent21"
 
           echo "Copied GraalVM 24 agent:"
           ls -l "$copied_agent"
@@ -93,18 +128,41 @@ jobs:
           ldd "$agent25" || true
           sha256sum "$agent25"
 
+          if cmp -s "$copied_agent21" "$agent25"; then
+            echo "::warning::Copied GraalVM 21 agent is byte-identical to the GraalVM 25 agent."
+          else
+            echo "Copied GraalVM 21 agent differs from the GraalVM 25 agent."
+          fi
+
           if cmp -s "$copied_agent" "$agent25"; then
             echo "::warning::Copied GraalVM 24 agent is byte-identical to the GraalVM 25 agent."
           else
             echo "Copied GraalVM 24 agent differs from the GraalVM 25 agent."
           fi
 
+      - name: Smoke-load copied GraalVM 21 agent with Java 25
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+
+          copied_agent="$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so"
+          smoke_output="$RUNNER_TEMP/agent-smoke-21"
+          mkdir -p "$smoke_output"
+
+          java \
+            -Xlog:library=debug \
+            -agentpath:"$copied_agent=config-output-dir=$smoke_output,track-reflection-metadata=true" \
+            -Dorg.graalvm.nativeimage.imagecode=agent \
+            -version
+
+          find "$smoke_output" -maxdepth 2 -type f -print -exec ls -l {} \;
+
       - name: Smoke-load copied GraalVM 24 agent with Java 25
         run: |
           set -euxo pipefail
 
           copied_agent="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
-          smoke_output="$RUNNER_TEMP/agent-smoke"
+          smoke_output="$RUNNER_TEMP/agent-smoke-24"
           mkdir -p "$smoke_output"
 
           java \
@@ -123,6 +181,22 @@ jobs:
           set -euxo pipefail
 
           ./gradlew \
+            cleanTest \
+            test \
+            --tests "$TEST_SELECTOR" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - name: Gradle smoke test with copied GraalVM 21 agent
+        continue-on-error: true
+        env:
+          TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so" \
             cleanTest \
             test \
             --tests "$TEST_SELECTOR" \
@@ -195,6 +269,23 @@ jobs:
             --fail-fast \
             -Dcucumber.filter.name="$CUCUMBER_FILTER_NAME"
 
+      - name: Focused Cucumber initialization with copied GraalVM 21 agent
+        continue-on-error: true
+        env:
+          CUCUMBER_FILTER_NAME: ${{ github.event.inputs.cucumber_filter_name || 'Missing transaction should be requested when missing' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so" \
+            cleanTest \
+            test \
+            --tests cash.atto.node.CucumberTest \
+            --no-daemon \
+            --info \
+            --fail-fast \
+            -Dcucumber.filter.name="$CUCUMBER_FILTER_NAME"
+
       - name: Focused Cucumber initialization with copied GraalVM 24 agent
         continue-on-error: true
         env:
@@ -242,6 +333,20 @@ jobs:
             --info \
             --fail-fast
 
+      - name: Full Gradle test suite with copied GraalVM 21 agent
+        if: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_full_tests == 'true' }}
+        continue-on-error: true
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm21-agent/libnative-image-agent.so" \
+            cleanTest \
+            test \
+            --no-daemon \
+            --info \
+            --fail-fast
+
       - name: Full Gradle test suite with copied GraalVM 24 agent
         if: ${{ github.event_name == 'push' || github.event.inputs.run_full_tests == 'true' }}
         continue-on-error: true
@@ -277,5 +382,7 @@ jobs:
           name: debug-graalvm-agent-output
           path: |
             build/native/agent-output/test
-            ${{ runner.temp }}/agent-smoke
+            ${{ runner.temp }}/agent-smoke-21
+            ${{ runner.temp }}/agent-smoke-24
+            ${{ runner.temp }}/graalvm21-agent/libnative-image-agent.so
             ${{ runner.temp }}/graalvm24-agent/libnative-image-agent.so
