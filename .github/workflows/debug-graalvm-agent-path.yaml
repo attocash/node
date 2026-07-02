@@ -111,19 +111,21 @@ jobs:
           find "$smoke_output" -maxdepth 2 -type f -print -exec ls -l {} \;
 
       - name: Gradle smoke test with copied GraalVM 24 agent
+        env:
+          TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
         run: |
           set -euxo pipefail
 
           ./gradlew \
             -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
             test \
-            --tests "${{ inputs.test_selector }}" \
+            --tests "$TEST_SELECTOR" \
             --no-daemon \
             --info \
             --fail-fast
 
       - name: Full Gradle test suite with copied GraalVM 24 agent
-        if: ${{ inputs.run_full_tests }}
+        if: ${{ github.event.inputs.run_full_tests == 'true' }}
         run: |
           set -euxo pipefail
 
