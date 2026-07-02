@@ -1,6 +1,9 @@
 name: Debug GraalVM Agent Path
 
 on:
+  push:
+    branches:
+      - debug/graalvm24-agent-path
   workflow_dispatch:
     inputs:
       test_selector:
