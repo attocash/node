@@ -39,10 +39,10 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - run: ./gradlew test --no-daemon --fail-fast
+      - run: ./gradlew test --no-daemon --info --fail-fast
         if: ${{ !inputs.agent_enabled }}
 
-      - run: ./gradlew -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" test --no-daemon --fail-fast
+      - run: ./gradlew -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" test --no-daemon --info --fail-fast
         if: ${{ inputs.agent_enabled }}
 
       - uses: actions/upload-artifact@v7
