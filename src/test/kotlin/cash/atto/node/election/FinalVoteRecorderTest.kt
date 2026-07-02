@@ -18,21 +18,19 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteService
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
-import io.mockk.coEvery
-import io.mockk.coVerify
+import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.runBlocking
+import io.mockk.verify
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import java.net.URI
 import java.time.Instant
 import kotlin.random.Random
 
 class FinalVoteRecorderTest {
     @Test
-    fun `should save final votes for historical node`() =
-        runBlocking {
+    fun `should enqueue final votes for historical node`() =
+        run {
             // given
             val voteService = mockk<VoteService>()
             val recorder = newRecorder(historical = true, voteService)
@@ -41,23 +39,20 @@ class FinalVoteRecorderTest {
             val provisionalVote = Vote.sample(transaction.hash, final = false)
             val savedVotes = mutableListOf<List<Vote>>()
 
-            coEvery { voteService.saveAll(any()) } coAnswers {
+            every { voteService.enqueueAll(any()) } answers {
                 savedVotes += firstArg<Collection<Vote>>().toList()
-                emptyList()
             }
 
             // when
             recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote, provisionalVote)))
-            recorder.flush()
 
             // then
-            assertEquals(0, recorder.getBufferSize())
             assertEquals(listOf(listOf(finalVote)), savedVotes)
         }
 
     @Test
     fun `should not queue votes for non historical node`() =
-        runBlocking {
+        run {
             // given
             val voteService = mockk<VoteService>(relaxed = true)
             val recorder = newRecorder(historical = false, voteService)
@@ -66,82 +61,9 @@ class FinalVoteRecorderTest {
 
             // when
             recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
-            recorder.flush()
 
             // then
-            assertEquals(0, recorder.getBufferSize())
-            coVerify(exactly = 0) { voteService.saveAll(any()) }
-        }
-
-    @Test
-    fun `should requeue final votes when vote persistence fails`() =
-        runBlocking {
-            // given
-            val voteService = mockk<VoteService>()
-            val recorder = newRecorder(historical = true, voteService)
-            val transaction = Transaction.sample()
-            val finalVote = Vote.sample(transaction.hash, final = true)
-            var attempts = 0
-
-            coEvery { voteService.saveAll(any()) } coAnswers {
-                attempts++
-                if (attempts == 1) {
-                    throw IllegalStateException("db down")
-                }
-                emptyList()
-            }
-
-            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(finalVote)))
-
-            // when
-            assertThrows<RuntimeException> {
-                runBlocking {
-                    recorder.flush()
-                }
-            }
-
-            // then
-            assertEquals(1, recorder.getBufferSize())
-            assertEquals(1, attempts)
-
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(0, recorder.getBufferSize())
-            assertEquals(2, attempts)
-        }
-
-    @Test
-    fun `should flush at most one thousand votes at a time`() =
-        runBlocking {
-            // given
-            val voteService = mockk<VoteService>()
-            val recorder = newRecorder(historical = true, voteService)
-            val transaction = Transaction.sample()
-            val finalVotes = List(1_001) { Vote.sample(transaction.hash, final = true) }
-            val savedVotes = mutableListOf<List<Vote>>()
-
-            coEvery { voteService.saveAll(any()) } coAnswers {
-                savedVotes += firstArg<Collection<Vote>>().toList()
-                emptyList()
-            }
-
-            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, finalVotes))
-
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(1, recorder.getBufferSize())
-            assertEquals(listOf(finalVotes.take(1_000)), savedVotes)
-
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(0, recorder.getBufferSize())
-            assertEquals(listOf(finalVotes.take(1_000), finalVotes.drop(1_000)), savedVotes)
+            verify(exactly = 0) { voteService.enqueueAll(any()) }
         }
 
     private fun newRecorder(

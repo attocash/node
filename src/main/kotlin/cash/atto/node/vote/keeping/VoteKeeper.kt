@@ -24,9 +24,6 @@ import cash.atto.protocol.AttoVoteRequest
 import cash.atto.protocol.AttoVoteResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -58,10 +55,6 @@ class VoteKeeper(
             .build<MissingVote, MissingVote>()
             .asMap()
 
-    private val voteBuffer = Channel<Vote>(Channel.UNLIMITED)
-
-    private val mutex = Mutex()
-
     @EventListener
     fun add(nodeEvent: NodeConnected) {
         val node = nodeEvent.node
@@ -87,7 +80,7 @@ class VoteKeeper(
             return
         }
 
-        voteBuffer.send(Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote))
+        voteService.enqueue(Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote))
     }
 
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)
@@ -107,7 +100,7 @@ class VoteKeeper(
     private suspend fun keep(missingVote: MissingVote) {
         if (missingVote.representativePublicKey == thisNode.publicKey) {
             val signedVote = getLocalVote(missingVote.lastTransactionHash)
-            voteBuffer.send(signedVote)
+            voteService.enqueue(signedVote)
             return
         }
 
@@ -137,27 +130,6 @@ class VoteKeeper(
             )
 
         return Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote)
-    }
-
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
-    suspend fun flush() {
-        if (mutex.isLocked) {
-            return
-        }
-        mutex.withLock {
-            do {
-                val batch = mutableListOf<Vote>()
-
-                do {
-                    val vote = voteBuffer.tryReceive().getOrNull()
-                    vote?.let { batch.add(it) }
-                } while (batch.size < 1000 && vote != null)
-
-                if (batch.isNotEmpty()) {
-                    voteService.saveAll(batch)
-                }
-            } while (batch.isNotEmpty())
-        }
     }
 
     override fun clear() {

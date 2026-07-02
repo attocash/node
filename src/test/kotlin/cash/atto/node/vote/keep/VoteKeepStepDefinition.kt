@@ -5,6 +5,7 @@ import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter.waitUntilTrue
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.vote.VoteRepository
+import cash.atto.node.vote.VoteService
 import cash.atto.node.vote.keeping.VoteKeeper
 import cash.atto.node.vote.weight.VoteWeighter
 import io.cucumber.java.en.When
@@ -13,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 
 class VoteKeepStepDefinition(
     private val voteKeeper: VoteKeeper,
+    private val voteService: VoteService,
     private val voteRepository: VoteRepository,
     private val voteWeighter: VoteWeighter,
 ) {
@@ -24,7 +26,7 @@ class VoteKeepStepDefinition(
             waitUntilTrue {
                 runBlocking {
                     voteKeeper.keep()
-                    voteKeeper.flush()
+                    voteService.flush()
                     val minimalWeight = voteWeighter.getMinimalConfirmationWeight()
                     val hasFinalVote = voteRepository.findByBlockHash(transaction.hash).count() > 0
                     val hasMissingVote =
