@@ -139,6 +139,22 @@ jobs:
             --info \
             --fail-fast
 
+      - name: Gradle smoke test with copied GraalVM 24 agent and test AOT disabled
+        env:
+          TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            -PskipTestAotForNativeAgent=true \
+            cleanTest \
+            test \
+            --tests "$TEST_SELECTOR" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
       - name: Gradle smoke test with default GraalVM 25 agent
         env:
           TEST_SELECTOR: ${{ github.event.inputs.test_selector || 'cash.atto.node.network.NetworkSerializerTest' }}
@@ -179,13 +195,14 @@ jobs:
             --info \
             --fail-fast
 
-      - name: Full Gradle test suite with default GraalVM 25 agent
+      - name: Full Gradle test suite with copied GraalVM 24 agent and test AOT disabled
         if: ${{ github.event.inputs.run_full_tests == 'true' }}
         run: |
           set -euxo pipefail
 
           ./gradlew \
-            -Pagent \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            -PskipTestAotForNativeAgent=true \
             cleanTest \
             test \
             --no-daemon \

@@ -18,6 +18,11 @@ group = "cash.atto"
 // explicitly. Keeping track-reflection-metadata enabled is required for precise
 // serializer fields such as kotlinx.serialization $$serializer.INSTANCE.
 val nativeAgentPath = providers.gradleProperty("nativeAgentPath")
+val skipTestAotForNativeAgent =
+    providers
+        .gradleProperty("skipTestAotForNativeAgent")
+        .map(String::toBoolean)
+        .orElse(false)
 
 java {
     toolchain {
@@ -138,6 +143,41 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-mysql")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
     add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.4.14")
+}
+
+if (skipTestAotForNativeAgent.get()) {
+    // Metadata collection should exercise the normal test JVM. Spring test AOT
+    // is expensive under the GraalVM agent and can leave generated classes that
+    // make later comparisons ambiguous, so clean the test-AOT outputs too.
+    val testAotOutputs =
+        listOf(
+            "classes/java/aotTest",
+            "generated/aotTestClasses",
+            "generated/aotTestResources",
+            "generated/aotTestSources",
+            "generated/sources/annotationProcessor/java/aotTest",
+            "generated/sources/headers/java/aotTest",
+            "resources/aotTest",
+        ).map { layout.buildDirectory.dir(it) }
+
+    tasks.matching {
+        it.name in
+            setOf(
+                "processTestAot",
+                "compileAotTestKotlin",
+                "compileAotTestJava",
+                "processAotTestResources",
+                "aotTestClasses",
+            )
+    }.configureEach {
+        enabled = false
+    }
+
+    tasks.withType<Test>().configureEach {
+        doFirst {
+            project.delete(testAotOutputs)
+        }
+    }
 }
 
 tasks.withType<Test> {
