@@ -1,0 +1,141 @@
+name: Debug GraalVM Agent Path
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_selector:
+        description: "JUnit test selector for the Gradle smoke test"
+        required: false
+        default: "cash.atto.node.network.NetworkSerializerTest"
+        type: string
+      run_full_tests:
+        description: "Run the full test suite after the smoke checks"
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  debug-agent-path:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - name: Setup GraalVM 24
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: "graalvm"
+          java-version: "24"
+          native-image-musl: true
+
+      - name: Inspect and preserve GraalVM 24 agent
+        run: |
+          set -euxo pipefail
+
+          echo "GraalVM 24 JAVA_HOME=$JAVA_HOME"
+          java -version
+          native-image --version
+
+          agent24="$JAVA_HOME/lib/libnative-image-agent.so"
+          test -f "$agent24"
+
+          ls -l "$agent24"
+          file "$agent24"
+          ldd "$agent24" || true
+          sha256sum "$agent24"
+
+          mkdir -p "$RUNNER_TEMP/graalvm24-agent"
+          cp "$agent24" "$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
+          sha256sum "$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
+
+      - name: Setup GraalVM 25
+        uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: "graalvm"
+          java-version: "25"
+          native-image-musl: true
+          cache: "gradle"
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Compare GraalVM 24 copied agent with GraalVM 25 agent
+        run: |
+          set -euxo pipefail
+
+          echo "GraalVM 25 JAVA_HOME=$JAVA_HOME"
+          java -version
+          native-image --version
+
+          copied_agent="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
+          agent25="$JAVA_HOME/lib/libnative-image-agent.so"
+
+          test -f "$copied_agent"
+          test -f "$agent25"
+
+          echo "Copied GraalVM 24 agent:"
+          ls -l "$copied_agent"
+          file "$copied_agent"
+          ldd "$copied_agent" || true
+          sha256sum "$copied_agent"
+
+          echo "GraalVM 25 agent:"
+          ls -l "$agent25"
+          file "$agent25"
+          ldd "$agent25" || true
+          sha256sum "$agent25"
+
+          if cmp -s "$copied_agent" "$agent25"; then
+            echo "::warning::Copied GraalVM 24 agent is byte-identical to the GraalVM 25 agent."
+          else
+            echo "Copied GraalVM 24 agent differs from the GraalVM 25 agent."
+          fi
+
+      - name: Smoke-load copied GraalVM 24 agent with Java 25
+        run: |
+          set -euxo pipefail
+
+          copied_agent="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so"
+          smoke_output="$RUNNER_TEMP/agent-smoke"
+          mkdir -p "$smoke_output"
+
+          java \
+            -Xlog:library=debug \
+            -agentpath:"$copied_agent=config-output-dir=$smoke_output,track-reflection-metadata=true" \
+            -Dorg.graalvm.nativeimage.imagecode=agent \
+            -version
+
+          find "$smoke_output" -maxdepth 2 -type f -print -exec ls -l {} \;
+
+      - name: Gradle smoke test with copied GraalVM 24 agent
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            test \
+            --tests "${{ inputs.test_selector }}" \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - name: Full Gradle test suite with copied GraalVM 24 agent
+        if: ${{ inputs.run_full_tests }}
+        run: |
+          set -euxo pipefail
+
+          ./gradlew \
+            -PnativeAgentPath="$RUNNER_TEMP/graalvm24-agent/libnative-image-agent.so" \
+            test \
+            --no-daemon \
+            --info \
+            --fail-fast
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: debug-graalvm-agent-output
+          path: |
+            build/native/agent-output/test
+            ${{ runner.temp }}/agent-smoke
+            ${{ runner.temp }}/graalvm24-agent/libnative-image-agent.so
