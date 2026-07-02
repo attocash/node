@@ -20,7 +20,7 @@ jobs:
       - uses: graalvm/setup-graalvm@v1
         if: inputs.agent_enabled
         with:
-          distribution: 'graalvm'
+          distribution: 'graalvm-community'
           java-version: '24'
           native-image-musl: true
 
@@ -32,7 +32,7 @@ jobs:
 
       - uses: graalvm/setup-graalvm@v1
         with:
-          distribution: 'graalvm'
+          distribution: 'graalvm-community'
           java-version: '25'
           native-image-musl: true
           cache: 'gradle'
