@@ -39,14 +39,12 @@ interface VoteRepository :
 
     @Query(
         """
-            DELETE FROM vote
-            WHERE block_hash NOT IN (
-                SELECT last_transaction_hash
-                FROM account
-            );
+            DELETE v
+            FROM vote v
+                     JOIN stale_vote_block s ON s.block_hash = v.block_hash
         """,
     )
-    suspend fun deleteOld(): Int
+    suspend fun deleteStale(): Int
 
     @Query(
         """

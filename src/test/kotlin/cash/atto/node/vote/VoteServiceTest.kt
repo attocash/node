@@ -13,7 +13,10 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
+import java.time.Clock
+import java.time.Duration
 import java.time.Instant
+import java.time.ZoneId
 import kotlin.random.Random
 
 internal class VoteServiceTest {
@@ -22,11 +25,13 @@ internal class VoteServiceTest {
         runTest {
             // given
             val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.systemUTC())
             val vote = Vote.sample()
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(listOf(vote)) } returns 1L
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
 
             // when
             service.flush()
@@ -34,7 +39,9 @@ internal class VoteServiceTest {
             // then
             assertEquals(0, service.getBufferSize())
             coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(vote)) }
-            coVerify(exactly = 0) { repository.deleteOld() }
+            coVerify(exactly = 1) { staleVoteBlockService.flushQueued(1_000) }
+            coVerify(exactly = 0) { repository.deleteStale() }
+            coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
         }
 
     @Test
@@ -42,7 +49,8 @@ internal class VoteServiceTest {
         runTest {
             // given
             val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.systemUTC())
             val votes = List(1_001) { Vote.sample() }
             val savedVotes = mutableListOf<List<Vote>>()
 
@@ -51,6 +59,7 @@ internal class VoteServiceTest {
                 savedVotes += firstArg<Collection<Vote>>().toList()
                 firstArg<Collection<Vote>>().size.toLong()
             }
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
 
             // when
             service.flush()
@@ -72,12 +81,14 @@ internal class VoteServiceTest {
         runTest {
             // given
             val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.fixed(Instant.EPOCH, ZoneId.systemDefault()))
             val vote = Vote.sample()
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(listOf(vote)) } returns 1L
-            coEvery { repository.deleteOld() } returns 1
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { repository.deleteStale() } returns 1
 
             // when
             service.requestOldVoteRemoval()
@@ -86,23 +97,51 @@ internal class VoteServiceTest {
             // then
             coVerifyOrder {
                 repository.insertIgnoreAll(listOf(vote))
-                repository.deleteOld()
+                staleVoteBlockService.flushQueued(1_000)
+                repository.deleteStale()
             }
+            coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
+            coVerify(exactly = 0) { staleVoteBlockService.deleteUnusedOlderThan(any()) }
         }
 
     @Test
-    fun `should keep flushed votes successful when old vote removal fails`() =
+    fun `should clean stale votes after queued stale blocks are flushed`() =
         runTest {
             // given
             val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.fixed(Instant.EPOCH, ZoneId.systemDefault()))
+
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 1
+            coEvery { repository.deleteStale() } returns 1
+
+            // when
+            service.flush()
+
+            // then
+            coVerifyOrder {
+                staleVoteBlockService.flushQueued(1_000)
+                repository.deleteStale()
+            }
+            coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
+            coVerify(exactly = 0) { staleVoteBlockService.deleteUnusedOlderThan(any()) }
+        }
+
+    @Test
+    fun `should leave stale vote cleanup for next request when cleanup fails`() =
+        runTest {
+            // given
+            val repository = mockk<VoteRepository>()
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.fixed(Instant.EPOCH, ZoneId.systemDefault()))
             val vote = Vote.sample()
             val nextVote = Vote.sample()
             var deleteAttempts = 0
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(any()) } returns 1L
-            coEvery { repository.deleteOld() } coAnswers {
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { repository.deleteStale() } coAnswers {
                 deleteAttempts++
                 if (deleteAttempts == 1) {
                     throw IllegalStateException("deadlock")
@@ -118,8 +157,11 @@ internal class VoteServiceTest {
             assertEquals(0, service.getBufferSize())
             coVerifyOrder {
                 repository.insertIgnoreAll(listOf(vote))
-                repository.deleteOld()
+                staleVoteBlockService.flushQueued(1_000)
+                repository.deleteStale()
             }
+            coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
+            coVerify(exactly = 0) { staleVoteBlockService.deleteUnusedOlderThan(any()) }
 
             // when
             service.enqueue(nextVote)
@@ -127,7 +169,43 @@ internal class VoteServiceTest {
 
             // then
             assertEquals(0, service.getBufferSize())
+            assertEquals(1, deleteAttempts)
+
+            // when
+            service.requestOldVoteRemoval()
+            service.flush()
+
+            // then
             assertEquals(2, deleteAttempts)
+        }
+
+    @Test
+    fun `should reconcile old vote blocks once during startup`() =
+        runTest {
+            // given
+            val repository = mockk<VoteRepository>()
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
+            val service = VoteService(repository, staleVoteBlockService, clock)
+
+            coEvery { staleVoteBlockService.reconcileOld(Instant.EPOCH.minus(Duration.ofMinutes(5))) } returns 3
+            coEvery { staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1))) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { repository.deleteStale() } returns 3
+
+            // when
+            service.reconcileOldVoteBlocksOnStartup()
+            service.flush()
+
+            // then
+            coVerify(exactly = 1) { staleVoteBlockService.reconcileOld(Instant.EPOCH.minus(Duration.ofMinutes(5))) }
+            coVerify(exactly = 1) { staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1))) }
+            coVerifyOrder {
+                staleVoteBlockService.reconcileOld(Instant.EPOCH.minus(Duration.ofMinutes(5)))
+                staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1)))
+                staleVoteBlockService.flushQueued(1_000)
+                repository.deleteStale()
+            }
         }
 
     @Test
@@ -135,7 +213,9 @@ internal class VoteServiceTest {
         runTest {
             // given
             val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val service = VoteService(repository, staleVoteBlockService, Clock.systemUTC())
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
 
             // when
             service.flush()
@@ -143,7 +223,9 @@ internal class VoteServiceTest {
             // then
             assertEquals(0, service.getBufferSize())
             coVerify(exactly = 0) { repository.insertIgnoreAll(any()) }
-            coVerify(exactly = 0) { repository.deleteOld() }
+            coVerify(exactly = 1) { staleVoteBlockService.flushQueued(1_000) }
+            coVerify(exactly = 0) { repository.deleteStale() }
+            coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
         }
 
     private fun Vote.Companion.sample(): Vote =

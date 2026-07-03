@@ -2,9 +2,14 @@ package cash.atto.node.vote
 
 import cash.atto.node.CacheSupport
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
+import org.springframework.boot.context.event.ApplicationReadyEvent
+import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
+import java.time.Clock
+import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
@@ -13,16 +18,20 @@ import java.util.concurrent.atomic.AtomicInteger
 @Service
 class VoteService(
     private val voteRepository: VoteRepository,
+    private val staleVoteBlockService: StaleVoteBlockService,
+    private val clock: Clock,
 ) : CacheSupport {
     companion object {
         private const val BATCH_SIZE = 1_000
+        private val RECONCILIATION_VOTE_GRACE = Duration.ofMinutes(5)
+        private val STALE_MARKER_GRACE = Duration.ofDays(1)
     }
 
     private val logger = KotlinLogging.logger {}
     private val buffer = ConcurrentLinkedDeque<Vote>()
     private val bufferDepth = AtomicInteger()
     private val flushMutex = Mutex()
-    private val oldVoteRemovalRequested = AtomicBoolean(false)
+    private val staleVoteCleanupRequested = AtomicBoolean(false)
 
     fun enqueue(vote: Vote) {
         buffer.addLast(vote)
@@ -41,7 +50,7 @@ class VoteService(
     override fun clear() {
         buffer.clear()
         bufferDepth.set(0)
-        oldVoteRemovalRequested.set(false)
+        staleVoteCleanupRequested.set(false)
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MILLISECONDS)
@@ -52,14 +61,11 @@ class VoteService(
         try {
             flushBatch(BATCH_SIZE)
 
-            if (oldVoteRemovalRequested.compareAndSet(true, false)) {
-                try {
-                    voteRepository.deleteOld()
-                } catch (e: Exception) {
-                    oldVoteRemovalRequested.set(true)
-                    logger.warn(e) { "Failed to remove old votes after saving votes" }
-                }
+            if (staleVoteBlockService.flushQueued(BATCH_SIZE) > 0) {
+                staleVoteCleanupRequested.set(true)
             }
+
+            cleanStaleVotes()
         } finally {
             flushMutex.unlock()
         }
@@ -81,7 +87,30 @@ class VoteService(
 
     @Scheduled(initialDelay = 1, fixedRate = 1, timeUnit = TimeUnit.HOURS)
     fun requestOldVoteRemoval() {
-        oldVoteRemovalRequested.set(true)
+        staleVoteCleanupRequested.set(true)
+    }
+
+    @EventListener(ApplicationReadyEvent::class)
+    fun reconcileOldVoteBlocksOnStartup() =
+        runBlocking {
+            val now = clock.instant()
+
+            staleVoteBlockService.reconcileOld(now.minus(RECONCILIATION_VOTE_GRACE))
+            staleVoteBlockService.deleteUnusedOlderThan(now.minus(STALE_MARKER_GRACE))
+            staleVoteCleanupRequested.set(true)
+        }
+
+    private suspend fun cleanStaleVotes() {
+        if (!staleVoteCleanupRequested.get()) {
+            return
+        }
+
+        try {
+            voteRepository.deleteStale()
+        } catch (e: Exception) {
+            logger.warn(e) { "Failed to clean stale votes" }
+        }
+        staleVoteCleanupRequested.set(false)
     }
 
     private suspend fun flushBatch(size: Int): Int {
