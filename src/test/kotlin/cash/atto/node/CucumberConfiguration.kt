@@ -5,6 +5,7 @@ import cash.atto.commons.AttoSigner
 import cash.atto.node.network.ChallengeStore
 import cash.atto.node.network.NetworkProperties
 import cash.atto.node.network.NodeConnectionManager
+import cash.atto.node.signature.MeteredAttoSigner
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionConfiguration
 import cash.atto.protocol.AttoNode
@@ -58,7 +59,7 @@ class CucumberConfiguration(
             PropertyHolder.clear()
             PropertyHolder.add("THIS", context)
             PropertyHolder.add("THIS", thisNode)
-            PropertyHolder.add("THIS", signer)
+            PropertyHolder.add("THIS", (signer as? MeteredAttoSigner)?.delegate ?: signer)
             PropertyHolder.add("THIS", AttoAlgorithm.V1)
             PropertyHolder.add("THIS", signer.publicKey)
             PropertyHolder.add("THIS", Neighbour(8082U, 8080U))

@@ -90,8 +90,10 @@ management:
         http.server.requests: true
         transactions.confirmation.time: true
         election.vote.latency: true
+        signer.signature.latency: true
       percentiles:
         spring.data.repository.invocations: 0.5, 0.95, 0.99
         http.server.requests: 0.5, 0.95, 0.99
         election.vote.latency: 0.5, 0.95, 0.99
         transactions.confirmation.time: 0.5, 0.95, 0.99
+        signer.signature.latency: 0.5, 0.95, 0.99
