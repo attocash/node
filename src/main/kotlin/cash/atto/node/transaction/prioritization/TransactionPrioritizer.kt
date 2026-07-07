@@ -46,8 +46,8 @@ class TransactionPrioritizer(
             .description("Current transaction prioritizer queue size")
             .register(meterRegistry)
         Gauge
-            .builder("transactions.prioritizer.active.elections", this) { it.electionDependencies.size.toDouble() }
-            .description("Current transaction dependencies waiting on active elections")
+            .builder("transactions.prioritizer.pending.dependencies", this) { it.electionDependencies.size.toDouble() }
+            .description("Current transaction dependency hashes waiting for account update")
             .register(meterRegistry)
         Gauge
             .builder("transactions.prioritizer.buffer.size", this) { it.getBufferSize().toDouble() }
@@ -58,9 +58,12 @@ class TransactionPrioritizer(
     @Scheduled(fixedRateString = "\${atto.transaction.prioritization.frequency}")
     fun process() {
         do {
-            val electionsSize = electionDependencies.size
-            if (electionsSize >= maxActiveElections) {
-                logger.debug { "There are $electionsSize active elections. Skipping prioritization for now." }
+            val pendingDependencyCount = electionDependencies.size
+            if (pendingDependencyCount >= maxActiveElections) {
+                logger.debug {
+                    "There are $pendingDependencyCount transaction dependencies pending account update. " +
+                        "Skipping prioritization for now."
+                }
                 return
             }
 
