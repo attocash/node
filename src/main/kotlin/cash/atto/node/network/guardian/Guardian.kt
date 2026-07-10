@@ -143,17 +143,9 @@ class Guardian(
         snapshot = newSnapshot
 
         val voterValues = extractVoters(differenceMap).values
-        if (voterValues.isEmpty()) {
-            return
-        }
-
-        val median = median(voterValues)
-
-        if (median < guardianProperties.minimalMedian) {
-            return
-        }
-
-        val threshold = median * guardianProperties.toleranceMultiplier
+        val observedMedian = if (voterValues.isEmpty()) 0UL else median(voterValues)
+        val effectiveBaseline = maxOf(observedMedian, guardianProperties.minimalMedian)
+        val threshold = saturatingMultiply(effectiveBaseline, guardianProperties.toleranceMultiplier)
 
         val mergedDifferenceMap =
             differenceMap
@@ -164,7 +156,11 @@ class Guardian(
         mergedDifferenceMap
             .filter { it.value >= threshold }
             .forEach { (address, count) ->
-                logger.info { "Banning $address. Received $count requests while median of voters is $median per second" }
+                // Banning may drop in-flight votes, but votes are soft state and representatives can reissue them.
+                logger.info {
+                    "Banning $address. Received $count requests during the guard interval while the observed voter " +
+                        "median was $observedMedian and the effective baseline was $effectiveBaseline"
+                }
                 eventPublisher.publish(NodeBanned(address))
             }
     }
@@ -198,6 +194,16 @@ class Guardian(
         } else {
             sortedHits[middle]
         }
+    }
+
+    private fun saturatingMultiply(
+        left: ULong,
+        right: ULong,
+    ): ULong {
+        if (left == 0UL || right <= ULong.MAX_VALUE / left) {
+            return left * right
+        }
+        return ULong.MAX_VALUE
     }
 
     fun getSnapshot(): Map<InetSocketAddress, ULong> = snapshot.toMap()

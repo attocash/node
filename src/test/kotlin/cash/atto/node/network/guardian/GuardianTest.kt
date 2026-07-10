@@ -21,6 +21,9 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.NullSource
+import org.junit.jupiter.params.provider.ValueSource
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
@@ -101,10 +104,13 @@ class GuardianTest {
 
     @Test
     fun `should ban when node deviate from voters median`() {
+        // given
         val votePeer1 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
         val voterEvent1 = NodeConnected(randomSocketAddress(), votePeer1)
         guardian.add(voterEvent1)
-        guardian.count(inboundMessage(voterEvent1.node.publicUri, voterEvent1.connectionSocketAddress))
+        repeat(3) {
+            guardian.count(inboundMessage(voterEvent1.node.publicUri, voterEvent1.connectionSocketAddress))
+        }
 
         val votePeer2 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
         val voterEvent2 = NodeConnected(randomSocketAddress(), votePeer2)
@@ -114,12 +120,12 @@ class GuardianTest {
         val normalPeer = createNode(AttoAmount.MAX)
         val normalEvent = NodeConnected(randomSocketAddress(), normalPeer)
         guardian.add(normalEvent)
-        for (i in 0UL..toleranceMultiplier) {
+        repeat(20) {
             guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.connectionSocketAddress))
         }
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent1.node.publicKey) } returns true
-        every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent1.node.publicKey) } returns true
+        every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent2.node.publicKey) } returns true
 
         // when
         guardian.guard()
@@ -131,6 +137,78 @@ class GuardianTest {
                     event as NodeBanned
                     event.address == normalEvent.connectionSocketAddress.address
                 },
+            )
+        }
+    }
+
+    @Test
+    fun `should saturate threshold when fallback multiplication overflows`() {
+        // given
+        every { guardianProperties.minimalMedian } returns ULong.MAX_VALUE / 2UL + 1UL
+        every { guardianProperties.toleranceMultiplier } returns 2UL
+        val address = randomSocketAddress()
+        guardian.count(inboundMessage(randomURI(), address))
+
+        // when
+        guardian.guard()
+
+        // then
+        verify(exactly = 0) {
+            eventPublisher.publish(
+                match { it is NodeBanned && it.address == address.address },
+            )
+        }
+    }
+
+    @ParameterizedTest(name = "observed median {0}")
+    @NullSource
+    @ValueSource(longs = [0, 1, 99, 100, 101])
+    fun `should enforce the fallback floor and inclusive threshold`(observedMedian: Long?) {
+        // given
+        val configuredFloor = 100UL
+        val configuredMultiplier = 2UL
+        every { guardianProperties.minimalMedian } returns configuredFloor
+        every { guardianProperties.toleranceMultiplier } returns configuredMultiplier
+
+        if (observedMedian != null) {
+            val voter = createNode(AttoAmount.MAX)
+            val voterEvent = NodeConnected(randomSocketAddress(), voter)
+            guardian.add(voterEvent)
+            every { voteWeighter.isAboveMinimalRebroadcastWeight(voter.publicKey) } returns true
+
+            if (observedMedian == 0L) {
+                guardian.count(inboundMessage(voter.publicUri, voterEvent.connectionSocketAddress))
+                guardian.guard()
+            } else {
+                repeat(observedMedian.toInt()) {
+                    guardian.count(inboundMessage(voter.publicUri, voterEvent.connectionSocketAddress))
+                }
+            }
+        }
+
+        val effectiveBaseline = maxOf(observedMedian?.toULong() ?: 0UL, configuredFloor)
+        val threshold = effectiveBaseline * configuredMultiplier
+        val belowThresholdAddress = randomSocketAddress()
+        val exactThresholdAddress = randomSocketAddress()
+        repeat((threshold - 1UL).toInt()) {
+            guardian.count(inboundMessage(randomURI(), belowThresholdAddress))
+        }
+        repeat(threshold.toInt()) {
+            guardian.count(inboundMessage(randomURI(), exactThresholdAddress))
+        }
+
+        // when
+        guardian.guard()
+
+        // then
+        verify(exactly = 0) {
+            eventPublisher.publish(
+                match { it is NodeBanned && it.address == belowThresholdAddress.address },
+            )
+        }
+        verify(exactly = 1) {
+            eventPublisher.publish(
+                match { it is NodeBanned && it.address == exactThresholdAddress.address },
             )
         }
     }
