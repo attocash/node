@@ -6,21 +6,48 @@ import kotlin.time.toJavaDuration
 
 class DuplicateDetector<T : Any>(
     val duration: Duration,
+    maximumSize: Long? = null,
 ) {
-    private val cache: MutableMap<T, T> =
+    class Reservation<T : Any> internal constructor(
+        internal val value: T,
+    )
+
+    init {
+        require(maximumSize == null || maximumSize > 0) { "maximumSize must be positive" }
+    }
+
+    private val cache =
         Caffeine
             .newBuilder()
             .expireAfterWrite(duration.toJavaDuration())
-            .build<T, T>()
-            .asMap()
+            .also { builder ->
+                if (maximumSize != null) {
+                    builder.maximumSize(maximumSize)
+                }
+            }.build<T, Reservation<T>>()
 
-    fun isDuplicate(t: T): Boolean = cache.putIfAbsent(t, t) != null
+    private val entries = cache.asMap()
+
+    val size: Int
+        get() {
+            cache.cleanUp()
+            return cache.estimatedSize().toInt()
+        }
+
+    fun reserve(t: T): Reservation<T>? {
+        val reservation = Reservation(t)
+        return if (entries.putIfAbsent(t, reservation) == null) reservation else null
+    }
+
+    fun isDuplicate(t: T): Boolean = reserve(t) == null
+
+    fun remove(reservation: Reservation<T>): Boolean = entries.remove(reservation.value, reservation)
 
     fun remove(t: T) {
-        cache.remove(t)
+        entries.remove(t)
     }
 
     fun clear() {
-        cache.clear()
+        entries.clear()
     }
 }

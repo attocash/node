@@ -27,6 +27,11 @@ spring:
 
 atto:
   use-x-forwarded-for: ${ATTO_USE_X_FORWARDED_FOR:false}
+  bootstrap:
+    discovery:
+      queue-max-size: ${ATTO_DISCOVERY_QUEUE_MAX_SIZE:100000}
+      batch-size: ${ATTO_DISCOVERY_BATCH_SIZE:1000}
+      max-batches-per-flush: ${ATTO_DISCOVERY_MAX_BATCHES_PER_FLUSH:10}
   signer:
     backend: ${ATTO_SIGNER_BACKEND:local}
     remote-url: ${ATTO_SIGNER_REMOTE_URL:}
