@@ -114,6 +114,8 @@ class VoteService(
     }
 
     private suspend fun flushBatch(size: Int): Int {
+        // Votes leave memory before best-effort historical storage.
+        // See KNOWN_RISKS.md#vote-persistence-best-effort.
         val votes = drainBatch(size)
         if (votes.isEmpty()) {
             return 0

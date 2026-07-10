@@ -18,6 +18,7 @@ This repository is a **Kotlin + Spring Boot (WebFlux)** application with a small
 - [Code map](#code-map)
 - [Docker images](#docker-images)
 - [Native image metadata](#native-image-metadata)
+- [Known risks and audit decisions](#known-risks-and-audit-decisions)
 - [Troubleshooting](#troubleshooting)
 
 ## What this node does
@@ -250,6 +251,12 @@ grep -n 'CounterChallengeResponse\$\$serializer' \
 NATIVE_IMAGE_OPTIONS="--static --libc=musl --gc=G1 -R:MaxRAMPercentage=90" \
   ./gradlew nativeCompile --no-daemon
 ```
+
+## Known risks and audit decisions
+
+Reviewed security and operational decisions are recorded in
+[KNOWN_RISKS.md](KNOWN_RISKS.md). Pending entries are unresolved decisions, not
+accepted risks.
 
 ## Troubleshooting
 

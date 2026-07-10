@@ -173,6 +173,8 @@ class ElectionProcessor(
         }
 
         if (droppedEvents.isNotEmpty()) {
+            // The ledger transaction rolled back atomically; replay or bootstrap can recover this node-local work.
+            // See KNOWN_RISKS.md#consensus-persistence-abandonment.
             logger.error(cause) {
                 "Dropping ${droppedEvents.map { it.event.transaction.hash }} after " +
                     "${properties.processingRetryMaxAttempts} election processor attempts"
