@@ -16,9 +16,6 @@ import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.plugins.websocket.webSocketSession
-import io.ktor.client.request.header
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
 import io.ktor.serialization.kotlinx.json.json
@@ -59,6 +56,7 @@ class NetworkProcessor(
     environment: Environment,
     private val networkProperties: NetworkProperties,
     private val peerUriValidator: PeerUriValidator,
+    private val peerWebSocketClient: PeerWebSocketClient,
     private val handshakeCallbackService: HandshakeCallbackService,
     private val dnsResolver: NetworkDnsResolver,
     private val connectionManager: NodeConnectionManager,
@@ -72,20 +70,6 @@ class NetworkProcessor(
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
     }
-
-    private val websocketClient =
-        HttpClient(io.ktor.client.engine.cio.CIO) {
-            install(
-                io
-                    .ktor
-                    .client
-                    .plugins
-                    .websocket
-                    .WebSockets,
-            ) {
-                maxFrameSize = MAX_MESSAGE_SIZE.toLong()
-            }
-        }
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
@@ -341,7 +325,6 @@ class NetworkProcessor(
     fun stop() {
         logger.info { "Network Processor is stopping..." }
         clear()
-        websocketClient.close()
         scope.cancel()
         server.stop()
     }
@@ -370,11 +353,17 @@ class NetworkProcessor(
             return
         }
 
-        val validation = peerUriValidator.validate(publicUri)
-        if (validation is PeerUriValidationResult.Rejected) {
-            logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
-            return
-        }
+        val endpoint =
+            when (val validation = peerUriValidator.validate(publicUri)) {
+                is PeerUriValidationResult.Accepted -> {
+                    validation.endpoint
+                }
+
+                is PeerUriValidationResult.Rejected -> {
+                    logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
+                    return
+                }
+            }
 
         if (connectionManager.isConnected(publicUri)) {
             return
@@ -382,7 +371,7 @@ class NetworkProcessor(
 
         scope.launch {
             logger.trace { "Start connection to $publicUri" }
-            connection(publicUri)
+            connection(endpoint)
         }
     }
 
@@ -408,7 +397,8 @@ class NetworkProcessor(
             }
         }
 
-    private suspend fun connection(publicUri: URI) {
+    private suspend fun connection(endpoint: ValidatedPeerEndpoint) {
+        val publicUri = endpoint.publicUri
         if (publicUri == thisNode.publicUri) {
             logger.trace { "Can't connect to $publicUri. This uri is this node." }
             return
@@ -429,26 +419,18 @@ class NetworkProcessor(
 
         logger.trace { "Connecting to $publicUri" }
 
+        var session: PeerWebSocketSession? = null
+        var managed = false
         try {
-            val session =
-                websocketClient.webSocketSession(publicUri.toString()) {
-                    header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
-                    header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
-                }
-
-            val connectionSocketAddress =
-                InetSocketAddress(
-                    session
-                        .call
-                        .request
-                        .url
-                        .host,
-                    session
-                        .call
-                        .request
-                        .url
-                        .port,
+            val connection =
+                peerWebSocketClient.connect(
+                    endpoint,
+                    mapOf(
+                        PUBLIC_URI_HEADER to thisNode.publicUri.toString(),
+                        CHALLENGE_HEADER to ChallengeStore.generate(publicUri),
+                    ),
                 )
+            session = connection.session
 
             val node =
                 withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
@@ -465,10 +447,14 @@ class NetworkProcessor(
                 return
             }
 
-            connectionManager.manage(node, connectionSocketAddress, session)
+            connectionManager.manage(node, connection.remoteAddress, connection.session)
+            managed = true
         } catch (e: Exception) {
             logger.trace(e) { "Exception while trying to connect to $publicUri" }
         } finally {
+            if (!managed) {
+                session?.close()
+            }
             connectingMap.remove(publicUri)
         }
     }
