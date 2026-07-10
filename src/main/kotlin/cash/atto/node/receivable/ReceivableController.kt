@@ -8,6 +8,7 @@ import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.node.AccountSearch
+import cash.atto.node.stream.StreamRequestValidator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -46,6 +47,7 @@ import org.springframework.web.bind.annotation.RestController
 )
 class ReceivableController(
     val repository: ReceivableRepository,
+    private val streamRequestValidator: StreamRequestValidator,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -74,6 +76,14 @@ class ReceivableController(
     suspend fun stream(
         @RequestBody search: AccountSearch,
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
+    ): Flow<AttoReceivable> {
+        streamRequestValidator.validate(search)
+        return streamAddresses(search, minAmount)
+    }
+
+    private fun streamAddresses(
+        search: AccountSearch,
+        minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
         val publicKeys = search.addresses.map { it.publicKey }.toSet()
 
@@ -131,6 +141,6 @@ class ReceivableController(
         @RequestParam(defaultValue = "1") minAmount: AttoAmount,
     ): Flow<AttoReceivable> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AccountSearch(listOf(address)), minAmount)
+        return streamAddresses(AccountSearch(listOf(address)), minAmount)
     }
 }

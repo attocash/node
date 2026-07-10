@@ -20,6 +20,8 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.stream.StreamProperties
+import cash.atto.node.stream.StreamRequestValidator
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.mockk.coEvery
@@ -82,6 +84,7 @@ internal class TransactionControllerTest {
             publicUri = URI("ws://localhost:8081"),
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
+    private val streamRequestValidator = StreamRequestValidator(StreamProperties())
 
     @Test
     fun `publishAndStream allows multiple listeners for the same transaction hash`() =
@@ -106,6 +109,7 @@ internal class TransactionControllerTest {
                     eventPublisher,
                     messagePublisher,
                     repository,
+                    streamRequestValidator,
                 )
             val request =
                 MockServerHttpRequest
@@ -155,6 +159,7 @@ internal class TransactionControllerTest {
                     eventPublisher,
                     messagePublisher,
                     repository,
+                    streamRequestValidator,
                 )
             val request =
                 MockServerHttpRequest
@@ -198,6 +203,7 @@ internal class TransactionControllerTest {
                     eventPublisher,
                     messagePublisher,
                     repository,
+                    streamRequestValidator,
                 )
             val request =
                 MockServerHttpRequest
@@ -234,6 +240,7 @@ internal class TransactionControllerTest {
                     eventPublisher,
                     messagePublisher,
                     repository,
+                    streamRequestValidator,
                 )
             val request =
                 MockServerHttpRequest

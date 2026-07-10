@@ -27,6 +27,12 @@ spring:
 
 atto:
   use-x-forwarded-for: ${ATTO_USE_X_FORWARDED_FOR:false}
+  api:
+    stream:
+      max-active-streams: ${ATTO_API_STREAM_MAX_ACTIVE_STREAMS:32}
+      max-ranges-per-request: ${ATTO_API_STREAM_MAX_RANGES_PER_REQUEST:32}
+      max-addresses-per-request: ${ATTO_API_STREAM_MAX_ADDRESSES_PER_REQUEST:1000}
+      max-requested-entries: ${ATTO_API_STREAM_MAX_REQUESTED_ENTRIES:100000}
   bootstrap:
     discovery:
       queue-max-size: ${ATTO_DISCOVERY_QUEUE_MAX_SIZE:100000}

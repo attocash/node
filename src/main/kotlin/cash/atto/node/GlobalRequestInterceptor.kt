@@ -1,6 +1,8 @@
 package cash.atto.node
 
 import cash.atto.protocol.AttoNode
+import org.springframework.core.Ordered
+import org.springframework.core.annotation.Order
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Component
 import org.springframework.web.server.ResponseStatusException
@@ -10,6 +12,7 @@ import org.springframework.web.server.WebFilterChain
 import reactor.core.publisher.Mono
 
 @Component
+@Order(Ordered.HIGHEST_PRECEDENCE)
 class GlobalRequestInterceptor(
     private val thisNode: AttoNode,
     private val nodeProperties: NodeProperties,
