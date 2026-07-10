@@ -46,6 +46,8 @@ atto:
       frequency: ${ATTO_TRANSACTION_PRIORITIZATION_FREQUENCY:1}
       group-max-size: ${ATTO_TRANSACTION_GROUP_MAX_SIZE:10000}
       max-active-elections: ${ATTO_TRANSACTION_MAX_ACTIVE_ELECTIONS:10000}
+      dependency-max-size: ${ATTO_TRANSACTION_DEPENDENCY_MAX_SIZE:1000}
+      buffer-max-size: ${ATTO_TRANSACTION_BUFFER_MAX_SIZE:10000}
   vote:
     prioritization:
       frequency: ${ATTO_VOTE_PRIORITIZATION_FREQUENCY:1}
