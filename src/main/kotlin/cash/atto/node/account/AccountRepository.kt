@@ -7,8 +7,10 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
-import cash.atto.node.executeAfterCommit
+import cash.atto.node.RepositoryCacheEntry
 import cash.atto.node.getCurrentTransaction
+import cash.atto.node.getOrCreateRepositoryTransactionCache
+import cash.atto.node.getRepositoryTransactionCache
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -20,6 +22,7 @@ import org.springframework.core.annotation.Order
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionSynchronizationManager
 import java.time.Duration
 import java.time.Instant
 
@@ -52,6 +55,8 @@ interface AccountCrudRepository :
 class AccountCachedRepository(
     private val accountCrudRepository: AccountCrudRepository,
 ) : AccountRepository {
+    private val transactionCacheKey = Any()
+
     private val cache =
         Caffeine
             .newBuilder()
@@ -79,13 +84,9 @@ class AccountCachedRepository(
             accountCrudRepository.upsertAll(accounts)
 
             val currentTransaction = getCurrentTransaction()!!
+            val transactionCache = currentTransaction.getOrCreateTransactionCache()
             accounts.forEach { saved ->
-                currentTransaction.unbindResourceIfPossible(saved.publicKey)
-                currentTransaction.bindResource(saved.publicKey, saved)
-            }
-
-            executeAfterCommit {
-                accounts.forEach { putIfNewer(it) }
+                transactionCache.put(saved.publicKey, saved)
             }
 
             accounts.forEach { emit(it) }
@@ -96,14 +97,28 @@ class AccountCachedRepository(
     override fun findAllById(ids: Iterable<AttoPublicKey>): Flow<Account> =
         flow {
             val missing = mutableListOf<AttoPublicKey>()
+            val transactionCache =
+                getCurrentTransaction()?.getRepositoryTransactionCache<AttoPublicKey, Account>(transactionCacheKey)
 
             for (id in ids) {
-                val transactionalCached = getCurrentTransaction()?.getResource(id) as Account?
-                if (transactionalCached != null) {
-                    emit(transactionalCached)
-                    continue
+                when (val entry = transactionCache?.get(id)) {
+                    is RepositoryCacheEntry.Present -> {
+                        emit(entry.value)
+                        continue
+                    }
+
+                    RepositoryCacheEntry.Deleted -> {
+                        continue
+                    }
+
+                    null -> {
+                        Unit
+                    }
                 }
 
+                if (transactionCache?.cleared == true) {
+                    continue
+                }
                 val cached = cache[id]
                 if (cached != null) {
                     emit(cached)
@@ -139,9 +154,27 @@ class AccountCachedRepository(
         }
 
     override suspend fun deleteAll() {
-        cache.clear()
         accountCrudRepository.deleteAll()
+        val currentTransaction = getCurrentTransaction()
+        if (currentTransaction == null) {
+            cache.clear()
+        } else {
+            currentTransaction.getOrCreateTransactionCache().clear()
+        }
     }
+
+    private fun TransactionSynchronizationManager.getOrCreateTransactionCache() =
+        getOrCreateRepositoryTransactionCache<AttoPublicKey, Account>(transactionCacheKey) { cleared, entries ->
+            if (cleared) {
+                cache.clear()
+            }
+            entries.forEach { (publicKey, entry) ->
+                when (entry) {
+                    is RepositoryCacheEntry.Present -> putIfNewer(entry.value)
+                    RepositoryCacheEntry.Deleted -> cache.remove(publicKey)
+                }
+            }
+        }
 }
 
 suspend fun AccountRepository.getByAlgorithmAndPublicKey(
