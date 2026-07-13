@@ -46,6 +46,11 @@ atto:
   node:
     force-historical: ${ATTO_NODE_FORCE_HISTORICAL:false}
     force-api: ${ATTO_NODE_FORCE_API:false}
+  network:
+    max-active-peer-sessions: ${ATTO_NETWORK_MAX_ACTIVE_PEER_SESSIONS:1000}
+    max-peer-sessions-per-address: ${ATTO_NETWORK_MAX_PEER_SESSIONS_PER_ADDRESS:16}
+    max-peer-sessions-per-prefix: ${ATTO_NETWORK_MAX_PEER_SESSIONS_PER_PREFIX:64}
+    max-peer-sessions-per-public-key: ${ATTO_NETWORK_MAX_PEER_SESSIONS_PER_PUBLIC_KEY:1}
     public-uri: ${ATTO_PUBLIC_URI}
   transaction:
     prioritization:

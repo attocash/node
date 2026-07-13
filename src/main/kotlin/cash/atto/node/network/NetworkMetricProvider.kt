@@ -21,6 +21,10 @@ class NetworkMetricProvider(
             .builder("network.peers.active", connectionManager) { it.connectionCount.toDouble() }
             .description("Current number of active connected peers")
             .register(meterRegistry)
+        Gauge
+            .builder("network.peers.pending", connectionManager) { it.pendingConnectionCount.toDouble() }
+            .description("Current number of pending peer session admissions")
+            .register(meterRegistry)
     }
 
     @EventListener
