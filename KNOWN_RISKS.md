@@ -73,47 +73,28 @@ current assumptions and must be reassessed when a listed trigger occurs.
 | Monitoring and reassessment trigger | Reassess after a deterministic external fault trigger is demonstrated, a documented recovery path fails, or retry or pending-state transaction ownership changes. |
 | Audit reference | `AUDIT-002` |
 
-## Audit decision log
-
-These entries require a decision before a risk response can be selected. An
-entry moves to the risk register only after its owner chooses and documents a
-response.
-
 ### ONLINE-WEIGHT-EPOCH
 
 | Field | Value |
 | --- | --- |
-| Decision required | Define the protocol epoch boundary for combining representative weights, online observations, and election decisions. |
-| Status | `Pending decision` |
-| Owner | `@attocash/core` (protocol responsibility) |
-| Current handling | Existing hourly recalculation remains unchanged while compatibility is assessed. |
-| Evidence required | A protocol invariant, compatibility analysis, and migration plan. |
-| Decision trigger | Approve a weight-epoch invariant and compatible rollout plan before changing calculation semantics. |
+| Risk description | Representative weight eligibility changes immediately while the online-weight-derived confirmation threshold is recomputed hourly, without a defined common protocol epoch. |
+| Risk category | Protocol integrity and finality threshold consistency |
+| Likelihood | Not assessed |
+| Impact | Medium (qualitative; meaningful live impact is unlikely under the current vote distribution) |
+| Exposure | Not assessed |
+| Risk response type | Accept |
+| Risk response description | Accept and monitor the current inconsistency because no realistic finality divergence has been reproduced and the present vote distribution makes material live impact unlikely. Retain protocol epoch work as future remediation after normative semantics and compatibility are defined. |
+| Risk response cost | Not assessed |
+| Risk owner | `@attocash/core` (protocol responsibility) |
+| Status | `Accepted / Monitoring` |
+| Review date | 2026-07-13 |
+| Current controls | Hourly online-weight threshold recomputation and the configured minimum-confirmation floor. |
+| Monitoring and reassessment trigger | Reassess after a material change in vote-weight concentration or mobility, a valid multi-node finality-divergence reproduction, or approval or activation of normative epoch and compatibility semantics. |
 | Audit reference | `AUDIT-003` |
 
-### PEER-SESSION-CAPACITY
+## Audit decision log
 
-| Field | Value |
-| --- | --- |
-| Decision required | Define measured capacity, trusted-peer treatment, address-diversity rules, and rollout policy for authenticated peer-session admission. |
-| Status | `Pending decision` |
-| Owner | `@attocash/core` (operator responsibility) |
-| Current handling | Existing authentication and operator monitoring remain in place; no capacity policy has been accepted. |
-| Evidence required | Representative capacity measurements and an admission policy. |
-| Decision trigger | Approve capacity, trusted-peer behavior, address-diversity rules, and rollout criteria before implementation. |
-| Audit reference | `AUDIT-005` |
-
-### HISTORICAL-STREAM-SCHEDULING
-
-| Field | Value |
-| --- | --- |
-| Decision required | Define fairness, admission, cancellation, and trusted-peer policy for historical peer streams. |
-| Status | `Pending decision` |
-| Owner | `@attocash/core` (operator responsibility) |
-| Current handling | Existing stream lifecycle and operator recovery remain unchanged; no fairness policy has been accepted. |
-| Evidence required | Workload measurements, cancellation guarantees, and trusted-peer requirements. |
-| Decision trigger | Approve scheduling requirements and rollout criteria before implementation. |
-| Audit reference | `AUDIT-007` |
+No unresolved audit decisions are currently recorded.
 
 ## Audit cross-reference policy
 
