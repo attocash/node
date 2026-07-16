@@ -18,7 +18,6 @@ import org.springframework.stereotype.Component
 import reactor.core.publisher.Mono
 import reactor.netty.ByteBufFlux
 import java.net.URI
-import java.nio.charset.StandardCharsets
 import java.time.Duration
 
 private val callbackLogger = KotlinLogging.logger {}
@@ -70,19 +69,25 @@ class NettyHandshakeCallbackClient : HandshakeCallbackClient {
                 }.post()
                 .uri(endpoint.publicUri.toHandshakeHttpUri().toString())
                 .send(ByteBufFlux.fromString(Mono.just(requestBody)))
-                .responseSingle { response, body ->
+                .response { response, body ->
                     val status = HttpStatusCode.fromValue(response.status().code())
                     if (status.isSuccess()) {
-                        body.asString(StandardCharsets.UTF_8).map { responseBody ->
-                            HandshakeCallbackResult.Completed(
-                                status = status,
-                                response = Json.decodeFromString<ChallengeResponse>(responseBody),
-                            )
+                        val declaredSize = response.responseHeaders()[HttpHeaderNames.CONTENT_LENGTH]?.toLongOrNull()
+                        if (declaredSize != null && declaredSize > MAX_HANDSHAKE_PAYLOAD_SIZE_BYTES) {
+                            Mono.error(HandshakePayloadTooLargeException())
+                        } else {
+                            body.receiveHandshakePayload().map { responseBody ->
+                                HandshakeCallbackResult.Completed(
+                                    status = status,
+                                    response = Json.decodeFromString<ChallengeResponse>(responseBody),
+                                )
+                            }
                         }
                     } else {
-                        body.thenReturn(HandshakeCallbackResult.Completed(status = status, response = null))
+                        Mono.just(HandshakeCallbackResult.Completed(status = status, response = null))
                     }
-                }.timeout(Duration.ofSeconds(NetworkProcessor.CONNECTION_TIMEOUT_IN_SECONDS))
+                }.single()
+                .timeout(Duration.ofSeconds(NetworkProcessor.CONNECTION_TIMEOUT_IN_SECONDS))
                 .awaitSingle()
         } finally {
             pinnedClient.close()

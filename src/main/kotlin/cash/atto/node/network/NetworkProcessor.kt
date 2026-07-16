@@ -23,11 +23,11 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.origin
-import io.ktor.server.request.receive
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
+import io.ktor.utils.io.ByteReadChannel
 import io.ktor.websocket.close
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
@@ -83,6 +83,7 @@ class NetworkProcessor(
             .maximumSize(10_000)
             .build<URI, MutableSharedFlow<AttoNode>>()
             .asMap()
+    private val handshakeRequestControl = HandshakeRequestControl()
 
     private val server =
         embeddedServer(io.ktor.server.cio.CIO, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
@@ -108,72 +109,96 @@ class NetworkProcessor(
             routing {
                 post("/handshakes") {
                     try {
-                        val remoteHost = call.request.origin.remoteHost
+                        val outcome =
+                            handshakeRequestControl.execute(call) handshake@{ channel ->
+                                val remoteHost = call.request.origin.remoteHost
 
-                        if (call.acceptInboundConnection(remoteHost, "handshake") == null) return@post
+                                if (call.acceptInboundConnection(remoteHost, "handshake", channel) == null) {
+                                    return@handshake
+                                }
 
-                        val counterResponse = call.receive<CounterChallengeResponse>()
-                        val challenge = counterResponse.challenge
+                                val counterResponse = call.receiveHandshakePayload(channel)
+                                val challenge = counterResponse.challenge
 
-                        val publicUri = ChallengeStore.remove(challenge)
-                        if (publicUri == null) {
-                            logger.trace { "Received invalid challenge request from $remoteHost $counterResponse" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
+                                val publicUri = ChallengeStore.remove(challenge)
+                                if (publicUri == null) {
+                                    logger.trace { "Received invalid challenge request from $remoteHost $counterResponse" }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@handshake
+                                }
+
+                                val node = counterResponse.node
+
+                                if (node.publicUri != publicUri) {
+                                    logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri from $remoteHost" }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@handshake
+                                }
+
+                                if (counterResponse.genesis != genesisTransaction.hash) {
+                                    logger.trace { "Received mismatched genesis hash from $publicUri $remoteHost $counterResponse" }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@handshake
+                                }
+
+                                val counterTimestamp = counterResponse.timestamp
+                                val hash =
+                                    AttoHash.hash(
+                                        64,
+                                        node.publicKey.value,
+                                        challenge.fromHexToByteArray(),
+                                        counterTimestamp.toByteArray(),
+                                    )
+
+                                val signature = counterResponse.signature
+                                if (!signature.isValid(node.publicKey, hash)) {
+                                    logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@handshake
+                                }
+
+                                val counterChallenge = counterResponse.counterChallenge
+                                if (!counterChallenge.isChallengePrefixValid()) {
+                                    logger.trace {
+                                        "Received invalid challenge prefix request from $publicUri $remoteHost $counterResponse"
+                                    }
+                                    call.respond(HttpStatusCode.BadRequest)
+                                    return@handshake
+                                }
+
+                                logger.trace { "Challenge $challenge validated successfully" }
+
+                                val timestamp = AttoInstant.now()
+                                val response =
+                                    ChallengeResponse(
+                                        thisNode,
+                                        timestamp,
+                                        signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
+                                    )
+
+                                val connectingFlow = connectingMap[publicUri]
+
+                                if (connectingFlow == null) {
+                                    logger.trace { "Received valid handshake but connection already expired" }
+                                    call.respond(HttpStatusCode.InternalServerError)
+                                    return@handshake
+                                }
+
+                                connectingFlow.emit(node)
+
+                                call.respond(HttpStatusCode.OK, response)
+                            }
+
+                        when (outcome) {
+                            HandshakeRequestOutcome.COMPLETED -> Unit
+                            HandshakeRequestOutcome.CAPACITY_REJECTED -> call.respond(HttpStatusCode.TooManyRequests)
+                            HandshakeRequestOutcome.TIMED_OUT -> call.respond(HttpStatusCode.RequestTimeout)
                         }
-
-                        val node = counterResponse.node
-
-                        if (node.publicUri != publicUri) {
-                            logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri from $remoteHost" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
-
-                        if (counterResponse.genesis != genesisTransaction.hash) {
-                            logger.trace { "Received mismatched genesis hash from $publicUri $remoteHost $counterResponse" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
-
-                        val counterTimestamp = counterResponse.timestamp
-                        val hash = AttoHash.hash(64, node.publicKey.value, challenge.fromHexToByteArray(), counterTimestamp.toByteArray())
-
-                        val signature = counterResponse.signature
-                        if (!signature.isValid(node.publicKey, hash)) {
-                            logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
-
-                        val counterChallenge = counterResponse.counterChallenge
-                        if (!counterChallenge.isChallengePrefixValid()) {
-                            logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost $counterResponse" }
-                            call.respond(HttpStatusCode.BadRequest)
-                            return@post
-                        }
-
-                        logger.trace { "Challenge $challenge validated successfully" }
-
-                        val timestamp = AttoInstant.now()
-                        val response =
-                            ChallengeResponse(
-                                thisNode,
-                                timestamp,
-                                signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
-                            )
-
-                        val connectingFlow = connectingMap[publicUri]
-
-                        if (connectingFlow == null) {
-                            logger.trace { "Received valid handshake but connection already expired" }
-                            call.respond(HttpStatusCode.InternalServerError)
-                            return@post
-                        }
-
-                        connectingFlow.emit(node)
-
-                        call.respond(HttpStatusCode.OK, response)
+                    } catch (e: HandshakePayloadTooLargeException) {
+                        logger.trace { "Rejected oversized handshake payload from ${call.request.origin.remoteHost}" }
+                        call.respond(HttpStatusCode.PayloadTooLarge)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                         call.respond(HttpStatusCode.InternalServerError)
@@ -392,6 +417,7 @@ class NetworkProcessor(
     private suspend fun ApplicationCall.acceptInboundConnection(
         remoteHost: String,
         requestType: String,
+        requestBody: ByteReadChannel? = null,
     ): InetAddress? {
         val address = dnsResolver.getByName(remoteHost)
         return when (guardian.requestInboundConnection(address)) {
@@ -401,12 +427,14 @@ class NetworkProcessor(
 
             InboundConnectionDecision.Banned -> {
                 logger.trace { "Rejected $requestType from banned address $remoteHost" }
+                requestBody?.cancel(null)
                 respond(HttpStatusCode.Forbidden)
                 null
             }
 
             InboundConnectionDecision.RateLimited -> {
                 logger.trace { "Rejected $requestType from rate limited address $remoteHost" }
+                requestBody?.cancel(null)
                 respond(HttpStatusCode.TooManyRequests)
                 null
             }
