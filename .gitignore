@@ -5,7 +5,6 @@ build/
 !**/src/main/**/build/
 !**/src/test/**/build/
 .env*
-.firecrawl/
 
 ### STS ###
 .apt_generated
