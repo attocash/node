@@ -294,10 +294,7 @@ class TransactionElection(
             return calculateTotalWeight()
         }
 
-    /**
-     * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
-     * is unlikely to happen in the live environment but very likely to happen locally.
-     */
+    // Saturate if cached vote weights overflow; see KNOWN_RISKS.md#vote-weight-cache.
     private fun calculateTotalWeight(exclusions: Set<AttoPublicKey> = emptySet()): AttoAmount {
         var sum = AttoAmount.MIN
         for (vote in votes.values) {

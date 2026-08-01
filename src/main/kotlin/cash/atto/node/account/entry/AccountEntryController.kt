@@ -9,9 +9,9 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.node.AccountHeightSearch
 import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.spring.sortByHeight
-import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toBigInteger
 import cash.atto.node.CacheSupport
+import cash.atto.node.stream.StreamRequestValidator
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -29,7 +29,6 @@ import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.take
 import org.springframework.context.event.EventListener
-import org.springframework.http.HttpStatus
 import org.springframework.http.MediaType
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -38,7 +37,6 @@ import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
-import org.springframework.web.server.ResponseStatusException
 
 @RestController
 @RequestMapping
@@ -48,6 +46,7 @@ import org.springframework.web.server.ResponseStatusException
 )
 class AccountEntryController(
     val repository: AccountEntryRepository,
+    private val streamRequestValidator: StreamRequestValidator,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -132,14 +131,12 @@ class AccountEntryController(
     suspend fun streamMultiple(
         @RequestBody search: HeightSearch,
     ): Flow<AttoAccountEntry> {
-        val accountRanges = search.search
+        streamRequestValidator.validate(search)
+        return streamRanges(search)
+    }
 
-        if (accountRanges.any { it.fromHeight == 0UL.toAttoHeight() }) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
-        }
-        if (accountRanges.any { it.fromHeight > it.toHeight }) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight must be greater or equal to fromHeight")
-        }
+    private suspend fun streamRanges(search: HeightSearch): Flow<AttoAccountEntry> {
+        val accountRanges = search.search
 
         val accountFlows =
             accountRanges.map { range ->
@@ -200,7 +197,7 @@ class AccountEntryController(
                 (toHeight ?: AttoHeight.MAX),
             )
         val search = HeightSearch(listOf(transactionSearch))
-        return streamMultiple(search)
+        return streamRanges(search)
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)

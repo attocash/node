@@ -4,8 +4,10 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.AttoRepository
-import cash.atto.node.executeAfterCompletion
+import cash.atto.node.RepositoryCacheEntry
 import cash.atto.node.getCurrentTransaction
+import cash.atto.node.getOrCreateRepositoryTransactionCache
+import cash.atto.node.getRepositoryTransactionCache
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
@@ -15,7 +17,7 @@ import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
-import org.springframework.transaction.reactive.TransactionSynchronization
+import org.springframework.transaction.reactive.TransactionSynchronizationManager
 import java.time.Duration
 import java.time.Instant
 
@@ -83,6 +85,8 @@ interface ReceivableCrudRepository :
 class ReceivableCachedRepository(
     private val receivableCrudRepository: ReceivableCrudRepository,
 ) : ReceivableRepository {
+    private val transactionCacheKey = Any()
+
     private val cache =
         Caffeine
             .newBuilder()
@@ -104,43 +108,61 @@ class ReceivableCachedRepository(
             receivableCrudRepository.insertAll(savedReceivables)
 
             val currentTransaction = getCurrentTransaction()!!
+            val transactionCache = currentTransaction.getOrCreateTransactionCache()
             savedReceivables.forEach { saved ->
-                currentTransaction.unbindResourceIfPossible(saved.hash)
-                currentTransaction.bindResource(saved.hash, saved)
-            }
-
-            executeAfterCompletion { status ->
-                if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    savedReceivables.forEach { cache[it.hash] = it }
-                }
+                transactionCache.put(saved.hash, saved)
             }
 
             savedReceivables.forEach { emit(it) }
         }
 
     override suspend fun deleteAllByHash(ids: Iterable<AttoHash>): Int {
-        ids.forEach {
-            getCurrentTransaction()?.unbindResourceIfPossible(it)
-            cache.remove(it)
+        val distinctIds = ids.distinct()
+        val deletedCount = receivableCrudRepository.deleteAllByHash(distinctIds)
+        val currentTransaction = getCurrentTransaction()
+        if (currentTransaction == null) {
+            distinctIds.forEach(cache::remove)
+        } else {
+            val transactionCache = currentTransaction.getOrCreateTransactionCache()
+            distinctIds.forEach(transactionCache::delete)
         }
-        return receivableCrudRepository.deleteAllByHash(ids)
+        return deletedCount
     }
 
     override suspend fun findById(id: AttoHash): Receivable? = findAllById(listOf(id)).firstOrNull()
 
     override fun findAllById(ids: Iterable<AttoHash>): Flow<Receivable> =
         flow {
-            val seen = mutableSetOf<AttoHash>()
+            val missing = mutableListOf<AttoHash>()
+            val transactionCache =
+                getCurrentTransaction()?.getRepositoryTransactionCache<AttoHash, Receivable>(transactionCacheKey)
 
             ids.forEach { id ->
-                val cached = getCurrentTransaction()?.getResource(id) as Receivable? ?: cache[id]
+                when (val entry = transactionCache?.get(id)) {
+                    is RepositoryCacheEntry.Present -> {
+                        emit(entry.value)
+                        return@forEach
+                    }
+
+                    RepositoryCacheEntry.Deleted -> {
+                        return@forEach
+                    }
+
+                    null -> {
+                        Unit
+                    }
+                }
+
+                if (transactionCache?.cleared == true) {
+                    return@forEach
+                }
+                val cached = cache[id]
                 if (cached != null) {
                     emit(cached)
-                    seen += id
+                } else {
+                    missing += id
                 }
             }
-
-            val missing = ids.filterNot { it in seen }
 
             if (missing.isEmpty()) {
                 return@flow
@@ -162,7 +184,25 @@ class ReceivableCachedRepository(
     ): Flow<Receivable> = receivableCrudRepository.findAllDesc(publicKeys, minAmount)
 
     override suspend fun deleteAll() {
-        cache.clear()
         receivableCrudRepository.deleteAll()
+        val currentTransaction = getCurrentTransaction()
+        if (currentTransaction == null) {
+            cache.clear()
+        } else {
+            currentTransaction.getOrCreateTransactionCache().clear()
+        }
     }
+
+    private fun TransactionSynchronizationManager.getOrCreateTransactionCache() =
+        getOrCreateRepositoryTransactionCache<AttoHash, Receivable>(transactionCacheKey) { cleared, entries ->
+            if (cleared) {
+                cache.clear()
+            }
+            entries.forEach { (hash, entry) ->
+                when (entry) {
+                    is RepositoryCacheEntry.Present -> cache[hash] = entry.value
+                    RepositoryCacheEntry.Deleted -> cache.remove(hash)
+                }
+            }
+        }
 }

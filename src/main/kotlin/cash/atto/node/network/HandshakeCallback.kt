@@ -6,20 +6,19 @@ import cash.atto.commons.AttoInstantAsStringSerializer
 import cash.atto.commons.AttoSignature
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.call.body
-import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.post
-import io.ktor.client.request.setBody
-import io.ktor.http.ContentType
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
-import jakarta.annotation.PreDestroy
+import io.ktor.http.isSuccess
+import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.handler.codec.http.HttpHeaderValues
+import kotlinx.coroutines.reactor.awaitSingle
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import org.springframework.stereotype.Component
+import reactor.core.publisher.Mono
+import reactor.netty.ByteBufFlux
 import java.net.URI
-import kotlin.time.Duration.Companion.seconds
+import java.time.Duration
 
 private val callbackLogger = KotlinLogging.logger {}
 
@@ -34,61 +33,65 @@ class HandshakeCallbackService(
         requestFactory: suspend () -> CounterChallengeResponse,
     ): HandshakeCallbackResult {
         val validation = peerUriValidator.validate(publicUri)
-        if (validation is PeerUriValidationResult.Rejected) {
-            callbackLogger.trace { "Rejected handshake callback to $publicUri from $remoteHost: ${validation.reason}" }
-            return HandshakeCallbackResult.Rejected(HttpStatusCode.BadRequest)
-        }
+        return when (validation) {
+            is PeerUriValidationResult.Rejected -> {
+                callbackLogger.trace { "Rejected handshake callback to $publicUri from $remoteHost: ${validation.reason}" }
+                HandshakeCallbackResult.Rejected(HttpStatusCode.BadRequest)
+            }
 
-        return callbackClient.post(publicUri.toHandshakeHttpUri(), requestFactory())
+            is PeerUriValidationResult.Accepted -> {
+                callbackClient.post(validation.endpoint, requestFactory())
+            }
+        }
     }
 }
 
 interface HandshakeCallbackClient {
     suspend fun post(
-        handshakeUri: URI,
+        endpoint: ValidatedPeerEndpoint,
         request: CounterChallengeResponse,
     ): HandshakeCallbackResult.Completed
 }
 
 @Component
-class KtorHandshakeCallbackClient : HandshakeCallbackClient {
-    private val httpClient =
-        HttpClient(io.ktor.client.engine.cio.CIO) {
-            install(
-                io
-                    .ktor
-                    .client
-                    .plugins
-                    .contentnegotiation
-                    .ContentNegotiation,
-            ) {
-                json()
-            }
-
-            install(HttpTimeout) {
-                requestTimeoutMillis = NetworkProcessor.CONNECTION_TIMEOUT_IN_SECONDS.seconds.inWholeMilliseconds
-            }
-        }
-
+class NettyHandshakeCallbackClient : HandshakeCallbackClient {
     override suspend fun post(
-        handshakeUri: URI,
+        endpoint: ValidatedPeerEndpoint,
         request: CounterChallengeResponse,
     ): HandshakeCallbackResult.Completed {
-        val response =
-            httpClient.post(handshakeUri.toString()) {
-                contentType(ContentType.Application.Json)
-                setBody(request)
-            }
+        val requestBody = Json.encodeToString(request)
+        val pinnedClient = PinnedPeerClient(endpoint)
 
-        return HandshakeCallbackResult.Completed(
-            status = response.status,
-            response = if (response.status.value in 200..299) response.body<ChallengeResponse>() else null,
-        )
-    }
-
-    @PreDestroy
-    fun close() {
-        httpClient.close()
+        return try {
+            pinnedClient.httpClient
+                .headers { headers ->
+                    headers.set(HttpHeaderNames.CONTENT_TYPE, HttpHeaderValues.APPLICATION_JSON)
+                }.post()
+                .uri(endpoint.publicUri.toHandshakeHttpUri().toString())
+                .send(ByteBufFlux.fromString(Mono.just(requestBody)))
+                .response { response, body ->
+                    val status = HttpStatusCode.fromValue(response.status().code())
+                    if (status.isSuccess()) {
+                        val declaredSize = response.responseHeaders()[HttpHeaderNames.CONTENT_LENGTH]?.toLongOrNull()
+                        if (declaredSize != null && declaredSize > MAX_HANDSHAKE_PAYLOAD_SIZE_BYTES) {
+                            Mono.error(HandshakePayloadTooLargeException())
+                        } else {
+                            body.receiveHandshakePayload().map { responseBody ->
+                                HandshakeCallbackResult.Completed(
+                                    status = status,
+                                    response = Json.decodeFromString<ChallengeResponse>(responseBody),
+                                )
+                            }
+                        }
+                    } else {
+                        Mono.just(HandshakeCallbackResult.Completed(status = status, response = null))
+                    }
+                }.single()
+                .timeout(Duration.ofSeconds(NetworkProcessor.CONNECTION_TIMEOUT_IN_SECONDS))
+                .awaitSingle()
+        } finally {
+            pinnedClient.close()
+        }
     }
 }
 

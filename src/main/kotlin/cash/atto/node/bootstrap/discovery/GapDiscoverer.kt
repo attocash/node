@@ -28,6 +28,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URI
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -39,6 +40,7 @@ class GapDiscoverer(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
+    private val clock: Clock,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -50,8 +52,6 @@ class GapDiscoverer(
     private val pointerMap =
         Caffeine
             .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterAccess(Duration.ofMinutes(1))
             .maximumSize(maxSize)
             .build<AttoPublicKey, TransactionPointer>()
             .asMap()
@@ -62,15 +62,6 @@ class GapDiscoverer(
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofMinutes(2))
             .build<AttoPublicKey, AttoHeight>()
-            .asMap()
-
-    private val outOfOrderBuffer =
-        Caffeine
-            .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterWrite(Duration.ofMinutes(1))
-            .maximumSize(maxSize * AttoTransactionStreamRequest.MAX_TRANSACTIONS.toLong())
-            .build<AttoHash, InboundNetworkMessage<AttoTransactionStreamResponse>>()
             .asMap()
 
     @EventListener
@@ -103,6 +94,8 @@ class GapDiscoverer(
             return
         }
         mutex.withLock {
+            removeExpiredPointers()
+
             val peers = peers.toList()
 
             if (peers.isEmpty()) {
@@ -129,22 +122,32 @@ class GapDiscoverer(
             val gaps = uncheckedTransactionRepository.findGaps(publicKeyToExclude, limit)
 
             gaps.collect { view ->
-                pointerMap.computeIfAbsent(view.publicKey) {
-                    val startHeight = view.startHeight()
-                    val endHeight = view.endHeight()
+                val startHeight = view.startHeight()
+                val endHeight = view.endHeight()
+                val selectedPeer = peers[Random.nextInt(peers.size)]
+                val pointer =
+                    TransactionPointer(
+                        publicKey = view.publicKey,
+                        initialHeight = startHeight,
+                        finalHeight = endHeight,
+                        currentHeight = endHeight,
+                        currentHash = view.expectedEndHash,
+                        selectedPeer = selectedPeer,
+                        expiresAt = clock.instant().plus(REQUEST_TIMEOUT),
+                    )
+
+                if (pointerMap.putIfAbsent(view.publicKey, pointer) == null) {
                     val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
                     val message =
                         DirectNetworkMessage(
-                            peers[Random.nextInt(peers.size)],
+                            selectedPeer,
                             request,
                             expectedResponseCount = endHeight.value - startHeight.value + 1UL,
                         )
                     networkMessagePublisher.publish(message)
-                    val pointer = TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
                     logger.trace {
                         "Starting gap discovery for account ${view.publicKey}. Requesting transactions from $startHeight to $endHeight"
                     }
-                    pointer
                 }
             }
         }
@@ -155,74 +158,114 @@ class GapDiscoverer(
         val response = message.payload
         val transaction = response.transaction
         val block = transaction.block
+        val discoveredTransactions = mutableListOf<AttoTransaction>()
 
-        val pointer =
-            pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
-                if (pointer.currentHeight != block.height && block.height in pointer.initialHeight..<pointer.finalHeight) {
-                    outOfOrderBuffer[block.hash] = message
-                    logger.trace {
-                        "Buffering out of order transaction ${block.hash}. Current height is ${pointer.currentHeight} and block height is ${block.height}"
-                    }
-                    return@computeIfPresent pointer
-                }
-                process(pointer, transaction)
+        pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
+            // Recovery is retryable soft state, so stale or unrelated responses can be ignored without affecting ledger data.
+            if (message.publicUri != pointer.selectedPeer || pointer.isExpired(clock.instant())) {
+                return@computeIfPresent pointer
             }
 
-        if (pointer == null) {
-            return
+            if (block.height !in pointer.initialHeight..pointer.finalHeight || block.height > pointer.currentHeight) {
+                return@computeIfPresent pointer
+            }
+
+            if (block.height < pointer.currentHeight) {
+                pointer.buffer(transaction)
+                return@computeIfPresent pointer
+            }
+
+            if (transaction.hash != pointer.currentHash) {
+                logger.debug { "Expecting transaction with hash ${pointer.currentHash} but received hash ${transaction.hash}" }
+                return@computeIfPresent pointer
+            }
+
+            if (pointer.advance(transaction, discoveredTransactions)) {
+                lastCompletedGaps[pointer.publicKey] = pointer.initialHeight
+                return@computeIfPresent null
+            }
+
+            pointer
         }
 
-        val nextMessage = outOfOrderBuffer.remove(pointer.currentHash) ?: return
-        process(nextMessage)
+        discoveredTransactions.forEach { discovered ->
+            eventPublisher.publish(TransactionDiscovered(null, discovered.toTransaction(), listOf()))
+        }
     }
 
-    private fun process(
-        pointer: TransactionPointer,
+    private fun TransactionPointer.advance(
         transaction: AttoTransaction,
-    ): TransactionPointer? {
-        if (transaction.hash != pointer.currentHash) {
-            logger.debug { "Expecting transaction with hash ${pointer.currentHash} but received hash $transaction" }
-            return null
-        }
+        discoveredTransactions: MutableList<AttoTransaction>,
+    ): Boolean {
+        var currentTransaction = transaction
 
-        val block = transaction.block
+        while (true) {
+            val block = currentTransaction.block
+            discoveredTransactions.add(currentTransaction)
 
-        val nextPointer =
-            if (pointer.initialHeight == block.height) {
-                logger.debug { "End of the gap reached for account ${transaction.block.publicKey}" }
-                null
-            } else {
-                pointer.copy(
-                    currentHeight = block.height - 1UL,
-                    currentHash = (block as PreviousSupport).previous,
-                    timestamp = Instant.now(),
-                )
+            if (initialHeight == block.height) {
+                logger.debug { "End of the gap reached for account ${block.publicKey}" }
+                return true
             }
 
-        logger.debug { "Discovered gap transaction ${transaction.hash} with height ${block.height}. New pointer: $nextPointer" }
+            currentHeight = block.height - 1UL
+            currentHash = (block as PreviousSupport).previous
 
-        lastCompletedGaps[pointer.publicKey] = block.height
+            logger.debug {
+                "Discovered gap transaction ${currentTransaction.hash} with height ${block.height}. " +
+                    "Expecting hash $currentHash at height $currentHeight"
+            }
 
-        eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
+            val bufferedTransaction = removeBuffered(currentHash)
+            if (bufferedTransaction == null || bufferedTransaction.block.height != currentHeight) {
+                return false
+            }
 
-        return nextPointer
+            currentTransaction = bufferedTransaction
+        }
+    }
+
+    private fun removeExpiredPointers() {
+        val now = clock.instant()
+        pointerMap.forEach { (publicKey, pointer) ->
+            if (pointer.isExpired(now)) {
+                pointerMap.remove(publicKey, pointer)
+            }
+        }
     }
 
     override fun clear() {
         pointerMap.clear()
         lastCompletedGaps.clear()
-        outOfOrderBuffer.clear()
+    }
+
+    companion object {
+        private val REQUEST_TIMEOUT = Duration.ofMinutes(1)
     }
 }
 
-private data class TransactionPointer(
+private class TransactionPointer(
     val publicKey: AttoPublicKey,
     val initialHeight: AttoHeight,
     val finalHeight: AttoHeight,
-    val currentHeight: AttoHeight,
-    val currentHash: AttoHash,
-    val timestamp: Instant = Instant.now(),
-)
+    var currentHeight: AttoHeight,
+    var currentHash: AttoHash,
+    val selectedPeer: URI,
+    val expiresAt: Instant,
+) {
+    private val requestedTransactionCount = (finalHeight - initialHeight + 1U).value.toInt()
+    private val bufferedTransactions = HashMap<AttoHash, AttoTransaction>(requestedTransactionCount)
+
+    fun isExpired(now: Instant): Boolean = !now.isBefore(expiresAt)
+
+    fun buffer(transaction: AttoTransaction) {
+        if (bufferedTransactions.size < requestedTransactionCount) {
+            bufferedTransactions.putIfAbsent(transaction.hash, transaction)
+        }
+    }
+
+    fun removeBuffered(expectedHash: AttoHash): AttoTransaction? = bufferedTransactions.remove(expectedHash)
+}
 
 private fun GapView.startHeight(): AttoHeight {
     val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS

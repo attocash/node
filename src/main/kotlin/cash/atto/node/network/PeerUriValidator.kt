@@ -26,14 +26,6 @@ class PeerUriValidator(
             return PeerUriValidationResult.Rejected("Invalid URI authority or path")
         }
 
-        if (networkProperties.isAllowlisted(publicUri)) {
-            return PeerUriValidationResult.Accepted
-        }
-
-        if (!networkProperties.loopbackBlocked) {
-            return PeerUriValidationResult.Accepted
-        }
-
         val addresses =
             try {
                 dnsResolver.getAllByName(host)
@@ -41,11 +33,21 @@ class PeerUriValidator(
                 return PeerUriValidationResult.Rejected("Unable to resolve URI host")
             }
 
-        if (addresses.isEmpty() || addresses.any { !it.isGloballyRoutable() }) {
+        if (addresses.isEmpty()) {
+            return PeerUriValidationResult.Rejected("Unable to resolve URI host")
+        }
+
+        val addressPolicyEnabled = networkProperties.loopbackBlocked && !networkProperties.isAllowlisted(publicUri)
+        if (addressPolicyEnabled && addresses.any { !it.isGloballyRoutable() }) {
             return PeerUriValidationResult.Rejected("URI host does not resolve to globally routable addresses")
         }
 
-        return PeerUriValidationResult.Accepted
+        return PeerUriValidationResult.Accepted(
+            ValidatedPeerEndpoint(
+                publicUri = publicUri,
+                addresses = addresses.distinctBy { it.address.toList() },
+            ),
+        )
     }
 
     private fun NetworkProperties.isAllowlisted(publicUri: URI): Boolean =
@@ -53,11 +55,24 @@ class PeerUriValidator(
 }
 
 sealed interface PeerUriValidationResult {
-    data object Accepted : PeerUriValidationResult
+    data class Accepted(
+        val endpoint: ValidatedPeerEndpoint,
+    ) : PeerUriValidationResult
 
     data class Rejected(
         val reason: String,
     ) : PeerUriValidationResult
+}
+
+class ValidatedPeerEndpoint internal constructor(
+    val publicUri: URI,
+    addresses: List<InetAddress>,
+) {
+    val addresses: List<InetAddress> = java.util.List.copyOf(addresses)
+
+    init {
+        require(addresses.isNotEmpty()) { "A validated peer endpoint requires at least one address" }
+    }
 }
 
 private fun InetAddress.isGloballyRoutable(): Boolean {

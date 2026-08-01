@@ -17,6 +17,7 @@ import cash.atto.node.election.ElectionExpired
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.stream.StreamRequestValidator
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -66,6 +67,7 @@ class TransactionController(
     val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository,
+    private val streamRequestValidator: StreamRequestValidator,
 ) {
     private val logger = KotlinLogging.logger {}
 
@@ -228,14 +230,12 @@ class TransactionController(
     suspend fun streamMultiple(
         @RequestBody search: HeightSearch,
     ): Flow<AttoTransaction> {
-        val accountRanges = search.search
+        streamRequestValidator.validate(search)
+        return streamRanges(search)
+    }
 
-        if (accountRanges.any { it.fromHeight.value == 0UL }) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "fromHeight can't be zero")
-        }
-        if (accountRanges.any { it.fromHeight > it.toHeight }) {
-            throw ResponseStatusException(HttpStatus.BAD_REQUEST, "toHeight must be greater or equal to fromHeight")
-        }
+    private suspend fun streamRanges(search: HeightSearch): Flow<AttoTransaction> {
+        val accountRanges = search.search
 
         val accountFlows =
             accountRanges.map { range ->
@@ -296,7 +296,7 @@ class TransactionController(
                 toHeight,
             )
         val search = HeightSearch(listOf(transactionSearch))
-        return streamMultiple(search)
+        return streamRanges(search)
     }
 
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])

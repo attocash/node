@@ -168,6 +168,8 @@ class VoteWeighter(
 
     fun isAboveMinimalRebroadcastWeight(publicKey: AttoPublicKey): Boolean = minimalRebroadcastWeight <= get(publicKey)
 
+    // No common protocol epoch is defined for this hourly threshold; current behavior is accepted and monitored.
+    // See KNOWN_RISKS.md#online-weight-epoch.
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.HOURS)
     fun calculateMinimalWeights() {
         val minTimestamp = getMinTimestamp()

@@ -8,6 +8,7 @@ import cash.atto.commons.node.AccountSearch
 import cash.atto.commons.spring.forwardHeightBy
 import cash.atto.node.CacheSupport
 import cash.atto.node.EventPublisher
+import cash.atto.node.stream.StreamRequestValidator
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Hidden
@@ -50,6 +51,7 @@ class AccountController(
     val eventPublisher: EventPublisher,
     val repository: AccountRepository,
     val crudRepository: AccountCrudRepository,
+    private val streamRequestValidator: StreamRequestValidator,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -137,6 +139,11 @@ class AccountController(
     suspend fun stream(
         @RequestBody search: AccountSearch,
     ): Flow<AttoAccount> {
+        streamRequestValidator.validate(search)
+        return streamAddresses(search)
+    }
+
+    private fun streamAddresses(search: AccountSearch): Flow<AttoAccount> {
         val addresses = search.addresses.toSet()
 
         val accountDatabaseFlow =
@@ -183,7 +190,7 @@ class AccountController(
         @PathVariable publicKey: AttoPublicKey,
     ): Flow<AttoAccount> {
         val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AccountSearch(setOf(address)))
+        return streamAddresses(AccountSearch(setOf(address)))
     }
 
     @GetMapping("/top")
