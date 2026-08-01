@@ -347,7 +347,7 @@ class TransactionController(
         }
     }
 
-    private fun validate(transaction: AttoTransaction) {
+    private suspend fun validate(transaction: AttoTransaction) {
         if (!transaction.isValid()) {
             logger.debug { "Invalid! $transaction" }
             throw ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid transaction")

@@ -3,8 +3,8 @@ package cash.atto.node
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toHex
-import cash.atto.commons.toPublicKey
-import cash.atto.commons.toSigner
+import cash.atto.commons.toPublicKeyBlocking
+import cash.atto.commons.toSignerBlocking
 import cash.atto.node.network.NetworkProperties
 import cash.atto.node.transaction.Transaction
 import io.cucumber.java.en.Given
@@ -79,8 +79,8 @@ class NodeStepDefinition(
                 NodeHolder.add(context, classLoader)
 
                 PropertyHolder.add(shortId, context)
-                PropertyHolder.add(shortId, privateKey.toSigner())
-                PropertyHolder.add(shortId, privateKey.toPublicKey())
+                PropertyHolder.add(shortId, privateKey.toSignerBlocking())
+                PropertyHolder.add(shortId, privateKey.toPublicKeyBlocking())
                 PropertyHolder.add(shortId, AttoAlgorithm.V1)
                 PropertyHolder.add(shortId, Neighbour(websocketPort, httpPort))
             }

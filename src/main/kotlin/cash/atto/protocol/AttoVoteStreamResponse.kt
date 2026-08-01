@@ -18,5 +18,5 @@ data class AttoVoteStreamResponse(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.VOTE_STREAM_RESPONSE
 
-    override fun isValid(network: AttoNetwork): Boolean = vote.isValid() && vote.isFinal()
+    override suspend fun isValid(network: AttoNetwork): Boolean = vote.isValid() && vote.isFinal()
 }

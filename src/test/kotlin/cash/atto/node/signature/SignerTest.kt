@@ -15,14 +15,11 @@ import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVersion
 import cash.atto.commons.AttoVote
-import cash.atto.commons.generate
-import cash.atto.commons.isValid
 import cash.atto.commons.node.remote
 import cash.atto.commons.toAttoAmount
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
-import cash.atto.commons.toByteArray
-import cash.atto.commons.toSigner
+import cash.atto.commons.toSignerBlocking
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.install
 import io.ktor.server.cio.CIO
@@ -80,7 +77,7 @@ class SignerTest {
             val signature = signer.sign(block)
 
             // then
-            assertTrue { signature.isValid(signer.publicKey, block.hash) }
+            assertTrue(signature.isValid(signer.publicKey, block.hash))
         }
 
     @Test
@@ -93,7 +90,7 @@ class SignerTest {
             val signature = signer.sign(block)
 
             // then
-            assertTrue { signature.isValid(signer.publicKey, block.hash) }
+            assertTrue(signature.isValid(signer.publicKey, block.hash))
         }
 
     @Test
@@ -108,7 +105,7 @@ class SignerTest {
 
             // then
             val hash = AttoHash.hash(64, signer.publicKey.value, challenge.value, timestamp.toByteArray())
-            assertTrue { signature.isValid(signer.publicKey, hash) }
+            assertTrue(signature.isValid(signer.publicKey, hash))
         }
 
     private fun AttoVote.Companion.sample(): AttoVote =
@@ -151,7 +148,7 @@ class SignerTest {
     class MocktRemoteSigner(
         port: Int,
     ) {
-        val signer = AttoPrivateKey.generate().toSigner()
+        val signer = AttoPrivateKey.generate().toSignerBlocking()
 
         val server =
             embeddedServer(CIO, port = port) {

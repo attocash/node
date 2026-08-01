@@ -18,5 +18,5 @@ data class AttoTransactionPush(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_PUSH
 
-    override fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
+    override suspend fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
 }

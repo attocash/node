@@ -15,7 +15,7 @@ object NetworkSerializer {
 
     inline fun <reified T : AttoMessage> serialize(message: T): ByteArray = ProtoBuf.encodeToByteArray(AttoMessage.serializer(), message)
 
-    fun deserialize(
+    suspend fun deserialize(
         serialized: ByteArray,
         network: AttoNetwork,
     ): AttoMessage? =

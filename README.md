@@ -1,8 +1,11 @@
 # Atto Node
 
-Atto Node is the network-facing service for the **Atto** cryptocurrency. It exposes a public HTTP API for submitting/querying blocks (transactions), maintains account state in a MySQL database, connects to other nodes over WebSockets, and participates in consensus by producing and relaying votes.
+Atto Node is the network-facing service for the **Atto** cryptocurrency. It exposes a public HTTP API for
+submitting/querying blocks (transactions), maintains account state in a MySQL database, connects to other nodes over
+WebSockets, and participates in consensus by producing and relaying votes.
 
-This repository is a **Kotlin + Spring Boot (WebFlux)** application with a small embedded **Ktor WebSocket/HTTP server** for node-to-node communication.
+This repository is a **Kotlin + Spring Boot (WebFlux)** application with a small embedded **Ktor WebSocket/HTTP server**
+for node-to-node communication.
 
 [Website](https://atto.cash/) | [Docs](https://atto.cash/docs/integration) | [Commons](https://github.com/attocash/commons)
 
@@ -47,8 +50,8 @@ The node can behave as:
 
 ### 1) Run the quickest local node (`TestApplication`)
 
-The quickest way to run the node locally is `TestApplication` (`src/test/kotlin/cash/atto/node/TestApplication.kt`).
-Run that class directly from your IDE; it starts the node and spins up MySQL automatically through Testcontainers.
+The quickest way to run the node locally is `TestApplication` (`src/test/kotlin/cash/atto/node/TestApplication.kt`). Run
+that class directly from your IDE; it starts the node and spins up MySQL automatically through Testcontainers.
 
 On startup, the node will:
 
@@ -144,14 +147,16 @@ Atto’s consensus in this codebase is vote-driven:
 
 - Nodes observe competing transactions for the same `(account publicKey, height)`.
 - A node that is configured as a **voter** and has enough **voting weight** produces signed votes.
-- Votes are gossiped across the network; once cumulative weight passes a configurable threshold, the network considers consensus reached.
+- Votes are gossiped across the network; once cumulative weight passes a configurable threshold, the network considers
+  consensus reached.
 
 Key parts in this repo:
 
 - `cash.atto.node.election.*`
   - **ElectionVoter**: decides when/what to vote for, signs votes, broadcasts them.
     - Includes a stability delay to avoid chasing rapidly changing provisional consensus.
-  - **ElectionProcessor**: when consensus is reached, it commits the winning transactions into account state (and stores final votes if this node is historical).
+  - **ElectionProcessor**: when consensus is reached, it commits the winning transactions into account state (and stores
+    final votes if this node is historical).
 - `cash.atto.node.vote.weight.VoteWeighter`
   - Maintains the weight map and computes thresholds like minimal confirmation weight.
 
@@ -173,29 +178,35 @@ This repo implements bootstrap as a set of *discoverers* and an *unchecked trans
 
 ### Unchecked transactions
 
-When the node learns about a transaction it cannot immediately apply (missing dependencies, out-of-order, etc.), it stores it as an **unchecked transaction**:
+When the node learns about a transaction it cannot immediately apply (missing dependencies, out-of-order, etc.), it
+stores it as an **unchecked transaction**:
 
 - `cash.atto.node.bootstrap.unchecked.*`
-  - `UncheckedTransactionProcessorStarter` runs every second, pulls oldest unchecked txs, validates them against current account state, and applies what it can.
+  - `UncheckedTransactionProcessorStarter` runs every second, pulls oldest unchecked txs, validates them against current
+    account state, and applies what it can.
 
 ### Discovery flows
 
 - **Dependency discovery** (`DependencyDiscoverer`)
   - When a transaction is rejected for a *recoverable* reason, it is tracked.
-  - If enough final votes accumulate for that transaction, it is re-introduced as “discovered” even though it was initially rejected.
+  - If enough final votes accumulate for that transaction, it is re-introduced as “discovered” even though it was
+    initially rejected.
 
 - **Gap discovery** (`GapDiscoverer`)
-  - For accounts with gaps, the node requests a range of missing transactions from *historical peers* using `AttoTransactionStreamRequest/Response`.
+  - For accounts with gaps, the node requests a range of missing transactions from *historical peers* using
+    `AttoTransactionStreamRequest/Response`.
   - Handles out-of-order deliveries with an in-memory buffer.
 
 - **Head/last discovery** (`LastDiscoverer`)
   - Historical nodes periodically broadcast a sample of recent “head” transactions (`AttoBootstrapTransactionPush`).
-  - If a receiving node is behind, it starts a lightweight vote stream for the head to confirm it’s real, then turns it into a `TransactionDiscovered` event.
+  - If a receiving node is behind, it starts a lightweight vote stream for the head to confirm it’s real, then turns it
+    into a `TransactionDiscovered` event.
 
 - **Persistence batching** (`DiscoveryProcessor`)
   - Buffers discovered transactions and periodically persists them into the unchecked table in bulk.
 
-The overall effect: nodes can reconnect, observe the network’s latest heads, request missing ranges, and replay into their ledger state.
+The overall effect: nodes can reconnect, observe the network’s latest heads, request missing ranges, and replay into
+their ledger state.
 
 ## Code map
 
@@ -227,7 +238,9 @@ If you want a “container-first” run, pick the profile and pass env vars for 
 
 ## Native image metadata
 
-CI uses committed GraalVM reachability metadata from `src/main/resources/META-INF/native-image/cash.atto/node/reachability-metadata.json`. It does not run the native-image agent in the release pipeline because the GraalVM 25 agent is too slow for the full integration suite.
+CI uses committed GraalVM reachability metadata from
+`src/main/resources/META-INF/native-image/cash.atto/node/reachability-metadata.json`. It does not run the native-image
+agent in the release pipeline because the GraalVM 25 agent is too slow for the full integration suite.
 
 Regenerate the metadata locally only from a successful full agent run:
 

@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 sealed interface AttoMessage {
     fun messageType(): AttoMessageType
 
-    fun isValid(network: AttoNetwork): Boolean
+    suspend fun isValid(network: AttoNetwork): Boolean
 }
 
 enum class AttoMessageType {

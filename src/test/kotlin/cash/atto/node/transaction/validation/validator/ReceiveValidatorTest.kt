@@ -8,13 +8,11 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
-import cash.atto.commons.sign
 import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toJavaInstant
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.account.Account
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableRepository
@@ -36,7 +34,7 @@ internal class ReceiveValidatorTest {
 
     val account =
         Account(
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
             version = 0U.toAttoVersion(),
@@ -52,7 +50,7 @@ internal class ReceiveValidatorTest {
             network = AttoNetwork.LOCAL,
             version = account.version,
             algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(10U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),

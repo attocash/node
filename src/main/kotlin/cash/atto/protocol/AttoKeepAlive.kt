@@ -14,16 +14,16 @@ import java.net.URI
 data class AttoKeepAlive(
     @ProtoNumber(1)
     val neighbour:
-        @Serializable(with = URISerializer::class)
-        URI? = null,
+    @Serializable(with = URISerializer::class)
+    URI? = null,
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.KEEP_ALIVE
 
-    override fun isValid(network: AttoNetwork): Boolean =
+    override suspend fun isValid(network: AttoNetwork): Boolean =
         neighbour == null ||
             (
                 neighbour.path.isNullOrEmpty() &&
                     neighbour.query == null &&
                     neighbour.fragment == null
-            )
+                )
 }

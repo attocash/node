@@ -5,8 +5,6 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.isValid
-import cash.atto.commons.toByteArray
 import cash.atto.node.CacheSupport
 import cash.atto.node.network.guardian.Guardian
 import cash.atto.node.network.guardian.InboundConnectionDecision

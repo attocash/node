@@ -12,7 +12,6 @@ import cash.atto.commons.toBuffer
 import cash.atto.commons.toHex
 import cash.atto.commons.toJavaInstant
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.account.AccountService
 import cash.atto.node.receivable.Receivable
 import cash.atto.node.receivable.ReceivableService

@@ -18,5 +18,5 @@ data class AttoTransactionStreamResponse(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_RESPONSE
 
-    override fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
+    override suspend fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
 }

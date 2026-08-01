@@ -12,7 +12,6 @@ import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
-import cash.atto.commons.generate
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry

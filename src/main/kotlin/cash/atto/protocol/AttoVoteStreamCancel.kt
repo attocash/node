@@ -18,5 +18,5 @@ data class AttoVoteStreamCancel(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.VOTE_STREAM_CANCEL
 
-    override fun isValid(network: AttoNetwork): Boolean = blockHash.isValid()
+    override suspend fun isValid(network: AttoNetwork): Boolean = blockHash.isValid()
 }

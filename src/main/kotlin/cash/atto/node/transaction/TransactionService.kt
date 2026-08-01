@@ -2,7 +2,6 @@ package cash.atto.node.transaction
 
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.ReceiveSupport
-import cash.atto.commons.toReceivable
 import cash.atto.node.receivable.ReceivableService
 import cash.atto.node.receivable.toReceivable
 import io.github.oshai.kotlinlogging.KotlinLogging

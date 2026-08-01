@@ -34,7 +34,7 @@ data class AttoTransactionStreamRequest(
 
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_REQUEST
 
-    override fun isValid(network: AttoNetwork): Boolean {
+    override suspend fun isValid(network: AttoNetwork): Boolean {
         if (startHeight > endHeight) {
             return false
         }

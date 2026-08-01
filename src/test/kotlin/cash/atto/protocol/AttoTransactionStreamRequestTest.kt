@@ -3,7 +3,8 @@ package cash.atto.protocol
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.toAttoHeight
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
+import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
@@ -23,18 +24,19 @@ internal class AttoTransactionStreamRequestTest {
     }
 
     @Test
-    fun `should keep inclusive count valid at maximum`() {
-        val message = request(1U, AttoTransactionStreamRequest.MAX_TRANSACTIONS)
+    fun `should keep inclusive count valid at maximum`() =
+        runTest {
+            val message = request(1U, AttoTransactionStreamRequest.MAX_TRANSACTIONS)
 
-        assertTrue(message.isValid(AttoNetwork.LOCAL))
-    }
+            assertTrue(message.isValid(AttoNetwork.LOCAL))
+        }
 
     private fun request(
         startHeight: UInt,
         endHeight: ULong,
     ): AttoTransactionStreamRequest =
         AttoTransactionStreamRequest(
-            publicKey = AttoPrivateKey.generate().toPublicKey(),
+            publicKey = AttoPrivateKey.generate().toPublicKeyBlocking(),
             startHeight = startHeight.toAttoHeight(),
             endHeight = endHeight.toAttoHeight(),
         )

@@ -11,7 +11,6 @@ import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.InMemorySigner
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter

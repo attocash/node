@@ -21,5 +21,5 @@ data class AttoVoteRequest(
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.VOTE_REQUEST
 
-    override fun isValid(network: AttoNetwork): Boolean = blockHash.isValid()
+    override suspend fun isValid(network: AttoNetwork): Boolean = blockHash.isValid()
 }

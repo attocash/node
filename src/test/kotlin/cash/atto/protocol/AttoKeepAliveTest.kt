@@ -1,6 +1,7 @@
 package cash.atto.protocol
 
 import cash.atto.commons.AttoNetwork
+import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -25,16 +26,18 @@ class AttoKeepAliveTest {
     }
 
     @Test
-    fun `should accept neighbour without path`() {
-        val message = AttoKeepAlive(URI("ws://localhost:8081"))
+    fun `should accept neighbour without path`() =
+        runTest {
+            val message = AttoKeepAlive(URI("ws://localhost:8081"))
 
-        assertTrue(message.isValid(AttoNetwork.LOCAL))
-    }
+            assertTrue(message.isValid(AttoNetwork.LOCAL))
+        }
 
     @Test
-    fun `should reject neighbour with path`() {
-        val message = AttoKeepAlive(URI("ws://localhost:8081/path"))
+    fun `should reject neighbour with path`() =
+        runTest {
+            val message = AttoKeepAlive(URI("ws://localhost:8081/path"))
 
-        assertFalse(message.isValid(AttoNetwork.LOCAL))
-    }
+            assertFalse(message.isValid(AttoNetwork.LOCAL))
+        }
 }

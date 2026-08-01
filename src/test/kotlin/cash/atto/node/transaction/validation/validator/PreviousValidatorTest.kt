@@ -8,13 +8,11 @@ import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.sign
 import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toJavaInstant
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
@@ -33,7 +31,7 @@ internal class PreviousValidatorTest {
     val account =
         Account(
             network = AttoNetwork.LOCAL,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             algorithm = AttoAlgorithm.V1,
             version = 0U.toAttoVersion(),
             height = 2,
@@ -48,13 +46,13 @@ internal class PreviousValidatorTest {
             network = AttoNetwork.LOCAL,
             version = account.version,
             algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(0U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
             previous = account.lastTransactionHash,
             representativeAlgorithm = AttoAlgorithm.V1,
-            representativePublicKey = privateKey.toPublicKey(),
+            representativePublicKey = privateKey.toPublicKeyBlocking(),
         )
 
     val node =

@@ -5,9 +5,9 @@ import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
 import cash.atto.commons.node.remote
 import cash.atto.commons.toHex
-import cash.atto.commons.toSigner
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.MeterRegistry
+import kotlinx.coroutines.runBlocking
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 
@@ -37,7 +37,7 @@ class SignatureConfiguration {
                         temporaryPrivateKey
                     }
 
-                privateKey.toSigner()
+                runBlocking { privateKey.toSigner() }
             }
 
         return MeteredAttoSigner(signer, meterRegistry)

@@ -9,13 +9,11 @@ import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.AttoWork
-import cash.atto.commons.sign
 import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toJavaInstant
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
@@ -33,7 +31,7 @@ internal class BlockValidatorTest {
 
     val account =
         Account(
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
@@ -49,7 +47,7 @@ internal class BlockValidatorTest {
             version = account.version,
             network = AttoNetwork.LOCAL,
             algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             height = AttoHeight(account.height.toULong() + 1U),
             balance = AttoAmount(0u),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),

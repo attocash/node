@@ -11,12 +11,10 @@ import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoTransaction
 import cash.atto.commons.AttoVote
-import cash.atto.commons.sign
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.network.NetworkSerializer
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -29,7 +27,7 @@ internal fun assertAcceptedAtP2PIngress(
 ) {
     val serialized = NetworkSerializer.serialize(message)
 
-    assertEquals(message, NetworkSerializer.deserialize(serialized, network))
+    assertEquals(message, runBlocking { NetworkSerializer.deserialize(serialized, network) })
 }
 
 internal fun assertRejectedAtP2PIngress(
@@ -38,7 +36,7 @@ internal fun assertRejectedAtP2PIngress(
 ) {
     val serialized = NetworkSerializer.serialize(message)
 
-    assertNull(NetworkSerializer.deserialize(serialized, network))
+    assertNull(runBlocking { NetworkSerializer.deserialize(serialized, network) })
 }
 
 internal fun localTransaction(): AttoTransaction {
@@ -48,7 +46,7 @@ internal fun localTransaction(): AttoTransaction {
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),
@@ -91,7 +89,7 @@ private fun vote(
     AttoVote(
         version = 0U.toAttoVersion(),
         algorithm = AttoAlgorithm.V1,
-        publicKey = privateKey.toPublicKey(),
+        publicKey = privateKey.toPublicKeyBlocking(),
         blockAlgorithm = AttoAlgorithm.V1,
         blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
         timestamp = timestamp,

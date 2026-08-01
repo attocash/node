@@ -9,12 +9,10 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
-import cash.atto.commons.sign
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toJavaInstant
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
@@ -46,7 +44,7 @@ internal class TransactionControllerTest {
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKey(),
+            publicKey = privateKey.toPublicKeyBlocking(),
             height = AttoHeight(2UL),
             balance = AttoAmount(1UL),
             timestamp = AttoInstant.now(),

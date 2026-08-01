@@ -8,12 +8,10 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoTransaction
-import cash.atto.commons.sign
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
-import cash.atto.commons.toPublicKey
+import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
-import cash.atto.commons.worker.cpu
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -47,7 +45,7 @@ class AttoTransactionStreamResponseTest {
                 network = AttoNetwork.LOCAL,
                 version = 0U.toAttoVersion(),
                 algorithm = AttoAlgorithm.V1,
-                publicKey = privateKey.toPublicKey(),
+                publicKey = privateKey.toPublicKeyBlocking(),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),
