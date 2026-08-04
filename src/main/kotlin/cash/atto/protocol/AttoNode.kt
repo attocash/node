@@ -21,6 +21,10 @@ data class AttoNode(
     @ProtoNumber(5) @Serializable(with = URISerializer::class) val publicUri: URI,
     @ProtoNumber(6) val features: Set<NodeFeature>,
 ) {
+    companion object {
+        val CURRENT_PROTOCOL_VERSION: UShort = 1u
+    }
+
     @Transient
     val minProtocolVersion: UShort =
         when (protocolVersion) {
@@ -39,6 +43,8 @@ data class AttoNode(
     fun isHistorical(): Boolean = features.contains(NodeFeature.HISTORICAL)
 
     fun isNotHistorical(): Boolean = !isHistorical()
+
+    fun supportsParallelTransactionStreams(): Boolean = protocolVersion >= CURRENT_PROTOCOL_VERSION
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

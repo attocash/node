@@ -19,21 +19,23 @@ class UncheckedTransactionService(
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     @Timed("unchecked_transactions_save", description = "Time taken to save an unchecked transaction")
-    suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>) {
-        uncheckedTransactionInserter.insert(uncheckedTransactions)
+    suspend fun save(uncheckedTransactions: Collection<UncheckedTransaction>): Long {
+        val affectedRows = uncheckedTransactionInserter.insert(uncheckedTransactions)
         executeAfterCommit {
             uncheckedTransactions.forEach {
                 logger.debug { "Saved $it" }
                 eventPublisher.publish(UncheckedTransactionSaved(it))
             }
         }
+        return affectedRows
     }
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
-    suspend fun cleanUp() {
-        val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction()
+    suspend fun cleanUp(limit: Long): Int {
+        val deletedCount = uncheckedTransactionRepository.deleteExistingInTransaction(limit)
         if (deletedCount > 0) {
             logger.debug { "Deleted $deletedCount unchecked transactions" }
         }
+        return deletedCount
     }
 }

@@ -202,8 +202,12 @@ stores it as an **unchecked transaction**:
   - If a receiving node is behind, it starts a lightweight vote stream for the head to confirm it’s real, then turns it
     into a `TransactionDiscovered` event.
 
-- **Persistence batching** (`DiscoveryProcessor`)
-  - Buffers discovered transactions and periodically persists them into the unchecked table in bulk.
+- **Bounded persistence queue** (`DiscoveryQueue`, `DiscoveryPersistenceWorker`)
+  - `DiscoveryQueue` deduplicates and buffers discovered transactions.
+  - New gap, head, and send discovery pauses at the configured target capacity. Replies already in flight can use the
+    configured headroom and suspend without being discarded when the bounded queue is full.
+  - `DiscoveryPersistenceWorker` persists batches of up to 1,000 transactions and retries the same batch after a
+    database failure.
 
 The overall effect: nodes can reconnect, observe the network’s latest heads, request missing ranges, and replay into
 their ledger state.

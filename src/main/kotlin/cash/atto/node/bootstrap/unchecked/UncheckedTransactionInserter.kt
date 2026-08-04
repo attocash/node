@@ -9,18 +9,20 @@ import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
 import reactor.core.publisher.Flux
+import java.util.concurrent.ConcurrentHashMap
 
 @Component
 class UncheckedTransactionInserter(
     private val databaseClient: DatabaseClient,
 ) {
-    private val sql =
+    private val sqlByRowCount = ConcurrentHashMap<Int, String>()
+    private val valuePlaceholders = "(?, ?, ?, ?, ?, ?, ?)"
+    private val insertSql =
         """
         INSERT INTO unchecked_transaction
           (hash, public_key, height, previous, `timestamp`, serialized, received_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-        ON DUPLICATE KEY UPDATE hash = hash
         """.trimIndent()
+    private val duplicateUpdateSql = "ON DUPLICATE KEY UPDATE hash = hash"
 
     @Transactional(isolation = Isolation.READ_COMMITTED)
     suspend fun insert(uncheckedTransactions: Collection<UncheckedTransaction>): Long {
@@ -28,39 +30,44 @@ class UncheckedTransactionInserter(
 
         return databaseClient
             .inConnection { conn ->
-                val last = uncheckedTransactions.size - 1
+                val statement = conn.createStatement(sql(uncheckedTransactions.size))
+                var bindIndex = 0
 
-                val statement = conn.createStatement(sql)
-                uncheckedTransactions.forEachIndexed { i, t ->
-                    statement.apply {
-                        bind(0, t.hash.value)
-                        bind(1, t.publicKey.value)
-                        bind(2, t.height.value.toBigInteger())
-                        if (t.previous != null) {
-                            bind(3, t.previous.value)
-                        } else {
-                            bindNull(3, ByteArray::class.java)
-                        }
-                        bind(4, t.block.timestamp.toJavaInstant())
-                        bind(
-                            5,
-                            t
+                uncheckedTransactions.forEach { transaction ->
+                    val previous = transaction.previous
+
+                    statement
+                        .bind(bindIndex++, transaction.hash.value)
+                        .bind(bindIndex++, transaction.publicKey.value)
+                        .bind(bindIndex++, transaction.height.value.toBigInteger())
+
+                    if (previous != null) {
+                        statement.bind(bindIndex++, previous.value)
+                    } else {
+                        statement.bindNull(bindIndex++, ByteArray::class.java)
+                    }
+
+                    statement
+                        .bind(bindIndex++, transaction.block.timestamp.toJavaInstant())
+                        .bind(
+                            bindIndex++,
+                            transaction
                                 .toTransaction()
                                 .toAttoTransaction()
                                 .toBuffer()
                                 .readByteArray(),
-                        )
-                        bind(6, t.receivedAt)
-
-                        if (i != last) {
-                            add()
-                        }
-                    }
+                        ).bind(bindIndex++, transaction.receivedAt)
                 }
+
                 Flux
                     .from(statement.execute())
                     .flatMap { it.rowsUpdated }
                     .reduce(0L, Long::plus)
             }.awaitSingle()
     }
+
+    private fun sql(rowCount: Int): String =
+        sqlByRowCount.computeIfAbsent(rowCount) {
+            "$insertSql VALUES ${List(rowCount) { valuePlaceholders }.joinToString(", ")} $duplicateUpdateSql"
+        }
 }

@@ -11,9 +11,9 @@ import cash.atto.protocol.AttoTransactionResponse
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.takeWhile
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -27,7 +27,7 @@ class TransactionNetworkProvider(
     private val networkMessagePublisher: NetworkMessagePublisher,
 ) {
     private val peers = ConcurrentHashMap.newKeySet<URI>()
-    private val mutex = Mutex()
+    private val requestPermits = Semaphore(AttoTransactionStreamRequest.MAX_PARALLEL_STREAMS)
 
     @EventListener
     fun add(nodeEvent: NodeConnected) {
@@ -47,9 +47,9 @@ class TransactionNetworkProvider(
             return
         }
 
-        mutex.withLock {
+        requestPermits.withPermit {
             if (!peers.contains(message.publicUri)) {
-                return
+                return@withPermit
             }
 
             val request = message.payload
@@ -67,26 +67,28 @@ class TransactionNetworkProvider(
             return
         }
 
-        mutex.withLock {
+        requestPermits.withPermit {
             if (!peers.contains(message.publicUri)) {
-                return
+                return@withPermit
             }
 
             val request = message.payload
             val transactions =
-                transactionRepository.findDesc(
-                    request.publicKey,
-                    request.startHeight,
-                    request.endHeight,
-                )
+                transactionRepository
+                    .findDesc(
+                        request.publicKey,
+                        request.startHeight,
+                        request.endHeight,
+                    ).toList()
 
-            transactions
-                .takeWhile { peers.contains(message.publicUri) }
-                .collect {
-                    val response = AttoTransactionStreamResponse(it.toAttoTransaction())
-                    networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
-                    delay(10.milliseconds)
+            for (transaction in transactions) {
+                if (!peers.contains(message.publicUri)) {
+                    break
                 }
+                val response = AttoTransactionStreamResponse(transaction.toAttoTransaction())
+                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+                delay(10.milliseconds)
+            }
         }
     }
 }

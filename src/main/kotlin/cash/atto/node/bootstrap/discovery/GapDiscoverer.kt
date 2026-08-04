@@ -1,33 +1,31 @@
 package cash.atto.node.bootstrap.discovery
 
-import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
-import cash.atto.commons.AttoTransaction
-import cash.atto.commons.PreviousSupport
 import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
-import cash.atto.node.bootstrap.TransactionDiscovered
-import cash.atto.node.bootstrap.UncheckedTransactionSaved
 import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
+import cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
-import cash.atto.node.transaction.toTransaction
+import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
-import com.github.benmanes.caffeine.cache.Caffeine
-import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URI
+import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
@@ -38,40 +36,38 @@ import kotlin.random.Random
 class GapDiscoverer(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
-    private val eventPublisher: EventPublisher,
+    private val discoveryQueue: DiscoveryQueue,
+    private val workTracker: UncheckedWorkTracker,
+    private val discoveryProperties: DiscoveryProperties,
+    meterRegistry: MeterRegistry,
+    private val clock: Clock,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
+    private val resolveMutex = Mutex()
+    private val peers = ConcurrentHashMap<URI, AttoNode>()
+    private val activeSessions = ConcurrentHashMap<AttoPublicKey, GapSession>()
+    private val requestBudget =
+        minOf(
+            AttoTransactionStreamRequest.MAX_TRANSACTIONS,
+            discoveryProperties.capacity.toULong(),
+        ).toInt()
 
-    private val peers = ConcurrentHashMap.newKeySet<URI>()
+    private val gapQueryTimer =
+        Timer
+            .builder("transactions.unchecked.gap.query")
+            .description("Time finding missing unchecked transaction ranges")
+            .register(meterRegistry)
+    private val gapRows =
+        Counter
+            .builder("transactions.unchecked.gap.rows")
+            .description("Missing unchecked transaction ranges returned")
+            .register(meterRegistry)
 
-    private val mutex = Mutex()
+    @Volatile
+    private var idleGeneration = Long.MIN_VALUE
 
-    private val maxSize = 1_000L
-    private val pointerMap =
-        Caffeine
-            .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterAccess(Duration.ofMinutes(1))
-            .maximumSize(maxSize)
-            .build<AttoPublicKey, TransactionPointer>()
-            .asMap()
-
-    private val lastCompletedGaps =
-        Caffeine
-            .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterWrite(Duration.ofMinutes(2))
-            .build<AttoPublicKey, AttoHeight>()
-            .asMap()
-
-    private val outOfOrderBuffer =
-        Caffeine
-            .newBuilder()
-            .scheduler(Scheduler.systemScheduler())
-            .expireAfterWrite(Duration.ofMinutes(1))
-            .maximumSize(maxSize * AttoTransactionStreamRequest.MAX_TRANSACTIONS.toLong())
-            .build<AttoHash, InboundNetworkMessage<AttoTransactionStreamResponse>>()
-            .asMap()
+    @Volatile
+    private var nextMaintenanceAt = Instant.EPOCH
 
     @EventListener
     fun add(nodeEvent: NodeConnected) {
@@ -79,158 +75,203 @@ class GapDiscoverer(
         if (!node.isHistorical()) {
             return
         }
-        peers.add(node.publicUri)
+
+        peers[node.publicUri] = node
+        resetIdleSuppression()
     }
 
     @EventListener
     fun remove(nodeEvent: NodeDisconnected) {
-        val node = nodeEvent.node
-        peers.remove(node.publicUri)
-    }
-
-    @EventListener
-    fun process(event: UncheckedTransactionSaved) {
-        if (lastCompletedGaps.remove(event.transaction.publicKey, event.transaction.block.height)) {
-            logger.trace {
-                "Removed last completed gap for account ${event.transaction.publicKey} with height ${event.transaction.block.height}"
-            }
-        }
+        val publicUri = nodeEvent.node.publicUri
+        peers.remove(publicUri)
+        activeSessions.values
+            .filter { it.peer == publicUri }
+            .forEach { activeSessions.remove(it.publicKey, it) }
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
     suspend fun resolve() {
-        if (mutex.isLocked) {
+        if (resolveMutex.isLocked) {
             return
         }
-        mutex.withLock {
-            val peers = peers.toList()
 
-            if (peers.isEmpty()) {
+        resolveMutex.withLock {
+            retryActiveSessions()
+
+            val slots = availableSessionSlots()
+            if (slots == 0 || shouldSkipIdleScan()) {
                 return
             }
 
-            val limit = maxSize - pointerMap.size
-
-            if (limit <= 0L) {
-                logger.debug { "Skipping gap discovery. Pointer map size is $maxSize" }
-                return
-            }
-
-            if (pointerMap.isNotEmpty() || lastCompletedGaps.isNotEmpty()) {
-                logger.trace {
-                    "Pointer map size is ${pointerMap.size} and last completed gap is ${lastCompletedGaps.size}. Looking for $limit more gaps"
+            val startingGeneration = workTracker.currentGeneration()
+            val queryStartedAt = System.nanoTime()
+            val gaps =
+                try {
+                    uncheckedTransactionRepository
+                        .findGaps(slots + activeSessions.size)
+                        .toList()
+                } finally {
+                    gapQueryTimer.record(System.nanoTime() - queryStartedAt, TimeUnit.NANOSECONDS)
                 }
+
+            if (gaps.isNotEmpty()) {
+                gapRows.increment(gaps.size.toDouble())
+                gaps
+                    .asSequence()
+                    .filterNot { activeSessions.containsKey(it.publicKey) }
+                    .take(slots)
+                    .forEach { startGapRequest(it) }
             }
 
-            val publicKeyToExclude =
-                (pointerMap.keys + lastCompletedGaps.keys)
-                    .ifEmpty { setOf(AttoPublicKey(ByteArray(32))) }
-
-            val gaps = uncheckedTransactionRepository.findGaps(publicKeyToExclude, limit)
-
-            gaps.collect { view ->
-                pointerMap.computeIfAbsent(view.publicKey) {
-                    val startHeight = view.startHeight()
-                    val endHeight = view.endHeight()
-                    val request = AttoTransactionStreamRequest(view.publicKey, startHeight, endHeight)
-                    val message =
-                        DirectNetworkMessage(
-                            peers[Random.nextInt(peers.size)],
-                            request,
-                            expectedResponseCount = endHeight.value - startHeight.value + 1UL,
-                        )
-                    networkMessagePublisher.publish(message)
-                    val pointer = TransactionPointer(view.publicKey, startHeight, endHeight, endHeight, view.expectedEndHash)
-                    logger.trace {
-                        "Starting gap discovery for account ${view.publicKey}. Requesting transactions from $startHeight to $endHeight"
-                    }
-                    pointer
-                }
-            }
+            updateIdleSuppression(gaps.isNotEmpty(), startingGeneration)
         }
     }
 
     @EventListener
-    fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
-        val response = message.payload
-        val transaction = response.transaction
-        val block = transaction.block
-
-        val pointer =
-            pointerMap.computeIfPresent(block.publicKey) { _, pointer ->
-                if (pointer.currentHeight != block.height && block.height in pointer.initialHeight..<pointer.finalHeight) {
-                    outOfOrderBuffer[block.hash] = message
-                    logger.trace {
-                        "Buffering out of order transaction ${block.hash}. Current height is ${pointer.currentHeight} and block height is ${block.height}"
-                    }
-                    return@computeIfPresent pointer
-                }
-                process(pointer, transaction)
-            }
-
-        if (pointer == null) {
-            return
-        }
-
-        val nextMessage = outOfOrderBuffer.remove(pointer.currentHash) ?: return
-        process(nextMessage)
-    }
-
-    private fun process(
-        pointer: TransactionPointer,
-        transaction: AttoTransaction,
-    ): TransactionPointer? {
-        if (transaction.hash != pointer.currentHash) {
-            logger.debug { "Expecting transaction with hash ${pointer.currentHash} but received hash $transaction" }
-            return null
-        }
-
-        val block = transaction.block
-
-        val nextPointer =
-            if (pointer.initialHeight == block.height) {
-                logger.debug { "End of the gap reached for account ${transaction.block.publicKey}" }
-                null
-            } else {
-                pointer.copy(
-                    currentHeight = block.height - 1UL,
-                    currentHash = (block as PreviousSupport).previous,
-                    timestamp = Instant.now(),
-                )
-            }
-
-        logger.debug { "Discovered gap transaction ${transaction.hash} with height ${block.height}. New pointer: $nextPointer" }
-
-        lastCompletedGaps[pointer.publicKey] = block.height
-
-        eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
-
-        return nextPointer
+    suspend fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
+        val publicKey = message.payload.transaction.block.publicKey
+        val session = activeSessions[publicKey] ?: return
+        closeIfFinished(session, session.offer(message))
     }
 
     override fun clear() {
-        pointerMap.clear()
-        lastCompletedGaps.clear()
-        outOfOrderBuffer.clear()
+        activeSessions.clear()
+        resetIdleSuppression()
+    }
+
+    internal fun activeSessionCount(): Int = activeSessions.size
+
+    private suspend fun retryActiveSessions() {
+        activeSessions.values.toList().forEach { session ->
+            if (session.isExpired(clock.instant(), SESSION_TIMEOUT)) {
+                activeSessions.remove(session.publicKey, session)
+            } else {
+                closeIfFinished(session, session.retry())
+            }
+        }
+    }
+
+    private fun availableSessionSlots(): Int {
+        if (peers.isEmpty()) {
+            return 0
+        }
+
+        val queueSlots =
+            maxOf(
+                0,
+                discoveryQueue.remainingTargetCapacity() / requestBudget - activeSessions.size,
+            )
+        if (queueSlots == 0) {
+            return 0
+        }
+
+        val sessionsByPeer = activeSessions.values.groupingBy(GapSession::peer).eachCount()
+        val peerSlots =
+            peers.values.sumOf { peer ->
+                maxOf(0, peer.parallelStreamLimit() - (sessionsByPeer[peer.publicUri] ?: 0))
+            }
+        return minOf(queueSlots, peerSlots)
+    }
+
+    private fun startGapRequest(view: GapView) {
+        val selectedPeer = selectPeer() ?: return
+        val startHeight = view.startHeight(requestBudget.toULong())
+        val session =
+            GapSession(
+                publicKey = view.publicKey,
+                peer = selectedPeer,
+                startHeight = startHeight,
+                endHeight = view.endHeight,
+                initialExpectedHash = view.expectedEndHash,
+                discoveryQueue = discoveryQueue,
+                clock = clock,
+            )
+        if (activeSessions.putIfAbsent(view.publicKey, session) != null) {
+            return
+        }
+        if (!peers.containsKey(selectedPeer)) {
+            activeSessions.remove(view.publicKey, session)
+            return
+        }
+
+        val message =
+            DirectNetworkMessage(
+                selectedPeer,
+                AttoTransactionStreamRequest(view.publicKey, startHeight, view.endHeight),
+                expectedResponseCount = view.endHeight.value - startHeight.value + 1UL,
+            )
+        try {
+            networkMessagePublisher.publish(message)
+            logger.trace {
+                "Starting gap discovery for account ${view.publicKey}. " +
+                    "Requesting transactions from $startHeight to ${view.endHeight}"
+            }
+        } catch (e: Exception) {
+            activeSessions.remove(view.publicKey, session)
+            throw e
+        }
+    }
+
+    private fun selectPeer(): URI? {
+        val sessionsByPeer = activeSessions.values.groupingBy(GapSession::peer).eachCount()
+        val candidates =
+            peers.values
+                .mapNotNull { peer ->
+                    val count = sessionsByPeer[peer.publicUri] ?: 0
+                    if (count < peer.parallelStreamLimit()) peer.publicUri to count else null
+                }
+        val minimumCount = candidates.minOfOrNull { it.second } ?: return null
+        val leastLoaded = candidates.filter { it.second == minimumCount }
+        return leastLoaded[Random.nextInt(leastLoaded.size)].first
+    }
+
+    private fun closeIfFinished(
+        session: GapSession,
+        status: GapSessionStatus,
+    ) {
+        if (status != GapSessionStatus.ACTIVE) {
+            activeSessions.remove(session.publicKey, session)
+        }
+    }
+
+    private fun updateIdleSuppression(
+        foundGaps: Boolean,
+        startingGeneration: Long,
+    ) {
+        val endingGeneration = workTracker.currentGeneration()
+        if (!foundGaps && startingGeneration == endingGeneration) {
+            idleGeneration = endingGeneration
+            nextMaintenanceAt = clock.instant().plusSeconds(discoveryProperties.idleQueryFallbackInSeconds)
+        } else {
+            resetIdleSuppression()
+        }
+    }
+
+    private fun resetIdleSuppression() {
+        idleGeneration = Long.MIN_VALUE
+        nextMaintenanceAt = Instant.EPOCH
+    }
+
+    private fun shouldSkipIdleScan(): Boolean =
+        workTracker.currentGeneration() == idleGeneration &&
+            clock.instant().isBefore(nextMaintenanceAt)
+
+    private fun AttoNode.parallelStreamLimit(): Int =
+        if (supportsParallelTransactionStreams()) {
+            AttoTransactionStreamRequest.MAX_PARALLEL_STREAMS
+        } else {
+            1
+        }
+
+    private companion object {
+        val SESSION_TIMEOUT: Duration = Duration.ofMinutes(1)
     }
 }
 
-private data class TransactionPointer(
-    val publicKey: AttoPublicKey,
-    val initialHeight: AttoHeight,
-    val finalHeight: AttoHeight,
-    val currentHeight: AttoHeight,
-    val currentHash: AttoHash,
-    val timestamp: Instant = Instant.now(),
-)
-
-private fun GapView.startHeight(): AttoHeight {
-    val maxCount = AttoTransactionStreamRequest.MAX_TRANSACTIONS
-    val count = this.endHeight - this.startHeight + 1U
-    if (count.value > maxCount) {
-        return this.endHeight - maxCount + 1U
+private fun GapView.startHeight(requestBudget: ULong): AttoHeight {
+    val count = endHeight - startHeight + 1U
+    if (count.value > requestBudget) {
+        return endHeight - requestBudget + 1U
     }
-    return this.startHeight
+    return startHeight
 }
-
-private fun GapView.endHeight(): AttoHeight = this.endHeight

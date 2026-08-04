@@ -53,6 +53,7 @@ class LastDiscoverer(
     private val nodeConnectionManager: NodeConnectionManager,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
+    private val discoveryQueue: DiscoveryQueue,
     private val voteConverter: VoteConverter,
     private val voteWeighter: VoteWeighter,
 ) : CacheSupport {
@@ -68,7 +69,7 @@ class LastDiscoverer(
             .maximumSize(100_000)
             .removalListener { _: AttoHash?, election: TransactionElection?, cause ->
                 val retryThreshold = voteWeighter.getMinimalToStaleWeight()
-                if (election != null && election.totalWeight >= retryThreshold) {
+                if (cause.wasEvicted() && election != null && election.totalWeight >= retryThreshold) {
                     scope.launch { startElection(election.transaction) }
                 }
             }.build<AttoHash, TransactionElection>()
@@ -134,6 +135,10 @@ class LastDiscoverer(
             return
         }
 
+        if (discoveryQueue.isAtCapacity()) {
+            return
+        }
+
         transactionElectionMap.compute(transaction.hash) { _, existing ->
             existing ?: TransactionElection(transaction) {
                 voteWeighter.getMinimalConfirmationWeight()
@@ -169,21 +174,31 @@ class LastDiscoverer(
             return
         }
 
+        var admission: PendingHeadAdmission? = null
         transactionElectionMap.computeIfPresent(blockHash) { _, election ->
             election.add(vote)
             if (election.isConsensusReached()) {
                 logger.debug { "Discovered missing last transaction $blockHash" }
-
-                val request = AttoVoteStreamCancel(blockHash)
-                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, request))
-                eventPublisher.publish(TransactionDiscovered(null, election.transaction, election.votes.values))
-
-                null
+                admission =
+                    PendingHeadAdmission(
+                        election,
+                        TransactionDiscovered(null, election.transaction, election.votes.values.toList()),
+                    )
             } else {
                 logger.trace { "Consensus not reached yet. Added to election queue" }
-
-                election
             }
+            election
+        }
+
+        val pending = admission ?: return
+        discoveryQueue.queue(pending.event, DiscoverySource.HEAD)
+        if (transactionElectionMap.remove(blockHash, pending.election)) {
+            networkMessagePublisher.publish(
+                DirectNetworkMessage(
+                    message.publicUri,
+                    AttoVoteStreamCancel(blockHash),
+                ),
+            )
         }
     }
 
@@ -191,3 +206,8 @@ class LastDiscoverer(
         eventPublisher.publish(TransactionReceived(transaction))
     }
 }
+
+private data class PendingHeadAdmission(
+    val election: TransactionElection,
+    val event: TransactionDiscovered,
+)
