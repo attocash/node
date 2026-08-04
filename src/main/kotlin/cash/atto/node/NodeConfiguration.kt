@@ -44,7 +44,7 @@ class NodeConfiguration(
 
         return AttoNode(
             network = nodeProperties.network!!,
-            protocolVersion = 0u,
+            protocolVersion = AttoNode.CURRENT_PROTOCOL_VERSION,
             algorithm = AttoAlgorithm.V1,
             publicKey = signer.publicKey,
             publicUri = URI(nodeProperties.publicUri!!),

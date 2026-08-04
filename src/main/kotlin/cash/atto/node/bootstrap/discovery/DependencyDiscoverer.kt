@@ -4,7 +4,6 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejected
@@ -24,7 +23,7 @@ import java.time.Duration
 @Component
 class DependencyDiscoverer(
     private val voteWeighter: VoteWeighter,
-    private val eventPublisher: EventPublisher,
+    private val discoveryQueue: DiscoveryQueue,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
@@ -102,19 +101,20 @@ class DependencyDiscoverer(
             val weight = holder.getWeight()
             val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
 
-            if (weight >= minimalConfirmationWeight) {
-                transactionHolderMap.remove(hash)
-                logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
-                eventPublisher.publish(
-                    TransactionDiscovered(
-                        holder.reason,
-                        holder.transaction,
-                        holder.votes.values.toList(),
-                    ),
-                )
+            if (weight < minimalConfirmationWeight) {
+                return
             }
 
-            return
+            logger.debug { "Discovered approved transaction that's missing some dependency $hash" }
+            discoveryQueue.queue(
+                TransactionDiscovered(
+                    holder.reason,
+                    holder.transaction,
+                    holder.votes.values.toList(),
+                ),
+                DiscoverySource.DEPENDENCY,
+            )
+            transactionHolderMap.remove(hash)
         }
 
     override fun clear() {

@@ -5,9 +5,9 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.ReceiveSupport
 import cash.atto.node.CacheSupport
 import cash.atto.node.DuplicateDetector
-import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.TransactionStuck
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.DirectNetworkMessage
@@ -24,6 +24,8 @@ import cash.atto.protocol.AttoTransactionResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.micrometer.core.instrument.Counter
+import io.micrometer.core.instrument.MeterRegistry
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -34,9 +36,16 @@ import kotlin.time.Duration.Companion.minutes
 @Component
 class SendDiscoverer(
     private val networkMessagePublisher: NetworkMessagePublisher,
-    private val eventPublisher: EventPublisher,
+    private val discoveryQueue: DiscoveryQueue,
+    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
+    meterRegistry: MeterRegistry,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
+    private val skippedForGap =
+        Counter
+            .builder("transactions.discovery.send.skipped")
+            .description("Send responses skipped because a higher unchecked transaction lets gap discovery recover them")
+            .register(meterRegistry)
 
     private val peers = ConcurrentHashMap<AttoPublicKey, URI>()
 
@@ -82,6 +91,10 @@ class SendDiscoverer(
             return
         }
 
+        if (discoveryQueue.isAtCapacity()) {
+            return
+        }
+
         val block = transaction.block as ReceiveSupport
 
         if (duplicateDetector.isDuplicate(transaction.hash)) {
@@ -106,17 +119,30 @@ class SendDiscoverer(
     }
 
     @EventListener
-    fun process(message: InboundNetworkMessage<AttoTransactionResponse>) {
+    suspend fun process(message: InboundNetworkMessage<AttoTransactionResponse>) {
         val response = message.payload
         val transaction = response.transaction
 
-        if (unknownHashCache.remove(transaction.hash) == null) {
+        if (!unknownHashCache.containsKey(transaction.hash)) {
+            return
+        }
+
+        val block = transaction.block
+        if (uncheckedTransactionRepository.hasHigherTransaction(block.publicKey, block.height) != 0L) {
+            skippedForGap.increment()
+            logger.debug {
+                "Skipping missing send transaction ${transaction.hash} at height ${block.height} because account " +
+                    "${block.publicKey} has a higher unchecked transaction"
+            }
             return
         }
 
         logger.debug { "Discovered missing send transaction ${transaction.hash}" }
-
-        eventPublisher.publish(TransactionDiscovered(null, transaction.toTransaction(), listOf()))
+        discoveryQueue.queue(
+            TransactionDiscovered(null, transaction.toTransaction(), listOf()),
+            DiscoverySource.SEND,
+        )
+        unknownHashCache.remove(transaction.hash)
     }
 
     private fun randomUri(votes: Collection<Vote>): URI? =

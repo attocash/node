@@ -12,16 +12,11 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
 import io.github.oshai.kotlinlogging.KotlinLogging
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import org.springframework.transaction.annotation.Isolation
 import org.springframework.transaction.annotation.Transactional
-import java.util.concurrent.TimeUnit
-import kotlin.time.measureTime
 
 private val logger = KotlinLogging.logger {}
 
@@ -82,41 +77,6 @@ class UncheckedTransactionProcessor(
                 }
 
             return resolvedCounter
-        }
-    }
-}
-
-@Component
-class UncheckedTransactionProcessorStarter(
-    private val uncheckedTransactionRepository: UncheckedTransactionRepository,
-    private val processor: UncheckedTransactionProcessor,
-    private val uncheckedTransactionService: UncheckedTransactionService,
-) {
-    private val mutex = Mutex()
-
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
-    suspend fun process() {
-        if (mutex.isLocked) {
-            return
-        }
-        mutex.withLock {
-            do {
-                val candidateTransactions =
-                    uncheckedTransactionRepository
-                        .findTopOldest(1000L)
-                        .map { it.toTransaction() }
-                        .toList()
-
-                var resolvedCounter = 0
-                val elapsed =
-                    measureTime {
-                        resolvedCounter = processor.process(candidateTransactions)
-                        uncheckedTransactionService.cleanUp()
-                    }
-                if (resolvedCounter > 0) {
-                    logger.info { "Resolved $resolvedCounter unchecked transactions in $elapsed" }
-                }
-            } while (candidateTransactions.isNotEmpty() && resolvedCounter == candidateTransactions.size)
         }
     }
 }

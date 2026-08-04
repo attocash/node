@@ -21,6 +21,7 @@ data class AttoTransactionStreamRequest(
 ) : AttoMessage {
     companion object {
         const val MAX_TRANSACTIONS = 1000UL
+        const val MAX_PARALLEL_STREAMS = 10
     }
 
     init {

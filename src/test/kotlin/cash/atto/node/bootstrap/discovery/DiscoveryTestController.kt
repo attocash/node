@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.RestController
 @RestController
 @RequestMapping("/unchecked-transactions/discoveries")
 class DiscoveryTestController(
-    val discoveryProcessor: DiscoveryProcessor,
+    val discoveryPersistenceWorker: DiscoveryPersistenceWorker,
     val gapDiscoverer: GapDiscoverer,
     val lastDiscoverer: LastDiscoverer,
     val uncheckedTransactionProcessorStarter: UncheckedTransactionProcessorStarter,
@@ -29,16 +29,16 @@ class DiscoveryTestController(
     @PostMapping("/flush")
     @Operation(description = "Flush discovered transactions")
     suspend fun flush() {
-        discoveryProcessor.flush()
+        discoveryPersistenceWorker.flush()
     }
 
     @PostMapping("/settle")
     @Operation(description = "Flush discoveries, resolve gaps, and process unchecked transactions")
     suspend fun settle() {
-        discoveryProcessor.flush()
+        discoveryPersistenceWorker.flush()
         uncheckedTransactionProcessorStarter.process()
         gapDiscoverer.resolve()
-        discoveryProcessor.flush()
+        discoveryPersistenceWorker.flush()
         uncheckedTransactionProcessorStarter.process()
     }
 }

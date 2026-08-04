@@ -74,9 +74,6 @@
       "type": "cash.atto.commons.AttoAddress__Accessor_b4yl3v"
     },
     {
-      "type": "cash.atto.commons.AttoAddress__Instantiator_b4yl3v"
-    },
-    {
       "type": "cash.atto.commons.AttoAlgorithm",
       "serializable": true
     },
@@ -100,9 +97,6 @@
     },
     {
       "type": "cash.atto.commons.AttoAmount__Accessor_uaf0up"
-    },
-    {
-      "type": "cash.atto.commons.AttoAmount__Instantiator_uaf0up"
     },
     {
       "type": "cash.atto.commons.AttoBlock"
@@ -150,9 +144,6 @@
       "type": "cash.atto.commons.AttoHash__Accessor_jjvshl"
     },
     {
-      "type": "cash.atto.commons.AttoHash__Instantiator_jjvshl"
-    },
-    {
       "type": "cash.atto.commons.AttoHashable"
     },
     {
@@ -171,9 +162,6 @@
       "type": "cash.atto.commons.AttoHeight__Accessor_xh7wf4"
     },
     {
-      "type": "cash.atto.commons.AttoHeight__Instantiator_xh7wf4"
-    },
-    {
       "type": "cash.atto.commons.AttoInstant"
     },
     {
@@ -184,9 +172,6 @@
     },
     {
       "type": "cash.atto.commons.AttoInstant__Accessor_8jcxbs"
-    },
-    {
-      "type": "cash.atto.commons.AttoInstant__Instantiator_8jcxbs"
     },
     {
       "type": "cash.atto.commons.AttoNetwork"
@@ -231,9 +216,6 @@
     },
     {
       "type": "cash.atto.commons.AttoPublicKey__Accessor_crz7dv"
-    },
-    {
-      "type": "cash.atto.commons.AttoPublicKey__Instantiator_crz7dv"
     },
     {
       "type": "cash.atto.commons.AttoReceivable",
@@ -292,9 +274,6 @@
       "type": "cash.atto.commons.AttoSignature__Accessor_iy8n8h"
     },
     {
-      "type": "cash.atto.commons.AttoSignature__Instantiator_iy8n8h"
-    },
-    {
       "type": "cash.atto.commons.AttoSignedVote"
     },
     {
@@ -307,7 +286,7 @@
       "type": "cash.atto.commons.AttoSigner$DefaultImpls"
     },
     {
-      "type": "cash.atto.commons.AttoSigner$Subclass6"
+      "type": "cash.atto.commons.AttoSigner$Subclass15"
     },
     {
       "type": "cash.atto.commons.AttoTransaction",
@@ -339,9 +318,6 @@
       "type": "cash.atto.commons.AttoTransaction__Accessor_7y9irf"
     },
     {
-      "type": "cash.atto.commons.AttoTransaction__Instantiator_7y9irf"
-    },
-    {
       "type": "cash.atto.commons.AttoUnit"
     },
     {
@@ -349,9 +325,6 @@
     },
     {
       "type": "cash.atto.commons.AttoValidation$Error__Accessor_ytxlyu"
-    },
-    {
-      "type": "cash.atto.commons.AttoValidation$Error__Instantiator_ytxlyu"
     },
     {
       "type": "cash.atto.commons.AttoValidation$Ok__Accessor_ananfy"
@@ -370,9 +343,6 @@
     },
     {
       "type": "cash.atto.commons.AttoVersion__Accessor_z3i9j5"
-    },
-    {
-      "type": "cash.atto.commons.AttoVersion__Instantiator_z3i9j5"
     },
     {
       "type": "cash.atto.commons.AttoVote"
@@ -402,13 +372,7 @@
       "type": "cash.atto.commons.AttoWorkTarget__Accessor_g1qksl"
     },
     {
-      "type": "cash.atto.commons.AttoWorkTarget__Instantiator_g1qksl"
-    },
-    {
       "type": "cash.atto.commons.AttoWork__Accessor_jjlxbq"
-    },
-    {
-      "type": "cash.atto.commons.AttoWork__Instantiator_jjlxbq"
     },
     {
       "type": "cash.atto.commons.HeightSupport"
@@ -1985,9 +1949,6 @@
       "type": "cash.atto.node.account.Account__Accessor_mv8nv"
     },
     {
-      "type": "cash.atto.node.account.Account__Instantiator_mv8nv"
-    },
-    {
       "type": "cash.atto.node.account.entry.AccountEntry",
       "fields": [
         {
@@ -2022,6 +1983,26 @@
         },
         {
           "name": "timestamp"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.commons.AttoHash",
+            "cash.atto.commons.AttoAlgorithm",
+            "cash.atto.commons.AttoPublicKey",
+            "cash.atto.commons.AttoHeight",
+            "cash.atto.commons.AttoBlockType",
+            "cash.atto.commons.AttoAlgorithm",
+            "cash.atto.commons.AttoPublicKey",
+            "cash.atto.commons.AttoAmount",
+            "cash.atto.commons.AttoAmount",
+            "java.time.Instant",
+            "java.time.Instant",
+            "int",
+            "kotlin.jvm.internal.DefaultConstructorMarker"
+          ]
         }
       ]
     },
@@ -2186,13 +2167,7 @@
       ]
     },
     {
-      "type": "cash.atto.node.account.entry.AccountEntry__Instantiator_wao3d5",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "cash.atto.node.account.entry.AccountEntry__Instantiator_wao3d5"
     },
     {
       "type": "cash.atto.node.bootstrap.TransactionDiscovered"
@@ -2213,7 +2188,7 @@
           "name": "<init>",
           "parameterTypes": [
             "cash.atto.node.vote.weight.VoteWeighter",
-            "cash.atto.node.EventPublisher"
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue"
           ]
         },
         {
@@ -2239,18 +2214,96 @@
       "type": "cash.atto.node.bootstrap.discovery.DependencyDiscoverer$outOfOrderBuffer$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscoverer$process$4"
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscoverer$process$4",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "final consensus at capacity retains the holder when admission is cancelled",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$3",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$7"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DependencyDiscovererTest$final consensus at capacity retains the holder when admission is cancelled$1$admission$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DependencyDiscoverer__TestContext001_BeanDefinitions"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProcessor",
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryMetrics",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": [
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService"
+            "io.micrometer.core.instrument.MeterRegistry"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryMetrics$persisted$$inlined$groupingBy$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryMetrics__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService",
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
+            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
+            "cash.atto.node.bootstrap.discovery.DiscoveryMetrics",
+            "java.time.Clock"
           ]
         },
         {
@@ -2258,21 +2311,299 @@
           "parameterTypes": [
             "kotlin.coroutines.Continuation"
           ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$clear$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$flush$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
+      "methods": [
+        {
+          "name": "setBatchSize",
+          "parameterTypes": [
+            "int"
+          ]
         },
         {
-          "name": "process",
+          "name": "setCapacity",
           "parameterTypes": [
-            "cash.atto.node.bootstrap.TransactionDiscovered",
-            "kotlin.coroutines.Continuation"
+            "int"
+          ]
+        },
+        {
+          "name": "setHeadroom",
+          "parameterTypes": [
+            "int"
+          ]
+        },
+        {
+          "name": "setIdleQueryFallbackInSeconds",
+          "parameterTypes": [
+            "long"
+          ]
+        },
+        {
+          "name": "setRetryInitialBackoffInSeconds",
+          "parameterTypes": [
+            "long"
+          ]
+        },
+        {
+          "name": "setRetryMaxBackoffInSeconds",
+          "parameterTypes": [
+            "long"
+          ]
+        },
+        {
+          "name": "validate",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties$$SpringCGLIB$$0",
+      "fields": [
+        {
+          "name": "$$beanFactory"
+        },
+        {
+          "name": "CGLIB$CALLBACK_FILTER"
+        },
+        {
+          "name": "CGLIB$FACTORY_DATA"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "CGLIB$SET_STATIC_CALLBACKS",
+          "parameterTypes": [
+            "org.springframework.cglib.proxy.Callback[]"
           ]
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProcessor$flush$1"
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties$$SpringCGLIB$$1",
+      "fields": [
+        {
+          "name": "$$beanFactory"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "CGLIB$SET_STATIC_CALLBACKS",
+          "parameterTypes": [
+            "org.springframework.cglib.proxy.Callback[]"
+          ]
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProcessor__TestContext001_BeanDefinitions"
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.EventPublisher",
+            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
+            "cash.atto.node.bootstrap.discovery.DiscoveryMetrics",
+            "java.time.Clock"
+          ]
+        },
+        {
+          "name": "start",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueue$buffer$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueue$queue$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "backlog metrics include suspended replies and record queue wait when drained",
+          "parameterTypes": []
+        },
+        {
+          "name": "cancelled save leaves the drained batch intact",
+          "parameterTypes": []
+        },
+        {
+          "name": "cancelling a suspended admission removes it without affecting buffered transactions",
+          "parameterTypes": []
+        },
+        {
+          "name": "capacity suspends the next admission without blocking unrelated work and preserves FIFO order",
+          "parameterTypes": []
+        },
+        {
+          "name": "duplicate transaction is published and persisted once",
+          "parameterTypes": []
+        },
+        {
+          "name": "headroom accepts in flight replies above the discovery target before suspending",
+          "parameterTypes": []
+        },
+        {
+          "name": "save failure retries the exact batch before newer transactions",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$Fixture"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$MutableClock"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$backlog metrics include suspended replies and record queue wait when drained$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$backlog metrics include suspended replies and record queue wait when drained$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$backlog metrics include suspended replies and record queue wait when drained$1$suspended$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelled save leaves the drained batch intact$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelled save leaves the drained batch intact$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelling a suspended admission removes it without affecting buffered transactions$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelling a suspended admission removes it without affecting buffered transactions$1$suspended$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$capacity suspends the next admission without blocking unrelated work and preserves FIFO order$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$capacity suspends the next admission without blocking unrelated work and preserves FIFO order$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$capacity suspends the next admission without blocking unrelated work and preserves FIFO order$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$capacity suspends the next admission without blocking unrelated work and preserves FIFO order$1$thirdAdmission$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$duplicate transaction is published and persisted once$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$duplicate transaction is published and persisted once$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$headroom accepts in flight replies above the discovery target before suspending$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$headroom accepts in flight replies above the discovery target before suspending$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$headroom accepts in flight replies above the discovery target before suspending$1$fifth$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$save failure retries the exact batch before newer transactions$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$save failure retries the exact batch before newer transactions$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueue__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoverySource"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController",
@@ -2280,7 +2611,7 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "cash.atto.node.bootstrap.discovery.DiscoveryProcessor",
+            "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker",
             "cash.atto.node.bootstrap.discovery.GapDiscoverer",
             "cash.atto.node.bootstrap.discovery.LastDiscoverer",
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter"
@@ -2317,7 +2648,11 @@
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
             "cash.atto.node.network.NetworkMessagePublisher",
-            "cash.atto.node.EventPublisher"
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
+            "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
+            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
+            "io.micrometer.core.instrument.MeterRegistry",
+            "java.time.Clock"
           ]
         },
         {
@@ -2335,7 +2670,8 @@
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.network.InboundNetworkMessage"
+            "cash.atto.node.network.InboundNetworkMessage",
+            "kotlin.coroutines.Continuation"
           ]
         },
         {
@@ -2353,13 +2689,151 @@
       ]
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$process$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$processOne$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$resolve$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$resolve$2$3"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$resolve$2$2"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscovererKt"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "cancelled admission retains the response and retries before querying again",
+          "parameterTypes": []
+        },
+        {
+          "name": "capacity stops gap discovery before running its query",
+          "parameterTypes": []
+        },
+        {
+          "name": "clear removes the active stream",
+          "parameterTypes": []
+        },
+        {
+          "name": "disconnect removes the active stream immediately and allows retry",
+          "parameterTypes": []
+        },
+        {
+          "name": "fixture",
+          "parameterTypes": [
+            "kotlinx.coroutines.flow.Flow",
+            "boolean",
+            "int",
+            "java.time.Clock"
+          ]
+        },
+        {
+          "name": "only one gap stream is active and it is capped to the protocol limit",
+          "parameterTypes": []
+        },
+        {
+          "name": "partial and out of order replies remain safe while processor is at capacity",
+          "parameterTypes": []
+        },
+        {
+          "name": "unanswered stream expires and retries automatically",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$Fixture"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$MutableClock"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$cancelled admission retains the response and retries before querying again$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$cancelled admission retains the response and retries before querying again$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$capacity stops gap discovery before running its query$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$capacity stops gap discovery before running its query$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$clear removes the active stream$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$disconnect removes the active stream immediately and allows retry$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1$gaps$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$partial and out of order replies remain safe while processor is at capacity$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$unanswered stream expires and retries automatically$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$unanswered stream expires and retries automatically$1$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer__TestContext001_BeanDefinitions"
@@ -2377,6 +2851,7 @@
             "cash.atto.node.network.NodeConnectionManager",
             "cash.atto.node.network.NetworkMessagePublisher",
             "cash.atto.node.EventPublisher",
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
             "cash.atto.node.vote.convertion.VoteConverter",
             "cash.atto.node.vote.weight.VoteWeighter"
           ]
@@ -2435,13 +2910,118 @@
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$processPush$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$processVoteResponse$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$transactionElectionMap$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$transactionElectionMap$1$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "capacity prevents a new head election and vote request",
+          "parameterTypes": []
+        },
+        {
+          "name": "consensus at capacity retains the head election when admission is cancelled",
+          "parameterTypes": []
+        },
+        {
+          "name": "fixture",
+          "parameterTypes": [
+            "boolean"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$Fixture"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$capacity prevents a new head election and vote request$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$capacity prevents a new head election and vote request$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$consensus at capacity retains the head election when admission is cancelled$1$admission$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$fixture$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscovererTest$fixture$8"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.PendingDiscovery"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.PendingDiscoveryKt"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.PendingGapRequest"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.PendingHeadAdmission"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.SendDiscoverer",
@@ -2450,7 +3030,9 @@
           "name": "<init>",
           "parameterTypes": [
             "cash.atto.node.network.NetworkMessagePublisher",
-            "cash.atto.node.EventPublisher"
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
+            "io.micrometer.core.instrument.MeterRegistry"
           ]
         },
         {
@@ -2474,7 +3056,8 @@
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.network.InboundNetworkMessage"
+            "cash.atto.node.network.InboundNetworkMessage",
+            "kotlin.coroutines.Continuation"
           ]
         },
         {
@@ -2486,6 +3069,70 @@
       ]
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscoverer$process$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "paused discovery does not suppress a send request after recovery",
+          "parameterTypes": []
+        },
+        {
+          "name": "response already in flight is admitted while discovery is paused",
+          "parameterTypes": []
+        },
+        {
+          "name": "send response is left for gap discovery when the account has a higher unchecked transaction",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$response already in flight is admitted while discovery is paused$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$response already in flight is admitted while discovery is paused$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$response already in flight is admitted while discovery is paused$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$response already in flight is admitted while discovery is paused$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$send response is left for gap discovery when the account has a higher unchecked transaction$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$send response is left for gap discovery when the account has a higher unchecked transaction$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$send response is left for gap discovery when the account has a higher unchecked transaction$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.SendDiscovererTest$send response is left for gap discovery when the account has a higher unchecked transaction$1$3"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.SendDiscoverer__TestContext001_BeanDefinitions"
     },
     {
@@ -2495,19 +3142,24 @@
       "type": "cash.atto.node.bootstrap.discovery.TransactionPointer"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.GapView"
+      "type": "cash.atto.node.bootstrap.unchecked.GapView",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.commons.AttoPublicKey",
+            "cash.atto.commons.AttoHeight",
+            "cash.atto.commons.AttoHeight",
+            "cash.atto.commons.AttoHash"
+          ]
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.GapView__Accessor_dxhpik"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.GapView__Instantiator_dxhpik",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.unchecked.GapView__Instantiator_dxhpik"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransaction"
@@ -2559,6 +3211,29 @@
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter$insert$2$3"
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserterTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "does not acquire a connection for an empty collection",
+          "parameterTypes": []
+        },
+        {
+          "name": "inserts a collection with one multi-row statement",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserterTest$does not acquire a connection for an empty collection$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserterTest$inserts a collection with one multi-row statement$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter__TestContext001_BeanDefinitions"
     },
     {
@@ -2591,6 +3266,45 @@
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest",
+      "fields": [
+        {
+          "name": "mysql"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "cleanDatabase",
+          "parameterTypes": []
+        },
+        {
+          "name": "migrates a clean database through the oldest index",
+          "parameterTypes": []
+        },
+        {
+          "name": "migrates a populated V10 database without changing unchecked rows",
+          "parameterTypes": []
+        },
+        {
+          "name": "persists a full multi-row batch while ignoring duplicates through R2DBC",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$hasHigherUncheckedTransaction$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$persists a full multi-row batch while ignoring duplicates through R2DBC$1"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
@@ -2649,7 +3363,11 @@
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService"
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService",
+            "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
+            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
+            "io.micrometer.core.instrument.MeterRegistry",
+            "java.time.Clock"
           ]
         },
         {
@@ -2661,16 +3379,106 @@
       ]
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$cleanUp$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$cleanUp$2$deleted$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$lambda$0$$inlined$map$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$lambda$0$$inlined$map$1$2"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$lambda$0$$inlined$map$1$2$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1$2$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$elapsed$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterKt"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterKt$recordSuspending$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "bounds cleanup work per scheduled pass",
+          "parameterTypes": []
+        },
+        {
+          "name": "skips repeated scans until work changes or maintenance is due",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$MutableClock"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$7"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter__TestContext001_BeanDefinitions"
@@ -2698,6 +3506,7 @@
         {
           "name": "cleanUp",
           "parameterTypes": [
+            "long",
             "kotlin.coroutines.Continuation"
           ]
         },
@@ -2739,13 +3548,64 @@
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService$save$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionServiceTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "cleans up at most the requested unchecked transactions",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionServiceTest$cleans up at most the requested unchecked transactions$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionServiceTest$cleans up at most the requested unchecked transactions$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionServiceTest$cleans up at most the requested unchecked transactions$1$2"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService__TestContext001_BeanDefinitions"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransaction__Accessor_eie46v"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransaction__Instantiator_eie46v"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.account.AccountUpdated"
+          ]
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.bootstrap.UncheckedTransactionSaved"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker__TestContext001_BeanDefinitions"
     },
     {
       "type": "cash.atto.node.convertion.ConversionsConfiguration",
@@ -4825,7 +5685,26 @@
       "type": "cash.atto.node.network.peer.PeerStepDefinition$startPeer$1"
     },
     {
-      "type": "cash.atto.node.receivable.Receivable"
+      "type": "cash.atto.node.receivable.Receivable",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.commons.AttoHash",
+            "cash.atto.commons.AttoNetwork",
+            "cash.atto.commons.AttoVersion",
+            "cash.atto.commons.AttoAlgorithm",
+            "cash.atto.commons.AttoPublicKey",
+            "java.time.Instant",
+            "cash.atto.commons.AttoAlgorithm",
+            "cash.atto.commons.AttoPublicKey",
+            "cash.atto.commons.AttoAmount",
+            "java.time.Instant",
+            "int",
+            "kotlin.jvm.internal.DefaultConstructorMarker"
+          ]
+        }
+      ]
     },
     {
       "type": "cash.atto.node.receivable.ReceivableBulkRepository",
@@ -5052,13 +5931,7 @@
       "type": "cash.atto.node.receivable.Receivable__Accessor_f5qdgn"
     },
     {
-      "type": "cash.atto.node.receivable.Receivable__Instantiator_f5qdgn",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "cash.atto.node.receivable.Receivable__Instantiator_f5qdgn"
     },
     {
       "type": "cash.atto.node.signature.MeteredAttoSigner"
@@ -5492,9 +6365,6 @@
     },
     {
       "type": "cash.atto.node.transaction.PublicKeyHeight__Accessor_5yw21y"
-    },
-    {
-      "type": "cash.atto.node.transaction.PublicKeyHeight__Instantiator_5yw21y"
     },
     {
       "type": "cash.atto.node.transaction.Transaction"
@@ -6324,9 +7194,6 @@
       "type": "cash.atto.node.transaction.Transaction__Accessor_fbvbqx"
     },
     {
-      "type": "cash.atto.node.transaction.Transaction__Instantiator_fbvbqx"
-    },
-    {
       "type": "cash.atto.node.transaction.prioritization.TransactionPrioritizationInfoContributor",
       "methods": [
         {
@@ -6921,28 +7788,28 @@
       "type": "cash.atto.node.unchecked.UncheckedTransactionStepDefinition$hasTransaction$$inlined$bodyToMono$1"
     },
     {
-      "type": "cash.atto.node.vote.MissingVote"
+      "type": "cash.atto.node.vote.MissingVote",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.commons.AttoHash",
+            "cash.atto.commons.AttoPublicKey"
+          ]
+        }
+      ]
     },
     {
       "type": "cash.atto.node.vote.MissingVote__Accessor_9ys8tp"
     },
     {
-      "type": "cash.atto.node.vote.MissingVote__Instantiator_9ys8tp",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
+      "type": "cash.atto.node.vote.MissingVote__Instantiator_9ys8tp"
     },
     {
       "type": "cash.atto.node.vote.PublicKeyHash"
     },
     {
       "type": "cash.atto.node.vote.PublicKeyHash__Accessor_s3dk6x"
-    },
-    {
-      "type": "cash.atto.node.vote.PublicKeyHash__Instantiator_s3dk6x"
     },
     {
       "type": "cash.atto.node.vote.StaleVoteBlock"
@@ -7181,9 +8048,6 @@
       "type": "cash.atto.node.vote.StaleVoteBlock__Accessor_os7gk9"
     },
     {
-      "type": "cash.atto.node.vote.StaleVoteBlock__Instantiator_os7gk9"
-    },
-    {
       "type": "cash.atto.node.vote.Vote"
     },
     {
@@ -7347,6 +8211,12 @@
           "name": "process",
           "parameterTypes": [
             "cash.atto.node.vote.VoteReceived"
+          ]
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.vote.VoteRejected"
           ]
         },
         {
@@ -7671,9 +8541,6 @@
     },
     {
       "type": "cash.atto.node.vote.Vote__Accessor_rljuqv"
-    },
-    {
-      "type": "cash.atto.node.vote.Vote__Instantiator_rljuqv"
     },
     {
       "type": "cash.atto.node.vote.convertion.VoteConverter",
@@ -8238,9 +9105,6 @@
     },
     {
       "type": "cash.atto.node.vote.weight.Weight__Accessor_szje7"
-    },
-    {
-      "type": "cash.atto.node.vote.weight.Weight__Instantiator_szje7"
     },
     {
       "type": "cash.atto.protocol.AttoBootstrapTransactionPush"
@@ -10770,6 +11634,17 @@
       ]
     },
     {
+      "type": "com.mysql.cj.exceptions.CJException",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        }
+      ]
+    },
+    {
       "type": "com.mysql.cj.jdbc.AbandonedConnectionCleanupThread"
     },
     {
@@ -11876,14 +12751,6 @@
       "type": "io.ktor.client.HttpClient"
     },
     {
-      "type": "io.ktor.client.HttpClient$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.HttpClientConfig"
     },
     {
@@ -11891,30 +12758,6 @@
     },
     {
       "type": "io.ktor.client.content.ProgressListener"
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
     },
     {
       "type": "io.ktor.client.engine.HttpClientEngineBase"
@@ -11926,69 +12769,13 @@
       "type": "io.ktor.client.engine.HttpClientEngineConfig"
     },
     {
-      "type": "io.ktor.client.engine.cio.CIOEngine$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.engine.cio.CIOEngineContainer"
     },
     {
       "type": "io.ktor.client.engine.cio.Endpoint"
     },
     {
-      "type": "io.ktor.client.engine.cio.Endpoint$connect$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.cio.Endpoint$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.cio.Endpoint$makeDedicatedRequest$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.engine.cio.Endpoint$timeout$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpCallValidatorKt$HttpCallValidator$2$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRedirectKt$HttpRedirect$2$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRequestLifecycleKt$HttpRequestLifecycle$1$1",
       "fields": [
         {
           "name": "label"
@@ -12008,22 +12795,6 @@
       "type": "io.ktor.client.plugins.HttpSend"
     },
     {
-      "type": "io.ktor.client.plugins.HttpSend$DefaultSender$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpSend$Plugin$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.plugins.HttpTimeoutConfig"
     },
     {
@@ -12035,34 +12806,10 @@
       ]
     },
     {
-      "type": "io.ktor.client.plugins.RequestError$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.SetupRequestContext$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.plugins.api.ClientPluginImpl"
     },
     {
       "type": "io.ktor.client.plugins.api.ClientPluginInstance"
-    },
-    {
-      "type": "io.ktor.client.plugins.api.Send$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
     },
     {
       "type": "io.ktor.client.plugins.websocket.BuildersKt$webSocketSession$2",
@@ -12079,14 +12826,6 @@
       "type": "io.ktor.client.plugins.websocket.WebSockets"
     },
     {
-      "type": "io.ktor.client.plugins.websocket.WebSockets$Plugin$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.request.HttpRequest"
     },
     {
@@ -12097,14 +12836,6 @@
     },
     {
       "type": "io.ktor.client.statement.HttpResponse"
-    },
-    {
-      "type": "io.ktor.client.statement.HttpStatement$fetchStreamingResponse$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
     },
     {
       "type": "io.ktor.http.ContentType"
@@ -12459,14 +13190,6 @@
       "type": "io.ktor.util.internal.LockFreeLinkedListNode"
     },
     {
-      "type": "io.ktor.util.pipeline.DebugPipelineContext$proceedLoop$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.util.reflect.TypeInfo"
     },
     {
@@ -12525,6 +13248,14 @@
     },
     {
       "type": "io.ktor.websocket.DefaultWebSocketSessionImpl"
+    },
+    {
+      "type": "io.ktor.websocket.DefaultWebSocketSessionImpl$runIncomingProcessor$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "io.ktor.websocket.DefaultWebSocketSessionImpl$runOutgoingProcessor$1",
@@ -12625,6 +13356,9 @@
     },
     {
       "type": "io.micrometer.core.instrument.Clock$1"
+    },
+    {
+      "type": "io.micrometer.core.instrument.Counter"
     },
     {
       "type": "io.micrometer.core.instrument.DistributionSummary"
@@ -12786,6 +13520,14 @@
       "type": "io.micrometer.tracing.Tracer"
     },
     {
+      "type": "io.mockk.CoFunctionAnswer$answer$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "io.mockk.JvmCoroutineCall",
       "methods": [
         {
@@ -12793,6 +13535,14 @@
           "parameterTypes": [
             "kotlin.coroutines.Continuation"
           ]
+        }
+      ]
+    },
+    {
+      "type": "io.mockk.MockKStubScope$coAnswers$1",
+      "fields": [
+        {
+          "name": "label"
         }
       ]
     },
@@ -12879,67 +13629,67 @@
       "type": "io.mockk.proxy.jvm.dispatcher.JvmMockKWeakMap$WeakKey"
     },
     {
-      "type": "io.mockk.renamed.java.util.Collection$Subclass7"
+      "type": "io.mockk.renamed.java.util.Collection$Subclass4"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4"
+      "type": "io.mockk.renamed.java.util.List$Subclass13"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$4cscpe10"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$4cscpe10"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$5j4bem00"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$5j4bem00"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$61en0h10"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$61en0h10"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$6n8od330"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$6n8od330"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$7m9oaq00"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$7m9oaq00"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$9pqdof10"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$9pqdof10"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$b0v96f10"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$b0v96f10"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$bcfo1810"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$bcfo1810"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$g7qoll10"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$g7qoll10"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$ialm8210"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$ialm8210"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$meruac30"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$meruac30"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$mf9m8g30"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$mf9m8g30"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$pjdfa310"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$pjdfa310"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$plikpt30"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$plikpt30"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$q3087630"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$q3087630"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$sgdndr30"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$sgdndr30"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$snj05d20"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$snj05d20"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$t8gh0920"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$t8gh0920"
     },
     {
-      "type": "io.mockk.renamed.java.util.List$Subclass4$auxiliary$u4tse900"
+      "type": "io.mockk.renamed.java.util.List$Subclass13$auxiliary$u4tse900"
     },
     {
       "type": "io.netty.buffer.AbstractByteBufAllocator"
@@ -13299,6 +14049,9 @@
       "type": "io.r2dbc.proxy.ProxyConnectionFactory"
     },
     {
+      "type": "io.r2dbc.spi.Batch"
+    },
+    {
       "type": "io.r2dbc.spi.Closeable"
     },
     {
@@ -13316,10 +14069,67 @@
       "type": "io.r2dbc.spi.ConnectionFactory"
     },
     {
+      "type": "io.r2dbc.spi.ConnectionFactory$Subclass7"
+    },
+    {
+      "type": "io.r2dbc.spi.ConnectionFactoryMetadata"
+    },
+    {
+      "type": "io.r2dbc.spi.ConnectionFactoryMetadata$Subclass8"
+    },
+    {
       "type": "io.r2dbc.spi.ConnectionFactoryOptions"
     },
     {
+      "type": "io.r2dbc.spi.ConnectionMetadata"
+    },
+    {
+      "type": "io.r2dbc.spi.IsolationLevel"
+    },
+    {
       "type": "io.r2dbc.spi.Nullable"
+    },
+    {
+      "type": "io.r2dbc.spi.Readable"
+    },
+    {
+      "type": "io.r2dbc.spi.Result"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$Message"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$OutSegment"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$RowSegment"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$Segment"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$Subclass12"
+    },
+    {
+      "type": "io.r2dbc.spi.Result$UpdateCount"
+    },
+    {
+      "type": "io.r2dbc.spi.Row"
+    },
+    {
+      "type": "io.r2dbc.spi.RowMetadata"
+    },
+    {
+      "type": "io.r2dbc.spi.Statement"
+    },
+    {
+      "type": "io.r2dbc.spi.Statement$Subclass11"
+    },
+    {
+      "type": "io.r2dbc.spi.TransactionDefinition"
+    },
+    {
+      "type": "io.r2dbc.spi.ValidationDepth"
     },
     {
       "type": "io.r2dbc.spi.Wrapped"
@@ -15790,17 +16600,6 @@
       "type": "java.math.BigInteger"
     },
     {
-      "type": "java.net.ConnectException",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
       "type": "java.net.InetAddress"
     },
     {
@@ -15819,9 +16618,6 @@
     {
       "type": "java.net.PortUnreachableException",
       "jniAccessible": true
-    },
-    {
-      "type": "java.net.SocketException"
     },
     {
       "type": "java.net.StandardSocketOptions"
@@ -16174,10 +16970,19 @@
       "serializable": true
     },
     {
+      "type": "java.util.function.BiFunction"
+    },
+    {
       "type": "java.util.function.BiPredicate"
     },
     {
       "type": "java.util.function.Consumer"
+    },
+    {
+      "type": "java.util.function.Function"
+    },
+    {
+      "type": "java.util.function.Predicate"
     },
     {
       "type": "java.util.function.Supplier"
@@ -16388,9 +17193,6 @@
       "type": "kotlin.annotation.AnnotationTarget"
     },
     {
-      "type": "kotlin.annotation.AnnotationTarget[]"
-    },
-    {
       "type": "kotlin.annotation.MustBeDocumented"
     },
     {
@@ -16449,6 +17251,9 @@
     },
     {
       "type": "kotlin.coroutines.SuspendFunction0"
+    },
+    {
+      "type": "kotlin.coroutines.intrinsics.CoroutineSingletons"
     },
     {
       "type": "kotlin.coroutines.jvm.internal.BaseContinuationImpl"
@@ -16593,6 +17398,14 @@
       "type": "kotlinx.coroutines.CoroutineScope"
     },
     {
+      "type": "kotlinx.coroutines.DelayKt$awaitCancellation$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "kotlinx.coroutines.DispatchedCoroutine"
     },
     {
@@ -16660,6 +17473,9 @@
       "type": "kotlinx.coroutines.flow.ChannelAsFlow"
     },
     {
+      "type": "kotlinx.coroutines.flow.EmptyFlow"
+    },
+    {
       "type": "kotlinx.coroutines.flow.Flow"
     },
     {
@@ -16725,6 +17541,9 @@
     },
     {
       "type": "kotlinx.coroutines.flow.MutableSharedFlow"
+    },
+    {
+      "type": "kotlinx.coroutines.flow.SafeFlow"
     },
     {
       "type": "kotlinx.coroutines.flow.SharedFlowImpl$collect$1",
@@ -17677,247 +18496,6 @@
       "type": "org.flywaydb.database.sqlserver.SQLServerConfigurationExtension"
     },
     {
-      "type": "org.gradle.api.internal.file.temp.GradleUserHomeTemporaryFileProvider"
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.TestDefinition"
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.TestDefinitionProcessor",
-      "methods": [
-        {
-          "name": "processTestDefinition",
-          "parameterTypes": [
-            "org.gradle.api.internal.tasks.testing.TestDefinition"
-          ]
-        },
-        {
-          "name": "startProcessing",
-          "parameterTypes": [
-            "org.gradle.api.internal.tasks.testing.TestResultProcessor"
-          ]
-        },
-        {
-          "name": "stop",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.TestResultProcessor",
-      "methods": [
-        {
-          "name": "completed",
-          "parameterTypes": [
-            "java.lang.Object",
-            "org.gradle.api.internal.tasks.testing.TestCompleteEvent"
-          ]
-        },
-        {
-          "name": "started",
-          "parameterTypes": [
-            "org.gradle.api.internal.tasks.testing.TestDescriptorInternal",
-            "org.gradle.api.internal.tasks.testing.TestStartEvent"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.filter.TestFilterSpec",
-      "serializable": true
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformSpec",
-      "serializable": true
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.junitplatform.JUnitPlatformTestDefinitionProcessorFactory",
-      "serializable": true
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.worker.RemoteTestDefinitionProcessor",
-      "methods": [
-        {
-          "name": "processTestDefinition",
-          "parameterTypes": [
-            "org.gradle.api.internal.tasks.testing.TestDefinition"
-          ]
-        },
-        {
-          "name": "startProcessing",
-          "parameterTypes": []
-        },
-        {
-          "name": "stop",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.worker.TestWorker",
-      "serializable": true
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.worker.TestWorker$State",
-      "serializable": true
-    },
-    {
-      "type": "org.gradle.api.internal.tasks.testing.worker.TestWorker$TestFrameworkServiceRegistry",
-      "methods": [
-        {
-          "name": "createActorFactory",
-          "parameterTypes": [
-            "org.gradle.internal.concurrent.ExecutorFactory"
-          ]
-        },
-        {
-          "name": "createClock",
-          "parameterTypes": []
-        },
-        {
-          "name": "createExecutorFactory",
-          "parameterTypes": []
-        },
-        {
-          "name": "createIdGenerator",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.file.StatStatistics$Collector"
-    },
-    {
-      "type": "org.gradle.internal.logging.services.LoggingServiceRegistry",
-      "methods": [
-        {
-          "name": "createLoggingManagerFactory",
-          "parameterTypes": [
-            "org.gradle.internal.time.Clock"
-          ]
-        },
-        {
-          "name": "createTimeProvider",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.logging.services.LoggingServiceRegistry$CommandLineLogging"
-    },
-    {
-      "type": "org.gradle.internal.logging.slf4j.StaticLoggerProvider"
-    },
-    {
-      "type": "org.gradle.internal.nativeintegration.filesystem.services.FileSystemServices",
-      "methods": [
-        {
-          "name": "configure",
-          "parameterTypes": [
-            "org.gradle.internal.service.ServiceRegistration"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.nativeintegration.filesystem.services.GenericFileSystem$Factory"
-    },
-    {
-      "type": "org.gradle.internal.nativeintegration.services.NativeServices",
-      "methods": [
-        {
-          "name": "createNativeCapabilities",
-          "parameterTypes": []
-        },
-        {
-          "name": "createSystemInfo",
-          "parameterTypes": [
-            "org.gradle.internal.os.OperatingSystem"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.nativeintegration.services.NativeServices$1",
-      "methods": [
-        {
-          "name": "configure",
-          "parameterTypes": [
-            "org.gradle.internal.service.ServiceRegistration"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.nativeintegration.services.NativeServices$NativeFeatures$1$2"
-    },
-    {
-      "type": "org.gradle.internal.remote.services.MessagingServices",
-      "methods": [
-        {
-          "name": "createMessagingClient",
-          "parameterTypes": [
-            "org.gradle.internal.remote.internal.OutgoingConnector",
-            "org.gradle.internal.concurrent.ExecutorFactory"
-          ]
-        },
-        {
-          "name": "createOutgoingConnector",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.internal.service.MethodHandleBasedServiceMethodFactory",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.io.DataInputStream"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker$2",
-      "methods": [
-        {
-          "name": "configure",
-          "parameterTypes": [
-            "org.gradle.internal.service.ServiceRegistration"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.gradle.process.internal.worker.child.SystemApplicationClassLoaderWorker$WorkerServices",
-      "methods": [
-        {
-          "name": "createGradleUserHomeDirProvider",
-          "parameterTypes": []
-        },
-        {
-          "name": "createWorkerDirectoryProvider",
-          "parameterTypes": [
-            "org.gradle.initialization.GradleUserHomeDirProvider"
-          ]
-        },
-        {
-          "name": "createWorkerLogEventListener",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "org.hibernate.validator.HibernateValidator"
     },
     {
@@ -17984,108 +18562,6 @@
       "type": "org.jspecify.annotations.Nullable"
     },
     {
-      "type": "org.junit.AssumptionViolatedException"
-    },
-    {
-      "type": "org.junit.internal.AssumptionViolatedException"
-    },
-    {
-      "type": "org.junit.jupiter.api.AfterAll"
-    },
-    {
-      "type": "org.junit.jupiter.api.BeforeAll"
-    },
-    {
-      "type": "org.junit.jupiter.api.BeforeEach"
-    },
-    {
-      "type": "org.junit.jupiter.api.Test"
-    },
-    {
-      "type": "org.junit.jupiter.api.TestTemplate"
-    },
-    {
-      "type": "org.junit.jupiter.api.Timeout"
-    },
-    {
-      "type": "org.junit.jupiter.api.extension.ExtendWith"
-    },
-    {
-      "type": "org.junit.jupiter.engine.JupiterTestEngine"
-    },
-    {
-      "type": "org.junit.jupiter.engine.extension.TimeoutInvocationFactory$SingleThreadExecutorResource",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.junit.jupiter.params.ParameterizedTest"
-    },
-    {
-      "type": "org.junit.jupiter.params.ParameterizedTestExtension",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.junit.jupiter.params.provider.AnnotationBasedArgumentsProvider"
-    },
-    {
-      "type": "org.junit.jupiter.params.provider.ArgumentsProvider"
-    },
-    {
-      "type": "org.junit.jupiter.params.provider.ArgumentsSource"
-    },
-    {
-      "type": "org.junit.jupiter.params.provider.MethodArgumentsProvider",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "org.junit.jupiter.params.provider.MethodSource"
-    },
-    {
-      "type": "org.junit.jupiter.params.support.AnnotationConsumer"
-    },
-    {
-      "type": "org.junit.platform.commons.annotation.Testable"
-    },
-    {
-      "type": "org.junit.platform.launcher.TestIdentifier"
-    },
-    {
-      "type": "org.junit.platform.launcher.core.LauncherFactory"
-    },
-    {
-      "type": "org.junit.platform.launcher.listeners.UniqueIdTrackingListener"
-    },
-    {
-      "type": "org.junit.platform.suite.api.IncludeEngines"
-    },
-    {
-      "type": "org.junit.platform.suite.api.SelectPackages"
-    },
-    {
-      "type": "org.junit.platform.suite.api.Suite"
-    },
-    {
-      "type": "org.junit.platform.suite.engine.SuiteTestEngine"
-    },
-    {
-      "type": "org.junit.vintage.engine.VintageTestEngine"
-    },
-    {
       "type": "org.locationtech.jts.geom.Geometry"
     },
     {
@@ -18101,6 +18577,12 @@
       "type": "org.reactivestreams.Publisher"
     },
     {
+      "type": "org.reactivestreams.Publisher$Subclass9"
+    },
+    {
+      "type": "org.slf4j.Logger"
+    },
+    {
       "type": "org.slf4j.LoggerFactory"
     },
     {
@@ -18110,7 +18592,13 @@
       "type": "org.slf4j.helpers.Log4jLoggerFactory"
     },
     {
+      "type": "org.slf4j.impl.StaticLoggerBinder"
+    },
+    {
       "type": "org.slf4j.spi.LocationAwareLogger"
+    },
+    {
+      "type": "org.slf4j.spi.SLF4JServiceProvider"
     },
     {
       "type": "org.springdoc.api.AbstractOpenApiResource"
@@ -26284,6 +26772,21 @@
       "type": "org.testcontainers.dockerclient.UnixSocketClientProviderStrategy"
     },
     {
+      "type": "org.testcontainers.junit.jupiter.Container"
+    },
+    {
+      "type": "org.testcontainers.junit.jupiter.Testcontainers"
+    },
+    {
+      "type": "org.testcontainers.junit.jupiter.TestcontainersExtension",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.testcontainers.lifecycle.Startable"
     },
     {
@@ -26448,6 +26951,9 @@
       "type": "reactor.core.publisher.FluxIterable$IterableSubscription"
     },
     {
+      "type": "reactor.core.publisher.FluxJust"
+    },
+    {
       "type": "reactor.core.publisher.FluxOnErrorReturn$ReturnSubscriber"
     },
     {
@@ -26508,6 +27014,9 @@
       "type": "reactor.core.publisher.MonoDelay$MonoDelayRunnable"
     },
     {
+      "type": "reactor.core.publisher.MonoEmpty"
+    },
+    {
       "type": "reactor.core.publisher.MonoFlatMap$FlatMapMain"
     },
     {
@@ -26515,6 +27024,9 @@
     },
     {
       "type": "reactor.core.publisher.MonoIgnoreThen$ThenIgnoreMain"
+    },
+    {
+      "type": "reactor.core.publisher.MonoJust"
     },
     {
       "type": "reactor.core.publisher.MonoNext$NextSubscriber"
@@ -27609,36 +28121,6 @@
     {
       "type": {
         "proxy": [
-          "org.gradle.api.internal.tasks.testing.TestDefinitionProcessor"
-        ]
-      }
-    },
-    {
-      "type": {
-        "proxy": [
-          "org.gradle.api.internal.tasks.testing.TestResultProcessor",
-          "org.gradle.internal.concurrent.ThreadSafe"
-        ]
-      }
-    },
-    {
-      "type": {
-        "proxy": [
-          "org.gradle.internal.logging.events.OutputEventListener"
-        ]
-      }
-    },
-    {
-      "type": {
-        "proxy": [
-          "org.gradle.process.internal.worker.child.WorkerLoggingProtocol",
-          "org.gradle.internal.concurrent.ThreadSafe"
-        ]
-      }
-    },
-    {
-      "type": {
-        "proxy": [
           "org.springframework.beans.factory.annotation.Qualifier"
         ]
       }
@@ -28322,7 +28804,22 @@
       "glob": "cash/atto/node/bootstrap/discovery/DependencyDiscoverer.class"
     },
     {
-      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryProcessor.class"
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryMetrics.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryPersistenceWorker.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryProperties$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryProperties.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryQueue.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryQueueTest.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/DiscoveryTestController.class"
@@ -28331,7 +28828,13 @@
       "glob": "cash/atto/node/bootstrap/discovery/GapDiscoverer.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/discovery/GapDiscovererTest.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/discovery/LastDiscoverer.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/LastDiscovererTest.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/SendDiscoverer.class"
@@ -28346,16 +28849,25 @@
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionMetricProvider.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionMigrationTest.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessor.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessorStarter.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessorStarterTest.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionRepository.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionService.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedWorkTracker.class"
     },
     {
       "glob": "cash/atto/node/convertion/ConversionsConfiguration.class"
@@ -28772,6 +29284,9 @@
       "glob": "db/migration/V10__add_stale_vote_block.sql"
     },
     {
+      "glob": "db/migration/V11__add_unchecked_transaction_oldest_index.sql"
+    },
+    {
       "glob": "db/migration/V1__init.sql"
     },
     {
@@ -28899,6 +29414,9 @@
     },
     {
       "glob": "kotlin/coroutines/coroutines.kotlin_builtins"
+    },
+    {
+      "glob": "kotlin/coroutines/intrinsics/intrinsics.kotlin_builtins"
     },
     {
       "glob": "kotlin/coroutines/jvm/internal/BaseContinuationImpl.class"
@@ -30117,9 +30635,6 @@
     },
     {
       "glob": "org/springframework/data/mapping/PersistentPropertyAccessor.class"
-    },
-    {
-      "glob": "org/springframework/data/mapping/model/ClassGeneratingEntityInstantiator$ObjectInstantiator.class"
     },
     {
       "glob": "org/springframework/data/r2dbc/repository/support/R2dbcRepositoryFactoryBean.class"
