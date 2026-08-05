@@ -57,7 +57,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             coVerify(exactly = 0) { fixture.repository.findGaps(any()) }
@@ -65,18 +65,18 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `insufficient full request margin prevents the gap query`() =
+    fun `adaptive target below the 250 transaction request budget prevents the gap query`() =
         runTest {
             // given
             val fixture =
                 fixture(
                     gaps = listOf(gap(publicKey(1), 1U, 1U, hash(1))),
-                    capacity = 100,
-                    remainingCapacity = 99,
+                    capacity = 250,
+                    remainingCapacity = 249,
                 )
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             coVerify(exactly = 0) { fixture.repository.findGaps(any()) }
@@ -91,8 +91,8 @@ class GapDiscovererTest {
             val fixture = fixture(gaps = gaps, capacity = 3_000)
 
             // when
-            fixture.discoverer.resolve()
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(3, fixture.requests.size)
@@ -113,7 +113,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(1, fixture.requests.size)
@@ -130,7 +130,7 @@ class GapDiscovererTest {
             val fixture = fixture(gaps = gaps, capacity = 3_000, nodes = nodes)
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(3, fixture.requests.size)
@@ -151,8 +151,8 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.resolve()
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(
@@ -173,7 +173,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             val request = fixture.requests.single()
@@ -192,7 +192,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             val request = fixture.requests.single()
@@ -213,11 +213,11 @@ class GapDiscovererTest {
                     capacity = 1_000,
                     queueResult = false,
                 )
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // when
             fixture.discoverer.process(fixture.response(transaction))
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(2, fixture.requests.size)
@@ -231,7 +231,7 @@ class GapDiscovererTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 3_000)
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // when
             fixture.disconnect()
@@ -241,7 +241,7 @@ class GapDiscovererTest {
 
             // when
             fixture.connect()
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(6, fixture.requests.size)
@@ -255,11 +255,12 @@ class GapDiscovererTest {
             val clock = MutableClock()
             val gaps = (1..2).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 2_000, clock = clock)
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // when
             clock.advance(Duration.ofSeconds(61))
-            fixture.discoverer.resolve()
+            fixture.discoverer.maintainSessions()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(4, fixture.requests.size)
@@ -280,7 +281,7 @@ class GapDiscovererTest {
 
             // when
             try {
-                fixture.discoverer.resolve()
+                fixture.discoverer.discoverIfDue()
                 fail("Expected request publication to fail")
             } catch (_: IllegalStateException) {
                 // expected
@@ -290,7 +291,7 @@ class GapDiscovererTest {
             assertEquals(0, fixture.discoverer.activeSessionCount())
 
             // when
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             assertEquals(1, fixture.requests.size)
@@ -303,7 +304,7 @@ class GapDiscovererTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 3_000)
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // when
             fixture.discoverer.clear()
@@ -320,22 +321,22 @@ class GapDiscovererTest {
             val fixture = fixture(gaps = emptyList(), clock = clock)
 
             // when
-            fixture.discoverer.resolve()
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
+            fixture.discoverer.discoverIfDue()
 
             // then
             coVerify(exactly = 1) { fixture.repository.findGaps(any()) }
 
             // when
             fixture.workTracker.markChanged()
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             coVerify(exactly = 2) { fixture.repository.findGaps(any()) }
 
             // when
             clock.advance(Duration.ofSeconds(31))
-            fixture.discoverer.resolve()
+            fixture.discoverer.discoverIfDue()
 
             // then
             coVerify(exactly = 3) { fixture.repository.findGaps(any()) }

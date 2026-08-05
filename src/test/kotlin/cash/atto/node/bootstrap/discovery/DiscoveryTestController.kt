@@ -1,6 +1,6 @@
 package cash.atto.node.bootstrap.discovery
 
-import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import io.swagger.v3.oas.annotations.Operation
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
@@ -12,12 +12,12 @@ class DiscoveryTestController(
     val discoveryPersistenceWorker: DiscoveryPersistenceWorker,
     val gapDiscoverer: GapDiscoverer,
     val lastDiscoverer: LastDiscoverer,
-    val uncheckedTransactionProcessorStarter: UncheckedTransactionProcessorStarter,
+    val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
 ) {
     @PostMapping("/gap")
     @Operation(description = "Start processing of gap transaction")
     suspend fun gap() {
-        gapDiscoverer.resolve()
+        discoverGaps()
     }
 
     @PostMapping("/last")
@@ -29,16 +29,27 @@ class DiscoveryTestController(
     @PostMapping("/flush")
     @Operation(description = "Flush discovered transactions")
     suspend fun flush() {
-        discoveryPersistenceWorker.flush()
+        flushAll()
     }
 
     @PostMapping("/settle")
     @Operation(description = "Flush discoveries, resolve gaps, and process unchecked transactions")
     suspend fun settle() {
-        discoveryPersistenceWorker.flush()
-        uncheckedTransactionProcessorStarter.process()
-        gapDiscoverer.resolve()
-        discoveryPersistenceWorker.flush()
-        uncheckedTransactionProcessorStarter.process()
+        flushAll()
+        uncheckedTransactionProcessor.processIfDue()
+        discoverGaps()
+        flushAll()
+        uncheckedTransactionProcessor.processIfDue()
+    }
+
+    private suspend fun discoverGaps() {
+        gapDiscoverer.maintainSessions()
+        gapDiscoverer.discoverIfDue()
+    }
+
+    private suspend fun flushAll() {
+        while (discoveryPersistenceWorker.persistIfReady() == DiscoveryPersistenceResult.Persisted) {
+            // Test-only endpoint: preserve the original deterministic full-drain behavior.
+        }
     }
 }

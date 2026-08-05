@@ -1,7 +1,7 @@
 package cash.atto.node.unchecked
 
 import cash.atto.commons.AttoTransaction
-import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.Flow
@@ -16,13 +16,13 @@ import org.springframework.web.bind.annotation.RestController
 @RequestMapping("/unchecked-transactions")
 @Profile("default")
 class UncheckedTransactionController(
-    val uncheckedTransactionProcessorStarter: UncheckedTransactionProcessorStarter,
+    val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
     val uncheckedTransactionRepository: UncheckedTransactionRepository,
 ) {
     @PostMapping
     @Operation(description = "Process unchecked transactions")
     suspend fun process() {
-        uncheckedTransactionProcessorStarter.process()
+        uncheckedTransactionProcessor.processIfDue()
     }
 
     @GetMapping
