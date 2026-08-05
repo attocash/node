@@ -29,22 +29,21 @@ jobs:
 
       - name: release
         run: |
-          docker pull ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
-
           MAJOR_VERSION=$(echo "${{ inputs.next-tag }}" | awk -F. '{print $1}')
-          MINOR_VERSION=$(echo "${{ inputs.next-tag }}" | awk -F. '{print $2}')
+          SOURCE_IMAGE=ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }}
+          TARGET_IMAGE=ghcr.io/${{ github.repository }}
 
-          echo TAG=${{ inputs.next-tag }} MAJOR_VERSION=${MAJOR_VERSION} MINOR_VERSION=${MINOR_VERSION}
+          echo TAG=${{ inputs.next-tag }} MAJOR_VERSION=${MAJOR_VERSION}
 
-          docker tag ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} ghcr.io/${{ github.repository }}:${{ inputs.next-tag }}-${{ inputs.image }}
-          docker tag ghcr.io/${{ github.repository }}:${{ github.sha }}-${{ inputs.image }} ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.image }}
-
-          docker push ghcr.io/${{ github.repository }}:${{ inputs.next-tag }}-${{ inputs.image }}
-          docker push ghcr.io/${{ github.repository }}:${MAJOR_VERSION}-${{ inputs.image }}
+          docker buildx imagetools create \
+            --tag "${TARGET_IMAGE}:${{ inputs.next-tag }}-${{ inputs.image }}" \
+            --tag "${TARGET_IMAGE}:${MAJOR_VERSION}-${{ inputs.image }}" \
+            "${SOURCE_IMAGE}"
 
           HIGHER_MAJOR_EXISTS=$(git tag --list 'v*' --sort=-v:refname | awk -F. '{print $1}' | sed 's/v//' | uniq | awk -v curr="$MAJOR_VERSION" '$1>curr {print "yes"; exit}')
 
           if [ "$HIGHER_MAJOR_EXISTS" != "yes" ]; then
-            docker tag ghcr.io/${{ github.repository }}:${{ inputs.next-tag }}-${{ inputs.image }} ghcr.io/${{ github.repository }}:${{ inputs.image }}
-            docker push ghcr.io/${{ github.repository }}:${{ inputs.image }}
+            docker buildx imagetools create \
+              --tag "${TARGET_IMAGE}:${{ inputs.image }}" \
+              "${SOURCE_IMAGE}"
           fi

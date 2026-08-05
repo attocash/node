@@ -27,8 +27,11 @@ jobs:
       profile: dev
   build-image-dev:
     permissions:
+      contents: read
       packages: write
       id-token: write
+      attestations: write
+      artifact-metadata: write
     needs:
       - release-tag
     uses: ./.github/workflows/build-image.yaml
@@ -47,8 +50,11 @@ jobs:
       next-tag: ${{ needs.release-tag.outputs.next-tag }}
   #  build-image-beta:
   #    permissions:
+  #      contents: read
   #      packages: write
   #      id-token: write
+  #      attestations: write
+  #      artifact-metadata: write
   #    needs:
   #      - release-dev
   #    uses: ./.github/workflows/build-image.yaml
@@ -66,8 +72,11 @@ jobs:
   #      next-tag: ${{ needs.release-tag.outputs.next-tag }}
   build-image-live:
     permissions:
+      contents: read
       packages: write
       id-token: write
+      attestations: write
+      artifact-metadata: write
     needs:
       - release-tag
       - release-dev
