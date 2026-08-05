@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap.unchecked
 
-import cash.atto.node.EventPublisher
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -15,8 +14,7 @@ class UncheckedTransactionServiceTest {
             // given
             val repository = mockk<UncheckedTransactionRepository>()
             val inserter = mockk<UncheckedTransactionInserter>()
-            val eventPublisher = mockk<EventPublisher>()
-            val service = UncheckedTransactionService(repository, inserter, eventPublisher)
+            val service = UncheckedTransactionService(repository, inserter)
             coEvery { repository.deleteExistingInTransaction(1_000L) } returns 37
 
             // when

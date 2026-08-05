@@ -67,12 +67,22 @@ class DiscoveryMetrics(
         Gauge
             .builder("transactions.discovery.backlog.depth", queue) {
                 it.getBacklogDepth().toDouble()
-            }.description("Discovered transactions waiting to enter a persistence batch")
+            }.description("Discovered transactions not yet committed to unchecked persistence")
+            .register(meterRegistry)
+        Gauge
+            .builder("transactions.discovery.in.flight", queue) {
+                it.getInFlightCount().toDouble()
+            }.description("Discovered transactions in the active or retrying persistence batch")
+            .register(meterRegistry)
+        Gauge
+            .builder("transactions.discovery.capacity.target", queue) {
+                it.getTargetCapacity().toDouble()
+            }.description("Current disk-pressure-adjusted discovery admission target")
             .register(meterRegistry)
         Gauge
             .builder("transactions.discovery.backlog.overshoot", queue) {
                 it.getBacklogOvershoot().toDouble()
-            }.description("Queued and suspended discoveries above the target capacity")
+            }.description("Outstanding discoveries above the target capacity")
             .register(meterRegistry)
         Gauge
             .builder("transactions.discovery.at.capacity", queue) {

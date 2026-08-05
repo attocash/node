@@ -20,7 +20,6 @@ import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
@@ -89,18 +88,29 @@ class GapDiscoverer(
             .forEach { activeSessions.remove(it.publicKey, it) }
     }
 
+    // A retry may wait for queue space, so this must not occupy Spring's shared fixed-delay scheduler.
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
-    suspend fun resolve() {
-        if (resolveMutex.isLocked) {
+    suspend fun maintainSessions() {
+        if (!resolveMutex.tryLock()) {
             return
         }
 
-        resolveMutex.withLock {
+        try {
             retryActiveSessions()
+        } finally {
+            resolveMutex.unlock()
+        }
+    }
 
+    suspend fun discoverIfDue(): GapDiscoveryResult {
+        if (!resolveMutex.tryLock()) {
+            return GapDiscoveryResult.Busy
+        }
+
+        try {
             val slots = availableSessionSlots()
             if (slots == 0 || shouldSkipIdleScan()) {
-                return
+                return GapDiscoveryResult.Idle
             }
 
             val startingGeneration = workTracker.currentGeneration()
@@ -124,6 +134,9 @@ class GapDiscoverer(
             }
 
             updateIdleSuppression(gaps.isNotEmpty(), startingGeneration)
+            return GapDiscoveryResult.Queried
+        } finally {
+            resolveMutex.unlock()
         }
     }
 
@@ -266,6 +279,14 @@ class GapDiscoverer(
     private companion object {
         val SESSION_TIMEOUT: Duration = Duration.ofMinutes(1)
     }
+}
+
+sealed interface GapDiscoveryResult {
+    data object Idle : GapDiscoveryResult
+
+    data object Busy : GapDiscoveryResult
+
+    data object Queried : GapDiscoveryResult
 }
 
 private fun GapView.startHeight(requestBudget: ULong): AttoHeight {
