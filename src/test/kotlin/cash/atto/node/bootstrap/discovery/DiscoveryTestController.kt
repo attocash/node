@@ -36,15 +36,16 @@ class DiscoveryTestController(
     @Operation(description = "Flush discoveries, resolve gaps, and process unchecked transactions")
     suspend fun settle() {
         flushAll()
-        uncheckedTransactionProcessor.processIfDue()
+        uncheckedTransactionProcessor.process()
         discoverGaps()
         flushAll()
-        uncheckedTransactionProcessor.processIfDue()
+        uncheckedTransactionProcessor.process()
     }
 
     private suspend fun discoverGaps() {
-        gapDiscoverer.maintainSessions()
-        gapDiscoverer.discoverIfDue()
+        gapDiscoverer.expireSessions()
+        gapDiscoverer.retryBufferedResponse()
+        gapDiscoverer.discover()
     }
 
     private suspend fun flushAll() {

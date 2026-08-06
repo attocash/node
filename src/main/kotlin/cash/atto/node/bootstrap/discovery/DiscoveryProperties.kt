@@ -11,7 +11,6 @@ class DiscoveryProperties {
     var capacity: Int = 10_000
     var headroom: Int = 2_000
     var batchSize: Int = 1_000
-    var idleQueryFallbackInSeconds: Long = 30
     var retryInitialBackoffInSeconds: Long = 1
     var retryMaxBackoffInSeconds: Long = 30
 
@@ -27,9 +26,6 @@ class DiscoveryProperties {
         }
         require(batchSize in 1..minOf(capacity, MAX_BATCH_SIZE)) {
             "Discovery batch size must be positive and no greater than capacity or $MAX_BATCH_SIZE"
-        }
-        require(idleQueryFallbackInSeconds > 0) {
-            "Discovery idle query fallback must be positive"
         }
         require(retryInitialBackoffInSeconds > 0) {
             "Discovery retry initial backoff must be positive"

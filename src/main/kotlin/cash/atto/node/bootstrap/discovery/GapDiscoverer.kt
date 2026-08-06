@@ -5,7 +5,6 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
-import cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
@@ -17,18 +16,13 @@ import cash.atto.protocol.AttoTransactionStreamResponse
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.sync.Mutex
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.time.Clock
 import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 @Component
@@ -36,13 +30,11 @@ class GapDiscoverer(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val discoveryQueue: DiscoveryQueue,
-    private val workTracker: UncheckedWorkTracker,
     private val discoveryProperties: DiscoveryProperties,
     meterRegistry: MeterRegistry,
     private val clock: Clock,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
-    private val resolveMutex = Mutex()
     private val peers = ConcurrentHashMap<URI, AttoNode>()
     private val activeSessions = ConcurrentHashMap<AttoPublicKey, GapSession>()
     private val requestBudget =
@@ -51,22 +43,11 @@ class GapDiscoverer(
             discoveryProperties.capacity.toULong(),
         ).toInt()
 
-    private val gapQueryTimer =
-        Timer
-            .builder("transactions.unchecked.gap.query")
-            .description("Time finding missing unchecked transaction ranges")
-            .register(meterRegistry)
     private val gapRows =
         Counter
             .builder("transactions.unchecked.gap.rows")
             .description("Missing unchecked transaction ranges returned")
             .register(meterRegistry)
-
-    @Volatile
-    private var idleGeneration = Long.MIN_VALUE
-
-    @Volatile
-    private var nextMaintenanceAt = Instant.EPOCH
 
     @EventListener
     fun add(nodeEvent: NodeConnected) {
@@ -76,7 +57,6 @@ class GapDiscoverer(
         }
 
         peers[node.publicUri] = node
-        resetIdleSuppression()
     }
 
     @EventListener
@@ -88,56 +68,27 @@ class GapDiscoverer(
             .forEach { activeSessions.remove(it.publicKey, it) }
     }
 
-    // A retry may wait for queue space, so this must not occupy Spring's shared fixed-delay scheduler.
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
-    suspend fun maintainSessions() {
-        if (!resolveMutex.tryLock()) {
-            return
+    suspend fun discover(): Int {
+        val slots = availableSessionSlots()
+        if (slots == 0) {
+            return 0
         }
 
-        try {
-            retryActiveSessions()
-        } finally {
-            resolveMutex.unlock()
-        }
-    }
+        val gaps =
+            uncheckedTransactionRepository
+                .findGaps(slots + activeSessions.size)
+                .toList()
 
-    suspend fun discoverIfDue(): GapDiscoveryResult {
-        if (!resolveMutex.tryLock()) {
-            return GapDiscoveryResult.Busy
+        if (gaps.isEmpty()) {
+            return 0
         }
 
-        try {
-            val slots = availableSessionSlots()
-            if (slots == 0 || shouldSkipIdleScan()) {
-                return GapDiscoveryResult.Idle
-            }
-
-            val startingGeneration = workTracker.currentGeneration()
-            val queryStartedAt = System.nanoTime()
-            val gaps =
-                try {
-                    uncheckedTransactionRepository
-                        .findGaps(slots + activeSessions.size)
-                        .toList()
-                } finally {
-                    gapQueryTimer.record(System.nanoTime() - queryStartedAt, TimeUnit.NANOSECONDS)
-                }
-
-            if (gaps.isNotEmpty()) {
-                gapRows.increment(gaps.size.toDouble())
-                gaps
-                    .asSequence()
-                    .filterNot { activeSessions.containsKey(it.publicKey) }
-                    .take(slots)
-                    .forEach { startGapRequest(it) }
-            }
-
-            updateIdleSuppression(gaps.isNotEmpty(), startingGeneration)
-            return GapDiscoveryResult.Queried
-        } finally {
-            resolveMutex.unlock()
-        }
+        gapRows.increment(gaps.size.toDouble())
+        return gaps
+            .asSequence()
+            .filterNot { activeSessions.containsKey(it.publicKey) }
+            .take(slots)
+            .sumOf { startGapRequest(it) }
     }
 
     @EventListener
@@ -149,19 +100,37 @@ class GapDiscoverer(
 
     override fun clear() {
         activeSessions.clear()
-        resetIdleSuppression()
     }
 
     internal fun activeSessionCount(): Int = activeSessions.size
 
-    private suspend fun retryActiveSessions() {
+    internal suspend fun retryBufferedResponse(): Int {
         activeSessions.values.toList().forEach { session ->
-            if (session.isExpired(clock.instant(), SESSION_TIMEOUT)) {
-                activeSessions.remove(session.publicKey, session)
-            } else {
-                closeIfFinished(session, session.retry())
+            val bufferedBefore = session.bufferedResponseCount()
+            if (bufferedBefore == 0) {
+                return@forEach
+            }
+
+            closeIfFinished(session, session.retryOne())
+            val processed = bufferedBefore - session.bufferedResponseCount()
+            if (processed > 0) {
+                return processed
             }
         }
+        return 0
+    }
+
+    internal fun expireSessions(): Int {
+        var expired = 0
+        activeSessions.values.toList().forEach { session ->
+            if (
+                session.isExpired(clock.instant(), SESSION_TIMEOUT) &&
+                activeSessions.remove(session.publicKey, session)
+            ) {
+                expired++
+            }
+        }
+        return expired
     }
 
     private fun availableSessionSlots(): Int {
@@ -186,8 +155,8 @@ class GapDiscoverer(
         return minOf(queueSlots, peerSlots)
     }
 
-    private fun startGapRequest(view: GapView) {
-        val selectedPeer = selectPeer() ?: return
+    private fun startGapRequest(view: GapView): Int {
+        val selectedPeer = selectPeer() ?: return 0
         val startHeight = view.startHeight(requestBudget.toULong())
         val session =
             GapSession(
@@ -200,18 +169,19 @@ class GapDiscoverer(
                 clock = clock,
             )
         if (activeSessions.putIfAbsent(view.publicKey, session) != null) {
-            return
+            return 0
         }
         if (!peers.containsKey(selectedPeer)) {
             activeSessions.remove(view.publicKey, session)
-            return
+            return 0
         }
 
+        val requestedTransactions = view.endHeight.value - startHeight.value + 1UL
         val message =
             DirectNetworkMessage(
                 selectedPeer,
                 AttoTransactionStreamRequest(view.publicKey, startHeight, view.endHeight),
-                expectedResponseCount = view.endHeight.value - startHeight.value + 1UL,
+                expectedResponseCount = requestedTransactions,
             )
         try {
             networkMessagePublisher.publish(message)
@@ -219,6 +189,7 @@ class GapDiscoverer(
                 "Starting gap discovery for account ${view.publicKey}. " +
                     "Requesting transactions from $startHeight to ${view.endHeight}"
             }
+            return requestedTransactions.toInt()
         } catch (e: Exception) {
             activeSessions.remove(view.publicKey, session)
             throw e
@@ -247,28 +218,6 @@ class GapDiscoverer(
         }
     }
 
-    private fun updateIdleSuppression(
-        foundGaps: Boolean,
-        startingGeneration: Long,
-    ) {
-        val endingGeneration = workTracker.currentGeneration()
-        if (!foundGaps && startingGeneration == endingGeneration) {
-            idleGeneration = endingGeneration
-            nextMaintenanceAt = clock.instant().plusSeconds(discoveryProperties.idleQueryFallbackInSeconds)
-        } else {
-            resetIdleSuppression()
-        }
-    }
-
-    private fun resetIdleSuppression() {
-        idleGeneration = Long.MIN_VALUE
-        nextMaintenanceAt = Instant.EPOCH
-    }
-
-    private fun shouldSkipIdleScan(): Boolean =
-        workTracker.currentGeneration() == idleGeneration &&
-            clock.instant().isBefore(nextMaintenanceAt)
-
     private fun AttoNode.parallelStreamLimit(): Int =
         if (supportsParallelTransactionStreams()) {
             AttoTransactionStreamRequest.MAX_PARALLEL_STREAMS
@@ -279,14 +228,6 @@ class GapDiscoverer(
     private companion object {
         val SESSION_TIMEOUT: Duration = Duration.ofMinutes(1)
     }
-}
-
-sealed interface GapDiscoveryResult {
-    data object Idle : GapDiscoveryResult
-
-    data object Busy : GapDiscoveryResult
-
-    data object Queried : GapDiscoveryResult
 }
 
 private fun GapView.startHeight(requestBudget: ULong): AttoHeight {

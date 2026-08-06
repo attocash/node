@@ -22,7 +22,7 @@ class UncheckedTransactionController(
     @PostMapping
     @Operation(description = "Process unchecked transactions")
     suspend fun process() {
-        uncheckedTransactionProcessor.processIfDue()
+        uncheckedTransactionProcessor.process()
     }
 
     @GetMapping

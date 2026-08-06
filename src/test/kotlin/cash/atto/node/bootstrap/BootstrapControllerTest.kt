@@ -3,12 +3,10 @@ package cash.atto.node.bootstrap
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceResult
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
 import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
-import cash.atto.node.bootstrap.discovery.DiscoveryProperties
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
-import cash.atto.node.bootstrap.discovery.GapDiscoveryResult
-import cash.atto.node.bootstrap.unchecked.UncheckedProcessingResult
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
+import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -19,154 +17,223 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import java.time.Clock
-import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZoneOffset
 
 class BootstrapControllerTest {
     @Test
-    fun `maintenance progress keeps priority on the following tick`() =
+    fun `resolution progress cleans the same count and keeps resolution priority`() =
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.processor.processIfDue() } returns
-                UncheckedProcessingResult.Completed(selected = 10, resolved = 5)
-            coEvery { fixture.processor.deleteExistingTransactions(5L) } returns 5
+            coEvery { fixture.processor.process() } returns 300
+            coEvery { fixture.service.cleanUp(300L) } returns 300
 
             // When
             fixture.controller.runOnce()
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 2) { fixture.processor.processIfDue() }
-            coVerify(exactly = 2) { fixture.processor.deleteExistingTransactions(5L) }
-            coVerify(exactly = 0) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
+            coVerify(exactly = 2) { fixture.processor.process() }
+            coVerify(exactly = 2) { fixture.service.cleanUp(300L) }
+            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
+            assertEquals(600.0, fixture.deletedTransactions())
             assertEquals(2.0, fixture.decisions("maintenance"))
         }
 
     @Test
-    fun `gap discovery runs on the tick after maintenance reports no progress`() =
+    fun `gap discovery runs on the tick after resolution reports no progress`() =
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.processor.processIfDue() } returnsMany
-                listOf(
-                    UncheckedProcessingResult.Completed(0, 0),
-                    UncheckedProcessingResult.SkippedIdle,
-                )
-            coEvery { fixture.gapDiscoverer.discoverIfDue() } returns GapDiscoveryResult.Queried
+            coEvery { fixture.gapDiscoverer.discover() } returns 1
 
             // When
             fixture.controller.runOnce()
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 2) { fixture.processor.processIfDue() }
-            coVerify(exactly = 1) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 1) { fixture.gapDiscoverer.discoverIfDue() }
-            coVerify(exactly = 0) { fixture.processor.deleteExistingTransactions(any()) }
+            coVerify(exactly = 1) { fixture.processor.process() }
+            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 1) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("maintenance"))
             assertEquals(1.0, fixture.decisions("gap"))
         }
 
     @Test
-    fun `fallback cleanup runs only after resolution persistence and gaps are idle`() =
+    fun `zero result actions continue polling without fixed idle suppression`() =
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.processor.deleteExistingTransactions(1_000L) } returns 10
+            coEvery { fixture.gapDiscoverer.discover() } returns 0
 
             // When
             fixture.controller.runOnce()
             fixture.controller.runOnce()
-            fixture.clock.advance(Duration.ofSeconds(30))
+            fixture.controller.runOnce()
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 2) { fixture.processor.deleteExistingTransactions(1_000L) }
-            assertEquals(2.0, fixture.decisions("cleanup"))
-            assertEquals(1.0, fixture.decisions("idle"))
-            assertEquals(1.0, fixture.diskCredit())
+            coVerify(exactly = 2) { fixture.processor.process() }
+            coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
+            coVerify(exactly = 4) { fixture.worker.persistIfReady() }
         }
 
     @Test
-    fun `busy gap discovery does not allow fallback cleanup`() =
+    fun `zero gap result does not suppress a later gap attempt`() =
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.gapDiscoverer.discoverIfDue() } returns GapDiscoveryResult.Busy
+            coEvery { fixture.gapDiscoverer.discover() } returnsMany listOf(0, 1)
+
+            // When
+            fixture.controller.runOnce()
+            fixture.controller.runOnce()
+            fixture.controller.runOnce()
+            fixture.controller.runOnce()
+
+            // Then
+            coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
+        }
+
+    @Test
+    fun `resolution failure rethrows and consumes disk credit`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            every { fixture.pressureMonitor.availableShare() } returns 0.5
+            coEvery { fixture.processor.process() } throws IllegalStateException("simulated")
+
+            // When
+            fixture.controller.runOnce()
+            expectSimulatedFailure { fixture.controller.runOnce() }
+
+            // Then
+            coVerify(exactly = 1) { fixture.processor.process() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
+            assertEquals(0.0, fixture.diskCredit())
+            assertEquals(1.0, fixture.decisions("maintenance"))
 
             // When
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 0) { fixture.processor.deleteExistingTransactions(any()) }
-            assertEquals(1.0, fixture.decisions("idle"))
+            coVerify(exactly = 1) { fixture.processor.process() }
+            assertEquals(0.5, fixture.diskCredit())
         }
 
     @Test
-    fun `queued persistence runs before gap discovery when maintenance is idle`() =
+    fun `cleanup failure rethrows and charges the resolution action`() =
         runTest {
             // Given
             val fixture = fixture()
+            coEvery { fixture.processor.process() } returns 5
+            coEvery { fixture.service.cleanUp(5L) } throws IllegalStateException("simulated")
+
+            // When
+            expectSimulatedFailure { fixture.controller.runOnce() }
+
+            // Then
+            coVerify(exactly = 1) { fixture.processor.process() }
+            coVerify(exactly = 1) { fixture.service.cleanUp(5L) }
+            assertEquals(0.0, fixture.diskCredit())
+            assertEquals(1.0, fixture.decisions("maintenance"))
+        }
+
+    @Test
+    fun `gap failure rethrows and remains available after other work`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.gapDiscoverer.discover() } throws IllegalStateException("simulated") andThen 0
+
+            // When
+            fixture.controller.runOnce()
+            expectSimulatedFailure { fixture.controller.runOnce() }
+            fixture.controller.runOnce()
+            fixture.controller.runOnce()
+
+            // Then
+            coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
+        }
+
+    @Test
+    fun `queued persistence runs before gap discovery when resolution is idle`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.worker.persistIfReady() } returnsMany
+                listOf(
+                    DiscoveryPersistenceResult.Idle,
+                    DiscoveryPersistenceResult.Persisted,
+                )
+
+            // When
+            fixture.controller.runOnce()
+            fixture.controller.runOnce()
+
+            // Then
+            coVerify(exactly = 1) { fixture.processor.process() }
+            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
+            assertEquals(1.0, fixture.decisions("persistence"))
+        }
+
+    @Test
+    fun `buffered gap response is retried before persistence and SQL work`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.gapDiscoverer.retryBufferedResponse() } returns 1
             coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
 
             // When
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 1) { fixture.processor.processIfDue() }
+            coVerify(exactly = 1) { fixture.gapDiscoverer.retryBufferedResponse() }
             coVerify(exactly = 1) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
+            coVerify(exactly = 0) { fixture.processor.process() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("persistence"))
         }
 
     @Test
-    fun `fractional pressure credit skips ticks without shrinking batch work`() =
+    fun `fractional pressure credit skips ticks without shrinking work`() =
         runTest {
             // Given
             val fixture = fixture()
             every { fixture.pressureMonitor.availableShare() } returns 0.5
-            coEvery { fixture.processor.processIfDue() } returns
-                UncheckedProcessingResult.Completed(1, 1)
-            coEvery { fixture.processor.deleteExistingTransactions(1L) } returns 1
+            coEvery { fixture.processor.process() } returns 1
+            coEvery { fixture.service.cleanUp(1L) } returns 1
 
             // When
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 0) { fixture.processor.processIfDue() }
+            coVerify(exactly = 0) { fixture.processor.process() }
             assertEquals(0.5, fixture.diskCredit())
-            assertEquals(1.0, fixture.decisions("pressure-wait"))
 
             // When
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 1) { fixture.processor.processIfDue() }
+            coVerify(exactly = 1) { fixture.processor.process() }
+            coVerify(exactly = 1) { fixture.service.cleanUp(1L) }
             assertEquals(0.0, fixture.diskCredit())
-            assertEquals(1.0, fixture.decisions("maintenance"))
         }
 
     @Test
-    fun `full pressure pauses normal work but a full physical buffer forces one drain`() =
+    fun `full physical buffer forces persistence despite disk pressure`() =
         runTest {
             // Given
             val fixture = fixture()
             every { fixture.pressureMonitor.availableShare() } returns 0.0
-
-            // When
-            fixture.controller.runOnce()
-
-            // Then
-            coVerify(exactly = 0) { fixture.worker.persistIfReady() }
-            assertEquals(1.0, fixture.decisions("pressure-wait"))
-
-            // Given
             every { fixture.queue.isPhysicalBufferFull() } returns true
             coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
 
@@ -175,9 +242,7 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.processor.processIfDue() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
-            assertEquals(0.0, fixture.diskCredit())
+            coVerify(exactly = 0) { fixture.processor.process() }
             assertEquals(1.0, fixture.decisions("forced-drain"))
         }
 
@@ -192,29 +257,10 @@ class BootstrapControllerTest {
             fixture.controller.runOnce()
 
             // Then
-            verify(exactly = 1) { fixture.worker.isRetryWaiting() }
             coVerify(exactly = 0) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.processor.processIfDue() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
-            assertEquals(1.0, fixture.decisions("retry-wait"))
-        }
-
-    @Test
-    fun `due retry runs before unchecked maintenance`() =
-        runTest {
-            // Given
-            val fixture = fixture()
-            every { fixture.worker.hasRetryBatch() } returns true
-            coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
-
-            // When
-            fixture.controller.runOnce()
-
-            // Then
-            coVerify(exactly = 1) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.processor.processIfDue() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
-            assertEquals(1.0, fixture.decisions("persistence"))
+            coVerify(exactly = 0) { fixture.processor.process() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     @Test
@@ -222,51 +268,44 @@ class BootstrapControllerTest {
         runTest {
             // Given
             val fixture = fixture()
-            val maintenanceStarted = CompletableDeferred<Unit>()
-            val releaseMaintenance = CompletableDeferred<Unit>()
-            coEvery { fixture.processor.processIfDue() } coAnswers {
-                maintenanceStarted.complete(Unit)
-                releaseMaintenance.await()
-                UncheckedProcessingResult.Completed(1, 1)
+            val resolutionStarted = CompletableDeferred<Unit>()
+            val releaseResolution = CompletableDeferred<Unit>()
+            coEvery { fixture.processor.process() } coAnswers {
+                resolutionStarted.complete(Unit)
+                releaseResolution.await()
+                1
             }
-            coEvery { fixture.processor.deleteExistingTransactions(1L) } returns 1
+            coEvery { fixture.service.cleanUp(1L) } returns 1
 
             // When
             val activeTick = async { fixture.controller.runOnce() }
-            maintenanceStarted.await()
+            resolutionStarted.await()
             fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 1) { fixture.processor.processIfDue() }
-            coVerify(exactly = 0) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discoverIfDue() }
+            coVerify(exactly = 1) { fixture.processor.process() }
 
             // When
-            releaseMaintenance.complete(Unit)
+            releaseResolution.complete(Unit)
             activeTick.await()
 
             // Then
-            assertEquals(1.0, fixture.decisions("maintenance"))
+            coVerify(exactly = 1) { fixture.service.cleanUp(1L) }
         }
 
     @Test
-    fun `unavailable pressure preserves one action per completed tick`() =
+    fun `session expiration is checked even while pressure pauses disk work`() =
         runTest {
             // Given
             val fixture = fixture()
-            every { fixture.pressureMonitor.availableShare() } returns 1.0
-            coEvery { fixture.processor.processIfDue() } returns
-                UncheckedProcessingResult.Completed(1, 1)
-            coEvery { fixture.processor.deleteExistingTransactions(1L) } returns 1
+            every { fixture.pressureMonitor.availableShare() } returns 0.0
 
             // When
             fixture.controller.runOnce()
-            fixture.controller.runOnce()
 
             // Then
-            coVerify(exactly = 2) { fixture.processor.processIfDue() }
-            assertEquals(2.0, fixture.decisions("maintenance"))
-            assertEquals(0.0, fixture.diskCredit())
+            verify(exactly = 1) { fixture.gapDiscoverer.expireSessions() }
+            coVerify(exactly = 0) { fixture.processor.process() }
         }
 
     private fun fixture(): Fixture {
@@ -275,8 +314,8 @@ class BootstrapControllerTest {
         val queue = mockk<DiscoveryQueue>()
         val worker = mockk<DiscoveryPersistenceWorker>()
         val processor = mockk<UncheckedTransactionProcessor>()
+        val service = mockk<UncheckedTransactionService>()
         val gapDiscoverer = mockk<GapDiscoverer>()
-        val properties = DiscoveryProperties()
         val clock = MutableClock()
 
         every { pressureMonitor.availableShare() } returns 1.0
@@ -284,9 +323,11 @@ class BootstrapControllerTest {
         every { worker.isRetryWaiting() } returns false
         every { worker.hasRetryBatch() } returns false
         coEvery { worker.persistIfReady() } returns DiscoveryPersistenceResult.Idle
-        coEvery { processor.processIfDue() } returns UncheckedProcessingResult.SkippedIdle
-        coEvery { processor.deleteExistingTransactions(any()) } returns 0
-        coEvery { gapDiscoverer.discoverIfDue() } returns GapDiscoveryResult.Idle
+        coEvery { processor.process() } returns 0
+        coEvery { service.cleanUp(any()) } returns 0
+        every { gapDiscoverer.expireSessions() } returns 0
+        coEvery { gapDiscoverer.retryBufferedResponse() } returns 0
+        coEvery { gapDiscoverer.discover() } returns 0
 
         val controller =
             BootstrapController(
@@ -294,8 +335,8 @@ class BootstrapControllerTest {
                 discoveryQueue = queue,
                 persistenceWorker = worker,
                 uncheckedTransactionProcessor = processor,
+                uncheckedTransactionService = service,
                 gapDiscoverer = gapDiscoverer,
-                discoveryProperties = properties,
                 clock = clock,
                 meterRegistry = registry,
             )
@@ -305,6 +346,7 @@ class BootstrapControllerTest {
             queue = queue,
             worker = worker,
             processor = processor,
+            service = service,
             gapDiscoverer = gapDiscoverer,
             clock = clock,
             registry = registry,
@@ -317,6 +359,7 @@ class BootstrapControllerTest {
         val queue: DiscoveryQueue,
         val worker: DiscoveryPersistenceWorker,
         val processor: UncheckedTransactionProcessor,
+        val service: UncheckedTransactionService,
         val gapDiscoverer: GapDiscoverer,
         val clock: MutableClock,
         val registry: SimpleMeterRegistry,
@@ -333,6 +376,12 @@ class BootstrapControllerTest {
                 .get("transactions.bootstrap.controller.disk.credit")
                 .gauge()
                 .value()
+
+        fun deletedTransactions(): Double =
+            registry
+                .get("transactions.unchecked.cleanup.deleted")
+                .counter()
+                .count()
     }
 
     private class MutableClock(
@@ -343,9 +392,14 @@ class BootstrapControllerTest {
         override fun withZone(zone: ZoneId): Clock = this
 
         override fun instant(): Instant = current
+    }
 
-        fun advance(duration: Duration) {
-            current = current.plus(duration)
+    private suspend fun expectSimulatedFailure(block: suspend () -> Unit) {
+        try {
+            block()
+            fail("Expected simulated failure")
+        } catch (exception: IllegalStateException) {
+            assertEquals("simulated", exception.message)
         }
     }
 }

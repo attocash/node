@@ -15,7 +15,6 @@ import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
 import cash.atto.node.bootstrap.TransactionResolved
-import cash.atto.node.bootstrap.discovery.DiscoveryProperties
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
@@ -37,68 +36,27 @@ import org.springframework.transaction.ReactiveTransaction
 import org.springframework.transaction.ReactiveTransactionManager
 import org.springframework.transaction.TransactionDefinition
 import reactor.core.publisher.Mono
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
 
 class UncheckedTransactionProcessorTest {
     @Test
-    fun `skips repeated scans until work changes or maintenance is due`() =
+    fun `executes every time it is called`() =
         runTest {
             // Given
             val fixture = fixture()
             coEvery { fixture.repository.findTopOldest(1_000L) } returns emptyFlow()
 
             // When
-            val first = fixture.processor.processIfDue()
-            val suppressed = fixture.processor.processIfDue()
+            val first = fixture.processor.process()
+            val second = fixture.processor.process()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(0, 0), first)
-            assertEquals(UncheckedProcessingResult.SkippedIdle, suppressed)
-            coVerify(exactly = 1) { fixture.repository.findTopOldest(1_000L) }
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
-
-            // When
-            fixture.workTracker.markChanged()
-            fixture.processor.processIfDue()
-            fixture.processor.processIfDue()
-            fixture.clock.advance(Duration.ofSeconds(30))
-            fixture.processor.processIfDue()
-
-            // Then
-            coVerify(exactly = 3) { fixture.repository.findTopOldest(1_000L) }
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
+            assertEquals(0, first)
+            assertEquals(0, second)
+            coVerify(exactly = 2) { fixture.repository.findTopOldest(1_000L) }
         }
 
     @Test
-    fun `cleanup uses the requested limit and records deleted rows`() =
-        runTest {
-            // Given
-            val fixture = fixture()
-            coEvery { fixture.service.cleanUp(1_000L) } returnsMany listOf(1_000, 0)
-
-            // When
-            val cleanupProgress = fixture.processor.deleteExistingTransactions(1_000L)
-            val completedCleanup = fixture.processor.deleteExistingTransactions(1_000L)
-
-            // Then
-            assertEquals(1_000, cleanupProgress)
-            assertEquals(0, completedCleanup)
-            coVerify(exactly = 2) { fixture.service.cleanUp(1_000L) }
-            assertEquals(
-                1_000.0,
-                fixture.registry
-                    .get("transactions.unchecked.cleanup.deleted")
-                    .counter()
-                    .count(),
-            )
-        }
-
-    @Test
-    fun `selects and commits resolution without owning cleanup scheduling`() =
+    fun `returns the number of resolved transactions`() =
         runTest {
             // Given
             val timeline = mutableListOf<String>()
@@ -121,15 +79,14 @@ class UncheckedTransactionProcessorTest {
             } returns listOf(account)
 
             // When
-            val result = fixture.processor.processIfDue()
+            val resolved = fixture.processor.process()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(1, 1), result)
+            assertEquals(1, resolved)
             assertEquals(listOf("select", "begin", "commit"), timeline)
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, fixture.transactionManager.isolationLevel)
             assertEquals(1, fixture.transactionManager.commits)
             assertEquals(0, fixture.transactionManager.rollbacks)
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
             coVerify(exactly = 1) {
                 fixture.eventPublisher.publishAfterCommit(
                     match<TransactionResolved> { it.transaction == transaction },
@@ -138,7 +95,7 @@ class UncheckedTransactionProcessorTest {
         }
 
     @Test
-    fun `resolution failure rolls back skips cleanup and releases the pass mutex`() =
+    fun `resolution failure rolls back and a later call executes again`() =
         runTest {
             // Given
             val fixture = fixture()
@@ -164,72 +121,58 @@ class UncheckedTransactionProcessorTest {
 
             // When
             try {
-                fixture.processor.processIfDue()
+                fixture.processor.process()
                 fail("Expected resolution failure")
             } catch (_: IllegalStateException) {
                 // Expected.
             }
+            val retry = fixture.processor.process()
 
             // Then
-            assertEquals(0, fixture.transactionManager.commits)
-            assertEquals(1, fixture.transactionManager.rollbacks)
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
-
-            // When
-            val retry = fixture.processor.processIfDue()
-
-            // Then
-            assertEquals(UncheckedProcessingResult.Completed(1, 1), retry)
+            assertEquals(1, retry)
             assertEquals(1, fixture.transactionManager.commits)
             assertEquals(1, fixture.transactionManager.rollbacks)
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     @Test
-    fun `overlapping invocation skips instead of queuing another pass`() =
+    fun `overlapping invocations both execute without worker-level locking`() =
         runTest {
             // Given
             val fixture = fixture()
             val selectionStarted = CompletableDeferred<Unit>()
             val releaseSelection = CompletableDeferred<Unit>()
-            coEvery { fixture.repository.findTopOldest(1_000L) } returns
-                flow {
-                    selectionStarted.complete(Unit)
-                    releaseSelection.await()
-                }
+            coEvery { fixture.repository.findTopOldest(1_000L) } returnsMany
+                listOf(
+                    flow {
+                        selectionStarted.complete(Unit)
+                        releaseSelection.await()
+                    },
+                    emptyFlow(),
+                )
 
             // When
-            val firstPass = async { fixture.processor.processIfDue() }
+            val firstPass = async { fixture.processor.process() }
             selectionStarted.await()
-            val overlap = fixture.processor.processIfDue()
-            val cleanupOverlap = fixture.processor.deleteExistingTransactions(1_000L)
+            val overlap = fixture.processor.process()
 
             // Then
-            assertEquals(UncheckedProcessingResult.SkippedBusy, overlap)
-            assertEquals(null, cleanupOverlap)
-            coVerify(exactly = 1) { fixture.repository.findTopOldest(1_000L) }
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
+            assertEquals(0, overlap)
+            coVerify(exactly = 2) { fixture.repository.findTopOldest(1_000L) }
 
             // When
             releaseSelection.complete(Unit)
-            val completed = firstPass.await()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(0, 0), completed)
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
+            assertEquals(0, firstPass.await())
         }
 
     private fun fixture(timeline: MutableList<String> = mutableListOf()): Fixture {
         val repository = mockk<UncheckedTransactionRepository>()
-        val service = mockk<UncheckedTransactionService>()
-        val workTracker = UncheckedWorkTracker()
-        val clock = MutableClock()
         val accountRepository = mockk<AccountRepository>()
         val validationManager = mockk<TransactionValidationManager>()
         val accountService = mockk<AccountService>()
         val eventPublisher = mockk<EventPublisher>(relaxed = true)
         val transactionManager = RecordingReactiveTransactionManager(timeline)
-        val registry = SimpleMeterRegistry()
         val processor =
             UncheckedTransactionProcessor(
                 accountRepository = accountRepository,
@@ -237,40 +180,28 @@ class UncheckedTransactionProcessorTest {
                 accountService = accountService,
                 eventPublisher = eventPublisher,
                 uncheckedTransactionRepository = repository,
-                uncheckedTransactionService = service,
-                workTracker = workTracker,
-                discoveryProperties = DiscoveryProperties(),
-                meterRegistry = registry,
+                meterRegistry = SimpleMeterRegistry(),
                 transactionManager = transactionManager,
-                clock = clock,
             )
         return Fixture(
             processor = processor,
             repository = repository,
-            service = service,
-            workTracker = workTracker,
-            clock = clock,
             accountRepository = accountRepository,
             validationManager = validationManager,
             accountService = accountService,
             eventPublisher = eventPublisher,
             transactionManager = transactionManager,
-            registry = registry,
         )
     }
 
     private data class Fixture(
         val processor: UncheckedTransactionProcessor,
         val repository: UncheckedTransactionRepository,
-        val service: UncheckedTransactionService,
-        val workTracker: UncheckedWorkTracker,
-        val clock: MutableClock,
         val accountRepository: AccountRepository,
         val validationManager: TransactionValidationManager,
         val accountService: AccountService,
         val eventPublisher: EventPublisher,
         val transactionManager: RecordingReactiveTransactionManager,
-        val registry: SimpleMeterRegistry,
     )
 
     private class RecordingReactiveTransactionManager(
@@ -303,20 +234,6 @@ class UncheckedTransactionProcessorTest {
     }
 
     private object SimpleReactiveTransaction : ReactiveTransaction
-
-    private class MutableClock(
-        private var current: Instant = Instant.parse("2026-08-03T00:00:00Z"),
-    ) : Clock() {
-        override fun getZone(): ZoneId = ZoneOffset.UTC
-
-        override fun withZone(zone: ZoneId): Clock = this
-
-        override fun instant(): Instant = current
-
-        fun advance(duration: Duration) {
-            current = current.plus(duration)
-        }
-    }
 
     private fun Transaction.Companion.sample(): Transaction =
         Transaction(

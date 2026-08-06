@@ -85,7 +85,7 @@ class GapSessionTest {
         }
 
     @Test
-    fun `saturated queue does not block offering a later response`() =
+    fun `saturated queue serializes a later response without losing it`() =
         runTest {
             // Given
             val chain = chain()
@@ -111,13 +111,13 @@ class GapSessionTest {
             runCurrent()
 
             // Then
-            assertTrue(laterOffer.isCompleted)
-            assertEquals(GapSessionStatus.ACTIVE, laterOffer.await())
+            assertFalse(laterOffer.isCompleted)
             assertEquals(2, session.bufferedResponseCount())
 
             // When
             releaseQueue.complete(Unit)
             assertEquals(GapSessionStatus.ACTIVE, expectedOffer.await())
+            assertEquals(GapSessionStatus.ACTIVE, laterOffer.await())
             val status = session.offer(response(chain.second))
 
             // Then
@@ -129,7 +129,7 @@ class GapSessionTest {
         }
 
     @Test
-    fun `cancelled admission retains expected and later responses for retry`() =
+    fun `cancelled admission is resumed by the waiting response`() =
         runTest {
             // Given
             val chain = chain()
@@ -148,17 +148,18 @@ class GapSessionTest {
             val session = session(chain, queue)
             val expectedOffer = async { session.offer(response(chain.third)) }
             enteredQueue.await()
-            session.offer(response(chain.first))
+            val laterOffer = async { session.offer(response(chain.first)) }
+            runCurrent()
 
             // When
             expectedOffer.cancelAndJoin()
+            assertEquals(GapSessionStatus.ACTIVE, laterOffer.await())
 
             // Then
-            assertEquals(2, session.bufferedResponseCount())
+            assertEquals(1, session.bufferedResponseCount())
             assertEquals(GapSessionStatus.ACTIVE, session.status())
 
             // When
-            session.retry()
             val status = session.offer(response(chain.second))
 
             // Then
@@ -167,6 +168,52 @@ class GapSessionTest {
                 listOf(chain.third.hash, chain.second.hash, chain.first.hash),
                 admitted,
             )
+        }
+
+    @Test
+    fun `cancelled final response remains buffered for explicit retry`() =
+        runTest {
+            // Given
+            val chain = chain()
+            val enteredQueue = CompletableDeferred<Unit>()
+            val attempts = AtomicInteger()
+            val admitted = mutableListOf<AttoHash>()
+            val queue = mockk<DiscoveryQueue>()
+            coEvery { queue.queue(any(), DiscoverySource.GAP) } coAnswers {
+                if (attempts.getAndIncrement() == 0) {
+                    enteredQueue.complete(Unit)
+                    awaitCancellation()
+                }
+                admitted += firstArg<TransactionDiscovered>().transaction.hash
+                true
+            }
+            val session =
+                GapSession(
+                    publicKey = chain.publicKey,
+                    peer = PEER,
+                    startHeight = 3U.toAttoHeight(),
+                    endHeight = 3U.toAttoHeight(),
+                    initialExpectedHash = chain.third.hash,
+                    discoveryQueue = queue,
+                    clock = Clock.systemUTC(),
+                )
+            val offer = async { session.offer(response(chain.third)) }
+            enteredQueue.await()
+
+            // When
+            offer.cancelAndJoin()
+
+            // Then
+            assertEquals(1, session.bufferedResponseCount())
+            assertEquals(GapSessionStatus.ACTIVE, session.status())
+
+            // When
+            val status = session.retryOne()
+
+            // Then
+            assertEquals(GapSessionStatus.COMPLETED, status)
+            assertEquals(listOf(chain.third.hash), admitted)
+            assertEquals(0, session.bufferedResponseCount())
         }
 
     @Test
@@ -305,16 +352,21 @@ class GapSessionTest {
             enteredQueue.await()
 
             // When
+            val pendingOffers = mutableListOf(expectedOffer)
             (1U..4U).forEach { height ->
-                session.offer(response(transactions.getValue(height)))
-                session.offer(response(transactions.getValue(height)))
+                pendingOffers += async { session.offer(response(transactions.getValue(height))) }
+                pendingOffers += async { session.offer(response(transactions.getValue(height))) }
             }
-            session.offer(response(transaction(publicKey, 6U, hash(5), 6)))
+            pendingOffers +=
+                async {
+                    session.offer(response(transaction(publicKey, 6U, hash(5), 6)))
+                }
+            runCurrent()
 
             // Then
             assertEquals(5, session.bufferedResponseCount())
 
-            expectedOffer.cancelAndJoin()
+            pendingOffers.forEach { it.cancelAndJoin() }
         }
 
     private fun session(

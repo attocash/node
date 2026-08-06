@@ -9,6 +9,7 @@ import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.transaction.toTransaction
 import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.net.URI
 import java.time.Clock
 import java.time.Duration
@@ -55,10 +56,10 @@ internal class GapSession(
             return status()
         }
 
-        return drain()
+        return drain(Int.MAX_VALUE)
     }
 
-    suspend fun retry(): GapSessionStatus = drain()
+    suspend fun retryOne(): GapSessionStatus = drain(1)
 
     fun isExpired(
         now: Instant,
@@ -77,24 +78,17 @@ internal class GapSession(
             Progress.Invalid -> GapSessionStatus.INVALID
         }
 
-    private suspend fun drain(): GapSessionStatus {
-        if (!drainMutex.tryLock()) {
-            return status()
-        }
-
-        try {
-            while (true) {
-                val current = progress.get()
-                if (current !is Progress.Active) {
-                    return status()
-                }
-
-                val message = responses[current.expectedHeight] ?: return GapSessionStatus.ACTIVE
+    private suspend fun drain(maximumTransactions: Int): GapSessionStatus {
+        return drainMutex.withLock {
+            var processed = 0
+            var current = progress.get()
+            while (current is Progress.Active && processed < maximumTransactions) {
+                val message = responses[current.expectedHeight] ?: return@withLock GapSessionStatus.ACTIVE
                 val transaction = message.payload.transaction
                 if (transaction.hash != current.expectedHash) {
                     progress.set(Progress.Invalid)
                     responses.clear()
-                    return GapSessionStatus.INVALID
+                    return@withLock GapSessionStatus.INVALID
                 }
 
                 discoveryQueue.queue(
@@ -114,14 +108,13 @@ internal class GapSession(
                 progress.set(next)
                 lastSuccessfulProgressAt = clock.instant()
                 responses.remove(current.expectedHeight, message)
-
                 if (next == Progress.Completed) {
                     responses.clear()
-                    return GapSessionStatus.COMPLETED
                 }
+                processed++
+                current = next
             }
-        } finally {
-            drainMutex.unlock()
+            status()
         }
     }
 

@@ -15,7 +15,6 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
-import cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker
 import cash.atto.node.transaction.Transaction
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.coEvery
@@ -513,29 +512,6 @@ class DiscoveryQueueTest {
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
         }
 
-    @Test
-    fun `successful persistence marks work changed once only when rows were affected`() =
-        runTest {
-            // Given
-            val service = mockk<UncheckedTransactionService>()
-            coEvery { service.save(any()) } returnsMany listOf(1L, 0L)
-            val fixture = fixture(service, properties(capacity = 2, batchSize = 1))
-            fixture.queue.queue(event(22), DiscoverySource.SEND)
-            fixture.queue.queue(event(23), DiscoverySource.SEND)
-
-            // When
-            fixture.worker.persistIfReady()
-
-            // Then
-            assertEquals(1L, fixture.workTracker.currentGeneration())
-
-            // When
-            fixture.worker.persistIfReady()
-
-            // Then
-            assertEquals(1L, fixture.workTracker.currentGeneration())
-        }
-
     private fun fixture(
         service: UncheckedTransactionService,
         properties: DiscoveryProperties = properties(),
@@ -550,7 +526,6 @@ class DiscoveryQueueTest {
         val queue =
             DiscoveryQueue(eventPublisher, properties, metrics, clock, pressureMonitor)
                 .also { it.start() }
-        val workTracker = UncheckedWorkTracker()
         val worker =
             DiscoveryPersistenceWorker(
                 uncheckedTransactionService = service,
@@ -558,14 +533,12 @@ class DiscoveryQueueTest {
                 properties = properties,
                 metrics = metrics,
                 clock = clock,
-                workTracker = workTracker,
             )
         return Fixture(
             queue,
             worker,
             registry,
             discoveryCapacity,
-            workTracker,
         )
     }
 
@@ -618,7 +591,6 @@ class DiscoveryQueueTest {
         val worker: DiscoveryPersistenceWorker,
         val registry: SimpleMeterRegistry,
         val discoveryCapacity: AtomicInteger,
-        val workTracker: UncheckedWorkTracker,
     ) {
         fun gauge(name: String): Double = registry.get(name).gauge().value()
 

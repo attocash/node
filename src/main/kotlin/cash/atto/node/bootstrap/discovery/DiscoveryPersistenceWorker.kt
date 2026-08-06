@@ -2,7 +2,6 @@ package cash.atto.node.bootstrap.discovery
 
 import cash.atto.node.CacheSupport
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
-import cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -20,7 +19,6 @@ class DiscoveryPersistenceWorker(
     private val properties: DiscoveryProperties,
     private val metrics: DiscoveryMetrics,
     private val clock: Clock,
-    private val workTracker: UncheckedWorkTracker,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
     private val flushMutex = Mutex()
@@ -93,9 +91,6 @@ class DiscoveryPersistenceWorker(
         retryBatch = null
         metrics.persisted(discoveries)
         metrics.affectedRows(affectedRows)
-        if (affectedRows > 0) {
-            workTracker.markChanged()
-        }
         resetRetry()
         logger.info { "Saved ${discoveries.size} unchecked transactions in $elapsed" }
         return DiscoveryPersistenceResult.Persisted

@@ -14,7 +14,6 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
-import cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
@@ -30,6 +29,10 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -57,7 +60,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             coVerify(exactly = 0) { fixture.repository.findGaps(any()) }
@@ -76,7 +79,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             coVerify(exactly = 0) { fixture.repository.findGaps(any()) }
@@ -91,8 +94,8 @@ class GapDiscovererTest {
             val fixture = fixture(gaps = gaps, capacity = 3_000)
 
             // when
-            fixture.discoverer.discoverIfDue()
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
+            fixture.discover()
 
             // then
             assertEquals(3, fixture.requests.size)
@@ -113,7 +116,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             assertEquals(1, fixture.requests.size)
@@ -130,7 +133,7 @@ class GapDiscovererTest {
             val fixture = fixture(gaps = gaps, capacity = 3_000, nodes = nodes)
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             assertEquals(3, fixture.requests.size)
@@ -151,8 +154,8 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
+            fixture.discover()
 
             // then
             assertEquals(
@@ -173,7 +176,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             val request = fixture.requests.single()
@@ -192,7 +195,7 @@ class GapDiscovererTest {
                 )
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             val request = fixture.requests.single()
@@ -213,11 +216,11 @@ class GapDiscovererTest {
                     capacity = 1_000,
                     queueResult = false,
                 )
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // when
             fixture.discoverer.process(fixture.response(transaction))
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             assertEquals(2, fixture.requests.size)
@@ -226,12 +229,46 @@ class GapDiscovererTest {
         }
 
     @Test
+    fun `cancelled final response is retried and closes its session`() =
+        runTest {
+            // Given
+            val publicKey = publicKey(1)
+            val transaction = transaction(publicKey, 1U, hash(0), 1)
+            val fixture =
+                fixture(
+                    gaps = listOf(gap(publicKey, 1U, 1U, transaction.hash)),
+                    capacity = 1_000,
+                )
+            val enteredQueue = CompletableDeferred<Unit>()
+            var attempts = 0
+            coEvery { fixture.queue.queue(any(), DiscoverySource.GAP) } coAnswers {
+                if (attempts++ == 0) {
+                    enteredQueue.complete(Unit)
+                    awaitCancellation()
+                }
+                true
+            }
+            fixture.discover()
+            val response = async { fixture.discoverer.process(fixture.response(transaction)) }
+            enteredQueue.await()
+
+            // When
+            response.cancelAndJoin()
+            val retried = fixture.discoverer.retryBufferedResponse()
+
+            // Then
+            assertEquals(1, retried)
+            assertEquals(0, fixture.discoverer.activeSessionCount())
+            coVerify(exactly = 2) { fixture.queue.queue(any(), DiscoverySource.GAP) }
+        }
+
+    @Test
     fun `peer disconnect releases all its sessions and allows retry`() =
         runTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 3_000)
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // when
             fixture.disconnect()
@@ -241,7 +278,7 @@ class GapDiscovererTest {
 
             // when
             fixture.connect()
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             assertEquals(6, fixture.requests.size)
@@ -255,12 +292,12 @@ class GapDiscovererTest {
             val clock = MutableClock()
             val gaps = (1..2).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 2_000, clock = clock)
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // when
             clock.advance(Duration.ofSeconds(61))
-            fixture.discoverer.maintainSessions()
-            fixture.discoverer.discoverIfDue()
+            fixture.discoverer.expireSessions()
+            fixture.discover()
 
             // then
             assertEquals(4, fixture.requests.size)
@@ -281,7 +318,7 @@ class GapDiscovererTest {
 
             // when
             try {
-                fixture.discoverer.discoverIfDue()
+                fixture.discover()
                 fail("Expected request publication to fail")
             } catch (_: IllegalStateException) {
                 // expected
@@ -291,7 +328,7 @@ class GapDiscovererTest {
             assertEquals(0, fixture.discoverer.activeSessionCount())
 
             // when
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // then
             assertEquals(1, fixture.requests.size)
@@ -304,7 +341,7 @@ class GapDiscovererTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
             val fixture = fixture(gaps = gaps, capacity = 3_000)
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
 
             // when
             fixture.discoverer.clear()
@@ -314,32 +351,17 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `empty query suppression wakes on work changes and fallback expiry`() =
+    fun `empty query executes every time discovery is called`() =
         runTest {
             // given
-            val clock = MutableClock()
-            val fixture = fixture(gaps = emptyList(), clock = clock)
+            val fixture = fixture(gaps = emptyList())
 
             // when
-            fixture.discoverer.discoverIfDue()
-            fixture.discoverer.discoverIfDue()
-
-            // then
-            coVerify(exactly = 1) { fixture.repository.findGaps(any()) }
-
-            // when
-            fixture.workTracker.markChanged()
-            fixture.discoverer.discoverIfDue()
+            fixture.discover()
+            fixture.discover()
 
             // then
             coVerify(exactly = 2) { fixture.repository.findGaps(any()) }
-
-            // when
-            clock.advance(Duration.ofSeconds(31))
-            fixture.discoverer.discoverIfDue()
-
-            // then
-            coVerify(exactly = 3) { fixture.repository.findGaps(any()) }
         }
 
     private fun fixture(
@@ -376,22 +398,20 @@ class GapDiscovererTest {
             requests += firstArg<DirectNetworkMessage<AttoTransactionStreamRequest>>()
         }
 
-        val workTracker = UncheckedWorkTracker()
         val discoverer =
             GapDiscoverer(
                 uncheckedTransactionRepository = repository,
                 networkMessagePublisher = publisher,
                 discoveryQueue = queue,
-                workTracker = workTracker,
                 discoveryProperties = properties,
                 meterRegistry = SimpleMeterRegistry(),
                 clock = clock,
             )
         return Fixture(
             discoverer = discoverer,
+            queue = queue,
             repository = repository,
             requests = requests,
-            workTracker = workTracker,
             nodes = nodes,
         ).also {
             if (connect) {
@@ -402,11 +422,13 @@ class GapDiscovererTest {
 
     private data class Fixture(
         val discoverer: GapDiscoverer,
+        val queue: DiscoveryQueue,
         val repository: UncheckedTransactionRepository,
         val requests: List<DirectNetworkMessage<AttoTransactionStreamRequest>>,
-        val workTracker: UncheckedWorkTracker,
         val nodes: List<AttoNode>,
     ) {
+        suspend fun discover(): Int = discoverer.discover()
+
         fun connect() {
             nodes.forEach { node ->
                 discoverer.add(NodeConnected(socketAddress(node), node))
