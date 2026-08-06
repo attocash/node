@@ -14,8 +14,8 @@ import java.net.URI
 data class AttoKeepAlive(
     @ProtoNumber(1)
     val neighbour:
-    @Serializable(with = URISerializer::class)
-    URI? = null,
+        @Serializable(with = URISerializer::class)
+        URI? = null,
 ) : AttoMessage {
     override fun messageType(): AttoMessageType = AttoMessageType.KEEP_ALIVE
 
@@ -25,5 +25,5 @@ data class AttoKeepAlive(
                 neighbour.path.isNullOrEmpty() &&
                     neighbour.query == null &&
                     neighbour.fragment == null
-                )
+            )
 }

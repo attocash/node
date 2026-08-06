@@ -43,8 +43,6 @@ class DiscoveryTestController(
     }
 
     private suspend fun discoverGaps() {
-        gapDiscoverer.expireSessions()
-        gapDiscoverer.retryBufferedResponse()
         gapDiscoverer.discover()
     }
 

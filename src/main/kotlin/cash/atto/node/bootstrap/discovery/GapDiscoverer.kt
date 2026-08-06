@@ -13,6 +13,8 @@ import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
+import com.github.benmanes.caffeine.cache.Caffeine
+import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.MeterRegistry
@@ -23,6 +25,7 @@ import java.net.URI
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 @Component
@@ -36,7 +39,14 @@ class GapDiscoverer(
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
     private val peers = ConcurrentHashMap<URI, AttoNode>()
-    private val activeSessions = ConcurrentHashMap<AttoPublicKey, GapSession>()
+    private val activeSessionCache =
+        Caffeine
+            .newBuilder()
+            .ticker { TimeUnit.MILLISECONDS.toNanos(clock.millis()) }
+            .scheduler(Scheduler.systemScheduler())
+            .expireAfterWrite(SESSION_TIMEOUT)
+            .build<AttoPublicKey, GapSession>()
+    private val activeSessions = activeSessionCache.asMap()
     private val requestBudget =
         minOf(
             AttoTransactionStreamRequest.MAX_TRANSACTIONS,
@@ -63,12 +73,14 @@ class GapDiscoverer(
     fun remove(nodeEvent: NodeDisconnected) {
         val publicUri = nodeEvent.node.publicUri
         peers.remove(publicUri)
-        activeSessions.values
+        activeSessions
+            .values
             .filter { it.peer == publicUri }
             .forEach { activeSessions.remove(it.publicKey, it) }
     }
 
     suspend fun discover(): Int {
+        activeSessionCache.cleanUp()
         val slots = availableSessionSlots()
         if (slots == 0) {
             return 0
@@ -95,42 +107,21 @@ class GapDiscoverer(
     suspend fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
         val publicKey = message.payload.transaction.block.publicKey
         val session = activeSessions[publicKey] ?: return
-        closeIfFinished(session, session.offer(message))
+        if (session.offer(message)) {
+            activeSessions.replace(publicKey, session, session)
+        }
+        if (session.isComplete()) {
+            activeSessions.remove(publicKey, session)
+        }
     }
 
     override fun clear() {
         activeSessions.clear()
     }
 
-    internal fun activeSessionCount(): Int = activeSessions.size
-
-    internal suspend fun retryBufferedResponse(): Int {
-        activeSessions.values.toList().forEach { session ->
-            val bufferedBefore = session.bufferedResponseCount()
-            if (bufferedBefore == 0) {
-                return@forEach
-            }
-
-            closeIfFinished(session, session.retryOne())
-            val processed = bufferedBefore - session.bufferedResponseCount()
-            if (processed > 0) {
-                return processed
-            }
-        }
-        return 0
-    }
-
-    internal fun expireSessions(): Int {
-        var expired = 0
-        activeSessions.values.toList().forEach { session ->
-            if (
-                session.isExpired(clock.instant(), SESSION_TIMEOUT) &&
-                activeSessions.remove(session.publicKey, session)
-            ) {
-                expired++
-            }
-        }
-        return expired
+    internal fun activeSessionCount(): Int {
+        activeSessionCache.cleanUp()
+        return activeSessions.size
     }
 
     private fun availableSessionSlots(): Int {
@@ -147,7 +138,11 @@ class GapDiscoverer(
             return 0
         }
 
-        val sessionsByPeer = activeSessions.values.groupingBy(GapSession::peer).eachCount()
+        val sessionsByPeer =
+            activeSessions
+                .values
+                .groupingBy(GapSession::peer)
+                .eachCount()
         val peerSlots =
             peers.values.sumOf { peer ->
                 maxOf(0, peer.parallelStreamLimit() - (sessionsByPeer[peer.publicUri] ?: 0))
@@ -166,11 +161,8 @@ class GapDiscoverer(
                 endHeight = view.endHeight,
                 initialExpectedHash = view.expectedEndHash,
                 discoveryQueue = discoveryQueue,
-                clock = clock,
             )
-        if (activeSessions.putIfAbsent(view.publicKey, session) != null) {
-            return 0
-        }
+        activeSessions[view.publicKey] = session
         if (!peers.containsKey(selectedPeer)) {
             activeSessions.remove(view.publicKey, session)
             return 0
@@ -197,7 +189,11 @@ class GapDiscoverer(
     }
 
     private fun selectPeer(): URI? {
-        val sessionsByPeer = activeSessions.values.groupingBy(GapSession::peer).eachCount()
+        val sessionsByPeer =
+            activeSessions
+                .values
+                .groupingBy(GapSession::peer)
+                .eachCount()
         val candidates =
             peers.values
                 .mapNotNull { peer ->
@@ -207,15 +203,6 @@ class GapDiscoverer(
         val minimumCount = candidates.minOfOrNull { it.second } ?: return null
         val leastLoaded = candidates.filter { it.second == minimumCount }
         return leastLoaded[Random.nextInt(leastLoaded.size)].first
-    }
-
-    private fun closeIfFinished(
-        session: GapSession,
-        status: GapSessionStatus,
-    ) {
-        if (status != GapSessionStatus.ACTIVE) {
-            activeSessions.remove(session.publicKey, session)
-        }
     }
 
     private fun AttoNode.parallelStreamLimit(): Int =

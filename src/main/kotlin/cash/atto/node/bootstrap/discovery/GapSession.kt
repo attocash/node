@@ -11,9 +11,6 @@ import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.net.URI
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicReference
 
@@ -24,71 +21,51 @@ internal class GapSession(
     val endHeight: AttoHeight,
     val initialExpectedHash: AttoHash,
     private val discoveryQueue: DiscoveryQueue,
-    private val clock: Clock,
 ) {
     private val drainMutex = Mutex()
     private val responses = ConcurrentHashMap<AttoHeight, InboundNetworkMessage<AttoTransactionStreamResponse>>()
     private val progress = AtomicReference<Progress>(Progress.Active(endHeight, initialExpectedHash))
 
-    @Volatile
-    private var lastSuccessfulProgressAt: Instant = clock.instant()
-
-    suspend fun offer(message: InboundNetworkMessage<AttoTransactionStreamResponse>): GapSessionStatus {
+    suspend fun offer(message: InboundNetworkMessage<AttoTransactionStreamResponse>): Boolean {
         val block = message.payload.transaction.block
         val current = progress.get()
         if (
             current !is Progress.Active ||
             message.publicUri != peer ||
-            block.publicKey != publicKey ||
             block.height !in startHeight..endHeight ||
             block.height > current.expectedHeight
         ) {
-            return status()
+            return false
         }
 
-        val previous = responses.putIfAbsent(block.height, message)
+        val newlyStored = responses.putIfAbsent(block.height, message) == null
         val latest = progress.get()
         if (
-            previous == null &&
+            newlyStored &&
             (latest !is Progress.Active || block.height > latest.expectedHeight)
         ) {
             responses.remove(block.height, message)
-            return status()
+            return false
         }
 
-        return drain(Int.MAX_VALUE)
+        return drain(newlyStored)
     }
-
-    suspend fun retryOne(): GapSessionStatus = drain(1)
-
-    fun isExpired(
-        now: Instant,
-        timeout: Duration,
-    ): Boolean =
-        !drainMutex.isLocked &&
-            progress.get() is Progress.Active &&
-            !lastSuccessfulProgressAt.isAfter(now.minus(timeout))
 
     internal fun bufferedResponseCount(): Int = responses.size
 
-    internal fun status(): GapSessionStatus =
-        when (progress.get()) {
-            is Progress.Active -> GapSessionStatus.ACTIVE
-            Progress.Completed -> GapSessionStatus.COMPLETED
-            Progress.Invalid -> GapSessionStatus.INVALID
-        }
+    fun isComplete(): Boolean = progress.get() !is Progress.Active
 
-    private suspend fun drain(maximumTransactions: Int): GapSessionStatus {
+    private suspend fun drain(newlyStored: Boolean): Boolean {
         return drainMutex.withLock {
-            var processed = 0
+            var accepted = newlyStored
             var current = progress.get()
-            while (current is Progress.Active && processed < maximumTransactions) {
-                val message = responses[current.expectedHeight] ?: return@withLock GapSessionStatus.ACTIVE
+            while (current is Progress.Active) {
+                val message = responses[current.expectedHeight] ?: return@withLock accepted
                 val transaction = message.payload.transaction
                 if (transaction.hash != current.expectedHash) {
                     progress.set(Progress.Invalid)
                     responses.clear()
-                    return@withLock GapSessionStatus.INVALID
+                    return@withLock false
                 }
 
                 discoveryQueue.queue(
@@ -96,6 +73,7 @@ internal class GapSession(
                     DiscoverySource.GAP,
                 )
 
+                accepted = true
                 val next =
                     if (current.expectedHeight == startHeight) {
                         Progress.Completed
@@ -106,15 +84,13 @@ internal class GapSession(
                         )
                     }
                 progress.set(next)
-                lastSuccessfulProgressAt = clock.instant()
                 responses.remove(current.expectedHeight, message)
                 if (next == Progress.Completed) {
                     responses.clear()
                 }
-                processed++
                 current = next
             }
-            status()
+            accepted
         }
     }
 
@@ -128,10 +104,4 @@ internal class GapSession(
 
         data object Invalid : Progress
     }
-}
-
-internal enum class GapSessionStatus {
-    ACTIVE,
-    COMPLETED,
-    INVALID,
 }

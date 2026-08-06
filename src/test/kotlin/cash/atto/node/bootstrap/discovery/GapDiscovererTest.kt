@@ -29,10 +29,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -205,64 +201,6 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `completed session allows another query without waiting for persistence`() =
-        runTest {
-            // given
-            val publicKey = publicKey(1)
-            val transaction = transaction(publicKey, 1U, hash(0), 1)
-            val fixture =
-                fixture(
-                    gaps = listOf(gap(publicKey, 1U, 1U, transaction.hash)),
-                    capacity = 1_000,
-                    queueResult = false,
-                )
-            fixture.discover()
-
-            // when
-            fixture.discoverer.process(fixture.response(transaction))
-            fixture.discover()
-
-            // then
-            assertEquals(2, fixture.requests.size)
-            assertEquals(1, fixture.discoverer.activeSessionCount())
-            coVerify(exactly = 2) { fixture.repository.findGaps(1) }
-        }
-
-    @Test
-    fun `cancelled final response is retried and closes its session`() =
-        runTest {
-            // Given
-            val publicKey = publicKey(1)
-            val transaction = transaction(publicKey, 1U, hash(0), 1)
-            val fixture =
-                fixture(
-                    gaps = listOf(gap(publicKey, 1U, 1U, transaction.hash)),
-                    capacity = 1_000,
-                )
-            val enteredQueue = CompletableDeferred<Unit>()
-            var attempts = 0
-            coEvery { fixture.queue.queue(any(), DiscoverySource.GAP) } coAnswers {
-                if (attempts++ == 0) {
-                    enteredQueue.complete(Unit)
-                    awaitCancellation()
-                }
-                true
-            }
-            fixture.discover()
-            val response = async { fixture.discoverer.process(fixture.response(transaction)) }
-            enteredQueue.await()
-
-            // When
-            response.cancelAndJoin()
-            val retried = fixture.discoverer.retryBufferedResponse()
-
-            // Then
-            assertEquals(1, retried)
-            assertEquals(0, fixture.discoverer.activeSessionCount())
-            coVerify(exactly = 2) { fixture.queue.queue(any(), DiscoverySource.GAP) }
-        }
-
-    @Test
     fun `peer disconnect releases all its sessions and allows retry`() =
         runTest {
             // given
@@ -286,7 +224,7 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `one minute without progress releases sessions and retries`() =
+    fun `caffeine expires sessions after one minute without progress`() =
         runTest {
             // given
             val clock = MutableClock()
@@ -296,13 +234,69 @@ class GapDiscovererTest {
 
             // when
             clock.advance(Duration.ofSeconds(61))
-            fixture.discoverer.expireSessions()
             fixture.discover()
 
             // then
             assertEquals(4, fixture.requests.size)
             assertEquals(2, fixture.discoverer.activeSessionCount())
             coVerify(exactly = 2) { fixture.repository.findGaps(2) }
+        }
+
+    @Test
+    fun `buffered response refreshes the session expiration`() =
+        runTest {
+            // Given
+            val clock = MutableClock()
+            val publicKey = publicKey(1)
+            val first = transaction(publicKey, 1U, hash(0), 1)
+            val second = transaction(publicKey, 2U, first.hash, 2)
+            val fixture =
+                fixture(
+                    gaps = listOf(gap(publicKey, 1U, 2U, second.hash)),
+                    capacity = 1_000,
+                    clock = clock,
+                )
+            fixture.discover()
+            clock.advance(Duration.ofSeconds(59))
+
+            // When
+            fixture.discoverer.process(fixture.response(first))
+            clock.advance(Duration.ofSeconds(2))
+
+            // Then
+            assertEquals(1, fixture.discoverer.activeSessionCount())
+
+            // When
+            clock.advance(Duration.ofSeconds(59))
+
+            // Then
+            assertEquals(0, fixture.discoverer.activeSessionCount())
+        }
+
+    @Test
+    fun `irrelevant traffic does not refresh the session expiration`() =
+        runTest {
+            // Given
+            val clock = MutableClock()
+            val publicKey = publicKey(1)
+            val transaction = transaction(publicKey, 1U, hash(0), 1)
+            val fixture =
+                fixture(
+                    gaps = listOf(gap(publicKey, 1U, 1U, transaction.hash)),
+                    capacity = 1_000,
+                    clock = clock,
+                )
+            fixture.discover()
+            clock.advance(Duration.ofSeconds(59))
+
+            // When
+            fixture.discoverer.process(
+                fixture.response(transaction).copy(publicUri = URI("ws://127.0.0.1:9999")),
+            )
+            clock.advance(Duration.ofSeconds(2))
+
+            // Then
+            assertEquals(0, fixture.discoverer.activeSessionCount())
         }
 
     @Test
@@ -368,7 +362,6 @@ class GapDiscovererTest {
         gaps: List<GapView>,
         capacity: Int = 10_000,
         remainingCapacity: Int = capacity,
-        queueResult: Boolean = true,
         publicationFailures: Int = 0,
         connect: Boolean = true,
         clock: Clock = MutableClock(),
@@ -382,7 +375,7 @@ class GapDiscovererTest {
         val availableCapacity = AtomicInteger(remainingCapacity)
         val queue = mockk<DiscoveryQueue>()
         every { queue.remainingTargetCapacity() } answers { availableCapacity.get() }
-        coEvery { queue.queue(any(), DiscoverySource.GAP) } returns queueResult
+        coEvery { queue.queue(any(), DiscoverySource.GAP) } returns true
 
         val repository = mockk<UncheckedTransactionRepository>()
         coEvery { repository.findGaps(any()) } answers { gaps.asFlow() }

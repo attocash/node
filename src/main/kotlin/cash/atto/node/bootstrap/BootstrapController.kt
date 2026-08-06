@@ -7,7 +7,6 @@ import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Counter
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
@@ -29,10 +28,9 @@ class BootstrapController(
     private val clock: Clock,
     meterRegistry: MeterRegistry,
 ) {
-    private val logger = KotlinLogging.logger {}
     private val runMutex = Mutex()
     private val actions =
-        PriorityQueue<BootstrapAction>(
+        PriorityQueue(
             compareByDescending<BootstrapAction> { it.priority }
                 .thenBy { it.lastAttemptSequence }
                 .thenBy { it.order },
@@ -93,14 +91,13 @@ class BootstrapController(
 
     // Fixed-rate scheduling can overlap when an invocation suspends.
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.SECONDS)
-    suspend fun runOnce() {
+    suspend fun run() {
         if (!runMutex.tryLock()) {
             return
         }
 
         try {
             accrueDiskCredit()
-            expireGapSessions()
 
             if (persistenceWorker.isRetryWaiting()) {
                 finishWithoutAction(BootstrapDecision.RETRY_WAIT)
@@ -122,12 +119,7 @@ class BootstrapController(
                 return
             }
 
-            val retriedGapResponses = gapDiscoverer.retryBufferedResponse()
             if (persist(forced = false)) {
-                return
-            }
-            if (retriedGapResponses > 0) {
-                finishWithoutAction(BootstrapDecision.IDLE)
                 return
             }
 
@@ -174,14 +166,6 @@ class BootstrapController(
             deletedTransactions.increment(deleted.toDouble())
         }
         return deleted
-    }
-
-    private fun expireGapSessions() {
-        try {
-            gapDiscoverer.expireSessions()
-        } catch (exception: Exception) {
-            logger.warn(exception) { "Failed to expire inactive gap discovery sessions" }
-        }
     }
 
     private suspend fun persist(forced: Boolean): Boolean {

@@ -12,7 +12,6 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
@@ -34,8 +33,8 @@ class BootstrapControllerTest {
             coEvery { fixture.service.cleanUp(300L) } returns 300
 
             // When
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 2) { fixture.processor.process() }
@@ -54,8 +53,8 @@ class BootstrapControllerTest {
             coEvery { fixture.gapDiscoverer.discover() } returns 1
 
             // When
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -73,10 +72,10 @@ class BootstrapControllerTest {
             coEvery { fixture.gapDiscoverer.discover() } returns 0
 
             // When
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            fixture.controller.run()
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 2) { fixture.processor.process() }
@@ -92,10 +91,10 @@ class BootstrapControllerTest {
             coEvery { fixture.gapDiscoverer.discover() } returnsMany listOf(0, 1)
 
             // When
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            fixture.controller.run()
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
@@ -110,8 +109,8 @@ class BootstrapControllerTest {
             coEvery { fixture.processor.process() } throws IllegalStateException("simulated")
 
             // When
-            fixture.controller.runOnce()
-            expectSimulatedFailure { fixture.controller.runOnce() }
+            fixture.controller.run()
+            expectSimulatedFailure { fixture.controller.run() }
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -120,7 +119,7 @@ class BootstrapControllerTest {
             assertEquals(1.0, fixture.decisions("maintenance"))
 
             // When
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -136,7 +135,7 @@ class BootstrapControllerTest {
             coEvery { fixture.service.cleanUp(5L) } throws IllegalStateException("simulated")
 
             // When
-            expectSimulatedFailure { fixture.controller.runOnce() }
+            expectSimulatedFailure { fixture.controller.run() }
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -153,10 +152,10 @@ class BootstrapControllerTest {
             coEvery { fixture.gapDiscoverer.discover() } throws IllegalStateException("simulated") andThen 0
 
             // When
-            fixture.controller.runOnce()
-            expectSimulatedFailure { fixture.controller.runOnce() }
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            expectSimulatedFailure { fixture.controller.run() }
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
@@ -174,31 +173,12 @@ class BootstrapControllerTest {
                 )
 
             // When
-            fixture.controller.runOnce()
-            fixture.controller.runOnce()
+            fixture.controller.run()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
             coVerify(exactly = 2) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
-            assertEquals(1.0, fixture.decisions("persistence"))
-        }
-
-    @Test
-    fun `buffered gap response is retried before persistence and SQL work`() =
-        runTest {
-            // Given
-            val fixture = fixture()
-            coEvery { fixture.gapDiscoverer.retryBufferedResponse() } returns 1
-            coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
-
-            // When
-            fixture.controller.runOnce()
-
-            // Then
-            coVerify(exactly = 1) { fixture.gapDiscoverer.retryBufferedResponse() }
-            coVerify(exactly = 1) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.processor.process() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("persistence"))
         }
@@ -213,14 +193,14 @@ class BootstrapControllerTest {
             coEvery { fixture.service.cleanUp(1L) } returns 1
 
             // When
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 0) { fixture.processor.process() }
             assertEquals(0.5, fixture.diskCredit())
 
             // When
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -238,7 +218,7 @@ class BootstrapControllerTest {
             coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
 
             // When
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.worker.persistIfReady() }
@@ -254,7 +234,7 @@ class BootstrapControllerTest {
             every { fixture.worker.isRetryWaiting() } returns true
 
             // When
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 0) { fixture.worker.persistIfReady() }
@@ -278,9 +258,9 @@ class BootstrapControllerTest {
             coEvery { fixture.service.cleanUp(1L) } returns 1
 
             // When
-            val activeTick = async { fixture.controller.runOnce() }
+            val activeTick = async { fixture.controller.run() }
             resolutionStarted.await()
-            fixture.controller.runOnce()
+            fixture.controller.run()
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
@@ -291,21 +271,6 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.service.cleanUp(1L) }
-        }
-
-    @Test
-    fun `session expiration is checked even while pressure pauses disk work`() =
-        runTest {
-            // Given
-            val fixture = fixture()
-            every { fixture.pressureMonitor.availableShare() } returns 0.0
-
-            // When
-            fixture.controller.runOnce()
-
-            // Then
-            verify(exactly = 1) { fixture.gapDiscoverer.expireSessions() }
-            coVerify(exactly = 0) { fixture.processor.process() }
         }
 
     private fun fixture(): Fixture {
@@ -325,8 +290,6 @@ class BootstrapControllerTest {
         coEvery { worker.persistIfReady() } returns DiscoveryPersistenceResult.Idle
         coEvery { processor.process() } returns 0
         coEvery { service.cleanUp(any()) } returns 0
-        every { gapDiscoverer.expireSessions() } returns 0
-        coEvery { gapDiscoverer.retryBufferedResponse() } returns 0
         coEvery { gapDiscoverer.discover() } returns 0
 
         val controller =

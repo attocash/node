@@ -32,12 +32,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
 import java.net.URI
-import java.time.Clock
-import java.time.Duration
-import java.time.Instant
-import java.time.ZoneId
-import java.time.ZoneOffset
-import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class GapSessionTest {
@@ -52,10 +46,11 @@ class GapSessionTest {
             // When
             session.offer(response(chain.third))
             session.offer(response(chain.second))
-            val status = session.offer(response(chain.first))
+            val result = session.offer(response(chain.first))
 
             // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
+            assertTrue(result)
+            assertTrue(session.isComplete())
             assertEquals(
                 listOf(chain.third.hash, chain.second.hash, chain.first.hash),
                 admitted,
@@ -74,10 +69,11 @@ class GapSessionTest {
             // When
             session.offer(response(chain.first))
             session.offer(response(chain.second))
-            val status = session.offer(response(chain.third))
+            val result = session.offer(response(chain.third))
 
             // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
+            assertTrue(result)
+            assertTrue(session.isComplete())
             assertEquals(
                 listOf(chain.third.hash, chain.second.hash, chain.first.hash),
                 admitted,
@@ -116,12 +112,13 @@ class GapSessionTest {
 
             // When
             releaseQueue.complete(Unit)
-            assertEquals(GapSessionStatus.ACTIVE, expectedOffer.await())
-            assertEquals(GapSessionStatus.ACTIVE, laterOffer.await())
-            val status = session.offer(response(chain.second))
+            assertTrue(expectedOffer.await())
+            assertTrue(laterOffer.await())
+            val result = session.offer(response(chain.second))
 
             // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
+            assertTrue(result)
+            assertTrue(session.isComplete())
             assertEquals(
                 listOf(chain.third.hash, chain.second.hash, chain.first.hash),
                 admitted,
@@ -129,114 +126,27 @@ class GapSessionTest {
         }
 
     @Test
-    fun `cancelled admission is resumed by the waiting response`() =
-        runTest {
-            // Given
-            val chain = chain()
-            val enteredQueue = CompletableDeferred<Unit>()
-            val attempts = AtomicInteger()
-            val admitted = mutableListOf<AttoHash>()
-            val queue = mockk<DiscoveryQueue>()
-            coEvery { queue.queue(any(), DiscoverySource.GAP) } coAnswers {
-                if (attempts.getAndIncrement() == 0) {
-                    enteredQueue.complete(Unit)
-                    awaitCancellation()
-                }
-                admitted += firstArg<TransactionDiscovered>().transaction.hash
-                true
-            }
-            val session = session(chain, queue)
-            val expectedOffer = async { session.offer(response(chain.third)) }
-            enteredQueue.await()
-            val laterOffer = async { session.offer(response(chain.first)) }
-            runCurrent()
-
-            // When
-            expectedOffer.cancelAndJoin()
-            assertEquals(GapSessionStatus.ACTIVE, laterOffer.await())
-
-            // Then
-            assertEquals(1, session.bufferedResponseCount())
-            assertEquals(GapSessionStatus.ACTIVE, session.status())
-
-            // When
-            val status = session.offer(response(chain.second))
-
-            // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
-            assertEquals(
-                listOf(chain.third.hash, chain.second.hash, chain.first.hash),
-                admitted,
-            )
-        }
-
-    @Test
-    fun `cancelled final response remains buffered for explicit retry`() =
-        runTest {
-            // Given
-            val chain = chain()
-            val enteredQueue = CompletableDeferred<Unit>()
-            val attempts = AtomicInteger()
-            val admitted = mutableListOf<AttoHash>()
-            val queue = mockk<DiscoveryQueue>()
-            coEvery { queue.queue(any(), DiscoverySource.GAP) } coAnswers {
-                if (attempts.getAndIncrement() == 0) {
-                    enteredQueue.complete(Unit)
-                    awaitCancellation()
-                }
-                admitted += firstArg<TransactionDiscovered>().transaction.hash
-                true
-            }
-            val session =
-                GapSession(
-                    publicKey = chain.publicKey,
-                    peer = PEER,
-                    startHeight = 3U.toAttoHeight(),
-                    endHeight = 3U.toAttoHeight(),
-                    initialExpectedHash = chain.third.hash,
-                    discoveryQueue = queue,
-                    clock = Clock.systemUTC(),
-                )
-            val offer = async { session.offer(response(chain.third)) }
-            enteredQueue.await()
-
-            // When
-            offer.cancelAndJoin()
-
-            // Then
-            assertEquals(1, session.bufferedResponseCount())
-            assertEquals(GapSessionStatus.ACTIVE, session.status())
-
-            // When
-            val status = session.retryOne()
-
-            // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
-            assertEquals(listOf(chain.third.hash), admitted)
-            assertEquals(0, session.bufferedResponseCount())
-        }
-
-    @Test
-    fun `wrong peer account range and processed duplicates are ignored`() =
+    fun `wrong peer range and processed duplicates are ignored`() =
         runTest {
             // Given
             val chain = chain()
             val admitted = mutableListOf<AttoHash>()
             val session = session(chain, queue(admitted))
-            val wrongAccount = transaction(publicKey(9), 3U, chain.second.hash, 9)
             val outsideRange = transaction(chain.publicKey, 4U, chain.third.hash, 4)
 
             // When
-            session.offer(response(chain.third, WRONG_PEER))
-            session.offer(response(wrongAccount))
-            session.offer(response(outsideRange))
+            val wrongPeerAccepted = session.offer(response(chain.third, WRONG_PEER))
+            val outsideRangeAccepted = session.offer(response(outsideRange))
             session.offer(response(chain.third))
             session.offer(response(chain.third))
             session.offer(response(chain.second))
-            val status = session.offer(response(chain.first))
+            val result = session.offer(response(chain.first))
 
             // Then
-            assertEquals(GapSessionStatus.COMPLETED, status)
+            assertFalse(wrongPeerAccepted)
+            assertFalse(outsideRangeAccepted)
+            assertTrue(result)
+            assertTrue(session.isComplete())
             assertEquals(
                 listOf(chain.third.hash, chain.second.hash, chain.first.hash),
                 admitted,
@@ -257,65 +167,16 @@ class GapSessionTest {
                     endHeight = 3U.toAttoHeight(),
                     initialExpectedHash = hash(99),
                     discoveryQueue = queue,
-                    clock = Clock.systemUTC(),
                 )
 
             // When
-            val status = session.offer(response(chain.third))
+            val result = session.offer(response(chain.third))
 
             // Then
-            assertEquals(GapSessionStatus.INVALID, status)
+            assertFalse(result)
+            assertTrue(session.isComplete())
             assertEquals(0, session.bufferedResponseCount())
             coVerify(exactly = 0) { queue.queue(any(), any()) }
-        }
-
-    @Test
-    fun `irrelevant traffic does not extend the timeout`() =
-        runTest {
-            // Given
-            val chain = chain()
-            val clock = MutableClock()
-            val session = session(chain, mockk(relaxed = true), clock)
-            clock.advance(Duration.ofSeconds(59))
-
-            // When
-            session.offer(response(chain.third, WRONG_PEER))
-            clock.advance(Duration.ofSeconds(2))
-
-            // Then
-            assertTrue(session.isExpired(clock.instant(), Duration.ofMinutes(1)))
-        }
-
-    @Test
-    fun `active queue admission suppresses timeout expiry`() =
-        runTest {
-            // Given
-            val chain = chain()
-            val clock = MutableClock()
-            val enteredQueue = CompletableDeferred<Unit>()
-            val releaseQueue = CompletableDeferred<Unit>()
-            val queue = mockk<DiscoveryQueue>()
-            coEvery { queue.queue(any(), DiscoverySource.GAP) } coAnswers {
-                enteredQueue.complete(Unit)
-                releaseQueue.await()
-                true
-            }
-            val session = session(chain, queue, clock)
-            val offer = async { session.offer(response(chain.third)) }
-            enteredQueue.await()
-
-            // When
-            clock.advance(Duration.ofMinutes(2))
-
-            // Then
-            assertFalse(session.isExpired(clock.instant(), Duration.ofMinutes(1)))
-
-            // When
-            releaseQueue.complete(Unit)
-            offer.await()
-
-            // Then
-            assertFalse(session.isExpired(clock.instant(), Duration.ofMinutes(1)))
         }
 
     @Test
@@ -346,7 +207,6 @@ class GapSessionTest {
                     endHeight = 5U.toAttoHeight(),
                     initialExpectedHash = transactions.getValue(5U).hash,
                     discoveryQueue = queue,
-                    clock = Clock.systemUTC(),
                 )
             val expectedOffer = async { session.offer(response(transactions.getValue(5U))) }
             enteredQueue.await()
@@ -372,7 +232,6 @@ class GapSessionTest {
     private fun session(
         chain: Chain,
         queue: DiscoveryQueue,
-        clock: Clock = Clock.systemUTC(),
     ): GapSession =
         GapSession(
             publicKey = chain.publicKey,
@@ -381,7 +240,6 @@ class GapSessionTest {
             endHeight = 3U.toAttoHeight(),
             initialExpectedHash = chain.third.hash,
             discoveryQueue = queue,
-            clock = clock,
         )
 
     private fun queue(admitted: MutableList<AttoHash>): DiscoveryQueue =
@@ -417,20 +275,6 @@ class GapSessionTest {
         val second: AttoTransaction,
         val third: AttoTransaction,
     )
-
-    private class MutableClock(
-        private var now: Instant = Instant.parse("2026-08-04T00:00:00Z"),
-    ) : Clock() {
-        override fun getZone(): ZoneId = ZoneOffset.UTC
-
-        override fun withZone(zone: ZoneId): Clock = this
-
-        override fun instant(): Instant = now
-
-        fun advance(duration: Duration) {
-            now = now.plus(duration)
-        }
-    }
 
     private companion object {
         val PEER: URI = URI("ws://127.0.0.1:8080")
