@@ -3,6 +3,7 @@ package cash.atto.node.bootstrap
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceResult
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
 import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
+import cash.atto.node.bootstrap.discovery.DiscoveryProperties
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.discovery.GapDiscoveryResult
@@ -14,6 +15,8 @@ import io.micrometer.core.instrument.MeterRegistry
 import kotlinx.coroutines.sync.Mutex
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
+import java.time.Clock
+import java.time.Instant
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -23,12 +26,17 @@ class BootstrapController(
     private val persistenceWorker: DiscoveryPersistenceWorker,
     private val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
     private val gapDiscoverer: GapDiscoverer,
+    private val discoveryProperties: DiscoveryProperties,
+    private val clock: Clock,
     meterRegistry: MeterRegistry,
 ) {
     private val runMutex = Mutex()
 
     @Volatile
     private var diskCredit = 0.0
+
+    @Volatile
+    private var nextFallbackCleanupAt = Instant.EPOCH
 
     private val decisionCounters =
         BootstrapDecision.entries.associateWith { decision ->
@@ -85,7 +93,21 @@ class BootstrapController(
                 return
             }
 
-            discoverGaps()
+            if (discoverGaps()) {
+                return
+            }
+
+            if (clock.instant().isBefore(nextFallbackCleanupAt)) {
+                finishWithoutAction(BootstrapDecision.IDLE)
+                return
+            }
+
+            try {
+                cleanUp(FALLBACK_CLEANUP_LIMIT)
+            } finally {
+                consumeDiskCredit()
+                record(BootstrapDecision.CLEANUP)
+            }
         } finally {
             runMutex.unlock()
         }
@@ -112,15 +134,24 @@ class BootstrapController(
             }
 
         return when (result) {
-            UncheckedProcessingResult.SkippedIdle -> false
+            UncheckedProcessingResult.SkippedIdle -> {
+                false
+            }
+
             UncheckedProcessingResult.SkippedBusy -> {
                 finishWithoutAction(BootstrapDecision.IDLE)
                 true
             }
 
             is UncheckedProcessingResult.Completed -> {
-                consumeDiskCredit()
-                record(BootstrapDecision.MAINTENANCE)
+                try {
+                    if (result.resolved > 0) {
+                        cleanUp(result.resolved.toLong())
+                    }
+                } finally {
+                    consumeDiskCredit()
+                    record(BootstrapDecision.MAINTENANCE)
+                }
                 true
             }
         }
@@ -160,7 +191,7 @@ class BootstrapController(
         return true
     }
 
-    private suspend fun discoverGaps() {
+    private suspend fun discoverGaps(): Boolean {
         val result =
             try {
                 gapDiscoverer.discoverIfDue()
@@ -171,17 +202,34 @@ class BootstrapController(
             }
 
         when (result) {
-            GapDiscoveryResult.Idle,
-            GapDiscoveryResult.Busy,
-            -> {
+            GapDiscoveryResult.Idle -> {
+                return false
+            }
+
+            GapDiscoveryResult.Busy -> {
                 finishWithoutAction(BootstrapDecision.IDLE)
+                return true
             }
 
             GapDiscoveryResult.Queried -> {
                 consumeDiskCredit()
                 record(BootstrapDecision.GAP)
+                return true
             }
         }
+    }
+
+    private suspend fun cleanUp(limit: Long) {
+        try {
+            uncheckedTransactionProcessor.deleteExistingTransactions(limit)
+        } finally {
+            scheduleFallbackCleanup()
+        }
+    }
+
+    private fun scheduleFallbackCleanup() {
+        nextFallbackCleanupAt =
+            clock.instant().plusSeconds(discoveryProperties.idleQueryFallbackInSeconds)
     }
 
     private fun finishPersistence(forced: Boolean) {
@@ -209,6 +257,7 @@ class BootstrapController(
 
     private companion object {
         const val REQUIRED_DISK_CREDIT = 1.0
+        const val FALLBACK_CLEANUP_LIMIT = 1_000L
     }
 }
 
@@ -218,6 +267,7 @@ private enum class BootstrapDecision(
     MAINTENANCE("maintenance"),
     PERSISTENCE("persistence"),
     GAP("gap"),
+    CLEANUP("cleanup"),
     FORCED_DRAIN("forced-drain"),
     PRESSURE_WAIT("pressure-wait"),
     RETRY_WAIT("retry-wait"),

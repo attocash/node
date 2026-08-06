@@ -110,16 +110,9 @@ class UncheckedTransactionProcessor(
                         .toList()
                 }
             val resolved = resolve(candidateTransactions)
-            val deleted =
-                cleanupTimer.recordSuspending {
-                    uncheckedTransactionService.cleanUp(batchSize)
-                }
-            if (deleted > 0) {
-                deletedTransactions.increment(deleted.toDouble())
-            }
 
             val endingGeneration = workTracker.currentGeneration()
-            if (resolved == 0 && deleted == 0 && startingGeneration == endingGeneration) {
+            if (resolved == 0 && startingGeneration == endingGeneration) {
                 idleGeneration = endingGeneration
                 nextMaintenanceAt = clock.instant().plusSeconds(discoveryProperties.idleQueryFallbackInSeconds)
             } else {
@@ -130,8 +123,27 @@ class UncheckedTransactionProcessor(
             return UncheckedProcessingResult.Completed(
                 selected = candidateTransactions.size,
                 resolved = resolved,
-                deleted = deleted,
             )
+        } finally {
+            mutex.unlock()
+        }
+    }
+
+    suspend fun deleteExistingTransactions(limit: Long): Int? {
+        require(limit > 0) { "Cleanup limit must be positive" }
+        if (!mutex.tryLock()) {
+            return null
+        }
+
+        try {
+            val deleted =
+                cleanupTimer.recordSuspending {
+                    uncheckedTransactionService.cleanUp(limit)
+                }
+            if (deleted > 0) {
+                deletedTransactions.increment(deleted.toDouble())
+            }
+            return deleted
         } finally {
             mutex.unlock()
         }
@@ -216,7 +228,6 @@ sealed interface UncheckedProcessingResult {
     data class Completed(
         val selected: Int,
         val resolved: Int,
-        val deleted: Int,
     ) : UncheckedProcessingResult
 }
 

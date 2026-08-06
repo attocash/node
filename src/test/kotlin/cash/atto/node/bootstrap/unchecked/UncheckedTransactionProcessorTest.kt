@@ -50,17 +50,16 @@ class UncheckedTransactionProcessorTest {
             // Given
             val fixture = fixture()
             coEvery { fixture.repository.findTopOldest(1_000L) } returns emptyFlow()
-            coEvery { fixture.service.cleanUp(1_000L) } returns 0
 
             // When
             val first = fixture.processor.processIfDue()
             val suppressed = fixture.processor.processIfDue()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(0, 0, 0), first)
+            assertEquals(UncheckedProcessingResult.Completed(0, 0), first)
             assertEquals(UncheckedProcessingResult.SkippedIdle, suppressed)
             coVerify(exactly = 1) { fixture.repository.findTopOldest(1_000L) }
-            coVerify(exactly = 1) { fixture.service.cleanUp(1_000L) }
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
 
             // When
             fixture.workTracker.markChanged()
@@ -71,26 +70,23 @@ class UncheckedTransactionProcessorTest {
 
             // Then
             coVerify(exactly = 3) { fixture.repository.findTopOldest(1_000L) }
-            coVerify(exactly = 3) { fixture.service.cleanUp(1_000L) }
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     @Test
-    fun `cleanup progress keeps maintenance due for the following pass`() =
+    fun `cleanup uses the requested limit and records deleted rows`() =
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.repository.findTopOldest(1_000L) } returns emptyFlow()
             coEvery { fixture.service.cleanUp(1_000L) } returnsMany listOf(1_000, 0)
 
             // When
-            val cleanupProgress = fixture.processor.processIfDue()
-            val completedCleanup = fixture.processor.processIfDue()
-            val suppressed = fixture.processor.processIfDue()
+            val cleanupProgress = fixture.processor.deleteExistingTransactions(1_000L)
+            val completedCleanup = fixture.processor.deleteExistingTransactions(1_000L)
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(0, 0, 1_000), cleanupProgress)
-            assertEquals(UncheckedProcessingResult.Completed(0, 0, 0), completedCleanup)
-            assertEquals(UncheckedProcessingResult.SkippedIdle, suppressed)
+            assertEquals(1_000, cleanupProgress)
+            assertEquals(0, completedCleanup)
             coVerify(exactly = 2) { fixture.service.cleanUp(1_000L) }
             assertEquals(
                 1_000.0,
@@ -102,7 +98,7 @@ class UncheckedTransactionProcessorTest {
         }
 
     @Test
-    fun `selects before the resolution transaction and cleans up after commit`() =
+    fun `selects and commits resolution without owning cleanup scheduling`() =
         runTest {
             // Given
             val timeline = mutableListOf<String>()
@@ -123,20 +119,17 @@ class UncheckedTransactionProcessorTest {
             coEvery {
                 fixture.accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction))
             } returns listOf(account)
-            coEvery { fixture.service.cleanUp(1_000L) } answers {
-                timeline += "cleanup"
-                1
-            }
 
             // When
             val result = fixture.processor.processIfDue()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(1, 1, 1), result)
-            assertEquals(listOf("select", "begin", "commit", "cleanup"), timeline)
+            assertEquals(UncheckedProcessingResult.Completed(1, 1), result)
+            assertEquals(listOf("select", "begin", "commit"), timeline)
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, fixture.transactionManager.isolationLevel)
             assertEquals(1, fixture.transactionManager.commits)
             assertEquals(0, fixture.transactionManager.rollbacks)
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
             coVerify(exactly = 1) {
                 fixture.eventPublisher.publishAfterCommit(
                     match<TransactionResolved> { it.transaction == transaction },
@@ -168,7 +161,6 @@ class UncheckedTransactionProcessorTest {
             coEvery {
                 fixture.accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction))
             } returns listOf(account)
-            coEvery { fixture.service.cleanUp(1_000L) } returns 0
 
             // When
             try {
@@ -187,10 +179,10 @@ class UncheckedTransactionProcessorTest {
             val retry = fixture.processor.processIfDue()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(1, 1, 0), retry)
+            assertEquals(UncheckedProcessingResult.Completed(1, 1), retry)
             assertEquals(1, fixture.transactionManager.commits)
             assertEquals(1, fixture.transactionManager.rollbacks)
-            coVerify(exactly = 1) { fixture.service.cleanUp(1_000L) }
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     @Test
@@ -205,15 +197,16 @@ class UncheckedTransactionProcessorTest {
                     selectionStarted.complete(Unit)
                     releaseSelection.await()
                 }
-            coEvery { fixture.service.cleanUp(1_000L) } returns 0
 
             // When
             val firstPass = async { fixture.processor.processIfDue() }
             selectionStarted.await()
             val overlap = fixture.processor.processIfDue()
+            val cleanupOverlap = fixture.processor.deleteExistingTransactions(1_000L)
 
             // Then
             assertEquals(UncheckedProcessingResult.SkippedBusy, overlap)
+            assertEquals(null, cleanupOverlap)
             coVerify(exactly = 1) { fixture.repository.findTopOldest(1_000L) }
             coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
 
@@ -222,8 +215,8 @@ class UncheckedTransactionProcessorTest {
             val completed = firstPass.await()
 
             // Then
-            assertEquals(UncheckedProcessingResult.Completed(0, 0, 0), completed)
-            coVerify(exactly = 1) { fixture.service.cleanUp(1_000L) }
+            assertEquals(UncheckedProcessingResult.Completed(0, 0), completed)
+            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     private fun fixture(timeline: MutableList<String> = mutableListOf()): Fixture {
