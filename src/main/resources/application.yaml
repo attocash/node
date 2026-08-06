@@ -32,8 +32,6 @@ atto:
       capacity: ${ATTO_DISCOVERY_CAPACITY:10000}
       headroom: ${ATTO_DISCOVERY_HEADROOM:2000}
       batch-size: ${ATTO_DISCOVERY_BATCH_SIZE:1000}
-      retry-initial-backoff-in-seconds: ${ATTO_DISCOVERY_RETRY_INITIAL_BACKOFF_SECONDS:1}
-      retry-max-backoff-in-seconds: ${ATTO_DISCOVERY_RETRY_MAX_BACKOFF_SECONDS:30}
   signer:
     backend: ${ATTO_SIGNER_BACKEND:local}
     remote-url: ${ATTO_SIGNER_REMOTE_URL:}

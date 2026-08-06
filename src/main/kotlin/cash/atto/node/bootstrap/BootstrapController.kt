@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap
 
-import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceResult
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
 import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
@@ -99,11 +98,6 @@ class BootstrapController(
         try {
             accrueDiskCredit()
 
-            if (persistenceWorker.isRetryWaiting()) {
-                finishWithoutAction(BootstrapDecision.RETRY_WAIT)
-                return
-            }
-
             if (discoveryQueue.isPhysicalBufferFull()) {
                 persist(forced = true)
                 return
@@ -111,11 +105,6 @@ class BootstrapController(
 
             if (diskCredit < REQUIRED_DISK_CREDIT) {
                 finishWithoutAction(BootstrapDecision.PRESSURE_WAIT)
-                return
-            }
-
-            if (persistenceWorker.hasRetryBatch()) {
-                persist(forced = false)
                 return
             }
 
@@ -169,36 +158,22 @@ class BootstrapController(
     }
 
     private suspend fun persist(forced: Boolean): Boolean {
-        val result =
+        val persisted =
             try {
-                persistenceWorker.persistIfReady()
-            } catch (exception: Exception) {
+                persistenceWorker.persist()
+            } catch (e: Exception) {
                 finishPersistence(forced)
-                throw exception
+                throw e
             }
 
-        when (result) {
-            DiscoveryPersistenceResult.Idle -> {
-                if (forced) {
-                    finishWithoutAction(BootstrapDecision.IDLE)
-                }
-                return forced
-            }
-
-            DiscoveryPersistenceResult.Busy -> {
+        if (persisted == 0) {
+            if (forced) {
                 finishWithoutAction(BootstrapDecision.IDLE)
             }
-
-            DiscoveryPersistenceResult.RetryWaiting -> {
-                finishWithoutAction(BootstrapDecision.RETRY_WAIT)
-            }
-
-            DiscoveryPersistenceResult.Failed,
-            DiscoveryPersistenceResult.Persisted,
-            -> {
-                finishPersistence(forced)
-            }
+            return forced
         }
+
+        finishPersistence(forced)
         return true
     }
 
@@ -286,6 +261,5 @@ private enum class BootstrapDecision(
     CLEANUP("cleanup"),
     FORCED_DRAIN("forced-drain"),
     PRESSURE_WAIT("pressure-wait"),
-    RETRY_WAIT("retry-wait"),
     IDLE("idle"),
 }

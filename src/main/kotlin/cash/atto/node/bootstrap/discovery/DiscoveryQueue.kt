@@ -24,8 +24,7 @@ class DiscoveryQueue(
 ) {
     private val logger = KotlinLogging.logger {}
     private val duplicateDetector = DuplicateDetector<AttoHash>(10.minutes)
-    private val outstanding = AtomicInteger()
-    private val inFlight = AtomicInteger()
+    private val size = AtomicInteger()
     private val buffer =
         Channel<PendingDiscovery>(
             capacity = properties.capacity + properties.headroom,
@@ -59,7 +58,7 @@ class DiscoveryQueue(
             return false
         }
 
-        outstanding.incrementAndGet()
+        size.incrementAndGet()
         buffer.send(discovery)
 
         metrics.admitted(source)
@@ -73,65 +72,38 @@ class DiscoveryQueue(
         return true
     }
 
-    fun isAtCapacity(): Boolean = outstanding.get() >= getTargetCapacity()
+    fun isAtCapacity(): Boolean = size.get() >= getTargetCapacity()
 
-    fun remainingTargetCapacity(): Int = maxOf(0, getTargetCapacity() - outstanding.get())
+    fun remainingTargetCapacity(): Int = maxOf(0, getTargetCapacity() - size.get())
 
     internal fun takeBatch(): List<PendingDiscovery> =
         buildList(properties.batchSize) {
             while (size < properties.batchSize) {
                 val discovery = buffer.tryReceive().getOrNull() ?: break
-                inFlight.incrementAndGet()
+                this@DiscoveryQueue.size.decrementAndGet()
                 metrics.dequeued(Duration.between(discovery.enqueuedAt, clock.instant()))
                 add(discovery)
             }
         }
 
-    internal fun acknowledge(batch: List<PendingDiscovery>) {
-        batch.forEach { discovery ->
-            duplicateDetector.refresh(discovery.transaction.hash)
-        }
-        releaseInFlight(batch.size)
-    }
-
-    internal fun reset(retryBatch: List<PendingDiscovery>) {
-        releaseInFlight(retryBatch.size)
+    internal fun reset() {
         while (true) {
             buffer.tryReceive().getOrNull() ?: break
-            check(outstanding.decrementAndGet() >= 0) {
-                "Discovery outstanding count became negative"
-            }
         }
+        size.set(0)
         duplicateDetector.clear()
     }
 
-    internal fun getBacklogDepth(): Int = outstanding.get()
-
-    internal fun getInFlightCount(): Int = inFlight.get()
+    internal fun getBacklogDepth(): Int = size.get()
 
     internal fun getTargetCapacity(): Int = pressureMonitor.targetCapacity(properties.capacity)
 
-    internal fun getBacklogOvershoot(): Int = maxOf(0, outstanding.get() - getTargetCapacity())
+    internal fun getBacklogOvershoot(): Int = maxOf(0, size.get() - getTargetCapacity())
 
-    internal fun isPhysicalBufferFull(): Boolean = outstanding.get() - inFlight.get() >= properties.capacity + properties.headroom
+    internal fun isPhysicalBufferFull(): Boolean = size.get() >= properties.capacity + properties.headroom
 
     private fun discard(discovery: PendingDiscovery) {
-        check(outstanding.decrementAndGet() >= 0) {
-            "Discovery outstanding count became negative"
-        }
+        size.decrementAndGet()
         duplicateDetector.remove(discovery.transaction.hash)
-    }
-
-    private fun releaseInFlight(count: Int) {
-        if (count == 0) {
-            return
-        }
-
-        check(inFlight.addAndGet(-count) >= 0) {
-            "Discovery in-flight count became negative"
-        }
-        check(outstanding.addAndGet(-count) >= 0) {
-            "Discovery outstanding count became negative"
-        }
     }
 }

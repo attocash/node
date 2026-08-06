@@ -22,7 +22,6 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -66,13 +65,13 @@ class DiscoveryQueueTest {
 
             // When
             suspended.cancelAndJoin()
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
 
             // Then
             assertEquals(1, fixture.queue.remainingTargetCapacity())
 
             // When
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
 
             // Then
             assertEquals(2, fixture.queue.remainingTargetCapacity())
@@ -146,10 +145,10 @@ class DiscoveryQueueTest {
             assertEquals(1.0, fixture.gauge("transactions.discovery.backlog.overshoot"))
 
             // When
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
             assertTrue(thirdAdmission.await())
-            fixture.worker.persistIfReady()
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
+            fixture.worker.persist()
 
             // Then
             assertEquals(events.map { it.transaction.hash }, savedHashes)
@@ -190,10 +189,10 @@ class DiscoveryQueueTest {
             assertFalse(fifth.isCompleted)
 
             // When
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
             fifth.await()
-            fixture.worker.persistIfReady()
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
+            fixture.worker.persist()
 
             // Then
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
@@ -213,40 +212,35 @@ class DiscoveryQueueTest {
                 }
                 batch.size.toLong()
             }
-            val clock = MutableClock()
             val fixture =
                 fixture(
                     service,
                     properties(capacity = 3, batchSize = 2),
-                    clock = clock,
                 )
             val events = (4..6).map { event(it.toByte()) }
             fixture.queue.queue(events[0], DiscoverySource.DEPENDENCY)
             fixture.queue.queue(events[1], DiscoverySource.DEPENDENCY)
 
             // When
-            fixture.worker.persistIfReady()
+            try {
+                fixture.worker.persist()
+                fail("Expected persistence failure")
+            } catch (exception: IllegalStateException) {
+                assertEquals("simulated MySQL failure", exception.message)
+            }
             fixture.queue.queue(events[2], DiscoverySource.DEPENDENCY)
-            fixture.worker.persistIfReady()
+            val retried = fixture.worker.persist()
 
             // Then
-            assertEquals(1, attempts.size)
-            assertTrue(fixture.queue.isAtCapacity())
-            assertEquals(3.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(2.0, fixture.gauge("transactions.discovery.in.flight"))
-
-            // When
-            clock.advance(Duration.ofSeconds(1))
-            fixture.worker.persistIfReady()
-
-            // Then
+            assertEquals(2, retried)
+            assertEquals(2, attempts.size)
             assertEquals(1.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(0.0, fixture.gauge("transactions.discovery.in.flight"))
 
             // When
-            fixture.worker.persistIfReady()
+            val persisted = fixture.worker.persist()
 
             // Then
+            assertEquals(1, persisted)
             assertEquals(
                 listOf(
                     events.take(2).map { it.transaction.hash },
@@ -257,44 +251,6 @@ class DiscoveryQueueTest {
             )
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
             assertEquals(1.0, fixture.counter("transactions.discovery.persistence.failures"))
-        }
-
-    @Test
-    fun `cancelled save leaves the drained batch intact`() =
-        runTest {
-            // Given
-            val attempts = mutableListOf<List<AttoHash>>()
-            var cancelNext = true
-            val service = mockk<UncheckedTransactionService>()
-            coEvery { service.save(any()) } answers {
-                val batch = firstArg<Collection<UncheckedTransaction>>()
-                attempts += batch.map { it.hash }
-                if (cancelNext) {
-                    cancelNext = false
-                    throw CancellationException("test cancellation")
-                }
-                batch.size.toLong()
-            }
-            val fixture = fixture(service, properties(capacity = 2, batchSize = 2))
-            val events = listOf(event(7), event(8))
-            events.forEach { fixture.queue.queue(it, DiscoverySource.SEND) }
-
-            // When
-            try {
-                fixture.worker.persistIfReady()
-                fail("Expected cancellation")
-            } catch (_: CancellationException) {
-                // Expected. The worker must retain the batch.
-            }
-            assertEquals(2.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(2.0, fixture.gauge("transactions.discovery.in.flight"))
-            fixture.worker.persistIfReady()
-
-            // Then
-            val expected = events.map { it.transaction.hash }
-            assertEquals(listOf(expected, expected), attempts)
-            assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(0.0, fixture.gauge("transactions.discovery.in.flight"))
         }
 
     @Test
@@ -313,22 +269,25 @@ class DiscoveryQueueTest {
             val fixture = fixture(service, properties(capacity = 3, batchSize = 2))
             val events = listOf(event(40), event(41), event(42))
             events.take(2).forEach { fixture.queue.queue(it, DiscoverySource.GAP) }
-            fixture.worker.persistIfReady()
+            try {
+                fixture.worker.persist()
+                fail("Expected persistence failure")
+            } catch (exception: IllegalStateException) {
+                assertEquals("simulated MySQL failure", exception.message)
+            }
             fixture.queue.queue(events.last(), DiscoverySource.GAP)
-            assertEquals(3.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(2.0, fixture.gauge("transactions.discovery.in.flight"))
+            assertEquals(1.0, fixture.gauge("transactions.discovery.backlog.depth"))
 
             // When
             fixture.worker.clear()
 
             // Then
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(0.0, fixture.gauge("transactions.discovery.in.flight"))
             assertEquals(3, fixture.queue.remainingTargetCapacity())
 
             // When
             assertTrue(fixture.queue.queue(events.first(), DiscoverySource.GAP))
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
 
             // Then
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
@@ -372,7 +331,7 @@ class DiscoveryQueueTest {
             // When
             val first = fixture.queue.queue(event, DiscoverySource.SEND)
             val pendingDuplicate = fixture.queue.queue(event, DiscoverySource.SEND)
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
             val committedDuplicate = fixture.queue.queue(event, DiscoverySource.SEND)
 
             // Then
@@ -416,9 +375,9 @@ class DiscoveryQueueTest {
             assertEquals(1.0, fixture.gauge("transactions.discovery.at.capacity"))
 
             // When
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
             suspended.await()
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
 
             // Then
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
@@ -436,14 +395,15 @@ class DiscoveryQueueTest {
             val fixture = fixture(service)
 
             // When
-            fixture.worker.persistIfReady()
+            val persisted = fixture.worker.persist()
 
             // Then
+            assertEquals(0, persisted)
             coVerify(exactly = 0) { service.save(any()) }
         }
 
     @Test
-    fun `outstanding capacity includes the batch until its commit is acknowledged`() =
+    fun `taking a batch releases capacity before commit`() =
         runTest {
             // Given
             val saveStarted = CompletableDeferred<Unit>()
@@ -459,14 +419,13 @@ class DiscoveryQueueTest {
             fixture.queue.queue(event(16), DiscoverySource.GAP)
 
             // When
-            val flush = async { fixture.worker.persistIfReady() }
+            val flush = async { fixture.worker.persist() }
             saveStarted.await()
 
             // Then
-            assertTrue(fixture.queue.isAtCapacity())
-            assertEquals(0, fixture.queue.remainingTargetCapacity())
-            assertEquals(2.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(2.0, fixture.gauge("transactions.discovery.in.flight"))
+            assertFalse(fixture.queue.isAtCapacity())
+            assertEquals(2, fixture.queue.remainingTargetCapacity())
+            assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
 
             // When
             releaseSave.complete(Unit)
@@ -476,7 +435,6 @@ class DiscoveryQueueTest {
             assertFalse(fixture.queue.isAtCapacity())
             assertEquals(2, fixture.queue.remainingTargetCapacity())
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
-            assertEquals(0.0, fixture.gauge("transactions.discovery.in.flight"))
         }
 
     @Test
@@ -496,9 +454,9 @@ class DiscoveryQueueTest {
             events.forEach { fixture.queue.queue(it, DiscoverySource.GAP) }
 
             // When
-            fixture.worker.persistIfReady()
-            fixture.worker.persistIfReady()
-            fixture.worker.persistIfReady()
+            fixture.worker.persist()
+            fixture.worker.persist()
+            fixture.worker.persist()
 
             // Then
             assertEquals(
@@ -530,9 +488,7 @@ class DiscoveryQueueTest {
             DiscoveryPersistenceWorker(
                 uncheckedTransactionService = service,
                 queue = queue,
-                properties = properties,
                 metrics = metrics,
-                clock = clock,
             )
         return Fixture(
             queue,

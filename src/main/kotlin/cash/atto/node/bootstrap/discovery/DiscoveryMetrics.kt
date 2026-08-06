@@ -67,12 +67,7 @@ class DiscoveryMetrics(
         Gauge
             .builder("transactions.discovery.backlog.depth", queue) {
                 it.getBacklogDepth().toDouble()
-            }.description("Discovered transactions not yet committed to unchecked persistence")
-            .register(meterRegistry)
-        Gauge
-            .builder("transactions.discovery.in.flight", queue) {
-                it.getInFlightCount().toDouble()
-            }.description("Discovered transactions in the active or retrying persistence batch")
+            }.description("Discovered transactions waiting for unchecked persistence")
             .register(meterRegistry)
         Gauge
             .builder("transactions.discovery.capacity.target", queue) {

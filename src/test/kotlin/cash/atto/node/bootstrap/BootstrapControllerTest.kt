@@ -1,6 +1,5 @@
 package cash.atto.node.bootstrap
 
-import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceResult
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
 import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
@@ -39,7 +38,7 @@ class BootstrapControllerTest {
             // Then
             coVerify(exactly = 2) { fixture.processor.process() }
             coVerify(exactly = 2) { fixture.service.cleanUp(300L) }
-            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 2) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(600.0, fixture.deletedTransactions())
             assertEquals(2.0, fixture.decisions("maintenance"))
@@ -58,7 +57,7 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
-            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 2) { fixture.worker.persist() }
             coVerify(exactly = 1) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("maintenance"))
             assertEquals(1.0, fixture.decisions("gap"))
@@ -80,7 +79,7 @@ class BootstrapControllerTest {
             // Then
             coVerify(exactly = 2) { fixture.processor.process() }
             coVerify(exactly = 2) { fixture.gapDiscoverer.discover() }
-            coVerify(exactly = 4) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 4) { fixture.worker.persist() }
         }
 
     @Test
@@ -166,11 +165,8 @@ class BootstrapControllerTest {
         runTest {
             // Given
             val fixture = fixture()
-            coEvery { fixture.worker.persistIfReady() } returnsMany
-                listOf(
-                    DiscoveryPersistenceResult.Idle,
-                    DiscoveryPersistenceResult.Persisted,
-                )
+            coEvery { fixture.worker.persist() } returnsMany
+                listOf(0, 1)
 
             // When
             fixture.controller.run()
@@ -178,7 +174,7 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
-            coVerify(exactly = 2) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 2) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("persistence"))
         }
@@ -215,32 +211,15 @@ class BootstrapControllerTest {
             val fixture = fixture()
             every { fixture.pressureMonitor.availableShare() } returns 0.0
             every { fixture.queue.isPhysicalBufferFull() } returns true
-            coEvery { fixture.worker.persistIfReady() } returns DiscoveryPersistenceResult.Persisted
+            coEvery { fixture.worker.persist() } returns 1
 
             // When
             fixture.controller.run()
 
             // Then
-            coVerify(exactly = 1) { fixture.worker.persistIfReady() }
+            coVerify(exactly = 1) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.processor.process() }
             assertEquals(1.0, fixture.decisions("forced-drain"))
-        }
-
-    @Test
-    fun `retry backoff blocks every bootstrap database action`() =
-        runTest {
-            // Given
-            val fixture = fixture()
-            every { fixture.worker.isRetryWaiting() } returns true
-
-            // When
-            fixture.controller.run()
-
-            // Then
-            coVerify(exactly = 0) { fixture.worker.persistIfReady() }
-            coVerify(exactly = 0) { fixture.processor.process() }
-            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
-            coVerify(exactly = 0) { fixture.service.cleanUp(any()) }
         }
 
     @Test
@@ -285,9 +264,7 @@ class BootstrapControllerTest {
 
         every { pressureMonitor.availableShare() } returns 1.0
         every { queue.isPhysicalBufferFull() } returns false
-        every { worker.isRetryWaiting() } returns false
-        every { worker.hasRetryBatch() } returns false
-        coEvery { worker.persistIfReady() } returns DiscoveryPersistenceResult.Idle
+        coEvery { worker.persist() } returns 0
         coEvery { processor.process() } returns 0
         coEvery { service.cleanUp(any()) } returns 0
         coEvery { gapDiscoverer.discover() } returns 0

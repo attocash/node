@@ -47,7 +47,7 @@ class DiscoveryTestController(
     }
 
     private suspend fun flushAll() {
-        while (discoveryPersistenceWorker.persistIfReady() == DiscoveryPersistenceResult.Persisted) {
+        while (discoveryPersistenceWorker.persist() > 0) {
             // Test-only endpoint: preserve the original deterministic full-drain behavior.
         }
     }
