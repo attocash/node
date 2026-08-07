@@ -53,6 +53,12 @@ internal class GapSession(
 
     internal fun bufferedResponseCount(): Int = responses.size
 
+    internal fun remainingResponseCount(): Int =
+        when (val current = progress.get()) {
+            is Progress.Active -> (current.expectedHeight.value - startHeight.value + 1UL).toInt()
+            else -> 0
+        }
+
     fun isComplete(): Boolean = progress.get() !is Progress.Active
 
     private suspend fun drain(newlyStored: Boolean): Boolean {

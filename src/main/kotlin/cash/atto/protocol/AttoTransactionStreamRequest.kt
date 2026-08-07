@@ -8,6 +8,7 @@ import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
+import java.time.Duration
 
 @OptIn(ExperimentalSerializationApi::class)
 @Serializable
@@ -21,7 +22,7 @@ data class AttoTransactionStreamRequest(
 ) : AttoMessage {
     companion object {
         const val MAX_TRANSACTIONS = 1000UL
-        const val MAX_PARALLEL_STREAMS = 10
+        val TIMEOUT: Duration = Duration.ofMinutes(1)
     }
 
     init {

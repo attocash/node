@@ -64,14 +64,14 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `adaptive target below the 250 transaction request budget prevents the gap query`() =
+    fun `zero adaptive target prevents the gap query`() =
         runTest {
             // given
             val fixture =
                 fixture(
                     gaps = listOf(gap(publicKey(1), 1U, 1U, hash(1))),
                     capacity = 250,
-                    remainingCapacity = 249,
+                    remainingCapacity = 0,
                 )
 
             // when
@@ -83,7 +83,26 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `parallel peer starts one session for every queue sized slot`() =
+    fun `one session is started per historical peer`() =
+        runTest {
+            // given
+            val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
+            val nodes = (100..102).map { node(it.toByte()) }
+            val fixture = fixture(gaps = gaps, capacity = 3_000, nodes = nodes)
+
+            // when
+            fixture.discover()
+            fixture.discover()
+
+            // then
+            assertEquals(3, fixture.requests.size)
+            assertEquals(3, fixture.discoverer.activeSessionCount())
+            assertEquals(nodes.map(AttoNode::publicUri).toSet(), fixture.requests.map { it.publicUri }.toSet())
+            coVerify(exactly = 1) { fixture.repository.findGaps(3) }
+        }
+
+    @Test
+    fun `historical peer is not reused while its session is active`() =
         runTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
@@ -94,55 +113,41 @@ class GapDiscovererTest {
             fixture.discover()
 
             // then
-            assertEquals(3, fixture.requests.size)
-            assertEquals(3, fixture.discoverer.activeSessionCount())
-            coVerify(exactly = 1) { fixture.repository.findGaps(3) }
-        }
-
-    @Test
-    fun `legacy peer is limited to one active session`() =
-        runTest {
-            // given
-            val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
-            val fixture =
-                fixture(
-                    gaps = gaps,
-                    capacity = 3_000,
-                    nodes = listOf(node(100, protocolVersion = 0u)),
-                )
-
-            // when
-            fixture.discover()
-
-            // then
             assertEquals(1, fixture.requests.size)
             assertEquals(1, fixture.discoverer.activeSessionCount())
             coVerify(exactly = 1) { fixture.repository.findGaps(1) }
         }
 
     @Test
-    fun `legacy peers each accept one active session`() =
+    fun `small gaps use every historical peer within the transaction budget`() =
         runTest {
             // given
-            val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
-            val nodes = (100..102).map { node(it.toByte(), protocolVersion = 0u) }
-            val fixture = fixture(gaps = gaps, capacity = 3_000, nodes = nodes)
+            val gaps = (1..20).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
+            val nodes = (100..119).map { node(it.toByte()) }
+            val fixture = fixture(gaps = gaps, nodes = nodes)
 
             // when
-            fixture.discover()
+            val requested = fixture.discover()
 
             // then
-            assertEquals(3, fixture.requests.size)
+            assertEquals(20, requested)
+            assertEquals(20, fixture.requests.size)
             assertEquals(nodes.map(AttoNode::publicUri).toSet(), fixture.requests.map { it.publicUri }.toSet())
+            coVerify(exactly = 1) { fixture.repository.findGaps(20) }
         }
 
     @Test
-    fun `active accounts are skipped while filling new session slots`() =
+    fun `active session reserves only its remaining transaction count`() =
         runTest {
             // given
-            val firstGap = gap(publicKey(1), 1U, 1U, hash(1))
-            val secondGap = gap(publicKey(2), 1U, 1U, hash(2))
-            val fixture = fixture(gaps = emptyList(), capacity = 2_000)
+            val firstGap = gap(publicKey(1), 1U, 6U, hash(1))
+            val secondGap = gap(publicKey(2), 1U, 6U, hash(2))
+            val fixture =
+                fixture(
+                    gaps = emptyList(),
+                    capacity = 10,
+                    nodes = listOf(node(100), node(101)),
+                )
             coEvery { fixture.repository.findGaps(2) } returnsMany
                 listOf(
                     listOf(firstGap).asFlow(),
@@ -154,9 +159,12 @@ class GapDiscovererTest {
             fixture.discover()
 
             // then
+            assertEquals(listOf(6UL, 4UL), fixture.requests.map { it.expectedResponseCount })
             assertEquals(
-                listOf(firstGap.publicKey, secondGap.publicKey),
-                fixture.requests.map { it.payload.publicKey },
+                3U.toAttoHeight(),
+                fixture.requests
+                    .last()
+                    .payload.startHeight,
             )
             assertEquals(2, fixture.discoverer.activeSessionCount())
         }
@@ -182,6 +190,27 @@ class GapDiscovererTest {
         }
 
     @Test
+    fun `adaptive target caps the request below the configured capacity`() =
+        runTest {
+            // given
+            val fixture =
+                fixture(
+                    gaps = listOf(gap(publicKey(1), 1U, 500U, hash(1))),
+                    capacity = 1_000,
+                    remainingCapacity = 249,
+                )
+
+            // when
+            fixture.discover()
+
+            // then
+            val request = fixture.requests.single()
+            assertEquals(249UL, request.expectedResponseCount)
+            assertEquals(252U.toAttoHeight(), request.payload.startHeight)
+            assertEquals(500U.toAttoHeight(), request.payload.endHeight)
+        }
+
+    @Test
     fun `protocol maximum caps the request when target capacity is larger`() =
         runTest {
             // given
@@ -201,10 +230,10 @@ class GapDiscovererTest {
         }
 
     @Test
-    fun `peer disconnect releases all its sessions and allows retry`() =
+    fun `peer disconnect releases its session and allows retry`() =
         runTest {
             // given
-            val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
+            val gaps = listOf(gap(publicKey(1), 1U, 2U, hash(1)))
             val fixture = fixture(gaps = gaps, capacity = 3_000)
             fixture.discover()
 
@@ -219,8 +248,8 @@ class GapDiscovererTest {
             fixture.discover()
 
             // then
-            assertEquals(6, fixture.requests.size)
-            assertEquals(3, fixture.discoverer.activeSessionCount())
+            assertEquals(2, fixture.requests.size)
+            assertEquals(1, fixture.discoverer.activeSessionCount())
         }
 
     @Test
@@ -229,7 +258,13 @@ class GapDiscovererTest {
             // given
             val clock = MutableClock()
             val gaps = (1..2).map { gap(publicKey(it.toByte()), 1U, 2U, hash(it.toByte())) }
-            val fixture = fixture(gaps = gaps, capacity = 2_000, clock = clock)
+            val fixture =
+                fixture(
+                    gaps = gaps,
+                    capacity = 2_000,
+                    clock = clock,
+                    nodes = listOf(node(100), node(101)),
+                )
             fixture.discover()
 
             // when
@@ -334,7 +369,12 @@ class GapDiscovererTest {
         runTest {
             // given
             val gaps = (1..3).map { gap(publicKey(it.toByte()), 1U, 1U, hash(it.toByte())) }
-            val fixture = fixture(gaps = gaps, capacity = 3_000)
+            val fixture =
+                fixture(
+                    gaps = gaps,
+                    capacity = 3_000,
+                    nodes = listOf(node(100), node(101), node(102)),
+                )
             fixture.discover()
 
             // when
@@ -475,13 +515,10 @@ class GapDiscovererTest {
                 expectedEndHash = expectedEndHash,
             )
 
-        fun node(
-            marker: Byte,
-            protocolVersion: UShort = AttoNode.CURRENT_PROTOCOL_VERSION,
-        ): AttoNode =
+        fun node(marker: Byte): AttoNode =
             AttoNode(
                 network = AttoNetwork.LOCAL,
-                protocolVersion = protocolVersion,
+                protocolVersion = AttoNode.CURRENT_PROTOCOL_VERSION,
                 algorithm = AttoAlgorithm.V1,
                 publicKey = publicKey(marker),
                 publicUri = URI("ws://127.0.0.1:${8_000 + marker}"),

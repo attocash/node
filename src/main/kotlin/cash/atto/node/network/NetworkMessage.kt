@@ -9,9 +9,11 @@ import org.springframework.core.ResolvableTypeProvider
 import org.springframework.stereotype.Component
 import java.net.InetSocketAddress
 import java.net.URI
+import java.time.Instant
 
 sealed interface NetworkMessage<T : AttoMessage> : ResolvableTypeProvider {
     val payload: T
+    val timestamp: Instant
 
     override fun getResolvableType(): ResolvableType =
         ResolvableType.forClassWithGenerics(this.javaClass, ResolvableType.forInstance(payload))
@@ -27,6 +29,7 @@ data class InboundNetworkMessage<T : AttoMessage>(
     val publicUri: URI,
     val socketAddress: InetSocketAddress,
     override val payload: T,
+    override val timestamp: Instant = Instant.now(),
 ) : NetworkMessage<T>
 
 interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
@@ -40,6 +43,7 @@ data class DirectNetworkMessage<T : AttoMessage>(
     val publicUri: URI,
     override val payload: T,
     val expectedResponseCount: ULong = 0UL,
+    override val timestamp: Instant = Instant.now(),
 ) : OutboundNetworkMessage<T> {
     override fun accepts(
         target: URI,
@@ -56,6 +60,7 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
     val strategy: BroadcastStrategy,
     val exceptions: Set<URI> = setOf(),
     override val payload: T,
+    override val timestamp: Instant = Instant.now(),
 ) : OutboundNetworkMessage<T> {
     override fun accepts(
         target: URI,
