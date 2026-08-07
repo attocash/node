@@ -14,19 +14,14 @@ interface UncheckedTransactionRepository :
     AttoRepository {
     @Query(
         """
-            SELECT ut.serialized
-            FROM (
-                SELECT candidate.hash, candidate.timestamp, candidate.public_key, candidate.height
-                FROM unchecked_transaction candidate
-                LEFT JOIN account a
-                  ON a.public_key = candidate.public_key
-                WHERE candidate.height > COALESCE(a.height, 0)
-                ORDER BY candidate.timestamp, candidate.public_key, candidate.height
-                LIMIT :limit
-            ) oldest
-            JOIN unchecked_transaction ut
-              ON ut.hash = oldest.hash
-            ORDER BY oldest.timestamp, oldest.public_key, oldest.height
+            SELECT candidate.serialized
+            FROM unchecked_transaction candidate
+            LEFT JOIN account a
+              ON a.public_key = candidate.public_key
+            WHERE a.public_key IS NULL
+               OR candidate.height > a.height
+            ORDER BY candidate.timestamp, candidate.public_key, candidate.height
+            LIMIT :limit
         """,
     )
     suspend fun findTopOldest(limit: Long): Flow<UncheckedTransaction>
