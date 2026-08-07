@@ -1650,6 +1650,9 @@
       "type": "cash.atto.node.account.Account",
       "fields": [
         {
+          "name": "algorithm"
+        },
+        {
           "name": "lastTransactionHash"
         },
         {
@@ -1896,7 +1899,12 @@
       "type": "cash.atto.node.account.AccountService$AccountTransaction"
     },
     {
-      "type": "cash.atto.node.account.AccountService$add$1"
+      "type": "cash.atto.node.account.AccountService$add$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.account.AccountService$getAccountMap$1"
@@ -2170,6 +2178,438 @@
       "type": "cash.atto.node.account.entry.AccountEntry__Instantiator_wao3d5"
     },
     {
+      "type": "cash.atto.node.bootstrap.BootstrapController",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor",
+            "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
+            "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker",
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService",
+            "cash.atto.node.bootstrap.discovery.GapDiscoverer",
+            "java.time.Clock",
+            "io.micrometer.core.instrument.MeterRegistry"
+          ]
+        },
+        {
+          "name": "run",
+          "parameterTypes": [
+            "kotlin.coroutines.Continuation"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$BootstrapAction"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$BootstrapAction$run$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$cleanUp$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$executeNextAction$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$persist$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$resolveUnchecked$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$run$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$special$$inlined$compareByDescending$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$special$$inlined$thenBy$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController$special$$inlined$thenBy$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "cleanup failure rethrows and charges the resolution action",
+          "parameterTypes": []
+        },
+        {
+          "name": "fixture",
+          "parameterTypes": []
+        },
+        {
+          "name": "fractional pressure credit skips ticks without shrinking work",
+          "parameterTypes": []
+        },
+        {
+          "name": "full physical buffer forces persistence despite disk pressure",
+          "parameterTypes": []
+        },
+        {
+          "name": "gap discovery runs on the tick after resolution reports no progress",
+          "parameterTypes": []
+        },
+        {
+          "name": "gap failure rethrows and remains available after other work",
+          "parameterTypes": []
+        },
+        {
+          "name": "overlapping ticks do not start another bootstrap action",
+          "parameterTypes": []
+        },
+        {
+          "name": "queued persistence runs before gap discovery when resolution is idle",
+          "parameterTypes": []
+        },
+        {
+          "name": "resolution failure rethrows and consumes disk credit",
+          "parameterTypes": []
+        },
+        {
+          "name": "resolution progress cleans the same count and keeps resolution priority",
+          "parameterTypes": []
+        },
+        {
+          "name": "zero gap result does not suppress a later gap attempt",
+          "parameterTypes": []
+        },
+        {
+          "name": "zero result actions continue polling without fixed idle suppression",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$Fixture"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$MutableClock"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$cleanup failure rethrows and charges the resolution action$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$expectSimulatedFailure$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fixture$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fixture$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fixture$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fixture$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$fractional pressure credit skips ticks without shrinking work$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$full physical buffer forces persistence despite disk pressure$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$full physical buffer forces persistence despite disk pressure$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$full physical buffer forces persistence despite disk pressure$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$full physical buffer forces persistence despite disk pressure$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap discovery runs on the tick after resolution reports no progress$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap discovery runs on the tick after resolution reports no progress$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap discovery runs on the tick after resolution reports no progress$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap discovery runs on the tick after resolution reports no progress$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap discovery runs on the tick after resolution reports no progress$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap failure rethrows and remains available after other work$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap failure rethrows and remains available after other work$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap failure rethrows and remains available after other work$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$gap failure rethrows and remains available after other work$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$overlapping ticks do not start another bootstrap action$1$activeTick$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution failure rethrows and consumes disk credit$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$resolution progress cleans the same count and keeps resolution priority$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero gap result does not suppress a later gap attempt$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero gap result does not suppress a later gap attempt$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero gap result does not suppress a later gap attempt$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero result actions continue polling without fixed idle suppression$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero result actions continue polling without fixed idle suppression$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero result actions continue polling without fixed idle suppression$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero result actions continue polling without fixed idle suppression$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$zero result actions continue polling without fixed idle suppression$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapController__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.BootstrapDecision"
+    },
+    {
       "type": "cash.atto.node.bootstrap.TransactionDiscovered"
     },
     {
@@ -2301,15 +2741,7 @@
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService",
             "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
-            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
-            "cash.atto.node.bootstrap.discovery.DiscoveryMetrics",
-            "java.time.Clock"
-          ]
-        },
-        {
-          "name": "flush",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
+            "cash.atto.node.bootstrap.discovery.DiscoveryMetrics"
           ]
         }
       ]
@@ -2318,10 +2750,92 @@
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$clear$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$flush$1"
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$persist$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker$persist$3"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.bootstrap.discovery.LinuxIoPressureSource",
+            "io.micrometer.core.instrument.MeterRegistry"
+          ]
+        },
+        {
+          "name": "refresh",
+          "parameterTypes": []
+        },
+        {
+          "name": "start",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitorKt"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitorKt$parseIoPressure$fields$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitorKt$parseIoPressure$some$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitorTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "avg10 controls recovery when the latest interval is quieter",
+          "parameterTypes": []
+        },
+        {
+          "name": "capacity and metrics read the cached snapshot without resampling",
+          "parameterTypes": []
+        },
+        {
+          "name": "first reading and counter reset use avg10 without inventing recent pressure",
+          "parameterTypes": []
+        },
+        {
+          "name": "nonpositive elapsed time keeps avg10 and resets the recent baseline",
+          "parameterTypes": []
+        },
+        {
+          "name": "parses avg10 and cumulative total from the same some line",
+          "parameterTypes": []
+        },
+        {
+          "name": "recent spike dominates a lower avg10",
+          "parameterTypes": []
+        },
+        {
+          "name": "rejects unavailable or malformed some readings",
+          "parameterTypes": []
+        },
+        {
+          "name": "unavailable source fails open immediately and establishes a fresh baseline",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitorTest$PressureFixture"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryPressureSnapshot"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
@@ -2342,24 +2856,6 @@
           "name": "setHeadroom",
           "parameterTypes": [
             "int"
-          ]
-        },
-        {
-          "name": "setIdleQueryFallbackInSeconds",
-          "parameterTypes": [
-            "long"
-          ]
-        },
-        {
-          "name": "setRetryInitialBackoffInSeconds",
-          "parameterTypes": [
-            "long"
-          ]
-        },
-        {
-          "name": "setRetryMaxBackoffInSeconds",
-          "parameterTypes": [
-            "long"
           ]
         },
         {
@@ -2429,7 +2925,8 @@
             "cash.atto.node.EventPublisher",
             "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
             "cash.atto.node.bootstrap.discovery.DiscoveryMetrics",
-            "java.time.Clock"
+            "java.time.Clock",
+            "cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor"
           ]
         },
         {
@@ -2457,11 +2954,11 @@
           "parameterTypes": []
         },
         {
-          "name": "backlog metrics include suspended replies and record queue wait when drained",
+          "name": "adaptive target pauses clients without resizing the physical channel",
           "parameterTypes": []
         },
         {
-          "name": "cancelled save leaves the drained batch intact",
+          "name": "backlog metrics include suspended replies and record queue wait when drained",
           "parameterTypes": []
         },
         {
@@ -2473,7 +2970,19 @@
           "parameterTypes": []
         },
         {
+          "name": "clear releases a retry batch and buffered rows for rediscovery",
+          "parameterTypes": []
+        },
+        {
+          "name": "configured batches preserve FIFO order across scheduled passes",
+          "parameterTypes": []
+        },
+        {
           "name": "duplicate transaction is published and persisted once",
+          "parameterTypes": []
+        },
+        {
+          "name": "empty flush does not attempt persistence",
           "parameterTypes": []
         },
         {
@@ -2481,7 +2990,15 @@
           "parameterTypes": []
         },
         {
+          "name": "remaining target capacity is clamped at zero for suspended admissions",
+          "parameterTypes": []
+        },
+        {
           "name": "save failure retries the exact batch before newer transactions",
+          "parameterTypes": []
+        },
+        {
+          "name": "taking a batch releases capacity before commit",
           "parameterTypes": []
         }
       ]
@@ -2491,6 +3008,9 @@
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$MutableClock"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$adaptive target pauses clients without resizing the physical channel$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$backlog metrics include suspended replies and record queue wait when drained$1",
@@ -2508,20 +3028,6 @@
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$backlog metrics include suspended replies and record queue wait when drained$1$suspended$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelled save leaves the drained batch intact$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelled save leaves the drained batch intact$1$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$cancelling a suspended admission removes it without affecting buffered transactions$1"
@@ -2555,6 +3061,34 @@
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$capacity suspends the next admission without blocking unrelated work and preserves FIFO order$1$thirdAdmission$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$clear releases a retry batch and buffered rows for rediscovery$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$clear releases a retry batch and buffered rows for rediscovery$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$configured batches preserve FIFO order across scheduled passes$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$configured batches preserve FIFO order across scheduled passes$1$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$duplicate transaction is published and persisted once$1",
       "methods": [
         {
@@ -2567,6 +3101,20 @@
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$duplicate transaction is published and persisted once$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$empty flush does not attempt persistence$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$empty flush does not attempt persistence$1$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$headroom accepts in flight replies above the discovery target before suspending$1",
@@ -2586,6 +3134,17 @@
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$headroom accepts in flight replies above the discovery target before suspending$1$fifth$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$remaining target capacity is clamped at zero for suspended admissions$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$remaining target capacity is clamped at zero for suspended admissions$1$suspended$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$save failure retries the exact batch before newer transactions$1",
       "methods": [
         {
@@ -2600,10 +3159,31 @@
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$save failure retries the exact batch before newer transactions$1$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$taking a batch releases capacity before commit$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$taking a batch releases capacity before commit$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$taking a batch releases capacity before commit$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueueTest$taking a batch releases capacity before commit$1$flush$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryQueue__TestContext001_BeanDefinitions"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoverySource"
+      "type": "cash.atto.node.bootstrap.discovery.DiscoverySource",
+      "serializable": true
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController",
@@ -2614,7 +3194,7 @@
             "cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker",
             "cash.atto.node.bootstrap.discovery.GapDiscoverer",
             "cash.atto.node.bootstrap.discovery.LastDiscoverer",
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter"
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor"
           ]
         },
         {
@@ -2630,6 +3210,9 @@
           ]
         }
       ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$flushAll$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$settle$1"
@@ -2649,7 +3232,6 @@
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
             "cash.atto.node.network.NetworkMessagePublisher",
             "cash.atto.node.bootstrap.discovery.DiscoveryQueue",
-            "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
             "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
             "io.micrometer.core.instrument.MeterRegistry",
             "java.time.Clock"
@@ -2664,12 +3246,6 @@
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.bootstrap.UncheckedTransactionSaved"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
             "cash.atto.node.network.InboundNetworkMessage",
             "kotlin.coroutines.Continuation"
           ]
@@ -2679,26 +3255,23 @@
           "parameterTypes": [
             "cash.atto.node.network.NodeDisconnected"
           ]
-        },
-        {
-          "name": "resolve",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$process$2"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$Companion"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$processOne$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$availableSessionSlots$$inlined$groupingBy$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$resolve$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$discover$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$resolve$2$2"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$process$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer$selectPeer$$inlined$groupingBy$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscovererKt"
@@ -2711,40 +3284,75 @@
           "parameterTypes": []
         },
         {
-          "name": "cancelled admission retains the response and retries before querying again",
+          "name": "active accounts are skipped while filling new session slots",
           "parameterTypes": []
         },
         {
-          "name": "capacity stops gap discovery before running its query",
+          "name": "adaptive target below the 250 transaction request budget prevents the gap query",
           "parameterTypes": []
         },
         {
-          "name": "clear removes the active stream",
+          "name": "buffered response refreshes the session expiration",
           "parameterTypes": []
         },
         {
-          "name": "disconnect removes the active stream immediately and allows retry",
+          "name": "cache clearing releases all active sessions",
+          "parameterTypes": []
+        },
+        {
+          "name": "caffeine expires sessions after one minute without progress",
+          "parameterTypes": []
+        },
+        {
+          "name": "empty query executes every time discovery is called",
           "parameterTypes": []
         },
         {
           "name": "fixture",
           "parameterTypes": [
-            "kotlinx.coroutines.flow.Flow",
-            "boolean",
+            "java.util.List",
             "int",
-            "java.time.Clock"
+            "int",
+            "int",
+            "boolean",
+            "java.time.Clock",
+            "java.util.List"
           ]
         },
         {
-          "name": "only one gap stream is active and it is capped to the protocol limit",
+          "name": "irrelevant traffic does not refresh the session expiration",
           "parameterTypes": []
         },
         {
-          "name": "partial and out of order replies remain safe while processor is at capacity",
+          "name": "legacy peer is limited to one active session",
           "parameterTypes": []
         },
         {
-          "name": "unanswered stream expires and retries automatically",
+          "name": "legacy peers each accept one active session",
+          "parameterTypes": []
+        },
+        {
+          "name": "no historical peer prevents the gap query",
+          "parameterTypes": []
+        },
+        {
+          "name": "parallel peer starts one session for every queue sized slot",
+          "parameterTypes": []
+        },
+        {
+          "name": "peer disconnect releases all its sessions and allows retry",
+          "parameterTypes": []
+        },
+        {
+          "name": "protocol maximum caps the request when target capacity is larger",
+          "parameterTypes": []
+        },
+        {
+          "name": "publication failure releases the session",
+          "parameterTypes": []
+        },
+        {
+          "name": "request range is capped to the configured capacity budget",
           "parameterTypes": []
         }
       ]
@@ -2759,7 +3367,7 @@
       "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$MutableClock"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$cancelled admission retains the response and retries before querying again$1",
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$active accounts are skipped while filling new session slots$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -2770,10 +3378,10 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$cancelled admission retains the response and retries before querying again$1$3"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$active accounts are skipped while filling new session slots$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$capacity stops gap discovery before running its query$1",
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$adaptive target below the 250 transaction request budget prevents the gap query$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -2784,13 +3392,41 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$capacity stops gap discovery before running its query$1$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$adaptive target below the 250 transaction request budget prevents the gap query$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$clear removes the active stream$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$buffered response refreshes the session expiration$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$disconnect removes the active stream immediately and allows retry$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$cache clearing releases all active sessions$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$caffeine expires sessions after one minute without progress$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$caffeine expires sessions after one minute without progress$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$empty query executes every time discovery is called$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$empty query executes every time discovery is called$1$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$3"
@@ -2799,10 +3435,10 @@
       "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$4"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$fixture$5"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$irrelevant traffic does not refresh the session expiration$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1",
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$legacy peer is limited to one active session$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -2813,16 +3449,13 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$legacy peer is limited to one active session$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$only one gap stream is active and it is capped to the protocol limit$1$gaps$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$legacy peers each accept one active session$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$partial and out of order replies remain safe while processor is at capacity$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$unanswered stream expires and retries automatically$1",
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$no historical peer prevents the gap query$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -2833,10 +3466,205 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$unanswered stream expires and retries automatically$1$1"
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$no historical peer prevents the gap query$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$parallel peer starts one session for every queue sized slot$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$parallel peer starts one session for every queue sized slot$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$peer disconnect releases all its sessions and allows retry$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$protocol maximum caps the request when target capacity is larger$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$publication failure releases the session$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapDiscovererTest$request range is capped to the configured capacity budget$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.GapDiscoverer__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession$Progress"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession$Progress$Active"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession$Progress$Completed"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession$Progress$Invalid"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSession$drain$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "in order descending responses are queued and complete the session",
+          "parameterTypes": []
+        },
+        {
+          "name": "out of order responses are retained and drained in descending order",
+          "parameterTypes": []
+        },
+        {
+          "name": "queue",
+          "parameterTypes": [
+            "java.util.List"
+          ]
+        },
+        {
+          "name": "response map cannot exceed the requested height range",
+          "parameterTypes": []
+        },
+        {
+          "name": "saturated queue serializes a later response without losing it",
+          "parameterTypes": []
+        },
+        {
+          "name": "wrong hash at expected height invalidates the session",
+          "parameterTypes": []
+        },
+        {
+          "name": "wrong peer range and processed duplicates are ignored",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$Chain"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$in order descending responses are queued and complete the session$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$out of order responses are retained and drained in descending order$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$queue$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$queue$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$3$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$3$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$response map cannot exceed the requested height range$1$expectedOffer$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$saturated queue serializes a later response without losing it$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$saturated queue serializes a later response without losing it$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$saturated queue serializes a later response without losing it$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$saturated queue serializes a later response without losing it$1$expectedOffer$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$saturated queue serializes a later response without losing it$1$laterOffer$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$wrong hash at expected height invalidates the session$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$wrong hash at expected height invalidates the session$1$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.GapSessionTest$wrong peer range and processed duplicates are ignored$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer",
@@ -3012,16 +3840,37 @@
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer__TestContext001_BeanDefinitions"
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.LinuxIoPressureReading"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LinuxIoPressureSource"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.ObservedPressure"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.PendingDiscovery"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.PendingDiscoveryKt"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.PendingGapRequest"
+      "type": "cash.atto.node.bootstrap.discovery.PendingHeadAdmission"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.PendingHeadAdmission"
+      "type": "cash.atto.node.bootstrap.discovery.ProcLinuxIoPressureSource",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.ProcLinuxIoPressureSource$Companion"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.ProcLinuxIoPressureSource__TestContext001_BeanDefinitions"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.SendDiscoverer",
@@ -3137,9 +3986,6 @@
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.TransactionHolder"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.discovery.TransactionPointer"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.GapView",
@@ -3284,6 +4130,14 @@
           "parameterTypes": []
         },
         {
+          "name": "finds an initial gap for an account missing from the account table",
+          "parameterTypes": []
+        },
+        {
+          "name": "maps serialized resolution candidates in deterministic order",
+          "parameterTypes": []
+        },
+        {
           "name": "migrates a clean database through the oldest index",
           "parameterTypes": []
         },
@@ -3294,6 +4148,18 @@
         {
           "name": "persists a full multi-row batch while ignoring duplicates through R2DBC",
           "parameterTypes": []
+        },
+        {
+          "name": "prioritizes account gaps by oldest boundary timestamp",
+          "parameterTypes": []
+        },
+        {
+          "name": "returns no gap for contiguous unchecked transactions",
+          "parameterTypes": []
+        },
+        {
+          "name": "selects the lowest gap for an account before applying timestamp priority",
+          "parameterTypes": []
         }
       ]
     },
@@ -3301,10 +4167,25 @@
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$Companion"
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$finds an initial gap for an account missing from the account table$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$hasHigherUncheckedTransaction$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$maps serialized resolution candidates in deterministic order$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$persists a full multi-row batch while ignoring duplicates through R2DBC$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$prioritizes account gaps by oldest boundary timestamp$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$returns no gap for contiguous unchecked transactions$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMigrationTest$selects the lowest gap for an account before applying timestamp priority$1"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
@@ -3315,121 +4196,94 @@
             "cash.atto.node.account.AccountRepository",
             "cash.atto.node.transaction.validation.TransactionValidationManager",
             "cash.atto.node.account.AccountService",
-            "cash.atto.node.EventPublisher"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "java.util.Collection",
-            "kotlin.coroutines.Continuation"
+            "cash.atto.node.EventPublisher",
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
+            "io.micrometer.core.instrument.MeterRegistry",
+            "org.springframework.transaction.ReactiveTransactionManager"
           ]
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$$SpringCGLIB$$0",
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$1",
       "fields": [
         {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
+          "name": "label"
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$$SpringCGLIB$$1",
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1$2$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$1",
       "fields": [
         {
-          "name": "CGLIB$CALLBACK_FILTER"
-        },
-        {
-          "name": "CGLIB$FACTORY_DATA"
+          "name": "label"
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$elapsed$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolveBatch$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorKt"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionService",
-            "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
-            "cash.atto.node.bootstrap.discovery.DiscoveryProperties",
-            "io.micrometer.core.instrument.MeterRegistry",
-            "java.time.Clock"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$cleanUp$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$cleanUp$2$deleted$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1$2"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$1$invokeSuspend$$inlined$map$1$2$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter$process$2$elapsed$1$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterKt"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterKt$recordSuspending$1"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest",
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest",
       "methods": [
         {
           "name": "<init>",
           "parameterTypes": []
         },
         {
-          "name": "bounds cleanup work per scheduled pass",
+          "name": "executes every time it is called",
           "parameterTypes": []
         },
         {
-          "name": "skips repeated scans until work changes or maintenance is due",
+          "name": "overlapping invocations both execute without worker-level locking",
+          "parameterTypes": []
+        },
+        {
+          "name": "resolution failure rolls back and a later call executes again",
+          "parameterTypes": []
+        },
+        {
+          "name": "returns the number of resolved transactions",
           "parameterTypes": []
         }
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$MutableClock"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$Fixture"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1",
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$RecordingReactiveTransactionManager"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$SimpleReactiveTransaction"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$executes every time it is called$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -3440,16 +4294,13 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$executes every time it is called$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$2"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$executes every time it is called$1$2"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$bounds cleanup work per scheduled pass$1$3"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1",
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$overlapping invocations both execute without worker-level locking$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -3460,28 +4311,76 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$overlapping invocations both execute without worker-level locking$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$2"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$overlapping invocations both execute without worker-level locking$1$2"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$3"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$overlapping invocations both execute without worker-level locking$1$3"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$4"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$overlapping invocations both execute without worker-level locking$1$firstPass$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$5"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ],
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$6"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1$3"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarterTest$skips repeated scans until work changes or maintenance is due$1$7"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1$4"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter__TestContext001_BeanDefinitions"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$resolution failure rolls back and a later call executes again$1$7"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$3"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$4"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$5"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$6"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$7"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$8"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor__TestContext001_BeanDefinitions"
@@ -3499,15 +4398,7 @@
           "name": "<init>",
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter",
-            "cash.atto.node.EventPublisher"
-          ]
-        },
-        {
-          "name": "cleanUp",
-          "parameterTypes": [
-            "long",
-            "kotlin.coroutines.Continuation"
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter"
           ]
         },
         {
@@ -3582,30 +4473,6 @@
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransaction__Accessor_eie46v"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.account.AccountUpdated"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.bootstrap.UncheckedTransactionSaved"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedWorkTracker__TestContext001_BeanDefinitions"
     },
     {
       "type": "cash.atto.node.convertion.ConversionsConfiguration",
@@ -6871,10 +7738,91 @@
       "type": "cash.atto.node.transaction.TransactionNetworkProvider$stream$1"
     },
     {
-      "type": "cash.atto.node.transaction.TransactionNetworkProvider$stream$2$1"
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "limits concurrent transaction streams to the protocol maximum",
+          "parameterTypes": []
+        },
+        {
+          "name": "materializes a transaction stream before publishing paced responses",
+          "parameterTypes": []
+        },
+        {
+          "name": "serves transaction streams concurrently",
+          "parameterTypes": []
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.transaction.TransactionNetworkProvider$stream$2$2"
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$Companion"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$Fixture"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$limits concurrent transaction streams to the protocol maximum$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$limits concurrent transaction streams to the protocol maximum$1$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$limits concurrent transaction streams to the protocol maximum$1$2$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$limits concurrent transaction streams to the protocol maximum$1$jobs$1$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$materializes a transaction stream before publishing paced responses$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$materializes a transaction stream before publishing paced responses$1$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$materializes a transaction stream before publishing paced responses$1$2"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$serves transaction streams concurrently$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$serves transaction streams concurrently$1$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$serves transaction streams concurrently$1$2$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$serves transaction streams concurrently$1$first$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionNetworkProviderTest$serves transaction streams concurrently$1$second$1"
     },
     {
       "type": "cash.atto.node.transaction.TransactionNetworkProvider__TestContext001_BeanDefinitions"
@@ -7731,7 +8679,7 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorStarter",
+            "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor",
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository"
           ]
         },
@@ -9811,6 +10759,9 @@
           "name": "refreshes"
         }
       ]
+    },
+    {
+      "type": "com.github.benmanes.caffeine.cache.Cache"
     },
     {
       "type": "com.github.benmanes.caffeine.cache.PS",
@@ -17672,10 +18623,21 @@
       "type": "kotlinx.coroutines.sync.MutexImpl"
     },
     {
+      "type": "kotlinx.coroutines.sync.Semaphore"
+    },
+    {
       "type": "kotlinx.coroutines.sync.SemaphoreAndMutexImpl"
     },
     {
       "type": "kotlinx.coroutines.test.AtomicBoolean"
+    },
+    {
+      "type": "kotlinx.coroutines.test.TestBuildersKt__TestBuildersKt$runTest$2$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "kotlinx.coroutines.test.TestBuildersKt__TestBuildersKt$runTest$2$1$workRunner$1",
@@ -25167,6 +26129,9 @@
       "type": "org.springframework.core.DefaultParameterNameDiscoverer"
     },
     {
+      "type": "org.springframework.core.NestedRuntimeException"
+    },
+    {
       "type": "org.springframework.core.Ordered"
     },
     {
@@ -25273,6 +26238,24 @@
     },
     {
       "type": "org.springframework.dao.DataAccessException"
+    },
+    {
+      "type": "org.springframework.dao.DataIntegrityViolationException"
+    },
+    {
+      "type": "org.springframework.dao.DuplicateKeyException",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.dao.NonTransientDataAccessException"
     },
     {
       "type": "org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor"
@@ -26227,6 +27210,14 @@
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperator"
+    },
+    {
+      "type": "org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt$executeAndAwait$2$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperatorImpl"
@@ -28801,6 +29792,18 @@
       "glob": "cash/atto/node/account/entry/AccountEntryService.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/BootstrapController$BootstrapAction.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/BootstrapController$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/BootstrapController.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/BootstrapControllerTest.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/discovery/DependencyDiscoverer.class"
     },
     {
@@ -28808,6 +29811,12 @@
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/DiscoveryPersistenceWorker.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryPressureMonitor.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/DiscoveryPressureMonitorTest.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/DiscoveryProperties$Companion.class"
@@ -28825,16 +29834,37 @@
       "glob": "cash/atto/node/bootstrap/discovery/DiscoveryTestController.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/discovery/GapDiscoverer$Companion.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/discovery/GapDiscoverer.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/GapDiscovererTest.class"
     },
     {
+      "glob": "cash/atto/node/bootstrap/discovery/GapSession$Progress.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/GapSession.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/GapSessionTest.class"
+    },
+    {
       "glob": "cash/atto/node/bootstrap/discovery/LastDiscoverer.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/LastDiscovererTest.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/LinuxIoPressureSource.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/ProcLinuxIoPressureSource$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/bootstrap/discovery/ProcLinuxIoPressureSource.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/discovery/SendDiscoverer.class"
@@ -28855,19 +29885,13 @@
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessor.class"
     },
     {
-      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessorStarter.class"
-    },
-    {
-      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessorStarterTest.class"
+      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessorTest.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionRepository.class"
     },
     {
       "glob": "cash/atto/node/bootstrap/unchecked/UncheckedTransactionService.class"
-    },
-    {
-      "glob": "cash/atto/node/bootstrap/unchecked/UncheckedWorkTracker.class"
     },
     {
       "glob": "cash/atto/node/convertion/ConversionsConfiguration.class"
@@ -29078,6 +30102,9 @@
     },
     {
       "glob": "cash/atto/node/transaction/TransactionNetworkProvider.class"
+    },
+    {
+      "glob": "cash/atto/node/transaction/TransactionNetworkProviderTest.class"
     },
     {
       "glob": "cash/atto/node/transaction/TransactionProperties.class"
