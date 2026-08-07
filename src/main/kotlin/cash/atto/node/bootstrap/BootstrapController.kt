@@ -67,7 +67,7 @@ class BootstrapController(
                 decision = BootstrapDecision.MAINTENANCE,
                 order = 0,
                 initialWeight = RESOLUTION_INITIAL_WEIGHT,
-                lastZeroAtEpochSecond = now,
+                lastRunAtEpochSecond = now,
                 operation = ::resolveUnchecked,
             )
         actions +=
@@ -75,7 +75,7 @@ class BootstrapController(
                 decision = BootstrapDecision.GAP,
                 order = 1,
                 initialWeight = GAP_INITIAL_WEIGHT,
-                lastZeroAtEpochSecond = now,
+                lastRunAtEpochSecond = now,
                 operation = gapDiscoverer::discover,
             )
         actions +=
@@ -83,7 +83,7 @@ class BootstrapController(
                 decision = BootstrapDecision.CLEANUP,
                 order = 2,
                 initialWeight = CLEANUP_INITIAL_WEIGHT,
-                lastZeroAtEpochSecond = now,
+                lastRunAtEpochSecond = now,
                 operation = { cleanUp(CLEANUP_LIMIT) },
             )
     }
@@ -204,7 +204,7 @@ class BootstrapController(
         val decision: BootstrapDecision,
         val order: Int,
         private val initialWeight: Long,
-        private var lastZeroAtEpochSecond: Long,
+        private var lastRunAtEpochSecond: Long,
         private val operation: suspend () -> Int,
     ) {
         var lastAttemptSequence = 0L
@@ -214,9 +214,9 @@ class BootstrapController(
             private set
 
         // The current epoch second is equal for every action, so this sorts exactly like
-        // `weight + currentEpochSecond - lastZeroAtEpochSecond`.
+        // `weight + currentEpochSecond - lastRunAtEpochSecond`.
         val priority: Long
-            get() = weight - lastZeroAtEpochSecond
+            get() = weight - lastRunAtEpochSecond
 
         suspend fun run(
             currentEpochSecond: Long,
@@ -224,7 +224,7 @@ class BootstrapController(
         ): Int {
             fun reset() {
                 weight = initialWeight
-                lastZeroAtEpochSecond = currentEpochSecond
+                lastRunAtEpochSecond = currentEpochSecond
             }
 
             lastAttemptSequence = currentAttemptSequence
@@ -233,7 +233,8 @@ class BootstrapController(
                 if (affected == 0) {
                     reset()
                 } else {
-                    weight += affected
+                    weight = initialWeight + affected
+                    lastRunAtEpochSecond = currentEpochSecond
                 }
                 return affected
             } catch (exception: Exception) {

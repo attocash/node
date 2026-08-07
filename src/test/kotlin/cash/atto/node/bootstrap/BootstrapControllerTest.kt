@@ -45,6 +45,51 @@ class BootstrapControllerTest {
         }
 
     @Test
+    fun `waiting gap catches latest resolution progress in seconds`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.processor.process() } returns 3
+            coEvery { fixture.service.cleanUp(3L) } returns 3
+
+            // When
+            repeat(4) {
+                fixture.controller.run()
+                fixture.clock.advanceSeconds(1)
+            }
+
+            // Then
+            coVerify(exactly = 4) { fixture.processor.process() }
+            coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
+
+            // When
+            fixture.controller.run()
+
+            // Then
+            coVerify(exactly = 1) { fixture.gapDiscoverer.discover() }
+        }
+
+    @Test
+    fun `lower progress replaces history and shortens gap wait`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.processor.process() } returnsMany listOf(5, 1)
+            coEvery { fixture.service.cleanUp(any()) } returns 1
+
+            // When
+            fixture.controller.run()
+            fixture.clock.advanceSeconds(1)
+            fixture.controller.run()
+            fixture.clock.advanceSeconds(1)
+            fixture.controller.run()
+
+            // Then
+            coVerify(exactly = 2) { fixture.processor.process() }
+            coVerify(exactly = 1) { fixture.gapDiscoverer.discover() }
+        }
+
+    @Test
     fun `gap discovery runs on the tick after resolution reports no progress`() =
         runTest {
             // Given
@@ -332,6 +377,10 @@ class BootstrapControllerTest {
         override fun withZone(zone: ZoneId): Clock = this
 
         override fun instant(): Instant = current
+
+        fun advanceSeconds(seconds: Long) {
+            current = current.plusSeconds(seconds)
+        }
     }
 
     private suspend fun expectSimulatedFailure(block: suspend () -> Unit) {
