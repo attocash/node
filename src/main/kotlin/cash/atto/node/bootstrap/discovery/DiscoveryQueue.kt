@@ -101,8 +101,6 @@ class DiscoveryQueue(
 
     internal fun getBacklogOvershoot(): Int = maxOf(0, size.get() - getTargetCapacity())
 
-    internal fun isPhysicalBufferFull(): Boolean = size.get() >= properties.capacity + properties.headroom
-
     private fun discard(discovery: PendingDiscovery) {
         size.decrementAndGet()
         duplicateDetector.remove(discovery.transaction.hash)

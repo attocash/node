@@ -1,7 +1,6 @@
 package cash.atto.node.bootstrap
 
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
-import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
@@ -18,7 +17,6 @@ import java.util.concurrent.TimeUnit
 @Component
 class BootstrapController(
     private val loadMonitor: BootstrapLoadMonitor,
-    private val discoveryQueue: DiscoveryQueue,
     private val persistenceWorker: DiscoveryPersistenceWorker,
     private val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
     private val uncheckedTransactionService: UncheckedTransactionService,
@@ -97,17 +95,12 @@ class BootstrapController(
         try {
             accrueWorkCredit()
 
-            if (discoveryQueue.isPhysicalBufferFull()) {
-                persist(forced = true)
+            if (drainPersistence()) {
                 return
             }
 
             if (workCredit < REQUIRED_WORK_CREDIT) {
-                finishWithoutAction(BootstrapDecision.LATENCY_WAIT)
-                return
-            }
-
-            if (persist(forced = false)) {
+                record(BootstrapDecision.LATENCY_WAIT)
                 return
             }
 
@@ -157,39 +150,20 @@ class BootstrapController(
         return deleted
     }
 
-    private suspend fun persist(forced: Boolean): Boolean {
-        val persisted =
-            try {
-                persistenceWorker.persist()
-            } catch (e: Exception) {
-                finishPersistence(forced)
-                throw e
+    private suspend fun drainPersistence(): Boolean {
+        var persisted = false
+        try {
+            while (persistenceWorker.persist() > 0) {
+                persisted = true
             }
-
-        if (persisted == 0) {
-            if (forced) {
-                finishWithoutAction(BootstrapDecision.IDLE)
-            }
-            return forced
+        } catch (e: Exception) {
+            record(BootstrapDecision.PERSISTENCE)
+            throw e
         }
-
-        finishPersistence(forced)
-        return true
-    }
-
-    private fun finishPersistence(forced: Boolean) {
-        if (forced) {
-            workCredit = 0.0
-            record(BootstrapDecision.FORCED_DRAIN)
-        } else {
-            consumeWorkCredit()
+        if (persisted) {
             record(BootstrapDecision.PERSISTENCE)
         }
-    }
-
-    private fun finishWithoutAction(decision: BootstrapDecision) {
-        workCredit = minOf(REQUIRED_WORK_CREDIT, workCredit)
-        record(decision)
+        return persisted
     }
 
     private fun consumeWorkCredit() {
@@ -260,7 +234,5 @@ private enum class BootstrapDecision(
     PERSISTENCE("persistence"),
     GAP("gap"),
     CLEANUP("cleanup"),
-    FORCED_DRAIN("forced-drain"),
     LATENCY_WAIT("latency-wait"),
-    IDLE("idle"),
 }

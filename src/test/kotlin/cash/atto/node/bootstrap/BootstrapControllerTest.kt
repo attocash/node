@@ -1,7 +1,6 @@
 package cash.atto.node.bootstrap
 
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
-import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
@@ -212,7 +211,7 @@ class BootstrapControllerTest {
             // Given
             val fixture = fixture()
             coEvery { fixture.worker.persist() } returnsMany
-                listOf(0, 1)
+                listOf(0, 1, 0)
 
             // When
             fixture.controller.run()
@@ -220,9 +219,10 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
-            coVerify(exactly = 2) { fixture.worker.persist() }
+            coVerify(exactly = 3) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("persistence"))
+            assertEquals(1.0, fixture.workCredit())
             verify(exactly = 2) { fixture.loadMonitor.poll() }
         }
 
@@ -286,21 +286,21 @@ class BootstrapControllerTest {
         }
 
     @Test
-    fun `full physical buffer forces persistence despite save latency`() =
+    fun `queued persistence fully drains without work credit`() =
         runTest {
             // Given
             val fixture = fixture()
             every { fixture.loadMonitor.availableShare() } returns 0.0
-            every { fixture.queue.isPhysicalBufferFull() } returns true
-            coEvery { fixture.worker.persist() } returns 1
+            coEvery { fixture.worker.persist() } returnsMany listOf(1, 1, 0)
 
             // When
             fixture.controller.run()
 
             // Then
-            coVerify(exactly = 1) { fixture.worker.persist() }
+            coVerify(exactly = 3) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.processor.process() }
-            assertEquals(1.0, fixture.decisions("forced-drain"))
+            assertEquals(1.0, fixture.decisions("persistence"))
+            assertEquals(0.0, fixture.workCredit())
         }
 
     @Test
@@ -336,7 +336,6 @@ class BootstrapControllerTest {
     private fun fixture(): Fixture {
         val registry = SimpleMeterRegistry()
         val loadMonitor = mockk<BootstrapLoadMonitor>()
-        val queue = mockk<DiscoveryQueue>()
         val worker = mockk<DiscoveryPersistenceWorker>()
         val processor = mockk<UncheckedTransactionProcessor>()
         val service = mockk<UncheckedTransactionService>()
@@ -345,7 +344,6 @@ class BootstrapControllerTest {
 
         every { loadMonitor.availableShare() } returns 1.0
         every { loadMonitor.poll() } returns null
-        every { queue.isPhysicalBufferFull() } returns false
         coEvery { worker.persist() } returns 0
         coEvery { processor.process() } returns 0
         coEvery { service.cleanUp(any()) } returns 0
@@ -354,7 +352,6 @@ class BootstrapControllerTest {
         val controller =
             BootstrapController(
                 loadMonitor = loadMonitor,
-                discoveryQueue = queue,
                 persistenceWorker = worker,
                 uncheckedTransactionProcessor = processor,
                 uncheckedTransactionService = service,
@@ -365,7 +362,6 @@ class BootstrapControllerTest {
         return Fixture(
             controller = controller,
             loadMonitor = loadMonitor,
-            queue = queue,
             worker = worker,
             processor = processor,
             service = service,
@@ -378,7 +374,6 @@ class BootstrapControllerTest {
     private data class Fixture(
         val controller: BootstrapController,
         val loadMonitor: BootstrapLoadMonitor,
-        val queue: DiscoveryQueue,
         val worker: DiscoveryPersistenceWorker,
         val processor: UncheckedTransactionProcessor,
         val service: UncheckedTransactionService,
