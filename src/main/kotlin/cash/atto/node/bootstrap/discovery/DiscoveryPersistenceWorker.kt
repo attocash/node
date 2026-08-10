@@ -8,6 +8,7 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.stereotype.Component
+import java.time.Duration
 
 @Component
 class DiscoveryPersistenceWorker(
@@ -40,12 +41,11 @@ class DiscoveryPersistenceWorker(
     }
 
     private suspend fun persist(discoveries: List<PendingDiscovery>): Int {
-        val sample = metrics.startBatch(discoveries.size)
+        val startedAt = System.nanoTime()
         val affectedRows =
             try {
                 uncheckedTransactionService.save(discoveries.map { it.transaction })
             } catch (e: Exception) {
-                metrics.stopBatch(sample)
                 if (e !is CancellationException) {
                     retryBatch = discoveries
                     metrics.persistenceFailed()
@@ -53,7 +53,7 @@ class DiscoveryPersistenceWorker(
                 throw e
             }
 
-        val elapsed = metrics.stopBatch(sample)
+        val elapsed = Duration.ofNanos(System.nanoTime() - startedAt)
         retryBatch = null
         metrics.persisted(discoveries)
         metrics.affectedRows(affectedRows)

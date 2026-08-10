@@ -12,6 +12,7 @@ import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.EventPublisher
+import cash.atto.node.bootstrap.BootstrapLoadMonitor
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.UncheckedTransaction
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
@@ -22,6 +23,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -254,6 +256,27 @@ class DiscoveryQueueTest {
         }
 
     @Test
+    fun `cancelled save propagates without recording a persistence failure`() =
+        runTest {
+            // Given
+            val service = mockk<UncheckedTransactionService>()
+            coEvery { service.save(any()) } throws CancellationException("simulated")
+            val fixture = fixture(service, properties(capacity = 1, batchSize = 1))
+            fixture.queue.queue(event(44), DiscoverySource.GAP)
+
+            // When
+            try {
+                fixture.worker.persist()
+                fail("Expected persistence cancellation")
+            } catch (exception: CancellationException) {
+                assertEquals("simulated", exception.message)
+            }
+
+            // Then
+            assertEquals(0.0, fixture.counter("transactions.discovery.persistence.failures"))
+        }
+
+    @Test
     fun `clear releases a retry batch and buffered rows for rediscovery`() =
         runTest {
             // Given
@@ -480,9 +503,9 @@ class DiscoveryQueueTest {
         properties.validate()
         val metrics = DiscoveryMetrics(registry)
         val discoveryCapacity = AtomicInteger(properties.capacity)
-        val pressureMonitor = pressureMonitor(discoveryCapacity)
+        val loadMonitor = loadMonitor(discoveryCapacity)
         val queue =
-            DiscoveryQueue(eventPublisher, properties, metrics, clock, pressureMonitor)
+            DiscoveryQueue(eventPublisher, properties, metrics, clock, loadMonitor)
                 .also { it.start() }
         val worker =
             DiscoveryPersistenceWorker(
@@ -495,10 +518,11 @@ class DiscoveryQueueTest {
             worker,
             registry,
             discoveryCapacity,
+            loadMonitor,
         )
     }
 
-    private fun pressureMonitor(discoveryCapacity: AtomicInteger): DiscoveryPressureMonitor =
+    private fun loadMonitor(discoveryCapacity: AtomicInteger): BootstrapLoadMonitor =
         mockk {
             every {
                 targetCapacity(any())
@@ -547,6 +571,7 @@ class DiscoveryQueueTest {
         val worker: DiscoveryPersistenceWorker,
         val registry: SimpleMeterRegistry,
         val discoveryCapacity: AtomicInteger,
+        val loadMonitor: BootstrapLoadMonitor,
     ) {
         fun gauge(name: String): Double = registry.get(name).gauge().value()
 

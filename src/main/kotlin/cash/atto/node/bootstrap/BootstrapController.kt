@@ -1,7 +1,6 @@
 package cash.atto.node.bootstrap
 
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
-import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
@@ -18,7 +17,7 @@ import java.util.concurrent.TimeUnit
 
 @Component
 class BootstrapController(
-    private val pressureMonitor: DiscoveryPressureMonitor,
+    private val loadMonitor: BootstrapLoadMonitor,
     private val discoveryQueue: DiscoveryQueue,
     private val persistenceWorker: DiscoveryPersistenceWorker,
     private val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
@@ -37,7 +36,7 @@ class BootstrapController(
     private var attemptSequence = 0L
 
     @Volatile
-    private var diskCredit = 0.0
+    private var workCredit = 0.0
 
     private val deletedTransactions =
         Counter
@@ -56,9 +55,9 @@ class BootstrapController(
 
     init {
         Gauge
-            .builder("transactions.bootstrap.controller.disk.credit", this) {
-                it.diskCredit
-            }.description("Fractional PSI-derived credit available for bootstrap disk work")
+            .builder("transactions.bootstrap.controller.work.credit", this) {
+                it.workCredit
+            }.description("Fractional save-latency-derived credit available for bootstrap work")
             .register(meterRegistry)
 
         val now = clock.instant().epochSecond
@@ -96,15 +95,15 @@ class BootstrapController(
         }
 
         try {
-            accrueDiskCredit()
+            accrueWorkCredit()
 
             if (discoveryQueue.isPhysicalBufferFull()) {
                 persist(forced = true)
                 return
             }
 
-            if (diskCredit < REQUIRED_DISK_CREDIT) {
-                finishWithoutAction(BootstrapDecision.PRESSURE_WAIT)
+            if (workCredit < REQUIRED_WORK_CREDIT) {
+                finishWithoutAction(BootstrapDecision.LATENCY_WAIT)
                 return
             }
 
@@ -118,13 +117,14 @@ class BootstrapController(
         }
     }
 
-    private fun accrueDiskCredit() {
-        val availableShare = pressureMonitor.availableShare()
-        diskCredit =
+    private fun accrueWorkCredit() {
+        loadMonitor.poll()
+        val availableShare = loadMonitor.availableShare()
+        workCredit =
             if (availableShare == 0.0) {
                 0.0
             } else {
-                diskCredit + availableShare
+                workCredit + availableShare
             }
     }
 
@@ -135,7 +135,7 @@ class BootstrapController(
             action.run(clock.instant().epochSecond, attemptSequence)
         } finally {
             actions += action
-            consumeDiskCredit()
+            consumeWorkCredit()
             record(action.decision)
         }
     }
@@ -179,21 +179,21 @@ class BootstrapController(
 
     private fun finishPersistence(forced: Boolean) {
         if (forced) {
-            diskCredit = 0.0
+            workCredit = 0.0
             record(BootstrapDecision.FORCED_DRAIN)
         } else {
-            consumeDiskCredit()
+            consumeWorkCredit()
             record(BootstrapDecision.PERSISTENCE)
         }
     }
 
     private fun finishWithoutAction(decision: BootstrapDecision) {
-        diskCredit = minOf(REQUIRED_DISK_CREDIT, diskCredit)
+        workCredit = minOf(REQUIRED_WORK_CREDIT, workCredit)
         record(decision)
     }
 
-    private fun consumeDiskCredit() {
-        diskCredit = maxOf(0.0, diskCredit - REQUIRED_DISK_CREDIT)
+    private fun consumeWorkCredit() {
+        workCredit = maxOf(0.0, workCredit - REQUIRED_WORK_CREDIT)
     }
 
     private fun record(decision: BootstrapDecision) {
@@ -245,7 +245,7 @@ class BootstrapController(
     }
 
     private companion object {
-        const val REQUIRED_DISK_CREDIT = 1.0
+        const val REQUIRED_WORK_CREDIT = 1.0
         const val CLEANUP_LIMIT = 1_000L
         const val RESOLUTION_INITIAL_WEIGHT = 1_000L
         const val GAP_INITIAL_WEIGHT = 1_000L
@@ -261,6 +261,6 @@ private enum class BootstrapDecision(
     GAP("gap"),
     CLEANUP("cleanup"),
     FORCED_DRAIN("forced-drain"),
-    PRESSURE_WAIT("pressure-wait"),
+    LATENCY_WAIT("latency-wait"),
     IDLE("idle"),
 }

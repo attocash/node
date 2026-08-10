@@ -11,6 +11,7 @@ class DiscoveryProperties {
     var capacity: Int = 10_000
     var headroom: Int = 2_000
     var batchSize: Int = 1_000
+    var persistenceTargetPerSecond: Long = 1_000
 
     @PostConstruct
     fun validate() {
@@ -24,6 +25,9 @@ class DiscoveryProperties {
         }
         require(batchSize in 1..minOf(capacity, MAX_BATCH_SIZE)) {
             "Discovery batch size must be positive and no greater than capacity or $MAX_BATCH_SIZE"
+        }
+        require(persistenceTargetPerSecond > 0) {
+            "Discovery persistence target per second must be positive"
         }
     }
 

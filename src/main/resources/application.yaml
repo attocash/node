@@ -32,6 +32,7 @@ atto:
       capacity: ${ATTO_DISCOVERY_CAPACITY:10000}
       headroom: ${ATTO_DISCOVERY_HEADROOM:2000}
       batch-size: ${ATTO_DISCOVERY_BATCH_SIZE:1000}
+      persistence-target-per-second: ${ATTO_DISCOVERY_PERSISTENCE_TARGET_PER_SECOND:1000}
   signer:
     backend: ${ATTO_SIGNER_BACKEND:local}
     remote-url: ${ATTO_SIGNER_REMOTE_URL:}

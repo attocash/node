@@ -1,7 +1,6 @@
 package cash.atto.node.bootstrap.discovery
 
 import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
@@ -17,8 +16,6 @@ class DiscoveryMetrics(
     private val persistedCounters = EnumMap<DiscoverySource, Counter>(DiscoverySource::class.java)
     private val persistenceFailureCounter: Counter
     private val affectedRowsCounter: Counter
-    private val batchTimer: Timer
-    private val batchSizeSummary: DistributionSummary
     private val queueWaitTimer: Timer
 
     init {
@@ -31,30 +28,20 @@ class DiscoveryMetrics(
                     .register(meterRegistry)
             persistedCounters[source] =
                 Counter
-                    .builder("transactions.discovery.persisted")
+                    .builder(PERSISTED_METRIC_NAME)
                     .description("Discovered transactions committed to unchecked persistence")
                     .tag("source", source.metricTag)
                     .register(meterRegistry)
         }
         persistenceFailureCounter =
             Counter
-                .builder("transactions.discovery.persistence.failures")
+                .builder(PERSISTENCE_FAILURE_METRIC_NAME)
                 .description("Unchecked discovery persistence failures")
                 .register(meterRegistry)
         affectedRowsCounter =
             Counter
                 .builder("transactions.discovery.affected")
                 .description("Rows affected by unchecked discovery persistence")
-                .register(meterRegistry)
-        batchTimer =
-            Timer
-                .builder("transactions.discovery.batch")
-                .description("Time spent attempting an unchecked discovery persistence batch")
-                .register(meterRegistry)
-        batchSizeSummary =
-            DistributionSummary
-                .builder("transactions.discovery.batch.size")
-                .description("Discovered transactions attempted per persistence batch")
                 .register(meterRegistry)
         queueWaitTimer =
             Timer
@@ -72,7 +59,7 @@ class DiscoveryMetrics(
         Gauge
             .builder("transactions.discovery.capacity.target", queue) {
                 it.getTargetCapacity().toDouble()
-            }.description("Current disk-pressure-adjusted discovery admission target")
+            }.description("Current save-latency-adjusted discovery admission target")
             .register(meterRegistry)
         Gauge
             .builder("transactions.discovery.backlog.overshoot", queue) {
@@ -111,13 +98,8 @@ class DiscoveryMetrics(
         affectedRowsCounter.increment(count.toDouble())
     }
 
-    internal fun startBatch(size: Int): Timer.Sample {
-        batchSizeSummary.record(size.toDouble())
-        return Timer.start(meterRegistry)
+    internal companion object {
+        const val PERSISTED_METRIC_NAME = "transactions.discovery.persisted"
+        const val PERSISTENCE_FAILURE_METRIC_NAME = "transactions.discovery.persistence.failures"
     }
-
-    internal fun stopBatch(sample: Timer.Sample): Duration =
-        Duration.ofNanos(
-            sample.stop(batchTimer),
-        )
 }

@@ -2,6 +2,8 @@ package cash.atto.node.bootstrap.unchecked
 
 import cash.atto.commons.toBigInteger
 import cash.atto.commons.toJavaInstant
+import io.micrometer.core.instrument.MeterRegistry
+import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.reactive.awaitSingle
 import kotlinx.io.readByteArray
 import org.springframework.r2dbc.core.DatabaseClient
@@ -14,7 +16,13 @@ import java.util.concurrent.ConcurrentHashMap
 @Component
 class UncheckedTransactionInserter(
     private val databaseClient: DatabaseClient,
+    private val meterRegistry: MeterRegistry,
 ) {
+    private val insertTimer =
+        Timer
+            .builder(METRIC_NAME)
+            .description("Time spent inserting unchecked transaction batches")
+            .register(meterRegistry)
     private val sqlByRowCount = ConcurrentHashMap<Int, String>()
     private val valuePlaceholders = "(?, ?, ?, ?, ?, ?, ?)"
     private val insertSql =
@@ -28,46 +36,55 @@ class UncheckedTransactionInserter(
     suspend fun insert(uncheckedTransactions: Collection<UncheckedTransaction>): Long {
         if (uncheckedTransactions.isEmpty()) return 0
 
-        return databaseClient
-            .inConnection { conn ->
-                val statement = conn.createStatement(sql(uncheckedTransactions.size))
-                var bindIndex = 0
+        val sample = Timer.start(meterRegistry)
+        try {
+            return databaseClient
+                .inConnection { conn ->
+                    val statement = conn.createStatement(sql(uncheckedTransactions.size))
+                    var bindIndex = 0
 
-                uncheckedTransactions.forEach { transaction ->
-                    val previous = transaction.previous
+                    uncheckedTransactions.forEach { transaction ->
+                        val previous = transaction.previous
 
-                    statement
-                        .bind(bindIndex++, transaction.hash.value)
-                        .bind(bindIndex++, transaction.publicKey.value)
-                        .bind(bindIndex++, transaction.height.value.toBigInteger())
+                        statement
+                            .bind(bindIndex++, transaction.hash.value)
+                            .bind(bindIndex++, transaction.publicKey.value)
+                            .bind(bindIndex++, transaction.height.value.toBigInteger())
 
-                    if (previous != null) {
-                        statement.bind(bindIndex++, previous.value)
-                    } else {
-                        statement.bindNull(bindIndex++, ByteArray::class.java)
+                        if (previous != null) {
+                            statement.bind(bindIndex++, previous.value)
+                        } else {
+                            statement.bindNull(bindIndex++, ByteArray::class.java)
+                        }
+
+                        statement
+                            .bind(bindIndex++, transaction.block.timestamp.toJavaInstant())
+                            .bind(
+                                bindIndex++,
+                                transaction
+                                    .toTransaction()
+                                    .toAttoTransaction()
+                                    .toBuffer()
+                                    .readByteArray(),
+                            ).bind(bindIndex++, transaction.receivedAt)
                     }
 
-                    statement
-                        .bind(bindIndex++, transaction.block.timestamp.toJavaInstant())
-                        .bind(
-                            bindIndex++,
-                            transaction
-                                .toTransaction()
-                                .toAttoTransaction()
-                                .toBuffer()
-                                .readByteArray(),
-                        ).bind(bindIndex++, transaction.receivedAt)
-                }
-
-                Flux
-                    .from(statement.execute())
-                    .flatMap { it.rowsUpdated }
-                    .reduce(0L, Long::plus)
-            }.awaitSingle()
+                    Flux
+                        .from(statement.execute())
+                        .flatMap { it.rowsUpdated }
+                        .reduce(0L, Long::plus)
+                }.awaitSingle()
+        } finally {
+            sample.stop(insertTimer)
+        }
     }
 
     private fun sql(rowCount: Int): String =
         sqlByRowCount.computeIfAbsent(rowCount) {
             "$insertSql VALUES ${List(rowCount) { valuePlaceholders }.joinToString(", ")} $duplicateUpdateSql"
         }
+
+    internal companion object {
+        const val METRIC_NAME = "transactions.unchecked.insert"
+    }
 }

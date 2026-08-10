@@ -1,7 +1,6 @@
 package cash.atto.node.bootstrap
 
 import cash.atto.node.bootstrap.discovery.DiscoveryPersistenceWorker
-import cash.atto.node.bootstrap.discovery.DiscoveryPressureMonitor
 import cash.atto.node.bootstrap.discovery.DiscoveryQueue
 import cash.atto.node.bootstrap.discovery.GapDiscoverer
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
@@ -11,6 +10,8 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
@@ -145,11 +146,11 @@ class BootstrapControllerTest {
         }
 
     @Test
-    fun `resolution failure rethrows and consumes disk credit`() =
+    fun `resolution failure rethrows and consumes work credit`() =
         runTest {
             // Given
             val fixture = fixture()
-            every { fixture.pressureMonitor.availableShare() } returns 0.5
+            every { fixture.loadMonitor.availableShare() } returns 0.5
             coEvery { fixture.processor.process() } throws IllegalStateException("simulated")
 
             // When
@@ -159,7 +160,7 @@ class BootstrapControllerTest {
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
-            assertEquals(0.0, fixture.diskCredit())
+            assertEquals(0.0, fixture.workCredit())
             assertEquals(1.0, fixture.decisions("maintenance"))
 
             // When
@@ -167,7 +168,7 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
-            assertEquals(0.5, fixture.diskCredit())
+            assertEquals(0.5, fixture.workCredit())
         }
 
     @Test
@@ -184,7 +185,7 @@ class BootstrapControllerTest {
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
             coVerify(exactly = 1) { fixture.service.cleanUp(5L) }
-            assertEquals(0.0, fixture.diskCredit())
+            assertEquals(0.0, fixture.workCredit())
             assertEquals(1.0, fixture.decisions("maintenance"))
         }
 
@@ -222,14 +223,48 @@ class BootstrapControllerTest {
             coVerify(exactly = 2) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.gapDiscoverer.discover() }
             assertEquals(1.0, fixture.decisions("persistence"))
+            verify(exactly = 2) { fixture.loadMonitor.poll() }
         }
 
     @Test
-    fun `fractional pressure credit skips ticks without shrinking work`() =
+    fun `persistence failure is rethrown after polling the load monitor`() =
         runTest {
             // Given
             val fixture = fixture()
-            every { fixture.pressureMonitor.availableShare() } returns 0.5
+            coEvery { fixture.worker.persist() } throws IllegalStateException("simulated")
+
+            // When
+            expectSimulatedFailure { fixture.controller.run() }
+
+            // Then
+            verify(exactly = 1) { fixture.loadMonitor.poll() }
+        }
+
+    @Test
+    fun `persistence cancellation leaves the load monitor unchanged`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            coEvery { fixture.worker.persist() } throws CancellationException("simulated")
+
+            // When
+            try {
+                fixture.controller.run()
+                fail("Expected persistence cancellation")
+            } catch (exception: CancellationException) {
+                assertEquals("simulated", exception.message)
+            }
+
+            // Then
+            verify(exactly = 1) { fixture.loadMonitor.poll() }
+        }
+
+    @Test
+    fun `fractional latency credit skips ticks without shrinking work`() =
+        runTest {
+            // Given
+            val fixture = fixture()
+            every { fixture.loadMonitor.availableShare() } returns 0.5
             coEvery { fixture.processor.process() } returns 1
             coEvery { fixture.service.cleanUp(1L) } returns 1
 
@@ -238,7 +273,8 @@ class BootstrapControllerTest {
 
             // Then
             coVerify(exactly = 0) { fixture.processor.process() }
-            assertEquals(0.5, fixture.diskCredit())
+            assertEquals(0.5, fixture.workCredit())
+            assertEquals(1.0, fixture.decisions("latency-wait"))
 
             // When
             fixture.controller.run()
@@ -246,15 +282,15 @@ class BootstrapControllerTest {
             // Then
             coVerify(exactly = 1) { fixture.processor.process() }
             coVerify(exactly = 1) { fixture.service.cleanUp(1L) }
-            assertEquals(0.0, fixture.diskCredit())
+            assertEquals(0.0, fixture.workCredit())
         }
 
     @Test
-    fun `full physical buffer forces persistence despite disk pressure`() =
+    fun `full physical buffer forces persistence despite save latency`() =
         runTest {
             // Given
             val fixture = fixture()
-            every { fixture.pressureMonitor.availableShare() } returns 0.0
+            every { fixture.loadMonitor.availableShare() } returns 0.0
             every { fixture.queue.isPhysicalBufferFull() } returns true
             coEvery { fixture.worker.persist() } returns 1
 
@@ -299,7 +335,7 @@ class BootstrapControllerTest {
 
     private fun fixture(): Fixture {
         val registry = SimpleMeterRegistry()
-        val pressureMonitor = mockk<DiscoveryPressureMonitor>()
+        val loadMonitor = mockk<BootstrapLoadMonitor>()
         val queue = mockk<DiscoveryQueue>()
         val worker = mockk<DiscoveryPersistenceWorker>()
         val processor = mockk<UncheckedTransactionProcessor>()
@@ -307,7 +343,8 @@ class BootstrapControllerTest {
         val gapDiscoverer = mockk<GapDiscoverer>()
         val clock = MutableClock()
 
-        every { pressureMonitor.availableShare() } returns 1.0
+        every { loadMonitor.availableShare() } returns 1.0
+        every { loadMonitor.poll() } returns null
         every { queue.isPhysicalBufferFull() } returns false
         coEvery { worker.persist() } returns 0
         coEvery { processor.process() } returns 0
@@ -316,7 +353,7 @@ class BootstrapControllerTest {
 
         val controller =
             BootstrapController(
-                pressureMonitor = pressureMonitor,
+                loadMonitor = loadMonitor,
                 discoveryQueue = queue,
                 persistenceWorker = worker,
                 uncheckedTransactionProcessor = processor,
@@ -327,7 +364,7 @@ class BootstrapControllerTest {
             )
         return Fixture(
             controller = controller,
-            pressureMonitor = pressureMonitor,
+            loadMonitor = loadMonitor,
             queue = queue,
             worker = worker,
             processor = processor,
@@ -340,7 +377,7 @@ class BootstrapControllerTest {
 
     private data class Fixture(
         val controller: BootstrapController,
-        val pressureMonitor: DiscoveryPressureMonitor,
+        val loadMonitor: BootstrapLoadMonitor,
         val queue: DiscoveryQueue,
         val worker: DiscoveryPersistenceWorker,
         val processor: UncheckedTransactionProcessor,
@@ -356,9 +393,9 @@ class BootstrapControllerTest {
                 .counter()
                 .count()
 
-        fun diskCredit(): Double =
+        fun workCredit(): Double =
             registry
-                .get("transactions.bootstrap.controller.disk.credit")
+                .get("transactions.bootstrap.controller.work.credit")
                 .gauge()
                 .value()
 

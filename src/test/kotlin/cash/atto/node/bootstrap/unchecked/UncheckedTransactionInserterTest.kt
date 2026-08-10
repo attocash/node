@@ -13,6 +13,7 @@ import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.transaction.Transaction
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test
 import org.springframework.r2dbc.core.DatabaseClient
 import reactor.core.publisher.Flux
 import reactor.core.publisher.Mono
+import java.util.concurrent.TimeUnit
 
 class UncheckedTransactionInserterTest {
     @Test
@@ -52,7 +54,8 @@ class UncheckedTransactionInserterTest {
             every { statement.execute() } returns Flux.just(result)
             every { result.rowsUpdated } returns Mono.just(2L)
 
-            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory))
+            val meterRegistry = SimpleMeterRegistry()
+            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry)
             val transactions = listOf(openTransaction(), receiveTransaction())
 
             // when
@@ -66,6 +69,9 @@ class UncheckedTransactionInserterTest {
                 ),
             )
             assertTrue(sql.captured.endsWith("ON DUPLICATE KEY UPDATE hash = hash"))
+            val timer = meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer()
+            assertEquals(1L, timer.count())
+            assertTrue(timer.totalTime(TimeUnit.NANOSECONDS) > 0)
             verify(exactly = 1) { connection.createStatement(any()) }
             verify(exactly = 13) { statement.bind(any<Int>(), any()) }
             verify(exactly = 1) { statement.bindNull(3, ByteArray::class.java) }
@@ -81,13 +87,15 @@ class UncheckedTransactionInserterTest {
             val connectionFactoryMetadata = mockk<ConnectionFactoryMetadata>()
             every { connectionFactory.metadata } returns connectionFactoryMetadata
             every { connectionFactoryMetadata.name } returns "MySQL"
-            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory))
+            val meterRegistry = SimpleMeterRegistry()
+            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry)
 
             // when
             val inserted = inserter.insert(emptyList())
 
             // then
             assertEquals(0L, inserted)
+            assertEquals(0L, meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer().count())
             verify(exactly = 0) { connectionFactory.create() }
         }
 

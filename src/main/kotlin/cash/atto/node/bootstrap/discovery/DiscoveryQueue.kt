@@ -3,6 +3,7 @@ package cash.atto.node.bootstrap.discovery
 import cash.atto.commons.AttoHash
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
+import cash.atto.node.bootstrap.BootstrapLoadMonitor
 import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.unchecked.toUncheckedTransaction
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,7 +21,7 @@ class DiscoveryQueue(
     private val properties: DiscoveryProperties,
     private val metrics: DiscoveryMetrics,
     private val clock: Clock,
-    private val pressureMonitor: DiscoveryPressureMonitor,
+    private val loadMonitor: BootstrapLoadMonitor,
 ) {
     private val logger = KotlinLogging.logger {}
     private val duplicateDetector = DuplicateDetector<AttoHash>(10.minutes)
@@ -96,7 +97,7 @@ class DiscoveryQueue(
 
     internal fun getBacklogDepth(): Int = size.get()
 
-    internal fun getTargetCapacity(): Int = pressureMonitor.targetCapacity(properties.capacity)
+    internal fun getTargetCapacity(): Int = loadMonitor.targetCapacity(properties.capacity)
 
     internal fun getBacklogOvershoot(): Int = maxOf(0, size.get() - getTargetCapacity())
 
