@@ -136,6 +136,7 @@ class LastDiscovererTest {
         coEvery { discoveryQueue.queue(any(), DiscoverySource.HEAD) } returns true
 
         val voteWeighter = mockk<VoteWeighter>()
+        every { voteWeighter.get(any()) } returns ElectionVoter.MIN_WEIGHT
         every { voteWeighter.getMinimalConfirmationWeight() } returns ElectionVoter.MIN_WEIGHT
         every { voteWeighter.getMinimalToStaleWeight() } returns ElectionVoter.MIN_WEIGHT
 

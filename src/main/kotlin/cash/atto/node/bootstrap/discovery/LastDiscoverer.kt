@@ -140,9 +140,11 @@ class LastDiscoverer(
         }
 
         transactionElectionMap.compute(transaction.hash) { _, existing ->
-            existing ?: TransactionElection(transaction) {
-                voteWeighter.getMinimalConfirmationWeight()
-            }
+            existing ?: TransactionElection(
+                transaction = transaction,
+                voteWeightProvider = { vote -> voteWeighter.get(vote.publicKey) },
+                minimalConfirmationWeightProvider = voteWeighter::getMinimalConfirmationWeight,
+            )
         }
 
         val request = AttoVoteStreamRequest(transaction.hash)

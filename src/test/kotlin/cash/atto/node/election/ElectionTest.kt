@@ -143,6 +143,7 @@ class ElectionTest {
         // given
         val transaction = Transaction.sample()
         val vote = Vote.sample(blockHash = transaction.hash, weight = minimalWeight)
+        every { voteWeighter.get(vote.publicKey) } returns vote.weight
 
         // when
         runBlocking {
@@ -167,6 +168,8 @@ class ElectionTest {
         val transactionB = Transaction.sample(publicKey = publicKey)
         val voteA = Vote.sample(blockHash = transactionA.hash, weight = minimalWeight)
         val voteB = Vote.sample(blockHash = transactionB.hash, weight = minimalWeight)
+        every { voteWeighter.get(voteA.publicKey) } returns voteA.weight
+        every { voteWeighter.get(voteB.publicKey) } returns voteB.weight
 
         // when
         runBlocking {
@@ -204,6 +207,8 @@ class ElectionTest {
         val transactionB = Transaction.sample(publicKey = publicKey)
         val voteA = Vote.sample(blockHash = transactionA.hash, weight = AttoAmount(100UL))
         val voteB = Vote.sample(blockHash = transactionB.hash, weight = AttoAmount(500UL))
+        every { voteWeighter.get(voteA.publicKey) } returns voteA.weight
+        every { voteWeighter.get(voteB.publicKey) } returns voteB.weight
 
         // when
         runBlocking {
@@ -286,6 +291,8 @@ class ElectionTest {
         val transaction = Transaction.sample()
         val vote1 = Vote.sample(blockHash = transaction.hash, weight = AttoAmount(500UL))
         val vote2 = Vote.sample(blockHash = transaction.hash, weight = AttoAmount(500UL))
+        every { voteWeighter.get(vote1.publicKey) } returns vote1.weight
+        every { voteWeighter.get(vote2.publicKey) } returns vote2.weight
 
         // when
         runBlocking {
@@ -323,6 +330,7 @@ class ElectionTest {
                 weight = AttoAmount(500UL),
                 timestamp = Instant.now().minusSeconds(10),
             )
+        every { voteWeighter.get(voterKey) } returns newerVote.weight
 
         // when
         runBlocking {

@@ -93,9 +93,11 @@ class Election(
 
         publicKeyHeightElectionMap.compute(publicKeyHeight) { _, v ->
             val publicKeyHeightElection =
-                v ?: PublicKeyHeightElection(account) {
-                    voteWeighter.getMinimalConfirmationWeight()
-                }
+                v ?: PublicKeyHeightElection(
+                    account = account,
+                    minimalConfirmationWeightProvider = voteWeighter::getMinimalConfirmationWeight,
+                    voteWeightProvider = { vote -> voteWeighter.get(vote.publicKey) },
+                )
             publicKeyHeightElection.add(transaction)
             publicKeyHeightElection
         }
@@ -207,6 +209,7 @@ private class VoterChange(
 class PublicKeyHeightElection(
     val account: Account,
     private val minimalConfirmationWeightProvider: () -> AttoAmount,
+    private val voteWeightProvider: (Vote) -> AttoAmount = { it.weight },
 ) {
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
     private val voterChangeMap = HashMap<AttoPublicKey, VoterChange>()
@@ -218,7 +221,11 @@ class PublicKeyHeightElection(
         }
 
         transactionElectionMap[transaction.hash] =
-            TransactionElection(transaction, minimalConfirmationWeightProvider)
+            TransactionElection(
+                transaction = transaction,
+                voteWeightProvider = voteWeightProvider,
+                minimalConfirmationWeightProvider = minimalConfirmationWeightProvider,
+            )
     }
 
     fun add(vote: Vote): Boolean {
@@ -286,6 +293,7 @@ class PublicKeyHeightElection(
 class TransactionElection(
     val transaction: Transaction,
     private val minimalConfirmationWeightProvider: () -> AttoAmount,
+    private val voteWeightProvider: (Vote) -> AttoAmount,
 ) {
     internal val votes = HashMap<AttoPublicKey, Vote>()
 
@@ -295,7 +303,7 @@ class TransactionElection(
         }
 
     /**
-     * Due to async nature of voting the cached voting weight from vote may exceed the max atto amount. This issue
+     * Due to async nature of voting the total voting weight may exceed the max atto amount. This issue
      * is unlikely to happen in the live environment but very likely to happen locally.
      */
     private fun calculateTotalWeight(exclusions: Set<AttoPublicKey> = emptySet()): AttoAmount {
@@ -304,7 +312,7 @@ class TransactionElection(
             if (exclusions.contains(vote.publicKey)) {
                 continue
             }
-            val next = sum + vote.weight
+            val next = sum + voteWeightProvider(vote)
             sum = if (next < sum) AttoAmount.MAX else next
         }
         return sum
