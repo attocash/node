@@ -124,7 +124,7 @@ class ElectionProcessorTest {
         }
 
     @Test
-    fun `drops consensus event after retry limit`() =
+    fun `keeps consensus event queued after repeated persistence failures`() =
         runBlocking {
             // given
             val transactionManager = RecordingReactiveTransactionManager()
@@ -137,7 +137,7 @@ class ElectionProcessorTest {
                     clock,
                     properties =
                         ElectionProperties().apply {
-                            processingRetryMaxAttempts = 3
+                            processingRetryMaxBackoffInSeconds = 1
                         },
                 )
             val transaction = Transaction.sample()
@@ -145,25 +145,22 @@ class ElectionProcessorTest {
 
             coEvery { accountService.add(TransactionSource.ELECTION, any()) } coAnswers {
                 attempts++
-                throw IllegalStateException("invalid transaction")
+                throw IllegalStateException("db down")
             }
 
             processor.process(ElectionConsensusReached(mockk(relaxed = true), transaction, emptyList()))
 
             // when
-            processor.flush()
-            clock.advance(Duration.ofSeconds(1))
-            processor.flush()
-            clock.advance(Duration.ofSeconds(1))
-            processor.flush()
-            clock.advance(Duration.ofSeconds(1))
-            processor.flush()
+            repeat(6) {
+                processor.flush()
+                clock.advance(Duration.ofSeconds(1))
+            }
 
             // then
-            assertEquals(0, processor.getBufferSize())
-            assertEquals(3, attempts)
+            assertEquals(1, processor.getBufferSize())
+            assertEquals(6, attempts)
             assertEquals(0, transactionManager.commits)
-            assertEquals(3, transactionManager.rollbacks)
+            assertEquals(6, transactionManager.rollbacks)
         }
 
     @Test

@@ -1,6 +1,5 @@
 package cash.atto.node.transaction.validation.validator
 
-import cash.atto.commons.PreviousSupport
 import cash.atto.commons.toJavaInstant
 import cash.atto.node.account.Account
 import cash.atto.node.transaction.Transaction
@@ -16,7 +15,7 @@ import org.springframework.stereotype.Component
 class BlockValidator(
     val node: AttoNode,
 ) : TransactionValidator {
-    override fun supports(transaction: Transaction): Boolean = transaction.block is PreviousSupport
+    override fun supports(transaction: Transaction): Boolean = true
 
     override suspend fun validate(
         account: Account,

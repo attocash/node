@@ -49,9 +49,6 @@ class ElectionProcessor(
 
     @PostConstruct
     fun start() {
-        require(properties.processingRetryMaxAttempts > 0) {
-            "Election processor retry max attempts must be positive"
-        }
         require(properties.processingRetryInitialBackoffInSeconds > 0) {
             "Election processor retry initial backoff must be positive"
         }
@@ -160,23 +157,12 @@ class ElectionProcessor(
         events: List<PendingElectionConsensus>,
         cause: Exception,
     ) {
-        val (retryableEvents, droppedEvents) = events.partition { it.attempt < properties.processingRetryMaxAttempts }
-
-        if (retryableEvents.isNotEmpty()) {
-            requeue(retryableEvents)
-            val backoff = backoffFor(retryableEvents.maxOf { it.attempt })
-            nextFlushAt.set(clock.instant().plus(backoff))
-            logger.warn(cause) {
-                "Error while processing ${retryableEvents.map { it.event.transaction.hash }}. " +
-                    "Retrying after election processor backoff of $backoff"
-            }
-        }
-
-        if (droppedEvents.isNotEmpty()) {
-            logger.error(cause) {
-                "Dropping ${droppedEvents.map { it.event.transaction.hash }} after " +
-                    "${properties.processingRetryMaxAttempts} election processor attempts"
-            }
+        requeue(events)
+        val backoff = backoffFor(events.maxOf { it.attempt })
+        nextFlushAt.set(clock.instant().plus(backoff))
+        logger.warn(cause) {
+            "Error while processing ${events.map { it.event.transaction.hash }}. " +
+                "Retrying after election processor backoff of $backoff"
         }
     }
 

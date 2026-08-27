@@ -5,6 +5,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoNetwork
+import cash.atto.commons.AttoOpenBlock
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSendBlock
@@ -22,8 +23,10 @@ import cash.atto.protocol.NodeFeature
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.URI
+import java.time.Instant
 import kotlin.random.Random
 
 internal class BlockValidatorTest {
@@ -84,6 +87,47 @@ internal class BlockValidatorTest {
 
             // then
             assertNull(violation)
+        }
+
+    @Test
+    fun `should accept first open transaction and reject a second`() =
+        runBlocking {
+            // given
+            val openBlock =
+                AttoOpenBlock(
+                    version = account.version,
+                    network = account.network,
+                    algorithm = account.algorithm,
+                    publicKey = account.publicKey,
+                    balance = account.balance,
+                    timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
+                    sendHashAlgorithm = AttoAlgorithm.V1,
+                    sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
+                    representativeAlgorithm = account.representativeAlgorithm,
+                    representativePublicKey = account.representativePublicKey,
+                )
+            val openTransaction =
+                Transaction(
+                    openBlock,
+                    privateKey.sign(openBlock.hash),
+                    AttoWorker.cpu().work(openBlock),
+                )
+            val unopenedAccount =
+                account.copy(
+                    height = 0,
+                    balance = AttoAmount.MIN,
+                    lastTransactionHash = AttoHash(ByteArray(32)),
+                    lastTransactionTimestamp = Instant.MIN,
+                )
+
+            // when
+            val unopenedViolation = validator.validate(unopenedAccount, openTransaction)
+            val existingViolation = validator.validate(account, openTransaction)
+
+            // then
+            assertTrue(validator.supports(openTransaction))
+            assertNull(unopenedViolation)
+            assertEquals(TransactionRejectionReason.OLD_TRANSACTION, existingViolation?.reason)
         }
 
     @Test
