@@ -104,11 +104,14 @@ class ElectionTest {
     @Test
     fun `should remove election when AccountUpdated event is received`() {
         // given
-        val transaction = Transaction.sample()
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val transaction = Transaction.sample(publicKey = publicKey)
+        val loser = Transaction.sample(publicKey = publicKey)
 
         // when
         runBlocking {
             election.start(TransactionValidated(account, transaction))
+            election.start(TransactionValidated(account, loser))
             assertEquals(1, election.getSize())
 
             val accountUpdated = AccountUpdated(TransactionSource.ELECTION, account, account, transaction)
@@ -117,6 +120,12 @@ class ElectionTest {
 
         // then
         assertEquals(0, election.getSize())
+        verify {
+            eventPublisher.publish(match { it is ElectionLost && it.transaction == loser })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost && it.transaction == transaction })
+        }
     }
 
     @Test
@@ -141,13 +150,16 @@ class ElectionTest {
     @Test
     fun `should reach consensus when vote weight meets threshold`() {
         // given
-        val transaction = Transaction.sample()
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val transaction = Transaction.sample(publicKey = publicKey)
+        val loser = Transaction.sample(publicKey = publicKey)
         val vote = Vote.sample(blockHash = transaction.hash, weight = minimalWeight)
         every { voteWeighter.get(vote.publicKey) } returns vote.weight
 
         // when
         runBlocking {
             election.start(TransactionValidated(account, transaction))
+            election.start(TransactionValidated(account, loser))
             election.process(VoteValidated(transaction, vote))
         }
 
@@ -157,6 +169,12 @@ class ElectionTest {
             eventPublisher.publish(
                 match { it is ElectionConsensusReached && it.transaction == transaction },
             )
+            eventPublisher.publish(
+                match { it is ElectionLost && it.transaction == loser },
+            )
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost && it.transaction == transaction })
         }
     }
 
@@ -251,11 +269,17 @@ class ElectionTest {
     @Test
     fun `should remove staled elections older than expired threshold`() {
         // given
-        val oldTransaction = Transaction.sample(receivedAt = Instant.now().minusSeconds(900))
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val oldTransaction = Transaction.sample(publicKey, receivedAt = Instant.now().minusSeconds(900))
+        val loser = Transaction.sample(publicKey, receivedAt = Instant.now().minusSeconds(900))
+        val vote = Vote.sample(blockHash = oldTransaction.hash, weight = AttoAmount(1UL))
+        every { voteWeighter.get(vote.publicKey) } returns vote.weight
 
         // when
         runBlocking {
             election.start(TransactionValidated(account, oldTransaction))
+            election.start(TransactionValidated(account, loser))
+            election.process(VoteValidated(oldTransaction, vote))
             election.expireOld()
         }
 
@@ -265,6 +289,12 @@ class ElectionTest {
             eventPublisher.publish(
                 match { it is ElectionExpired && it.transaction == oldTransaction },
             )
+            eventPublisher.publish(
+                match { it is ElectionLost && it.transaction == loser },
+            )
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost && it.transaction == oldTransaction })
         }
     }
 

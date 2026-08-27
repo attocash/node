@@ -76,8 +76,12 @@ class Election(
             val transaction = event.transaction
             val publicKeyHeight = transaction.toPublicKeyHeight()
             pendingConsensus.remove(publicKeyHeight)
-            publicKeyHeightElectionMap.remove(publicKeyHeight)?.let {
+            publicKeyHeightElectionMap.remove(publicKeyHeight)?.let { election ->
                 logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
+                election
+                    .getTransactions()
+                    .filter { it.hash != transaction.hash }
+                    .forEach { eventPublisher.publish(ElectionLost(election.account, it)) }
             }
         }
 
@@ -147,6 +151,10 @@ class Election(
             }
             pendingConsensus.add(publicKeyHeight)
             publicKeyHeightElectionMap.remove(publicKeyHeight)
+            publicKeyHeightElection
+                .getTransactions()
+                .filter { it.hash != finalTransaction.hash }
+                .forEach { eventPublisher.publish(ElectionLost(account, it)) }
             eventPublisher.publish(ElectionConsensusReached(account, finalTransaction, votes))
             return@withLock
         }
@@ -191,6 +199,10 @@ class Election(
                     val transaction = it.getProvisionalLeader().transaction
                     logger.trace { "Expired $transaction" }
                     publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+                    it
+                        .getTransactions()
+                        .filter { candidate -> candidate.hash != transaction.hash }
+                        .forEach { candidate -> eventPublisher.publish(ElectionLost(it.account, candidate)) }
                     eventPublisher.publish(ElectionExpired(it.account, transaction))
                 }
         }
@@ -267,6 +279,8 @@ class PublicKeyHeightElection(
         transactionElectionMap
             .values
             .maxBy { it.totalWeight }
+
+    fun getTransactions(): Collection<Transaction> = transactionElectionMap.values.map { it.transaction }
 
     fun getConsensus(): TransactionElection? {
         if (transactionElectionMap.isEmpty()) {
@@ -350,6 +364,12 @@ data class ElectionConsensusReached(
     val account: Account,
     val transaction: Transaction,
     val votes: Collection<Vote>,
+    override val timestamp: Instant = Instant.now(),
+) : Event
+
+data class ElectionLost(
+    val account: Account,
+    val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
 ) : Event
 

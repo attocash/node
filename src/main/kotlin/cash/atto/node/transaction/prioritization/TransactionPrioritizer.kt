@@ -8,6 +8,7 @@ import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionExpired
+import cash.atto.node.election.ElectionLost
 import cash.atto.node.election.ElectionStarted
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.transaction.Transaction
@@ -111,6 +112,11 @@ class TransactionPrioritizer(
     fun process(event: ElectionExpired) {
         electionDependencies.remove(event.transaction.hash)
         duplicateDetector.remove(event.transaction.hash)
+    }
+
+    @EventListener
+    fun process(event: ElectionLost) {
+        electionDependencies.remove(event.transaction.hash)
     }
 
     @EventListener

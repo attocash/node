@@ -15,6 +15,8 @@ import cash.atto.commons.toJavaInstant
 import cash.atto.node.Event
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
+import cash.atto.node.election.ElectionLost
+import cash.atto.node.election.ElectionStarted
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.transaction.Transaction
@@ -108,6 +110,42 @@ internal class TransactionPrioritizerTest {
 
         assertEquals(
             listOf(transaction.hash, transaction.hash),
+            published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
+        )
+    }
+
+    @Test
+    fun `lost election discards buffered dependencies`() {
+        // given
+        val published = mutableListOf<Event>()
+        val eventPublisher = mockk<EventPublisher>()
+        every { eventPublisher.publish(any()) } answers {
+            published += firstArg<Event>()
+            Unit
+        }
+        val prioritizer =
+            TransactionPrioritizer(
+                TransactionPrioritizationProperties().apply {
+                    groupMaxSize = 10
+                    maxActiveElections = 1_000
+                },
+                eventPublisher,
+                SimpleMeterRegistry(),
+            )
+        val dependent = transaction.copy(block = block.copy(sendHash = transaction.hash))
+        prioritizer.process(ElectionStarted(account, transaction))
+        prioritizer.add(dependent)
+        assertEquals(1, prioritizer.getBufferSize())
+
+        // when
+        prioritizer.process(ElectionLost(account, transaction))
+        prioritizer.add(dependent)
+        prioritizer.process()
+
+        // then
+        assertEquals(0, prioritizer.getBufferSize())
+        assertEquals(
+            listOf(dependent.hash),
             published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
         )
     }
