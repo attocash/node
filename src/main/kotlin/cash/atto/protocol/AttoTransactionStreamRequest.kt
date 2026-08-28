@@ -26,22 +26,22 @@ data class AttoTransactionStreamRequest(
     }
 
     init {
+        require(startHeight >= AttoHeight.MIN) { "Start height must be greater than or equal to ${AttoHeight.MIN}" }
         require(startHeight <= endHeight) { "End height must be greater than or equal to start height" }
 
-        val count = endHeight.value - startHeight.value + 1UL
-        require(MAX_TRANSACTIONS >= count) {
-            "The number of transactions must not exceed the maximum limit of $MAX_TRANSACTIONS. Requested $count"
+        val distance = endHeight.value - startHeight.value
+        require(distance < MAX_TRANSACTIONS) {
+            "The number of transactions must not exceed the maximum limit of $MAX_TRANSACTIONS. Requested ${distance + 1UL}"
         }
     }
 
     override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_STREAM_REQUEST
 
     override suspend fun isValid(network: AttoNetwork): Boolean {
-        if (startHeight > endHeight) {
+        if (startHeight < AttoHeight.MIN || startHeight > endHeight) {
             return false
         }
 
-        val count = endHeight.value - startHeight.value + 1UL
-        return count <= MAX_TRANSACTIONS
+        return endHeight.value - startHeight.value < MAX_TRANSACTIONS
     }
 }
