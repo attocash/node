@@ -18,7 +18,7 @@ class GlobalRequestInterceptor(
         exchange: ServerWebExchange,
         chain: WebFilterChain,
     ): Mono<Void> {
-        if (!nodeProperties.forceApi && thisNode.isVoter() && thisNode.isNotHistorical() && exchange.request.uri.port == 8080) {
+        if (!nodeProperties.forceApi && thisNode.isVoter() && thisNode.isNotHistorical() && exchange.request.localAddress?.port == 8080) {
             return Mono.error(
                 ResponseStatusException(
                     HttpStatus.FORBIDDEN,
