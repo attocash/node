@@ -42,6 +42,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -76,6 +77,7 @@ class LastDiscoverer(
             .asMap()
 
     private val mutex = Mutex()
+    private val pushPermits = Semaphore(64)
 
     override fun clear() {
         transactionElectionMap.clear()
@@ -111,6 +113,18 @@ class LastDiscoverer(
 
     @EventListener
     suspend fun processPush(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
+        if (!pushPermits.tryAcquire()) {
+            return
+        }
+
+        try {
+            processPushWithPermit(message)
+        } finally {
+            pushPermits.release()
+        }
+    }
+
+    private suspend fun processPushWithPermit(message: InboundNetworkMessage<AttoBootstrapTransactionPush>) {
         val response = message.payload
         val transaction = response.transaction.toTransaction()
         val block = transaction.block

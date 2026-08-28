@@ -122,7 +122,7 @@ class SendDiscovererTest {
     }
 
     @Test
-    fun `send response is left for gap discovery when the account has a higher unchecked transaction`() =
+    fun `send response is consumed when the account has a higher unchecked transaction`() =
         runTest {
             // given
             val networkMessagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
@@ -178,7 +178,7 @@ class SendDiscovererTest {
             coVerify(exactly = 0) {
                 discoveryQueue.queue(any(), DiscoverySource.SEND)
             }
-            verify(exactly = 1) {
+            verify(exactly = 2) {
                 networkMessagePublisher.publish(any())
             }
             assertEquals(

@@ -46,7 +46,7 @@ import java.util.concurrent.atomic.AtomicInteger
 class TransactionNetworkProviderTest {
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
-    fun `serves one transaction stream at a time`() =
+    fun `rejects a concurrent transaction stream`() =
         runTest {
             // given
             val repository = mockk<TransactionRepository>()
@@ -76,17 +76,11 @@ class TransactionNetworkProviderTest {
 
             // when
             releases.send(Unit)
-            runCurrent()
-
-            // then
-            assertEquals(2, started.get())
-            assertEquals(1, maximumActive.get())
-
-            // when
-            releases.send(Unit)
             advanceUntilIdle()
 
             // then
+            assertEquals(1, started.get())
+            assertEquals(1, maximumActive.get())
             first.join()
             second.join()
         }

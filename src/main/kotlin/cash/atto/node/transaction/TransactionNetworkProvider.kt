@@ -12,12 +12,12 @@ import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.time.Clock
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Semaphore
 
 @Component
 class TransactionNetworkProvider(
@@ -26,7 +26,12 @@ class TransactionNetworkProvider(
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val clock: Clock,
 ) {
+    companion object {
+        private const val MAX_CONCURRENT_FINDS = 64
+    }
+
     private val peers = ConcurrentHashMap.newKeySet<URI>()
+    private val findPermits = Semaphore(MAX_CONCURRENT_FINDS)
     private val streamMutex = Mutex()
 
     @EventListener
@@ -51,11 +56,19 @@ class TransactionNetworkProvider(
             return
         }
 
-        val request = message.payload
-        val transaction = transactionRepository.findById(request.hash)
-        if (transaction != null) {
-            val response = AttoTransactionResponse(transaction.toAttoTransaction())
-            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+        if (!findPermits.tryAcquire()) {
+            return
+        }
+
+        try {
+            val request = message.payload
+            val transaction = transactionRepository.findById(request.hash)
+            if (transaction != null) {
+                val response = AttoTransactionResponse(transaction.toAttoTransaction())
+                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+            }
+        } finally {
+            findPermits.release()
         }
     }
 
@@ -65,9 +78,13 @@ class TransactionNetworkProvider(
             return
         }
 
-        streamMutex.withLock {
+        if (!streamMutex.tryLock()) {
+            return
+        }
+
+        try {
             if (!peers.contains(message.publicUri) || message.isExpired()) {
-                return@withLock
+                return
             }
 
             val request = message.payload
@@ -80,7 +97,7 @@ class TransactionNetworkProvider(
                     ).toList()
 
             if (message.isExpired()) {
-                return@withLock
+                return
             }
 
             for (transaction in transactions) {
@@ -90,6 +107,8 @@ class TransactionNetworkProvider(
                 val response = AttoTransactionStreamResponse(transaction.toAttoTransaction())
                 networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
             }
+        } finally {
+            streamMutex.unlock()
         }
     }
 

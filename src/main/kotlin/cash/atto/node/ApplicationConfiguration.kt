@@ -17,6 +17,7 @@ import org.springframework.context.annotation.ImportRuntimeHints
 import org.springframework.context.event.ApplicationEventMulticaster
 import org.springframework.context.event.SimpleApplicationEventMulticaster
 import org.springframework.core.env.Environment
+import org.springframework.core.task.SimpleAsyncTaskExecutor
 import org.springframework.scheduling.annotation.EnableScheduling
 
 @ImportRuntimeHints(
@@ -38,10 +39,11 @@ class ApplicationConfiguration {
     @Bean
     fun applicationEventMulticaster(): ApplicationEventMulticaster {
         val multicaster = SimpleApplicationEventMulticaster()
-
-        multicaster.setTaskExecutor { task ->
-            Thread.ofVirtual().start(task)
-        }
+        val executor = SimpleAsyncTaskExecutor("atto-event-")
+        executor.setVirtualThreads(true)
+        executor.concurrencyLimit = 64
+        executor.setRejectTasksWhenLimitReached(true)
+        multicaster.setTaskExecutor(executor)
         multicaster.setErrorHandler {
             logger.error(it) { it.message }
         }

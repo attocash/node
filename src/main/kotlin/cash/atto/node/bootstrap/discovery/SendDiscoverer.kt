@@ -123,7 +123,7 @@ class SendDiscoverer(
         val response = message.payload
         val transaction = response.transaction
 
-        if (!unknownHashCache.containsKey(transaction.hash)) {
+        if (unknownHashCache.remove(transaction.hash) == null) {
             return
         }
 
@@ -142,7 +142,6 @@ class SendDiscoverer(
             TransactionDiscovered(null, transaction.toTransaction(), listOf()),
             DiscoverySource.SEND,
         )
-        unknownHashCache.remove(transaction.hash)
     }
 
     private fun randomUri(votes: Collection<Vote>): URI? =

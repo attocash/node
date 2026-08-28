@@ -11,6 +11,7 @@ import cash.atto.node.network.guardian.InboundConnectionDecision
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
+import cash.atto.protocol.AttoTransactionStreamRequest
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -30,6 +31,7 @@ import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
+import io.ktor.websocket.ChannelOverflow
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -72,6 +74,7 @@ class NetworkProcessor(
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
         private const val MAX_CONCURRENT_HANDSHAKES = 64
+        private const val MAX_CONCURRENT_PEER_VALIDATIONS = 64
     }
 
     private val websocketClient =
@@ -85,11 +88,24 @@ class NetworkProcessor(
                     .WebSockets,
             ) {
                 maxFrameSize = MAX_MESSAGE_SIZE.toLong()
+                channels {
+                    incoming =
+                        bounded(
+                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
+                            onOverflow = ChannelOverflow.CLOSE,
+                        )
+                    outgoing =
+                        bounded(
+                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
+                            onOverflow = ChannelOverflow.CLOSE,
+                        )
+                }
             }
         }
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
     private val handshakePermits = Semaphore(MAX_CONCURRENT_HANDSHAKES)
+    private val peerValidationPermits = Semaphore(MAX_CONCURRENT_PEER_VALIDATIONS)
 
     private val connectingMap =
         Caffeine
@@ -110,6 +126,18 @@ class NetworkProcessor(
                     .WebSockets,
             ) {
                 maxFrameSize = MAX_MESSAGE_SIZE.toLong()
+                channels {
+                    incoming =
+                        bounded(
+                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
+                            onOverflow = ChannelOverflow.CLOSE,
+                        )
+                    outgoing =
+                        bounded(
+                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
+                            onOverflow = ChannelOverflow.CLOSE,
+                        )
+                }
             }
             install(
                 io
@@ -401,19 +429,27 @@ class NetworkProcessor(
             return
         }
 
-        val validation = peerUriValidator.validate(publicUri)
-        if (validation is PeerUriValidationResult.Rejected) {
-            logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
+        if (!peerValidationPermits.tryAcquire()) {
             return
         }
 
-        if (connectionManager.isConnected(publicUri)) {
-            return
-        }
+        try {
+            val validation = peerUriValidator.validate(publicUri)
+            if (validation is PeerUriValidationResult.Rejected) {
+                logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
+                return
+            }
 
-        scope.launch {
-            logger.trace { "Start connection to $publicUri" }
-            connection(publicUri)
+            if (connectionManager.isConnected(publicUri)) {
+                return
+            }
+
+            scope.launch {
+                logger.trace { "Start connection to $publicUri" }
+                connection(publicUri)
+            }
+        } finally {
+            peerValidationPermits.release()
         }
     }
 

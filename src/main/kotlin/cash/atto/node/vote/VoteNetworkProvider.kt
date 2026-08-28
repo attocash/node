@@ -19,12 +19,12 @@ import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.AttoVoteStreamResponse
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.takeWhile
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.Semaphore
 import kotlin.time.Duration.Companion.milliseconds
 
 @Component
@@ -35,7 +35,14 @@ class VoteNetworkProvider(
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val signer: AttoSigner,
 ) : CacheSupport {
+    companion object {
+        private const val MAX_CONCURRENT_GETS = 64
+        private const val MAX_CONCURRENT_STREAMS = 64
+    }
+
     private val voteStreams = ConcurrentHashMap.newKeySet<VoteStream>()
+    private val getPermits = Semaphore(MAX_CONCURRENT_GETS)
+    private val streamPermits = Semaphore(MAX_CONCURRENT_STREAMS)
 
     override fun clear() {
         voteStreams.clear()
@@ -49,28 +56,36 @@ class VoteNetworkProvider(
             return
         }
 
-        if (!transactionRepository.existsById(request.blockHash)) {
+        if (!getPermits.tryAcquire()) {
             return
         }
 
-        val attoVote =
-            AttoVote(
-                version = 0U.toAttoVersion(),
-                algorithm = thisNode.algorithm,
-                publicKey = thisNode.publicKey,
-                blockAlgorithm = AttoAlgorithm.V1,
-                blockHash = request.blockHash,
-                timestamp = AttoVote.finalTimestamp,
-            )
-        val attoSignedVote =
-            AttoSignedVote(
-                vote = attoVote,
-                signature = signer.sign(attoVote),
-            )
+        try {
+            if (!transactionRepository.existsById(request.blockHash)) {
+                return
+            }
 
-        val response = AttoVoteResponse(attoSignedVote)
+            val attoVote =
+                AttoVote(
+                    version = 0U.toAttoVersion(),
+                    algorithm = thisNode.algorithm,
+                    publicKey = thisNode.publicKey,
+                    blockAlgorithm = AttoAlgorithm.V1,
+                    blockHash = request.blockHash,
+                    timestamp = AttoVote.finalTimestamp,
+                )
+            val attoSignedVote =
+                AttoSignedVote(
+                    vote = attoVote,
+                    signature = signer.sign(attoVote),
+                )
 
-        networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+            val response = AttoVoteResponse(attoSignedVote)
+
+            networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+        } finally {
+            getPermits.release()
+        }
     }
 
     @EventListener
@@ -93,16 +108,25 @@ class VoteNetworkProvider(
             return
         }
 
-        val votes = voteRepository.findByBlockHash(request.blockHash).map { it.toAtto() }
+        if (!streamPermits.tryAcquire()) {
+            voteStreams.remove(stream)
+            return
+        }
 
-        votes
-            .takeWhile { voteStreams.contains(stream) }
-            .onCompletion { voteStreams.remove(stream) }
-            .collect {
-                val response = AttoVoteStreamResponse(it)
-                networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
-                delay(10.milliseconds)
-            }
+        try {
+            val votes = voteRepository.findByBlockHash(request.blockHash).map { it.toAtto() }
+
+            votes
+                .takeWhile { voteStreams.contains(stream) }
+                .collect {
+                    val response = AttoVoteStreamResponse(it)
+                    networkMessagePublisher.publish(DirectNetworkMessage(message.publicUri, response))
+                    delay(10.milliseconds)
+                }
+        } finally {
+            voteStreams.remove(stream)
+            streamPermits.release()
+        }
     }
 
     private data class VoteStream(
