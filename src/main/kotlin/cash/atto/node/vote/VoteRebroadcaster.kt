@@ -54,7 +54,7 @@ class VoteRebroadcaster(
 
     @EventListener
     suspend fun process(event: VoteValidated) {
-        val holder = holderMap[event.vote.signature]
+        val holder = holderMap.remove(event.vote.signature)
         /*
          * Holder will be null for votes casted by this node.
          * They are considered valid from the start and broadcasted directly
