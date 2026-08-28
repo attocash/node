@@ -7,11 +7,12 @@ import cash.atto.commons.AttoSignature
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.call.body
 import io.ktor.client.plugins.HttpTimeout
-import io.ktor.client.request.post
+import io.ktor.client.request.preparePost
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.http.ContentType
+import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
@@ -73,18 +74,25 @@ class KtorHandshakeCallbackClient : HandshakeCallbackClient {
     override suspend fun post(
         handshakeUri: URI,
         request: CounterChallengeResponse,
-    ): HandshakeCallbackResult.Completed {
-        val response =
-            httpClient.post(handshakeUri.toString()) {
+    ): HandshakeCallbackResult.Completed =
+        httpClient
+            .preparePost(handshakeUri.toString()) {
                 contentType(ContentType.Application.Json)
                 setBody(request)
+            }.execute { response ->
+                HandshakeCallbackResult.Completed(
+                    status = response.status,
+                    response =
+                        if (response.status.value in 200..299) {
+                            response.bodyAsChannel().receiveHandshakePayload<ChallengeResponse>(
+                                MAX_CHALLENGE_RESPONSE_SIZE_BYTES,
+                                response.headers[HttpHeaders.ContentLength]?.toLongOrNull(),
+                            )
+                        } else {
+                            null
+                        },
+                )
             }
-
-        return HandshakeCallbackResult.Completed(
-            status = response.status,
-            response = if (response.status.value in 200..299) response.body<ChallengeResponse>() else null,
-        )
-    }
 
     @PreDestroy
     fun close() {

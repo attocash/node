@@ -24,7 +24,8 @@ import io.ktor.server.application.ApplicationCall
 import io.ktor.server.application.install
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.origin
-import io.ktor.server.request.receive
+import io.ktor.server.request.contentLength
+import io.ktor.server.request.receiveChannel
 import io.ktor.server.response.respond
 import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
@@ -47,6 +48,7 @@ import java.net.InetSocketAddress
 import java.net.URI
 import java.time.Duration
 import java.util.concurrent.Executors
+import java.util.concurrent.Semaphore
 import kotlin.time.Duration.Companion.seconds
 
 @Component
@@ -69,6 +71,7 @@ class NetworkProcessor(
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
+        private const val MAX_CONCURRENT_HANDSHAKES = 64
     }
 
     private val websocketClient =
@@ -86,6 +89,7 @@ class NetworkProcessor(
         }
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
+    private val handshakePermits = Semaphore(MAX_CONCURRENT_HANDSHAKES)
 
     private val connectingMap =
         Caffeine
@@ -119,12 +123,33 @@ class NetworkProcessor(
             }
             routing {
                 post("/handshakes") {
+                    val channel = call.receiveChannel()
+                    if (!handshakePermits.tryAcquire()) {
+                        channel.cancel(null)
+                        call.respond(HttpStatusCode.TooManyRequests)
+                        return@post
+                    }
+
                     try {
                         val remoteHost = call.request.origin.remoteHost
 
-                        if (!call.acceptInboundConnection(remoteHost, "handshake")) return@post
+                        if (!call.acceptInboundConnection(remoteHost, "handshake")) {
+                            channel.cancel(null)
+                            return@post
+                        }
 
-                        val counterResponse = call.receive<CounterChallengeResponse>()
+                        val counterResponse =
+                            withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
+                                channel.receiveHandshakePayload<CounterChallengeResponse>(
+                                    MAX_COUNTER_CHALLENGE_RESPONSE_SIZE_BYTES,
+                                    call.request.contentLength(),
+                                )
+                            }
+                        if (counterResponse == null) {
+                            channel.cancel(null)
+                            call.respond(HttpStatusCode.RequestTimeout)
+                            return@post
+                        }
                         val challenge = counterResponse.challenge
 
                         val publicUri = ChallengeStore.remove(challenge)
@@ -186,9 +211,17 @@ class NetworkProcessor(
                         connectingFlow.emit(node)
 
                         call.respond(HttpStatusCode.OK, response)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: HandshakePayloadTooLargeException) {
+                        logger.trace(e) { "Oversized handshake from ${call.request.origin.remoteHost}" }
+                        call.respond(HttpStatusCode.PayloadTooLarge)
                     } catch (e: Exception) {
+                        channel.cancel(e)
                         logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
                         call.respond(HttpStatusCode.InternalServerError)
+                    } finally {
+                        handshakePermits.release()
                     }
                 }
                 webSocket(path = "/") {

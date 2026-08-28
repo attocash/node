@@ -2,6 +2,7 @@ package cash.atto.node
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoSigner
+import cash.atto.node.network.MAX_PUBLIC_URI_SIZE_BYTES
 import cash.atto.node.signature.SignerProperties
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
@@ -24,6 +25,9 @@ class NodeConfiguration(
     @PostConstruct
     fun start() {
         require(nodeProperties.publicUri != null) { "`atto.node.public-uri` can't be null" }
+        require(nodeProperties.publicUri!!.encodeToByteArray().size <= MAX_PUBLIC_URI_SIZE_BYTES) {
+            "`atto.node.public-uri` exceeds $MAX_PUBLIC_URI_SIZE_BYTES bytes"
+        }
         require(URI(nodeProperties.publicUri).path != null) { "`atto.node.public-uri` invalid" }
     }
 

@@ -12,6 +12,10 @@ class PeerUriValidator(
     private val dnsResolver: NetworkDnsResolver,
 ) {
     suspend fun validate(publicUri: URI): PeerUriValidationResult {
+        if (publicUri.toString().encodeToByteArray().size > MAX_PUBLIC_URI_SIZE_BYTES) {
+            return PeerUriValidationResult.Rejected("URI exceeds $MAX_PUBLIC_URI_SIZE_BYTES bytes")
+        }
+
         val scheme = publicUri.scheme?.lowercase()
         if (scheme != "ws" && scheme != "wss") {
             return PeerUriValidationResult.Rejected("Invalid URI scheme '$scheme'")
