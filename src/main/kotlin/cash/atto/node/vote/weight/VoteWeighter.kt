@@ -90,15 +90,16 @@ class VoteWeighter(
 
             is AttoReceiveBlock -> {
                 val amount = block.balance - previousAccount.balance
-                add(updatedAccount.representativePublicKey, amount, block.balance)
+                val defaultAmount = block.balance.takeIf { previousAccount.balance == AttoAmount.MIN }
+                add(updatedAccount.representativePublicKey, amount, defaultAmount)
             }
 
             is AttoSendBlock -> {
-                subtract(updatedAccount.representativePublicKey, block.amount, block.balance)
+                subtract(updatedAccount.representativePublicKey, block.amount)
             }
 
             is AttoChangeBlock -> {
-                subtract(previousAccount.representativePublicKey, block.balance, AttoAmount.MIN)
+                subtract(previousAccount.representativePublicKey, block.balance)
                 add(block.representativePublicKey, block.balance, block.balance)
             }
         }
@@ -111,12 +112,15 @@ class VoteWeighter(
     private suspend fun add(
         publicKey: AttoPublicKey,
         amount: AttoAmount,
-        defaultAmount: AttoAmount,
+        defaultAmount: AttoAmount?,
     ) {
         retryUntilSuccess {
             weightMap.compute(publicKey) { _, existing ->
                 if (existing == null) {
-                    Weight(representativePublicKey = publicKey, weight = defaultAmount)
+                    Weight(
+                        representativePublicKey = publicKey,
+                        weight = checkNotNull(defaultAmount) { "Weight for $publicKey is not available yet" },
+                    )
                 } else {
                     existing.copy(weight = existing.weight + amount)
                 }
@@ -127,18 +131,17 @@ class VoteWeighter(
     private suspend fun subtract(
         publicKey: AttoPublicKey,
         amount: AttoAmount,
-        defaultAmount: AttoAmount,
     ) {
+        if (amount == AttoAmount.MIN) {
+            return
+        }
+
         retryUntilSuccess {
             weightMap.compute(publicKey) { _, existing ->
-                val newWeight =
-                    if (existing == null) {
-                        defaultAmount
-                    } else {
-                        existing.weight - amount
-                    }
+                val current = checkNotNull(existing) { "Weight for $publicKey is not available yet" }
+                val newWeight = current.weight - amount
                 if (newWeight > AttoAmount.MIN) {
-                    return@compute (existing ?: Weight(representativePublicKey = publicKey, weight = newWeight)).copy(weight = newWeight)
+                    return@compute current.copy(weight = newWeight)
                 } else {
                     return@compute null
                 }
