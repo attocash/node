@@ -8,6 +8,7 @@ import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVotePush
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,7 +17,7 @@ import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.net.URI
 import java.util.PriorityQueue
-import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.TimeUnit
 
 /**
  * This rebroadcaster aims to reduce data usage creating a list of nodes that already saw these transactions while
@@ -36,7 +37,13 @@ class VoteRebroadcaster(
 
     private val mutex = Mutex()
 
-    private val holderMap = ConcurrentHashMap<AttoSignature, VoteHolder>()
+    private val holderMap =
+        Caffeine
+            .newBuilder()
+            .maximumSize(100_000)
+            .expireAfterWrite(1, TimeUnit.MINUTES)
+            .build<AttoSignature, VoteHolder>()
+            .asMap()
     private val voteQueue = PriorityQueue<VoteHolder>()
 
     @EventListener
