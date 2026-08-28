@@ -32,6 +32,7 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.ChannelOverflow
+import io.ktor.websocket.WebSocketSession
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -496,12 +497,14 @@ class NetworkProcessor(
 
         logger.trace { "Connecting to $publicUri" }
 
+        var sessionToCancel: WebSocketSession? = null
         try {
             val session =
                 websocketClient.webSocketSession(publicUri.toString()) {
                     header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
                     header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
                 }
+            sessionToCancel = session
 
             val connectionSocketAddress =
                 InetSocketAddress(
@@ -537,6 +540,7 @@ class NetworkProcessor(
             logger.trace(e) { "Exception while trying to connect to $publicUri" }
         } finally {
             connectingMap.remove(publicUri)
+            sessionToCancel?.cancel()
         }
     }
 
