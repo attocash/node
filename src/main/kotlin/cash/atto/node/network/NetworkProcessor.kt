@@ -16,7 +16,6 @@ import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.ktor.client.HttpClient
-import io.ktor.client.plugins.websocket.webSocketSession
 import io.ktor.client.request.header
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.isSuccess
@@ -32,15 +31,17 @@ import io.ktor.server.routing.post
 import io.ktor.server.routing.routing
 import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.ChannelOverflow
-import io.ktor.websocket.WebSocketSession
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import org.springframework.context.event.EventListener
@@ -53,6 +54,7 @@ import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import kotlin.time.Duration.Companion.seconds
+import io.ktor.client.plugins.websocket.webSocket as clientWebSocket
 
 @Component
 class NetworkProcessor(
@@ -75,7 +77,7 @@ class NetworkProcessor(
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
         private const val MAX_CONCURRENT_HANDSHAKES = 64
-        private const val MAX_CONCURRENT_PEER_VALIDATIONS = 64
+        private const val MAX_CONCURRENT_OUTBOUND_CONNECTIONS = 64
     }
 
     private val websocketClient =
@@ -106,7 +108,7 @@ class NetworkProcessor(
 
     private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
     private val handshakePermits = Semaphore(MAX_CONCURRENT_HANDSHAKES)
-    private val peerValidationPermits = Semaphore(MAX_CONCURRENT_PEER_VALIDATIONS)
+    private val outboundConnectionPermits = Semaphore(MAX_CONCURRENT_OUTBOUND_CONNECTIONS)
 
     private val connectingMap =
         Caffeine
@@ -114,7 +116,7 @@ class NetworkProcessor(
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
             .maximumSize(10_000)
-            .build<URI, MutableSharedFlow<AttoNode>>()
+            .build<URI, CompletableDeferred<AttoNode>>()
             .asMap()
 
     private val server =
@@ -229,15 +231,15 @@ class NetworkProcessor(
                                 signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
                             )
 
-                        val connectingFlow = connectingMap[publicUri]
+                        val connectingNode = connectingMap[publicUri]
 
-                        if (connectingFlow == null) {
+                        if (connectingNode == null) {
                             logger.trace { "Received valid handshake but connection already expired" }
                             call.respond(HttpStatusCode.InternalServerError)
                             return@post
                         }
 
-                        connectingFlow.emit(node)
+                        connectingNode.complete(node)
 
                         call.respond(HttpStatusCode.OK, response)
                     } catch (e: CancellationException) {
@@ -299,9 +301,9 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val connectingFlow = MutableSharedFlow<AttoNode>(1)
+                        val connectingNode = CompletableDeferred<AttoNode>()
 
-                        if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
+                        if (connectingMap.putIfAbsent(publicUri, connectingNode) != null) {
                             logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -430,27 +432,31 @@ class NetworkProcessor(
             return
         }
 
-        if (!peerValidationPermits.tryAcquire()) {
+        val requiresPermit = publicUri.toString() !in networkProperties.defaultNodes
+        if (requiresPermit && !outboundConnectionPermits.tryAcquire()) {
             return
         }
 
-        try {
-            val validation = peerUriValidator.validate(publicUri)
-            if (validation is PeerUriValidationResult.Rejected) {
-                logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
-                return
+        val connectingNode = CompletableDeferred<AttoNode>()
+        if (connectingMap.putIfAbsent(publicUri, connectingNode) != null) {
+            if (requiresPermit) {
+                outboundConnectionPermits.release()
             }
+            return
+        }
 
-            if (connectionManager.isConnected(publicUri)) {
-                return
-            }
-
-            scope.launch {
+        scope.launch {
+            try {
                 logger.trace { "Start connection to $publicUri" }
-                connection(publicUri)
+                connection(publicUri, connectingNode)
+            } catch (e: Exception) {
+                logger.trace(e) { "Exception while trying to connect to $publicUri" }
+            } finally {
+                connectingMap.remove(publicUri, connectingNode)
+                if (requiresPermit) {
+                    outboundConnectionPermits.release()
+                }
             }
-        } finally {
-            peerValidationPermits.release()
         }
     }
 
@@ -476,71 +482,57 @@ class NetworkProcessor(
             }
         }
 
-    private suspend fun connection(publicUri: URI) {
-        if (publicUri == thisNode.publicUri) {
-            logger.trace { "Can't connect to $publicUri. This uri is this node." }
-            return
-        }
+    private suspend fun connection(
+        publicUri: URI,
+        connectingNode: CompletableDeferred<AttoNode>,
+    ) = coroutineScope {
+        val connectionAttemptJob = currentCoroutineContext().job
+        val timeoutJob =
+            launch {
+                delay(CONNECTION_TIMEOUT_IN_SECONDS.seconds)
+                logger.trace { "Connection attempt to $publicUri timed out" }
+                connectionAttemptJob.cancel()
+            }
 
-        val connectingFlow = MutableSharedFlow<AttoNode>(1)
-
-        if (connectingMap.putIfAbsent(publicUri, connectingFlow) != null) {
-            logger.trace { "Can't connect to $publicUri. Connection attempt in progress." }
-            return
-        }
-
-        if (connectionManager.isConnected(publicUri)) {
-            connectingMap.remove(publicUri)
-            logger.trace { "Can't connect to $publicUri. Connection already established." }
-            return
-        }
-
-        logger.trace { "Connecting to $publicUri" }
-
-        var sessionToCancel: WebSocketSession? = null
         try {
-            val session =
-                websocketClient.webSocketSession(publicUri.toString()) {
+            val validation = peerUriValidator.validate(publicUri)
+            if (validation is PeerUriValidationResult.Rejected) {
+                logger.trace { "Can't connect to $publicUri. ${validation.reason}" }
+                return@coroutineScope
+            }
+
+            if (connectionManager.isConnected(publicUri)) {
+                logger.trace { "Can't connect to $publicUri. Connection already established." }
+                return@coroutineScope
+            }
+
+            logger.trace { "Connecting to $publicUri" }
+
+            websocketClient.clientWebSocket(
+                urlString = publicUri.toString(),
+                request = {
                     header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
                     header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
-                }
-            sessionToCancel = session
+                },
+            ) {
+                val connectionSocketAddress =
+                    InetSocketAddress(
+                        call.request.url.host,
+                        call.request.url.port,
+                    )
 
-            val connectionSocketAddress =
-                InetSocketAddress(
-                    session
-                        .call
-                        .request
-                        .url
-                        .host,
-                    session
-                        .call
-                        .request
-                        .url
-                        .port,
-                )
+                val node = connectingNode.await()
 
-            val node =
-                withTimeoutOrNull(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
-                    connectingFlow.first()
+                if (node.publicUri != publicUri) {
+                    logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri" }
+                    return@clientWebSocket
                 }
 
-            if (node == null) {
-                logger.trace { "Handshake with $publicUri timed out" }
-                return
+                timeoutJob.cancel()
+                connectionManager.manage(node, connectionSocketAddress, this)
             }
-
-            if (node.publicUri != publicUri) {
-                logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri" }
-                return
-            }
-
-            connectionManager.manage(node, connectionSocketAddress, session)
-        } catch (e: Exception) {
-            logger.trace(e) { "Exception while trying to connect to $publicUri" }
         } finally {
-            connectingMap.remove(publicUri)
-            sessionToCancel?.cancel()
+            timeoutJob.cancel()
         }
     }
 
