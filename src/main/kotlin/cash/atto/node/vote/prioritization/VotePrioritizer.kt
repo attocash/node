@@ -85,7 +85,9 @@ class VotePrioritizer(
     @EventListener
     fun process(event: TransactionRejected) {
         val hash = event.transaction.hash
-        rejectedTransactionCache[hash] = hash
+        if (!event.reason.recoverable) {
+            rejectedTransactionCache[hash] = hash
+        }
         val votes = voteBuffer.remove(hash)
         votes?.values?.forEach {
             eventPublisher.publish(VoteDropped(it, VoteDropReason.TRANSACTION_DROPPED))
