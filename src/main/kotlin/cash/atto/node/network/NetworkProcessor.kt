@@ -33,7 +33,6 @@ import io.ktor.server.websocket.webSocket
 import io.ktor.websocket.ChannelOverflow
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -116,7 +115,7 @@ class NetworkProcessor(
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(Duration.ofSeconds(CONNECTION_TIMEOUT_IN_SECONDS))
             .maximumSize(10_000)
-            .build<URI, CompletableDeferred<AttoNode>>()
+            .build<URI, OutboundConnectionAttempt>()
             .asMap()
 
     private val server =
@@ -231,15 +230,13 @@ class NetworkProcessor(
                                 signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
                             )
 
-                        val connectingNode = connectingMap[publicUri]
+                        val connectionAttempt = connectingMap[publicUri]
 
-                        if (connectingNode == null) {
+                        if (connectionAttempt == null || !connectionAttempt.authenticate(node)) {
                             logger.trace { "Received valid handshake but connection already expired" }
                             call.respond(HttpStatusCode.InternalServerError)
                             return@post
                         }
-
-                        connectingNode.complete(node)
 
                         call.respond(HttpStatusCode.OK, response)
                     } catch (e: CancellationException) {
@@ -301,9 +298,9 @@ class NetworkProcessor(
                             return@webSocket
                         }
 
-                        val connectingNode = CompletableDeferred<AttoNode>()
+                        val connectionAttempt = OutboundConnectionAttempt()
 
-                        if (connectingMap.putIfAbsent(publicUri, connectingNode) != null) {
+                        if (connectingMap.putIfAbsent(publicUri, connectionAttempt) != null) {
                             logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -326,7 +323,7 @@ class NetworkProcessor(
                             }
 
                         if (callbackResult is HandshakeCallbackResult.Rejected) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             call.respond(callbackResult.status)
                             return@webSocket
                         }
@@ -336,7 +333,7 @@ class NetworkProcessor(
                         logger.trace { "Challenge response status from ${publicUri.toHandshakeHttpUri()}: ${result.status}" }
 
                         if (!result.status.isSuccess()) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             logger.trace { "Received invalid ${result.status.value} challenge status from $publicUri $remoteHost" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -344,7 +341,7 @@ class NetworkProcessor(
 
                         val response = result.response
                         if (response == null) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             logger.trace { "Received empty challenge response from $publicUri $remoteHost" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -352,7 +349,7 @@ class NetworkProcessor(
 
                         val expectedCounterChallenge = counterChallenge
                         if (expectedCounterChallenge == null || ChallengeStore.remove(expectedCounterChallenge) == null) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -361,7 +358,7 @@ class NetworkProcessor(
                         val node = response.node
 
                         if (node.publicUri != publicUri) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             logger.trace { "Node publicUri ${node.publicUri} doesn't match header $publicUri from $remoteHost" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -377,7 +374,7 @@ class NetworkProcessor(
 
                         val signature = response.signature
                         if (!signature.isValid(node.publicKey, counterHash)) {
-                            connectingMap.remove(publicUri)
+                            connectingMap.remove(publicUri, connectionAttempt)
                             logger.trace { "Received invalid signature from client $remoteHost $response" }
                             call.respond(HttpStatusCode.BadRequest)
                             return@webSocket
@@ -437,8 +434,8 @@ class NetworkProcessor(
             return
         }
 
-        val connectingNode = CompletableDeferred<AttoNode>()
-        if (connectingMap.putIfAbsent(publicUri, connectingNode) != null) {
+        val connectionAttempt = OutboundConnectionAttempt()
+        if (connectingMap.putIfAbsent(publicUri, connectionAttempt) != null) {
             if (requiresPermit) {
                 outboundConnectionPermits.release()
             }
@@ -448,11 +445,11 @@ class NetworkProcessor(
         scope.launch {
             try {
                 logger.trace { "Start connection to $publicUri" }
-                connection(publicUri, connectingNode)
+                connection(publicUri, connectionAttempt)
             } catch (e: Exception) {
                 logger.trace(e) { "Exception while trying to connect to $publicUri" }
             } finally {
-                connectingMap.remove(publicUri, connectingNode)
+                connectingMap.remove(publicUri, connectionAttempt)
                 if (requiresPermit) {
                     outboundConnectionPermits.release()
                 }
@@ -484,14 +481,18 @@ class NetworkProcessor(
 
     private suspend fun connection(
         publicUri: URI,
-        connectingNode: CompletableDeferred<AttoNode>,
+        connectionAttempt: OutboundConnectionAttempt,
     ) = coroutineScope {
         val connectionAttemptJob = currentCoroutineContext().job
         val timeoutJob =
             launch {
                 delay(CONNECTION_TIMEOUT_IN_SECONDS.seconds)
-                logger.trace { "Connection attempt to $publicUri timed out" }
-                connectionAttemptJob.cancel()
+                val timeout = CancellationException("Connection attempt to $publicUri timed out")
+                if (connectionAttempt.expire(timeout)) {
+                    logger.trace { timeout.message }
+                    connectingMap.remove(publicUri, connectionAttempt)
+                    connectionAttemptJob.cancel(timeout)
+                }
             }
 
         try {
@@ -521,7 +522,7 @@ class NetworkProcessor(
                         call.request.url.port,
                     )
 
-                val node = connectingNode.await()
+                val node = connectionAttempt.awaitNode()
 
                 if (node.publicUri != publicUri) {
                     logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri" }

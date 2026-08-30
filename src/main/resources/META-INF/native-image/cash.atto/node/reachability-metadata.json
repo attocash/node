@@ -1935,7 +1935,12 @@
       "type": "cash.atto.node.account.AccountService$AccountTransaction"
     },
     {
-      "type": "cash.atto.node.account.AccountService$add$1"
+      "type": "cash.atto.node.account.AccountService$add$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.account.AccountService$getAccountMap$1"
@@ -2812,13 +2817,6 @@
             "cash.atto.node.transaction.TransactionRejected",
             "kotlin.coroutines.Continuation"
           ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.vote.VoteDropped",
-            "kotlin.coroutines.Continuation"
-          ]
         }
       ]
     },
@@ -3338,7 +3336,12 @@
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$flushAll$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$settle$1"
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$settle$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController__TestContext001_BeanDefinitions"
@@ -3843,7 +3846,12 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$1"
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$2$3"
@@ -4226,7 +4234,12 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider$calculate$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider$calculate$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider__TestContext001_BeanDefinitions"
@@ -4274,10 +4287,20 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$elapsed$1$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$elapsed$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolveBatch$1"
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolveBatch$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorKt"
@@ -4433,6 +4456,13 @@
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter"
+          ]
+        },
+        {
+          "name": "cleanUp",
+          "parameterTypes": [
+            "long",
+            "kotlin.coroutines.Continuation"
           ]
         },
         {
@@ -5859,10 +5889,20 @@
       "type": "cash.atto.node.network.NetworkDnsResolver$getAllByName$2"
     },
     {
-      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$1"
+      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$2"
+      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.network.NetworkDnsResolver__TestContext001_BeanDefinitions"
@@ -5991,7 +6031,12 @@
       "type": "cash.atto.node.network.NetworkProcessor$Companion"
     },
     {
-      "type": "cash.atto.node.network.NetworkProcessor$acceptInboundConnection$1"
+      "type": "cash.atto.node.network.NetworkProcessor$acceptInboundConnection$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.network.NetworkProcessor$bootstrap$1"
@@ -6256,6 +6301,32 @@
     },
     {
       "type": "cash.atto.node.network.NodeUnbanned"
+    },
+    {
+      "type": "cash.atto.node.network.OutboundConnectionAttempt"
+    },
+    {
+      "type": "cash.atto.node.network.OutboundConnectionAttemptTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "authenticated attempt does not cancel connection when timeout fires",
+          "parameterTypes": []
+        },
+        {
+          "name": "expired attempt rejects late authentication",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.network.OutboundConnectionAttemptTest$authenticated attempt does not cancel connection when timeout fires$1"
+    },
+    {
+      "type": "cash.atto.node.network.OutboundConnectionAttemptTest$expired attempt rejects late authentication$1"
     },
     {
       "type": "cash.atto.node.network.OutboundNetworkMessage"
@@ -9234,12 +9305,6 @@
             "cash.atto.protocol.AttoNode",
             "cash.atto.node.vote.weight.VoteWeighter",
             "cash.atto.node.network.NetworkMessagePublisher"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.vote.VoteDropped"
           ]
         },
         {
@@ -14106,14 +14171,6 @@
       "type": "io.ktor.client.statement.HttpResponse"
     },
     {
-      "type": "io.ktor.client.statement.HttpStatement$cleanup$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.statement.HttpStatement$execute$1",
       "fields": [
         {
@@ -14259,6 +14316,14 @@
     },
     {
       "type": "io.ktor.server.cio.CIOApplicationEngine$stopSuspend$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "io.ktor.server.cio.CIOApplicationEngine$stopSuspend$2",
       "fields": [
         {
           "name": "label"
@@ -14576,6 +14641,14 @@
     },
     {
       "type": "io.ktor.websocket.DefaultWebSocketSessionImpl"
+    },
+    {
+      "type": "io.ktor.websocket.DefaultWebSocketSessionImpl$start$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "io.ktor.websocket.RawWebSocketJvm$1",
@@ -18705,9 +18778,6 @@
       "type": "kotlinx.coroutines.CancelledContinuation"
     },
     {
-      "type": "kotlinx.coroutines.CompletableDeferred"
-    },
-    {
       "type": "kotlinx.coroutines.CompletableJob"
     },
     {
@@ -18833,6 +18903,14 @@
     },
     {
       "type": "kotlinx.coroutines.flow.FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "kotlinx.coroutines.flow.FlowKt__LimitKt$take$$inlined$unsafeFlow$1$1",
       "fields": [
         {
           "name": "label"
@@ -26466,6 +26544,9 @@
       "type": "org.springframework.core.DefaultParameterNameDiscoverer"
     },
     {
+      "type": "org.springframework.core.NestedRuntimeException"
+    },
+    {
       "type": "org.springframework.core.Ordered"
     },
     {
@@ -26572,6 +26653,39 @@
     },
     {
       "type": "org.springframework.dao.DataAccessException"
+    },
+    {
+      "type": "org.springframework.dao.DataAccessResourceFailureException",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.dao.DataIntegrityViolationException"
+    },
+    {
+      "type": "org.springframework.dao.DuplicateKeyException",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "java.lang.String",
+            "java.lang.Throwable"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.dao.NonTransientDataAccessException"
+    },
+    {
+      "type": "org.springframework.dao.NonTransientDataAccessResourceException"
     },
     {
       "type": "org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor"
@@ -27529,6 +27643,14 @@
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperator"
+    },
+    {
+      "type": "org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt$executeAndAwait$2$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperatorImpl"
