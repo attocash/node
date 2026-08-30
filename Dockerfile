@@ -20,4 +20,7 @@ EXPOSE 8080
 EXPOSE 8081
 EXPOSE 8082
 
+HEALTHCHECK --interval=60s --timeout=5s --start-period=180s --retries=5 \
+    CMD ["/app/node", "healthcheck"]
+
 ENTRYPOINT ["/app/node"]

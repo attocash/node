@@ -121,6 +121,10 @@ Swagger UI is configured at:
 
 - `:8080/` (see `springdoc.swagger-ui.path: /`)
 
+The container image runs `/app/node healthcheck` as its Docker health check. The command probes the aggregate
+`:8081/health` endpoint. Kubernetes deployments should use `:8081/health/liveness` for startup and liveness probes and
+`:8081/health/readiness` for readiness probes.
+
 ## API
 
 This project exposes endpoints for:
