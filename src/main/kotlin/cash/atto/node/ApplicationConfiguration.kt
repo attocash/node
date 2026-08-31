@@ -41,8 +41,7 @@ class ApplicationConfiguration {
         val multicaster = SimpleApplicationEventMulticaster()
         val executor = SimpleAsyncTaskExecutor("atto-event-")
         executor.setVirtualThreads(true)
-        executor.concurrencyLimit = 64
-        executor.setRejectTasksWhenLimitReached(true)
+        executor.concurrencyLimit = 16_384
         multicaster.setTaskExecutor(executor)
         multicaster.setErrorHandler {
             logger.error(it) { it.message }
