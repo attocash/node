@@ -18,7 +18,6 @@ class VoteQueue(
 
     private val map = HashMap<PublicKeyHash, TransactionVote>()
     private val set = TreeSet(weightComparator.thenComparing(hashComparator))
-    private var size = 0
 
     fun add(entry: TransactionVote): TransactionVote? {
         val vote = entry.vote
@@ -37,12 +36,9 @@ class VoteQueue(
 
         map[publicKeyHash] = entry
 
-        if (set.add(entry)) {
-            size++
-        }
+        set.add(entry)
 
         if (oldEntry == null && set.size > maxSize) {
-            size--
             val removedEntry = set.pollFirst()!!
             return map.remove(removedEntry.vote.toPublicKeyHash())
         }
@@ -54,19 +50,17 @@ class VoteQueue(
         val entry = set.pollLast()
 
         if (entry != null) {
-            size--
             map.remove(entry.vote.toPublicKeyHash())
         }
 
         return entry
     }
 
-    fun getSize(): Int = size
+    fun getSize(): Int = set.size
 
     fun clear() {
         map.clear()
         set.clear()
-        size = 0
     }
 
     public data class TransactionVote(

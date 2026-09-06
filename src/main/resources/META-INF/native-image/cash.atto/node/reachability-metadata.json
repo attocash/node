@@ -9278,6 +9278,10 @@
           "parameterTypes": []
         },
         {
+          "name": "should count a replaced vote once and return to zero after polling",
+          "parameterTypes": []
+        },
+        {
           "name": "should return first transaction with higher weight",
           "parameterTypes": []
         },

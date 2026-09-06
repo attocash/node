@@ -62,6 +62,34 @@ internal class VoteQueueTest {
             assertEquals(2, queue.getSize())
         }
 
+    @Test
+    fun `should count a replaced vote once and return to zero after polling`() {
+        // given
+        val transaction = mockk<Transaction>()
+        val originalVote = createVote(20UL)
+        val replacementVote =
+            createVote(20UL).copy(
+                publicKey = originalVote.publicKey,
+                blockHash = originalVote.blockHash,
+                timestamp = originalVote.timestamp.plusSeconds(1),
+            )
+        val replacement = VoteQueue.TransactionVote(transaction, replacementVote)
+        queue.add(VoteQueue.TransactionVote(transaction, originalVote))
+
+        // when
+        val dropped = queue.add(replacement)
+        val replacementSize = queue.getSize()
+        val polled = queue.poll()
+        val drainedSize = queue.getSize()
+
+        // then
+        assertNull(dropped)
+        assertEquals(1, replacementSize)
+        assertEquals(replacement, polled)
+        assertEquals(0, drainedSize)
+        assertNull(queue.poll())
+    }
+
     private fun createVote(weight: ULong): Vote =
         Vote(
             hash = AttoHash(Random.nextBytes(ByteArray(32))),
