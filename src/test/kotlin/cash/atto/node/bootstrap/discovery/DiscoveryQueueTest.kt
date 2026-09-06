@@ -525,9 +525,9 @@ class DiscoveryQueueTest {
     private fun loadMonitor(discoveryCapacity: AtomicInteger): BootstrapLoadMonitor =
         mockk {
             every {
-                targetCapacity(any())
+                targetCapacity()
             } answers {
-                minOf(discoveryCapacity.get(), firstArg())
+                discoveryCapacity.get()
             }
         }
 

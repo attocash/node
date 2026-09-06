@@ -44,13 +44,10 @@ class BootstrapLoadMonitor(
 
     internal fun availableShare(): Double = targetCapacity.toDouble() / properties.capacity
 
-    internal fun targetCapacity(maximum: Int): Int {
-        require(maximum > 0) { "Maximum discovery capacity must be positive" }
-        return minOf(targetCapacity, maximum)
-    }
+    internal fun targetCapacity(): Int = targetCapacity
 
     @Synchronized
-    internal fun poll(): BootstrapLoadAdjustment? {
+    internal fun poll() {
         val insertCount = insertTimer.count()
         val insertNanos = insertTimer.totalTime(TimeUnit.NANOSECONDS).roundToLong()
         val persistedRows =
@@ -78,10 +75,10 @@ class BootstrapLoadMonitor(
 
         if (failureCountDelta > 0) {
             targetCapacity = properties.batchSize
-            return null
+            return
         }
         if (persistedRowsDelta == 0L) {
-            return null
+            return
         }
         check(completedInsertDelta > 0) {
             "Persisted $persistedRowsDelta unchecked transactions without an insert timer measurement"
@@ -103,13 +100,6 @@ class BootstrapLoadMonitor(
                 )
             }
         targetRatioSummary.record(targetRatio)
-        return BootstrapLoadAdjustment(
-            persistedRows = persistedRowsDelta,
-            elapsed = elapsed,
-            target = target,
-            targetRatio = targetRatio,
-            targetCapacity = targetCapacity,
-        )
     }
 
     private fun targetFor(batchSize: Long): Duration {
@@ -126,11 +116,3 @@ class BootstrapLoadMonitor(
         const val TARGET_PER_SECOND_METRIC_NAME = "transactions.discovery.persistence.target.per.second"
     }
 }
-
-internal data class BootstrapLoadAdjustment(
-    val persistedRows: Long,
-    val elapsed: Duration,
-    val target: Duration,
-    val targetRatio: Double,
-    val targetCapacity: Int,
-)

@@ -2322,7 +2322,7 @@
           "parameterTypes": []
         },
         {
-          "name": "queued persistence fully drains without work credit",
+          "name": "queued persistence fully drains with insufficient work credit",
           "parameterTypes": []
         },
         {
@@ -2551,7 +2551,7 @@
       "type": "cash.atto.node.bootstrap.BootstrapControllerTest$persistence failure is rethrown after polling the load monitor$1$2"
     },
     {
-      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains without work credit$1",
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains with insufficient work credit$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -2562,13 +2562,13 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains without work credit$1$2"
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains with insufficient work credit$1$2"
     },
     {
-      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains without work credit$1$3"
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains with insufficient work credit$1$3"
     },
     {
-      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains without work credit$1$4"
+      "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence fully drains with insufficient work credit$1$4"
     },
     {
       "type": "cash.atto.node.bootstrap.BootstrapControllerTest$queued persistence runs before gap discovery when resolution is idle$1",
@@ -2721,9 +2721,6 @@
       "type": "cash.atto.node.bootstrap.BootstrapDecision"
     },
     {
-      "type": "cash.atto.node.bootstrap.BootstrapLoadAdjustment"
-    },
-    {
       "type": "cash.atto.node.bootstrap.BootstrapLoadMonitor",
       "methods": [
         {
@@ -2793,13 +2790,7 @@
       "type": "cash.atto.node.bootstrap.TransactionDiscovered"
     },
     {
-      "type": "cash.atto.node.bootstrap.TransactionResolved"
-    },
-    {
       "type": "cash.atto.node.bootstrap.TransactionStuck"
-    },
-    {
-      "type": "cash.atto.node.bootstrap.UncheckedTransactionSaved"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DependencyDiscoverer",

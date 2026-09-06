@@ -18,7 +18,7 @@ class BootstrapLoadMonitorTest {
         val fixture = fixture(capacity = 10_000, batchSize = 1_000)
 
         // When
-        val targetCapacity = fixture.monitor.targetCapacity(10_000)
+        val targetCapacity = fixture.monitor.targetCapacity()
 
         // Then
         assertEquals(1_000, targetCapacity)
@@ -31,18 +31,20 @@ class BootstrapLoadMonitorTest {
         val fixture = fixture()
 
         // When
-        val fullBatch = fixture.completeInsert(1_000, Duration.ofSeconds(1))
-        val halfBatch = fixture.completeInsert(500, Duration.ofMillis(500))
+        fixture.completeInsert(1_000, Duration.ofSeconds(1))
 
         // Then
-        assertEquals(Duration.ofSeconds(1), fullBatch.target)
-        assertEquals(1_000L, fullBatch.persistedRows)
-        assertEquals(2_000, fullBatch.targetCapacity)
-        assertEquals(Duration.ofMillis(500), halfBatch.target)
-        assertEquals(2_500, halfBatch.targetCapacity)
-        assertEquals(1.0, fullBatch.targetRatio)
-        assertEquals(1.0, halfBatch.targetRatio)
-        assertEquals(Duration.ofMillis(500), halfBatch.elapsed)
+        assertEquals(2_000, fixture.monitor.targetCapacity())
+        assertEquals(1L, fixture.targetRatio.count())
+        assertEquals(1.0, fixture.targetRatio.totalAmount())
+
+        // When
+        fixture.completeInsert(500, Duration.ofMillis(500))
+
+        // Then
+        assertEquals(2_500, fixture.monitor.targetCapacity())
+        assertEquals(2L, fixture.targetRatio.count())
+        assertEquals(2.0, fixture.targetRatio.totalAmount())
     }
 
     @Test
@@ -53,13 +55,12 @@ class BootstrapLoadMonitorTest {
         fixture.completeInsertWithoutPolling(500, Duration.ofMillis(250))
 
         // When
-        val adjustment = fixture.monitor.poll()!!
+        fixture.monitor.poll()
 
         // Then
-        assertEquals(1_500L, adjustment.persistedRows)
-        assertEquals(Duration.ofMillis(750), adjustment.elapsed)
-        assertEquals(Duration.ofMillis(1_500), adjustment.target)
-        assertEquals(2_500, adjustment.targetCapacity)
+        assertEquals(2_500, fixture.monitor.targetCapacity())
+        assertEquals(1L, fixture.targetRatio.count())
+        assertEquals(0.5, fixture.targetRatio.totalAmount())
     }
 
     @Test
@@ -69,14 +70,14 @@ class BootstrapLoadMonitorTest {
         repeat(3) {
             fixture.completeInsert(1_000, Duration.ofMillis(500))
         }
-        assertEquals(4_000, fixture.monitor.targetCapacity(10_000))
+        assertEquals(4_000, fixture.monitor.targetCapacity())
 
         // When
-        val adjustment = fixture.completeInsert(1_000, Duration.ofSeconds(2))
+        fixture.completeInsert(1_000, Duration.ofSeconds(2))
 
         // Then
-        assertEquals(2.0, adjustment.targetRatio)
-        assertEquals(2_000, adjustment.targetCapacity)
+        assertEquals(2.0, fixture.targetRatio.max())
+        assertEquals(2_000, fixture.monitor.targetCapacity())
         assertEquals(0.2, fixture.monitor.availableShare())
     }
 
@@ -96,13 +97,9 @@ class BootstrapLoadMonitorTest {
                 .gauge()
                 .value(),
         )
-        val targetRatio =
-            fixture.registry
-                .get(BootstrapLoadMonitor.TARGET_RATIO_METRIC_NAME)
-                .summary()
-        assertEquals(1L, targetRatio.count())
-        assertEquals(2.0, targetRatio.totalAmount())
-        assertEquals(2.0, targetRatio.max())
+        assertEquals(1L, fixture.targetRatio.count())
+        assertEquals(2.0, fixture.targetRatio.totalAmount())
+        assertEquals(2.0, fixture.targetRatio.max())
     }
 
     @Test
@@ -111,10 +108,10 @@ class BootstrapLoadMonitorTest {
         val fixture = fixture()
 
         // When
-        val adjustment = fixture.completeInsert(1_000, Duration.ofSeconds(10))
+        fixture.completeInsert(1_000, Duration.ofSeconds(10))
 
         // Then
-        assertEquals(1_000, adjustment.targetCapacity)
+        assertEquals(1_000, fixture.monitor.targetCapacity())
         assertEquals(0.1, fixture.monitor.availableShare())
     }
 
@@ -126,10 +123,10 @@ class BootstrapLoadMonitorTest {
         // When
         fixture.completeInsert(1_000, Duration.ofMillis(500))
         fixture.completeInsert(1_000, Duration.ofMillis(500))
-        val adjustment = fixture.completeInsert(500, Duration.ofMillis(250))
+        fixture.completeInsert(500, Duration.ofMillis(250))
 
         // Then
-        assertEquals(2_500, adjustment.targetCapacity)
+        assertEquals(2_500, fixture.monitor.targetCapacity())
         assertEquals(1.0, fixture.monitor.availableShare())
     }
 
@@ -139,15 +136,15 @@ class BootstrapLoadMonitorTest {
         val fixture = fixture()
         fixture.completeInsert(1_000, Duration.ofMillis(500))
         fixture.completeInsert(1_000, Duration.ofMillis(500))
-        assertEquals(3_000, fixture.monitor.targetCapacity(10_000))
+        assertEquals(3_000, fixture.monitor.targetCapacity())
         fixture.failInsert(Duration.ofSeconds(2))
 
         // When
-        val adjustment = fixture.monitor.poll()
+        fixture.monitor.poll()
 
         // Then
-        assertEquals(null, adjustment)
-        assertEquals(1_000, fixture.monitor.targetCapacity(10_000))
+        assertEquals(1_000, fixture.monitor.targetCapacity())
+        assertEquals(2L, fixture.targetRatio.count())
     }
 
     @Test
@@ -210,12 +207,14 @@ class BootstrapLoadMonitorTest {
         val persistedCounter: Counter,
         val failureCounter: Counter,
     ) {
+        val targetRatio = registry.get(BootstrapLoadMonitor.TARGET_RATIO_METRIC_NAME).summary()
+
         fun completeInsert(
             attemptedRows: Int,
             elapsed: Duration,
-        ): BootstrapLoadAdjustment {
+        ) {
             completeInsertWithoutPolling(attemptedRows, elapsed)
-            return monitor.poll()!!
+            monitor.poll()
         }
 
         fun completeInsertWithoutPolling(

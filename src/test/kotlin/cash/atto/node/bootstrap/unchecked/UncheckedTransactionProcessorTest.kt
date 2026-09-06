@@ -14,7 +14,6 @@ import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
-import cash.atto.node.bootstrap.TransactionResolved
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
 import cash.atto.node.transaction.validation.TransactionValidationManager
@@ -87,11 +86,6 @@ class UncheckedTransactionProcessorTest {
             assertEquals(TransactionDefinition.ISOLATION_READ_COMMITTED, fixture.transactionManager.isolationLevel)
             assertEquals(1, fixture.transactionManager.commits)
             assertEquals(0, fixture.transactionManager.rollbacks)
-            coVerify(exactly = 1) {
-                fixture.eventPublisher.publishAfterCommit(
-                    match<TransactionResolved> { it.transaction == transaction },
-                )
-            }
         }
 
     @Test
@@ -189,7 +183,6 @@ class UncheckedTransactionProcessorTest {
             accountRepository = accountRepository,
             validationManager = validationManager,
             accountService = accountService,
-            eventPublisher = eventPublisher,
             transactionManager = transactionManager,
         )
     }
@@ -200,7 +193,6 @@ class UncheckedTransactionProcessorTest {
         val accountRepository: AccountRepository,
         val validationManager: TransactionValidationManager,
         val accountService: AccountService,
-        val eventPublisher: EventPublisher,
         val transactionManager: RecordingReactiveTransactionManager,
     )
 

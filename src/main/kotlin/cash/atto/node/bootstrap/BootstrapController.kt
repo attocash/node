@@ -112,13 +112,7 @@ class BootstrapController(
 
     private fun accrueWorkCredit() {
         loadMonitor.poll()
-        val availableShare = loadMonitor.availableShare()
-        workCredit =
-            if (availableShare == 0.0) {
-                0.0
-            } else {
-                workCredit + availableShare
-            }
+        workCredit += loadMonitor.availableShare()
     }
 
     private suspend fun executeNextAction() {

@@ -97,7 +97,7 @@ class DiscoveryQueue(
 
     internal fun getBacklogDepth(): Int = size.get()
 
-    internal fun getTargetCapacity(): Int = loadMonitor.targetCapacity(properties.capacity)
+    internal fun getTargetCapacity(): Int = loadMonitor.targetCapacity()
 
     internal fun getBacklogOvershoot(): Int = maxOf(0, size.get() - getTargetCapacity())
 

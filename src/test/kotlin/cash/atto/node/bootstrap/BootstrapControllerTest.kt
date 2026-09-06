@@ -286,11 +286,11 @@ class BootstrapControllerTest {
         }
 
     @Test
-    fun `queued persistence fully drains without work credit`() =
+    fun `queued persistence fully drains with insufficient work credit`() =
         runTest {
             // Given
             val fixture = fixture()
-            every { fixture.loadMonitor.availableShare() } returns 0.0
+            every { fixture.loadMonitor.availableShare() } returns 0.1
             coEvery { fixture.worker.persist() } returnsMany listOf(1, 1, 0)
 
             // When
@@ -300,7 +300,7 @@ class BootstrapControllerTest {
             coVerify(exactly = 3) { fixture.worker.persist() }
             coVerify(exactly = 0) { fixture.processor.process() }
             assertEquals(1.0, fixture.decisions("persistence"))
-            assertEquals(0.0, fixture.workCredit())
+            assertEquals(0.1, fixture.workCredit())
         }
 
     @Test
@@ -343,7 +343,7 @@ class BootstrapControllerTest {
         val clock = MutableClock()
 
         every { loadMonitor.availableShare() } returns 1.0
-        every { loadMonitor.poll() } returns null
+        every { loadMonitor.poll() } returns Unit
         coEvery { worker.persist() } returns 0
         coEvery { processor.process() } returns 0
         coEvery { service.cleanUp(any()) } returns 0

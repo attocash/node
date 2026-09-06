@@ -6,7 +6,6 @@ import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
 import cash.atto.node.account.getByAlgorithmAndPublicKey
-import cash.atto.node.bootstrap.TransactionResolved
 import cash.atto.node.bootstrap.TransactionStuck
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
@@ -116,7 +115,6 @@ class UncheckedTransactionProcessor(
                 accountService.add(TransactionSource.BOOTSTRAP, listOf(transaction)).first()
 
             logger.debug { "Resolved $transaction" }
-            eventPublisher.publishAfterCommit(TransactionResolved(transaction))
 
             resolvedCounter++
         }
