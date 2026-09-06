@@ -7,25 +7,11 @@ import kotlinx.coroutines.flow.Flow
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.math.BigInteger
-import java.time.Instant
 
 interface VoteRepository :
     CoroutineCrudRepository<Vote, AttoHash>,
     VoteBulkRepository,
     AttoRepository {
-    @Query(
-        """
-        SELECT *, w.weight FROM (
-            SELECT *, ROW_NUMBER() OVER(PARTITION BY public_key ORDER BY received_at DESC) as num
-            FROM vote v
-            WHERE received_at > :receivedAt
-        ) temp
-        JOIN weight w on temp.public_key = w.representative_public_key
-        WHERE num = 1
-        """,
-    )
-    suspend fun findLatestAfter(receivedAt: Instant): List<Vote>
-
     @Query(
         """
         SELECT v.*, w.weight
