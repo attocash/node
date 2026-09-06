@@ -11,7 +11,6 @@ import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.spring.sortByHeight
 import cash.atto.commons.toBigInteger
 import cash.atto.node.ApplicationProperties
-import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionExpired
 import cash.atto.node.network.InboundNetworkMessage
@@ -63,7 +62,6 @@ import kotlin.time.Duration.Companion.seconds
 class TransactionController(
     val applicationProperties: ApplicationProperties,
     val thisNode: AttoNode,
-    val eventPublisher: EventPublisher,
     val messagePublisher: NetworkMessagePublisher,
     val repository: TransactionRepository,
 ) {

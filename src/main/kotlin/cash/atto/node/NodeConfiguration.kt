@@ -8,11 +8,8 @@ import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.github.oshai.kotlinlogging.KotlinLogging
 import jakarta.annotation.PostConstruct
-import org.springframework.boot.web.server.WebServerFactoryCustomizer
-import org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory
 import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
-import org.springframework.context.annotation.Profile
 import java.net.URI
 
 @Configuration
@@ -57,13 +54,4 @@ class NodeConfiguration(
             logger.info { this }
         }
     }
-
-    @Bean
-    @Profile("!default")
-    fun webServerFactoryCustomizer(): WebServerFactoryCustomizer<ConfigurableServletWebServerFactory> =
-        WebServerFactoryCustomizer { factory ->
-            if (!signerProperties.key.isNullOrEmpty()) {
-                factory.setPort(-1)
-            }
-        }
 }

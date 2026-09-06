@@ -14,7 +14,6 @@ import cash.atto.commons.toJavaInstant
 import cash.atto.commons.toPublicKeyBlocking
 import cash.atto.commons.worker.AttoWorker
 import cash.atto.node.ApplicationProperties
-import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.NetworkMessagePublisher
@@ -88,7 +87,6 @@ internal class TransactionControllerTest {
                 ApplicationProperties().apply {
                     useXForwardedFor = false
                 }
-            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             val publishSignals = Channel<Unit>(capacity = Channel.UNLIMITED)
@@ -101,7 +99,6 @@ internal class TransactionControllerTest {
                 TransactionController(
                     applicationProperties,
                     node,
-                    eventPublisher,
                     messagePublisher,
                     repository,
                 )
@@ -136,7 +133,6 @@ internal class TransactionControllerTest {
                 ApplicationProperties().apply {
                     useXForwardedFor = false
                 }
-            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             val publishSignals = Channel<Unit>(capacity = Channel.UNLIMITED)
@@ -150,7 +146,6 @@ internal class TransactionControllerTest {
                 TransactionController(
                     applicationProperties,
                     node,
-                    eventPublisher,
                     messagePublisher,
                     repository,
                 )
@@ -184,7 +179,6 @@ internal class TransactionControllerTest {
                 ApplicationProperties().apply {
                     useXForwardedFor = false
                 }
-            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             coEvery { repository.findById(transaction.hash) } returns transaction
@@ -193,7 +187,6 @@ internal class TransactionControllerTest {
                 TransactionController(
                     applicationProperties,
                     node,
-                    eventPublisher,
                     messagePublisher,
                     repository,
                 )
@@ -216,7 +209,6 @@ internal class TransactionControllerTest {
                 ApplicationProperties().apply {
                     useXForwardedFor = false
                 }
-            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             val publishSignals = Channel<Unit>(capacity = Channel.UNLIMITED)
@@ -229,7 +221,6 @@ internal class TransactionControllerTest {
                 TransactionController(
                     applicationProperties,
                     node,
-                    eventPublisher,
                     messagePublisher,
                     repository,
                 )

@@ -6,9 +6,6 @@ import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.node.AccountSearch
 import cash.atto.commons.spring.forwardHeightBy
-import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
-import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
@@ -46,11 +43,9 @@ import org.springframework.web.bind.annotation.RestController
             "Since transactions mutate accounts, this reflects the result of all previous operations.",
 )
 class AccountController(
-    val node: AttoNode,
-    val eventPublisher: EventPublisher,
     val repository: AccountRepository,
     val crudRepository: AccountCrudRepository,
-) : CacheSupport {
+) {
     private val logger = KotlinLogging.logger {}
 
     private val accountFlow = MutableSharedFlow<AttoAccount>()
@@ -189,9 +184,4 @@ class AccountController(
     @GetMapping("/top")
     @Hidden
     suspend fun getTop100(): List<AttoAccount> = crudRepository.getTop100().map { it.toAttoAccount() }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun clear() {
-        accountFlow.resetReplayCache()
-    }
 }

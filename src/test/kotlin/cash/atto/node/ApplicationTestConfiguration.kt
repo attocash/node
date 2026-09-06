@@ -8,8 +8,6 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ClientHttpConnector
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
-import org.springframework.http.codec.ClientCodecConfigurer
-import org.springframework.web.reactive.function.client.ExchangeStrategies
 import org.springframework.web.reactive.function.client.WebClient
 import org.testcontainers.containers.MySQLContainer
 import reactor.netty.http.client.HttpClient
@@ -18,19 +16,7 @@ import reactor.netty.transport.logging.AdvancedByteBufFormat
 @Configuration
 class ApplicationTestConfiguration {
     @Bean
-    fun exchangeStrategies(): ExchangeStrategies =
-        ExchangeStrategies
-            .builder()
-            .codecs { configurer: ClientCodecConfigurer ->
-                configurer
-                    .defaultCodecs()
-                configurer
-                    .defaultCodecs()
-            }.build()
-
-    @Bean
     fun webClient(
-        exchangeStrategies: ExchangeStrategies,
         @Value("\${atto.test.web-client-wiretap.enabled:false}") wiretapEnabled: Boolean,
     ): WebClient {
         var httpClient = HttpClient.create()
@@ -45,7 +31,6 @@ class ApplicationTestConfiguration {
         val connector: ClientHttpConnector = ReactorClientHttpConnector(httpClient)
         return WebClient
             .builder()
-            .exchangeStrategies(exchangeStrategies)
             .clientConnector(connector)
             .build()
     }

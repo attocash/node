@@ -11,14 +11,12 @@ import cash.atto.commons.node.HeightSearch
 import cash.atto.commons.spring.sortByHeight
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toBigInteger
-import cash.atto.node.CacheSupport
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -48,7 +46,7 @@ import org.springframework.web.server.ResponseStatusException
 )
 class AccountEntryController(
     val repository: AccountEntryRepository,
-) : CacheSupport {
+) {
     private val logger = KotlinLogging.logger {}
 
     private val entryFlow = MutableSharedFlow<AttoAccountEntry>()
@@ -201,10 +199,5 @@ class AccountEntryController(
             )
         val search = HeightSearch(listOf(transactionSearch))
         return streamMultiple(search)
-    }
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    override fun clear() {
-        entryFlow.resetReplayCache()
     }
 }

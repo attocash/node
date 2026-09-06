@@ -1082,17 +1082,12 @@
       "type": "cash.atto.node.ApplicationTestConfiguration",
       "methods": [
         {
-          "name": "exchangeStrategies",
-          "parameterTypes": []
-        },
-        {
           "name": "mysqlContainer",
           "parameterTypes": []
         },
         {
           "name": "webClient",
           "parameterTypes": [
-            "org.springframework.web.reactive.function.client.ExchangeStrategies",
             "boolean"
           ]
         }
@@ -1763,8 +1758,6 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "cash.atto.protocol.AttoNode",
-            "cash.atto.node.EventPublisher",
             "cash.atto.node.account.AccountRepository",
             "cash.atto.node.account.AccountCrudRepository"
           ]
@@ -7511,7 +7504,6 @@
           "parameterTypes": [
             "cash.atto.node.ApplicationProperties",
             "cash.atto.protocol.AttoNode",
-            "cash.atto.node.EventPublisher",
             "cash.atto.node.network.NetworkMessagePublisher",
             "cash.atto.node.transaction.TransactionRepository"
           ]
