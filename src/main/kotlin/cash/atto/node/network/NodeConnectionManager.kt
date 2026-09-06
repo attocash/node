@@ -182,7 +182,7 @@ class NodeConnectionManager(
 
         connectionMap.values
             .asSequence()
-            .filter { networkMessage.accepts(it.node.publicUri, it.node) }
+            .filter { networkMessage.accepts(it.node) }
             .map { it.node.publicUri }
             .toList()
             .forEach { send(it, message) }

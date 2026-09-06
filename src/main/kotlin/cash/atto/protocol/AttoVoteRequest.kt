@@ -19,7 +19,5 @@ data class AttoVoteRequest(
     @Serializable(with = AttoHashAsByteArraySerializer::class)
     val blockHash: AttoHash,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.VOTE_REQUEST
-
     override suspend fun isValid(network: AttoNetwork): Boolean = blockHash.isValid()
 }

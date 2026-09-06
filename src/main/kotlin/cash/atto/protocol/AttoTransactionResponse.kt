@@ -16,7 +16,5 @@ data class AttoTransactionResponse(
     @Serializable(with = AttoTransactionAsByteArraySerializer::class)
     val transaction: AttoTransaction,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_RESPONSE
-
     override suspend fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
 }

@@ -16,7 +16,5 @@ data class AttoBootstrapTransactionPush(
     @Serializable(with = AttoTransactionAsByteArraySerializer::class)
     val transaction: AttoTransaction,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.BOOTSTRAP_TRANSACTION_PUSH
-
     override suspend fun isValid(network: AttoNetwork): Boolean = transaction.isValid() && transaction.block.network == network
 }

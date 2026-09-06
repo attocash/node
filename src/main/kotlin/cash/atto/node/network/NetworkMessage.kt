@@ -32,24 +32,12 @@ data class InboundNetworkMessage<T : AttoMessage>(
     override val timestamp: Instant = Instant.now(),
 ) : NetworkMessage<T>
 
-interface OutboundNetworkMessage<T : AttoMessage> : NetworkMessage<T> {
-    fun accepts(
-        target: URI,
-        node: AttoNode?,
-    ): Boolean
-}
-
 data class DirectNetworkMessage<T : AttoMessage>(
     val publicUri: URI,
     override val payload: T,
     val expectedResponseCount: ULong = 0UL,
     override val timestamp: Instant = Instant.now(),
-) : OutboundNetworkMessage<T> {
-    override fun accepts(
-        target: URI,
-        node: AttoNode?,
-    ): Boolean = publicUri == target
-}
+) : NetworkMessage<T>
 
 enum class BroadcastStrategy {
     EVERYONE,
@@ -61,23 +49,15 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
     val exceptions: Set<URI> = setOf(),
     override val payload: T,
     override val timestamp: Instant = Instant.now(),
-) : OutboundNetworkMessage<T> {
-    override fun accepts(
-        target: URI,
-        node: AttoNode?,
-    ): Boolean {
-        if (exceptions.contains(target)) {
+) : NetworkMessage<T> {
+    fun accepts(node: AttoNode): Boolean {
+        if (exceptions.contains(node.publicUri)) {
             return false
         }
 
         return when (strategy) {
-            BroadcastStrategy.EVERYONE -> {
-                node != null
-            }
-
-            BroadcastStrategy.VOTERS -> {
-                node?.isVoter() ?: false
-            }
+            BroadcastStrategy.EVERYONE -> true
+            BroadcastStrategy.VOTERS -> node.isVoter()
         }
     }
 }

@@ -17,8 +17,6 @@ data class AttoKeepAlive(
         @Serializable(with = URISerializer::class)
         URI? = null,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.KEEP_ALIVE
-
     override suspend fun isValid(network: AttoNetwork): Boolean =
         neighbour == null ||
             (

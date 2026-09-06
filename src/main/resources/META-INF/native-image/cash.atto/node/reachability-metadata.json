@@ -6329,12 +6329,6 @@
       "type": "cash.atto.node.network.OutboundConnectionAttemptTest$expired attempt rejects late authentication$1"
     },
     {
-      "type": "cash.atto.node.network.OutboundNetworkMessage"
-    },
-    {
-      "type": "cash.atto.node.network.OutboundNetworkMessage$DefaultImpls"
-    },
-    {
       "type": "cash.atto.node.network.PeerUriValidationResult"
     },
     {
@@ -10375,9 +10369,6 @@
     },
     {
       "type": "cash.atto.protocol.AttoMessageTestKt"
-    },
-    {
-      "type": "cash.atto.protocol.AttoMessageType"
     },
     {
       "type": "cash.atto.protocol.AttoNode"
@@ -30437,9 +30428,6 @@
     },
     {
       "glob": "cash/atto/node/network/NodeConnectionManager.class"
-    },
-    {
-      "glob": "cash/atto/node/network/OutboundNetworkMessage.class"
     },
     {
       "glob": "cash/atto/node/network/PeerUriValidationResult.class"

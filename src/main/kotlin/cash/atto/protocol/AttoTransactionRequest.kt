@@ -16,7 +16,5 @@ data class AttoTransactionRequest(
     @Serializable(with = AttoHashAsByteArraySerializer::class)
     val hash: AttoHash,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.TRANSACTION_REQUEST
-
     override suspend fun isValid(network: AttoNetwork): Boolean = hash.isValid()
 }

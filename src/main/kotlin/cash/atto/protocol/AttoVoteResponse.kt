@@ -16,7 +16,5 @@ data class AttoVoteResponse(
     @Serializable(with = AttoSignedVoteAsByteArraySerializer::class)
     val vote: AttoSignedVote,
 ) : AttoMessage {
-    override fun messageType(): AttoMessageType = AttoMessageType.VOTE_RESPONSE
-
     override suspend fun isValid(network: AttoNetwork): Boolean = vote.isValid() && vote.isFinal()
 }

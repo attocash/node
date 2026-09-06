@@ -13,7 +13,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 object NetworkSerializer {
     private val logger = KotlinLogging.logger {}
 
-    inline fun <reified T : AttoMessage> serialize(message: T): ByteArray = ProtoBuf.encodeToByteArray(AttoMessage.serializer(), message)
+    fun serialize(message: AttoMessage): ByteArray = ProtoBuf.encodeToByteArray(AttoMessage.serializer(), message)
 
     suspend fun deserialize(
         serialized: ByteArray,
