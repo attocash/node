@@ -69,10 +69,11 @@ class VotePrioritizer(
     @EventListener
     suspend fun process(event: ElectionStarted) {
         val transaction = event.transaction
-        activeElections[transaction.hash] = transaction
 
         val unbufferedVotes =
             mutex.withLock {
+                activeElections[transaction.hash] = transaction
+                rejectedTransactionCache.remove(transaction.hash)
                 voteBuffer.remove(transaction.hash)?.values
             }
 
@@ -83,13 +84,14 @@ class VotePrioritizer(
     }
 
     @EventListener
-    fun process(event: TransactionRejected) {
+    suspend fun process(event: TransactionRejected) {
         val hash = event.transaction.hash
-        if (!event.reason.recoverable) {
-            rejectedTransactionCache[hash] = hash
-        }
-        val votes = voteBuffer.remove(hash)
-        votes?.values?.forEach {
+        val votes =
+            mutex.withLock {
+                rejectedTransactionCache[hash] = hash
+                voteBuffer.remove(hash)?.values
+            }
+        votes?.forEach {
             eventPublisher.publish(VoteDropped(it, VoteDropReason.TRANSACTION_DROPPED))
         }
     }
@@ -118,41 +120,40 @@ class VotePrioritizer(
             return
         }
 
-        if (rejectedTransactionCache.containsKey(vote.blockHash)) {
-            eventPublisher.publish(VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED))
-            return
-        }
-
         add(vote)
     }
 
     private suspend fun add(vote: Vote) {
-        mutex.withLock {
-            val transaction = activeElections[vote.blockHash]
-            if (transaction != null) {
-                logger.trace { "Queued for prioritization. $vote" }
+        val dropped =
+            mutex.withLock {
+                val transaction = activeElections[vote.blockHash]
+                if (transaction != null) {
+                    logger.trace { "Queued for prioritization. $vote" }
 
-                val droppedVote =
-                    queue.add(TransactionVote(transaction, vote))
-
-                droppedVote?.let {
-                    logger.trace { "Dropped from queue. $droppedVote" }
-                    eventPublisher.publish(VoteDropped(droppedVote.vote, VoteDropReason.SUPERSEDED))
-                }
-            } else {
-                logger.trace { "Buffered until election starts. $vote" }
-                voteBuffer.compute(vote.blockHash) { _, m ->
-                    val map = m ?: HashMap()
-                    map.compute(vote.publicKey) { _, v ->
-                        if (v == null || vote.timestamp > v.timestamp) {
-                            vote
-                        } else {
-                            v
-                        }
+                    queue.add(TransactionVote(transaction, vote))?.let {
+                        VoteDropped(it.vote, VoteDropReason.SUPERSEDED)
                     }
-                    map
+                } else if (rejectedTransactionCache.containsKey(vote.blockHash)) {
+                    VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED)
+                } else {
+                    logger.trace { "Buffered until election starts. $vote" }
+                    voteBuffer.compute(vote.blockHash) { _, m ->
+                        val map = m ?: HashMap()
+                        map.compute(vote.publicKey) { _, v ->
+                            if (v == null || vote.timestamp > v.timestamp) {
+                                vote
+                            } else {
+                                v
+                            }
+                        }
+                        map
+                    }
+                    null
                 }
             }
+        if (dropped != null) {
+            logger.trace { "Dropped vote due to ${dropped.reason}. ${dropped.vote}" }
+            eventPublisher.publish(dropped)
         }
     }
 
@@ -178,6 +179,7 @@ class VotePrioritizer(
         queue.clear()
         activeElections.clear()
         voteBuffer.clear()
+        rejectedTransactionCache.clear()
         duplicateDetector.clear()
     }
 }

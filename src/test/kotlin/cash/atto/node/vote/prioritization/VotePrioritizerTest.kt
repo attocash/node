@@ -70,6 +70,64 @@ internal class VotePrioritizerTest {
         }
 
     @Test
+    fun `recoverable rejection drops later final votes for dependency discovery`() =
+        runTest {
+            // Given
+            val published = mutableListOf<Event>()
+            val prioritizer = createPrioritizer(published)
+            val vote = createVote(2)
+            prioritizer.process(
+                TransactionRejected(
+                    TransactionRejectionReason.PREVIOUS_NOT_FOUND,
+                    "Previous transaction is missing",
+                    account,
+                    transaction,
+                ),
+            )
+
+            // When
+            prioritizer.add(VoteReceived(URI("ws://peer:8080"), vote))
+            prioritizer.process()
+
+            // Then
+            assertEquals(
+                listOf(vote to VoteDropReason.TRANSACTION_DROPPED),
+                published.filterIsInstance<VoteDropped>().map { it.vote to it.reason },
+            )
+            assertEquals(emptyList<Vote>(), published.filterIsInstance<VoteValidated>().map { it.vote })
+            assertEquals(0, prioritizer.getBufferSize())
+            assertEquals(0, prioritizer.getQueueSize())
+        }
+
+    @Test
+    fun `delayed recoverable rejection does not reject votes for an active election`() =
+        runTest {
+            // Given
+            val published = mutableListOf<Event>()
+            val prioritizer = createPrioritizer(published)
+            val vote = createVote(2)
+            prioritizer.process(ElectionStarted(account, transaction))
+
+            // When
+            prioritizer.process(
+                TransactionRejected(
+                    TransactionRejectionReason.PREVIOUS_NOT_FOUND,
+                    "Previous transaction was missing",
+                    account,
+                    transaction,
+                ),
+            )
+            prioritizer.add(VoteReceived(URI("ws://peer:8080"), vote))
+            prioritizer.process()
+
+            // Then
+            assertEquals(emptyList<VoteDropped>(), published.filterIsInstance<VoteDropped>())
+            assertEquals(listOf(vote), published.filterIsInstance<VoteValidated>().map { it.vote })
+            assertEquals(0, prioritizer.getBufferSize())
+            assertEquals(0, prioritizer.getQueueSize())
+        }
+
+    @Test
     fun `permanent rejection drops later votes`() =
         runTest {
             // Given

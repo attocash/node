@@ -9864,7 +9864,8 @@
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.transaction.TransactionRejected"
+            "cash.atto.node.transaction.TransactionRejected",
+            "kotlin.coroutines.Continuation"
           ]
         },
         {
@@ -9898,11 +9899,19 @@
           "parameterTypes": []
         },
         {
+          "name": "delayed recoverable rejection does not reject votes for an active election",
+          "parameterTypes": []
+        },
+        {
           "name": "permanent rejection drops later votes",
           "parameterTypes": []
         },
         {
           "name": "recoverable rejection allows votes for a later election",
+          "parameterTypes": []
+        },
+        {
+          "name": "recoverable rejection drops later final votes for dependency discovery",
           "parameterTypes": []
         }
       ]
