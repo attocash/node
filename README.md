@@ -121,8 +121,20 @@ Swagger UI is configured at:
 
 - `:8080/` (see `springdoc.swagger-ui.path: /`)
 
-The container image runs `/app/node healthcheck` as its Docker health check. The command probes the aggregate
-`:8081/health` endpoint. Kubernetes deployments should use `:8081/health/liveness` for startup and liveness probes and
+The container image defines `/app/node healthcheck` as its Docker health check. The command probes the aggregate
+`:8081/health` endpoint. Podman ignores the Docker health-check configuration embedded in OCI images, so
+Podman Compose deployments must declare it explicitly:
+
+```yaml
+healthcheck:
+  test: ["CMD", "/app/node", "healthcheck"]
+  interval: 60s
+  timeout: 5s
+  start_period: 180s
+  retries: 5
+```
+
+Kubernetes deployments should use `:8081/health/liveness` for startup and liveness probes and
 `:8081/health/readiness` for readiness probes.
 
 ## API
