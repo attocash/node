@@ -189,7 +189,7 @@ class BootstrapController(
         suspend fun run(
             currentEpochSecond: Long,
             currentAttemptSequence: Long,
-        ): Int {
+        ) {
             fun reset() {
                 weight = initialWeight
                 lastRunAtEpochSecond = currentEpochSecond
@@ -198,13 +198,8 @@ class BootstrapController(
             lastAttemptSequence = currentAttemptSequence
             try {
                 val affected = operation()
-                if (affected == 0) {
-                    reset()
-                } else {
-                    weight = initialWeight + affected
-                    lastRunAtEpochSecond = currentEpochSecond
-                }
-                return affected
+                weight = initialWeight + affected
+                lastRunAtEpochSecond = currentEpochSecond
             } catch (exception: Exception) {
                 reset()
                 throw exception

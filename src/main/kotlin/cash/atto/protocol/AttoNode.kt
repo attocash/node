@@ -44,8 +44,6 @@ data class AttoNode(
 
     fun isNotHistorical(): Boolean = !isHistorical()
 
-    fun supportsParallelTransactionStreams(): Boolean = protocolVersion >= CURRENT_PROTOCOL_VERSION
-
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (javaClass != other?.javaClass) return false
@@ -84,11 +82,4 @@ enum class NodeFeature(
 
     @ProtoNumber(2)
     HISTORICAL(1u),
-    ;
-
-    companion object {
-        private val map = entries.associateBy(NodeFeature::code)
-
-        fun from(code: UByte): NodeFeature = map.getOrDefault(code, UNKNOWN)
-    }
 }
