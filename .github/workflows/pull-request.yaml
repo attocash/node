@@ -7,4 +7,12 @@ on:
 
 jobs:
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        neighbour-mode:
+          - classpath
+          - live
     uses: ./.github/workflows/test.yaml
+    with:
+      neighbour_mode: ${{ matrix.neighbour-mode }}
