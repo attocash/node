@@ -20,6 +20,7 @@ import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Operation
+import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
@@ -57,7 +58,10 @@ import kotlin.time.Duration.Companion.seconds
 @RequestMapping
 @Tag(
     name = "Transactions",
-    description = "Submit or query raw transaction blocks. This endpoint handles the low-level building blocks of the ledger.",
+    description =
+        "Submit or query transaction blocks. After an interrupted publication request, inspect the original transaction hash " +
+            "and account history before creating another payment. A timeout does not prove that the transaction failed. " +
+            "See [payment failure recovery](https://atto.cash/docs/whitepaper/technical#payment-failure-recovery).",
 )
 class TransactionController(
     val applicationProperties: ApplicationProperties,
@@ -300,20 +304,46 @@ class TransactionController(
     @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
     @Operation(
         summary = "Publish a transaction",
+        description =
+            "Validates and publishes the signed transaction, then waits for local confirmation and returns the confirmed transaction. " +
+                "The confirmation wait has a 40-second timeout. After a timeout or lost response, inspect the original hash and " +
+                "account history before creating another payment; confirmation may already have happened. " +
+                "A confirmed Send creates a receivable; a separate Open or Receive adds it to the recipient's spendable balance.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "The confirmed transaction, including an already confirmed result when recognized by the node.",
                 content = [
                     Content(
                         schema = Schema(implementation = AttoTransaction::class),
                     ),
                 ],
             ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid transaction, wrong network, invalid proxy-header configuration, or transaction rejection.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "429",
+                description = "The local transaction queue dropped the transaction. Check its hash before retrying the payment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "503",
+                description = "The local election expired. This does not prove that the transaction failed on every node.",
+                content = [Content()],
+            ),
         ],
     )
     suspend fun publish(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
+        @Parameter(
+            description =
+                "When true, reuse a stored confirmation or an existing pending publication for the same transaction hash. " +
+                    "This does not deduplicate payment attempts with different transaction hashes.",
+        )
         @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
     ): AttoTransaction = publishAndConfirm(transaction, request, deduplicate)
 
@@ -397,21 +427,48 @@ class TransactionController(
         produces = [MediaType.APPLICATION_NDJSON_VALUE],
     )
     @Operation(
-        description = "Publish transaction and stream",
+        summary = "Publish a transaction and stream its confirmation",
+        description =
+            "Uses the same publication and local-confirmation operation as POST /transactions, " +
+                "emitting one confirmed transaction as NDJSON. " +
+                "The confirmation wait has a 40-second timeout. Inspect the emitted transaction, not only the initial HTTP status. " +
+                "Errors after response commitment can terminate the stream; do not assume every timeout returns HTTP 504. " +
+                "After an interrupted stream, inspect the original hash and account history before creating another payment.",
         responses = [
             ApiResponse(
                 responseCode = "200",
+                description = "One confirmed transaction emitted as NDJSON.",
                 content = [
                     Content(
                         schema = Schema(implementation = AttoTransaction::class),
                     ),
                 ],
             ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid or rejected transaction, or invalid proxy-header configuration, before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "429",
+                description = "The local transaction queue dropped the transaction before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "503",
+                description = "The local election expired before response commitment.",
+                content = [Content()],
+            ),
         ],
     )
     suspend fun publishAndStream(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
+        @Parameter(
+            description =
+                "When true, reuse a stored confirmation or an existing pending publication for the same transaction hash. " +
+                    "This does not deduplicate payment attempts with different transaction hashes.",
+        )
         @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
     ): Flow<AttoTransaction> =
         flow {
