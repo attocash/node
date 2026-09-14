@@ -55,17 +55,14 @@ class LastDiscovererTest {
     @Test
     fun `capacity prevents a new head election and vote request`() =
         runTest {
-            // Given
             val fixture = fixture(initiallyAtCapacity = true)
             val transaction = transaction(1)
             val response = fixture.voteResponse(transaction)
 
             try {
-                // When
                 fixture.discoverer.processPush(fixture.push(transaction))
                 fixture.discoverer.processVoteResponse(response)
 
-                // Then
                 assertTrue(fixture.messages.none { it.payload is AttoVoteStreamRequest })
                 coVerify(exactly = 0) {
                     fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD)
@@ -78,7 +75,6 @@ class LastDiscovererTest {
     @Test
     fun `consensus at capacity retains the head election when admission is cancelled`() =
         runTest {
-            // Given
             val fixture = fixture(initiallyAtCapacity = false)
             val transaction = transaction(2)
             val response = fixture.voteResponse(transaction)
@@ -91,14 +87,12 @@ class LastDiscovererTest {
             }
 
             try {
-                // When
                 val admission =
                     launch {
                         fixture.discoverer.processVoteResponse(response)
                     }
                 runCurrent()
 
-                // Then
                 assertFalse(admission.isCompleted)
                 assertTrue(fixture.atCapacity.get())
                 coVerify(exactly = 1) {
@@ -109,14 +103,12 @@ class LastDiscovererTest {
                 }
                 assertEquals(0, fixture.messages.count { it.payload is AttoVoteStreamCancel })
 
-                // When
                 admission.cancelAndJoin()
                 coEvery {
                     fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD)
                 } returns true
                 fixture.discoverer.processVoteResponse(response)
 
-                // Then
                 coVerify(exactly = 2) {
                     fixture.discoveryQueue.queue(
                         match { it.transaction.hash == transaction.hash },
@@ -153,6 +145,7 @@ class LastDiscovererTest {
         val discoverer =
             LastDiscoverer(
                 thisNode = mockk<AttoNode>(relaxed = true),
+                discoveryProperties = DiscoveryProperties(),
                 accountRepository = accountRepository,
                 transactionRepository = mockk<TransactionRepository>(),
                 uncheckedTransactionRepository = mockk<UncheckedTransactionRepository>(),
