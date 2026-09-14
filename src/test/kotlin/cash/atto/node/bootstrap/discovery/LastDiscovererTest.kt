@@ -92,7 +92,10 @@ class LastDiscovererTest {
 
             try {
                 // When
-                val admission = launch { fixture.discoverer.processVoteResponse(response) }
+                val admission =
+                    launch {
+                        fixture.discoverer.processVoteResponse(response)
+                    }
                 runCurrent()
 
                 // Then
@@ -108,7 +111,9 @@ class LastDiscovererTest {
 
                 // When
                 admission.cancelAndJoin()
-                coEvery { fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD) } returns true
+                coEvery {
+                    fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD)
+                } returns true
                 fixture.discoverer.processVoteResponse(response)
 
                 // Then
@@ -138,7 +143,9 @@ class LastDiscovererTest {
         val voteConverter = mockk<VoteConverter>()
         val messages = mutableListOf<NetworkMessage<*>>()
         val networkMessagePublisher = mockk<NetworkMessagePublisher>()
-        every { networkMessagePublisher.publish(any()) } answers { messages += firstArg<NetworkMessage<*>>() }
+        every { networkMessagePublisher.publish(any()) } answers {
+            messages += firstArg<NetworkMessage<*>>()
+        }
 
         val accountRepository = mockk<AccountRepository>()
         coEvery { accountRepository.findById(any()) } returns null
@@ -158,7 +165,13 @@ class LastDiscovererTest {
                 voteWeighter = voteWeighter,
             )
 
-        return Fixture(discoverer, discoveryQueue, voteConverter, messages, atCapacity)
+        return Fixture(
+            discoverer = discoverer,
+            discoveryQueue = discoveryQueue,
+            voteConverter = voteConverter,
+            messages = messages,
+            atCapacity = atCapacity,
+        )
     }
 
     private data class Fixture(
@@ -172,28 +185,56 @@ class LastDiscovererTest {
         private val socketAddress = InetSocketAddress("127.0.0.1", 8080)
 
         fun push(transaction: AttoTransaction): InboundNetworkMessage<AttoBootstrapTransactionPush> =
-            InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, AttoBootstrapTransactionPush(transaction))
+            InboundNetworkMessage(
+                source = MessageSource.WEBSOCKET,
+                publicUri = publicUri,
+                socketAddress = socketAddress,
+                payload = AttoBootstrapTransactionPush(transaction),
+            )
 
         fun voteResponse(transaction: AttoTransaction): InboundNetworkMessage<AttoVoteStreamResponse> {
-            val attoVote = AttoVote(
-                version = 0U.toAttoVersion(), algorithm = AttoAlgorithm.V1,
-                publicKey = AttoPublicKey(ByteArray(32) { 10 }), blockAlgorithm = AttoAlgorithm.V1,
-                blockHash = transaction.hash, timestamp = AttoVote.finalTimestamp,
+            val attoVote =
+                AttoVote(
+                    version = 0U.toAttoVersion(),
+                    algorithm = AttoAlgorithm.V1,
+                    publicKey = AttoPublicKey(ByteArray(32) { 10 }),
+                    blockAlgorithm = AttoAlgorithm.V1,
+                    blockHash = transaction.hash,
+                    timestamp = AttoVote.finalTimestamp,
+                )
+            val signedVote =
+                AttoSignedVote(
+                    vote = attoVote,
+                    signature = AttoSignature(ByteArray(64) { 11 }),
+                )
+            every { voteConverter.convert(signedVote) } returns
+                Vote.from(ElectionVoter.MIN_WEIGHT, signedVote)
+
+            return InboundNetworkMessage(
+                source = MessageSource.WEBSOCKET,
+                publicUri = publicUri,
+                socketAddress = socketAddress,
+                payload = AttoVoteStreamResponse(signedVote),
             )
-            val signedVote = AttoSignedVote(attoVote, AttoSignature(ByteArray(64) { 11 }))
-            every { voteConverter.convert(signedVote) } returns Vote.from(ElectionVoter.MIN_WEIGHT, signedVote)
-            return InboundNetworkMessage(MessageSource.WEBSOCKET, publicUri, socketAddress, AttoVoteStreamResponse(signedVote))
         }
     }
 
-    private fun transaction(marker: Byte): AttoTransaction = AttoTransaction(
-        block = AttoReceiveBlock(
-            version = 0U.toAttoVersion(), network = AttoNetwork.LOCAL, algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(ByteArray(32) { marker }), height = 2U.toAttoHeight(), balance = AttoAmount.MAX,
-            timestamp = AttoInstant.now(), previous = AttoHash(ByteArray(32) { (marker + 1).toByte() }),
-            sendHashAlgorithm = AttoAlgorithm.V1, sendHash = AttoHash(ByteArray(32) { (marker + 2).toByte() }),
-        ),
-        signature = AttoSignature(ByteArray(64) { (marker + 3).toByte() }),
-        work = AttoWork(ByteArray(8) { (marker + 4).toByte() }),
-    )
+    private fun transaction(marker: Byte): AttoTransaction =
+        AttoTransaction(
+            block =
+                AttoReceiveBlock(
+                    version = 0U.toAttoVersion(),
+                    network = AttoNetwork.LOCAL,
+                    algorithm = AttoAlgorithm.V1,
+                    publicKey = AttoPublicKey(ByteArray(32) { marker }),
+                    height = 2U.toAttoHeight(),
+                    balance = AttoAmount.MAX,
+                    timestamp = AttoInstant.now(),
+                    previous = AttoHash(ByteArray(32) { (marker + 1).toByte() }),
+                    sendHashAlgorithm = AttoAlgorithm.V1,
+                    sendHash = AttoHash(ByteArray(32) { (marker + 2).toByte() }),
+                ),
+            signature = AttoSignature(ByteArray(64) { (marker + 3).toByte() }),
+            work = AttoWork(ByteArray(8) { (marker + 4).toByte() }),
+        )
 }
