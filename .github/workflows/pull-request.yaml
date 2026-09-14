@@ -15,4 +15,4 @@ jobs:
           - live
     uses: ./.github/workflows/test.yaml
     with:
-      neighbour_mode: ${{ matrix.neighbour-mode }}
+      neighbour_mode: ${{ matrix['neighbour-mode'] }}
