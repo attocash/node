@@ -42,6 +42,7 @@ class ElectionProcessor(
     private val bufferDepth = AtomicInteger()
 
     private val transactionalOperator = TransactionalOperator.create(transactionManager)
+    private val persistenceMetrics = ElectionPersistenceMetrics(meterRegistry)
     private val flushMutex = Mutex()
     private val nextFlushAt = AtomicReference(Instant.EPOCH)
     private lateinit var batchTimer: Timer
@@ -122,20 +123,27 @@ class ElectionProcessor(
     private suspend fun flushBatch(size: Int): Int {
         val pendingEvents = drainBatch(size)
 
-        try {
-            if (pendingEvents.isEmpty()) return 0
+        val timing =
+            try {
+                if (pendingEvents.isEmpty()) return 0
 
-            val transactions = pendingEvents.map { it.event.transaction }
+                val transactions = pendingEvents.map { it.event.transaction }
+                val sample = persistenceMetrics.start()
 
-            transactionalOperator.executeAndAwait {
-                accountService.add(TransactionSource.ELECTION, transactions)
+                transactionalOperator.executeAndAwait { transaction ->
+                    sample.startBody(transaction)
+                    accountService.add(TransactionSource.ELECTION, transactions)
+                    sample.finishBody()
+                }
+
+                sample
+            } catch (e: Exception) {
+                handleFailure(pendingEvents, e)
+                return 0
             }
 
-            return pendingEvents.size
-        } catch (e: Exception) {
-            handleFailure(pendingEvents, e)
-            return 0
-        }
+        timing.record()
+        return pendingEvents.size
     }
 
     private fun drainBatch(size: Int): List<PendingElectionConsensus> {
