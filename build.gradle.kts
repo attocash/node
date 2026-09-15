@@ -115,6 +115,8 @@ dependencies {
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
+    testImplementation("io.micrometer:micrometer-registry-prometheus")
+
     testImplementation("org.springframework.boot:spring-boot-starter-webflux-test") {
         exclude(group = "org.mockito")
     }
