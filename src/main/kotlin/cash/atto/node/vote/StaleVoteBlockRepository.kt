@@ -2,6 +2,7 @@ package cash.atto.node.vote
 
 import cash.atto.commons.AttoHash
 import cash.atto.node.AttoRepository
+import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.time.Instant
@@ -10,6 +11,7 @@ interface StaleVoteBlockRepository :
     CoroutineCrudRepository<StaleVoteBlock, AttoHash>,
     StaleVoteBlockBulkRepository,
     AttoRepository {
+    @Modifying
     @Query(
         """
             INSERT IGNORE INTO stale_vote_block (block_hash)
@@ -22,6 +24,7 @@ interface StaleVoteBlockRepository :
     )
     suspend fun reconcileOld(receivedBefore: Instant): Int
 
+    @Modifying
     @Query(
         """
             DELETE s

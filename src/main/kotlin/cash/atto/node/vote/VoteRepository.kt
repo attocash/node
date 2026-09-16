@@ -4,6 +4,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.AttoRepository
 import kotlinx.coroutines.flow.Flow
+import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.math.BigInteger
@@ -23,6 +24,7 @@ interface VoteRepository :
     )
     suspend fun findByBlockHash(blockHash: AttoHash): Flow<Vote>
 
+    @Modifying
     @Query(
         """
             DELETE v
@@ -31,6 +33,17 @@ interface VoteRepository :
         """,
     )
     suspend fun deleteStale(): Int
+
+    @Modifying
+    @Query(
+        """
+            DELETE v
+            FROM vote v
+                     JOIN stale_vote_block s ON s.block_hash = v.block_hash
+            WHERE v.block_hash IN (:blockHashes)
+        """,
+    )
+    suspend fun deleteStaleByBlockHashes(blockHashes: Collection<AttoHash>): Int
 
     @Query(
         """

@@ -46,7 +46,7 @@ class StaleVoteBlockServiceTest {
             val flushed = service.flushQueued(1_000)
 
             // then
-            assertEquals(2, flushed)
+            assertEquals(listOf(blockHash, nextBlockHash), flushed)
             assertEquals(0, service.getQueueSize())
             coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(blockHash, nextBlockHash)) }
         }
@@ -68,29 +68,41 @@ class StaleVoteBlockServiceTest {
             val flushed = service.flushQueued(1)
 
             // then
-            assertEquals(1, flushed)
+            assertEquals(listOf(firstBlockHash), flushed)
             assertEquals(1, service.getQueueSize())
             coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(firstBlockHash)) }
         }
 
     @Test
-    fun `drops stale block hashes when flush fails`() =
+    fun `requeues stale block hashes in FIFO order when flush fails`() =
         runTest {
-            // given
-            val blockHash = AttoHash(Random.nextBytes(ByteArray(32)))
+            // Given
+            val firstBlockHash = AttoHash(Random.nextBytes(ByteArray(32)))
+            val secondBlockHash = AttoHash(Random.nextBytes(ByteArray(32)))
             val repository = mockk<StaleVoteBlockRepository>()
             val service = StaleVoteBlockService(repository)
 
-            service.record(blockHash)
-            coEvery { repository.insertIgnoreAll(listOf(blockHash)) } throws IllegalStateException("deadlock")
+            service.record(firstBlockHash)
+            service.record(secondBlockHash)
+            coEvery { repository.insertIgnoreAll(listOf(firstBlockHash)) } throws IllegalStateException("deadlock")
 
-            // when
-            val failedFlush = service.flushQueued(1_000)
+            // When
+            val failure = runCatching { service.flushQueued(1) }.exceptionOrNull()
 
-            // then
-            assertEquals(0, failedFlush)
-            assertEquals(0, service.getQueueSize())
-            coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(blockHash)) }
+            // Then
+            assertEquals("deadlock", failure?.message)
+            assertEquals(2, service.getQueueSize())
+            coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(firstBlockHash)) }
+
+            // Given
+            coEvery { repository.insertIgnoreAll(listOf(firstBlockHash)) } returns 1L
+
+            // When
+            val retried = service.flushQueued(1)
+
+            // Then
+            assertEquals(listOf(firstBlockHash), retried)
+            assertEquals(1, service.getQueueSize())
         }
 
     @Test

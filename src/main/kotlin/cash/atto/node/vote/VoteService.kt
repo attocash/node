@@ -1,7 +1,7 @@
 package cash.atto.node.vote
 
+import cash.atto.commons.AttoHash
 import cash.atto.node.CacheSupport
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import org.springframework.boot.context.event.ApplicationReadyEvent
@@ -27,7 +27,6 @@ class VoteService(
         private val STALE_MARKER_GRACE = Duration.ofDays(1)
     }
 
-    private val logger = KotlinLogging.logger {}
     private val buffer = ConcurrentLinkedDeque<Vote>()
     private val bufferDepth = AtomicInteger()
     private val flushMutex = Mutex()
@@ -59,13 +58,11 @@ class VoteService(
             return
         }
         try {
-            flushBatch(BATCH_SIZE)
+            val savedVoteBlockHashes = flushBatch(BATCH_SIZE)
+            val staleBlockHashes = staleVoteBlockService.flushQueued(BATCH_SIZE)
 
-            if (staleVoteBlockService.flushQueued(BATCH_SIZE) > 0) {
-                staleVoteCleanupRequested.set(true)
-            }
-
-            cleanStaleVotes()
+            cleanRequestedStaleVotes()
+            cleanStaleVotesByBlockHashes(savedVoteBlockHashes + staleBlockHashes)
         } finally {
             flushMutex.unlock()
         }
@@ -90,6 +87,11 @@ class VoteService(
         staleVoteCleanupRequested.set(true)
     }
 
+    @Scheduled(initialDelay = 1, fixedRate = 1, timeUnit = TimeUnit.DAYS)
+    suspend fun deleteUnusedStaleVoteBlocks() {
+        staleVoteBlockService.deleteUnusedOlderThan(clock.instant().minus(STALE_MARKER_GRACE))
+    }
+
     @EventListener(ApplicationReadyEvent::class)
     fun reconcileOldVoteBlocksOnStartup() =
         runBlocking {
@@ -100,27 +102,40 @@ class VoteService(
             staleVoteCleanupRequested.set(true)
         }
 
-    private suspend fun cleanStaleVotes() {
-        if (!staleVoteCleanupRequested.get()) {
+    private suspend fun cleanRequestedStaleVotes() {
+        if (!staleVoteCleanupRequested.compareAndSet(true, false)) {
             return
         }
 
         try {
             voteRepository.deleteStale()
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to clean stale votes" }
+            staleVoteCleanupRequested.set(true)
+            throw e
         }
-        staleVoteCleanupRequested.set(false)
     }
 
-    private suspend fun flushBatch(size: Int): Int {
-        val votes = drainBatch(size)
-        if (votes.isEmpty()) {
-            return 0
+    private suspend fun cleanStaleVotesByBlockHashes(blockHashes: Collection<AttoHash>) {
+        val distinctBlockHashes = blockHashes.distinct()
+        if (distinctBlockHashes.isEmpty()) {
+            return
         }
 
-        saveAll(votes)
-        return votes.size
+        try {
+            voteRepository.deleteStaleByBlockHashes(distinctBlockHashes)
+        } catch (e: Exception) {
+            staleVoteCleanupRequested.set(true)
+            throw e
+        }
+    }
+
+    private suspend fun flushBatch(size: Int): List<AttoHash> {
+        val votes = drainBatch(size)
+        if (votes.isEmpty()) {
+            return emptyList()
+        }
+
+        return saveAll(votes).map { it.blockHash }.distinct()
     }
 
     private fun drainBatch(size: Int): List<Vote> {

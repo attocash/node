@@ -31,7 +31,8 @@ internal class VoteServiceTest {
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(listOf(vote)) } returns 1L
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
+            coEvery { repository.deleteStaleByBlockHashes(listOf(vote.blockHash)) } returns 0
 
             // when
             service.flush()
@@ -40,6 +41,7 @@ internal class VoteServiceTest {
             assertEquals(0, service.getBufferSize())
             coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(vote)) }
             coVerify(exactly = 1) { staleVoteBlockService.flushQueued(1_000) }
+            coVerify(exactly = 1) { repository.deleteStaleByBlockHashes(listOf(vote.blockHash)) }
             coVerify(exactly = 0) { repository.deleteStale() }
             coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
         }
@@ -59,7 +61,8 @@ internal class VoteServiceTest {
                 savedVotes += firstArg<Collection<Vote>>().toList()
                 firstArg<Collection<Vote>>().size.toLong()
             }
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
+            coEvery { repository.deleteStaleByBlockHashes(any()) } returns 0
 
             // when
             service.flush()
@@ -87,8 +90,9 @@ internal class VoteServiceTest {
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(listOf(vote)) } returns 1L
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
             coEvery { repository.deleteStale() } returns 1
+            coEvery { repository.deleteStaleByBlockHashes(listOf(vote.blockHash)) } returns 0
 
             // when
             service.requestOldVoteRemoval()
@@ -99,6 +103,7 @@ internal class VoteServiceTest {
                 repository.insertIgnoreAll(listOf(vote))
                 staleVoteBlockService.flushQueued(1_000)
                 repository.deleteStale()
+                repository.deleteStaleByBlockHashes(listOf(vote.blockHash))
             }
             coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
             coVerify(exactly = 0) { staleVoteBlockService.deleteUnusedOlderThan(any()) }
@@ -111,9 +116,10 @@ internal class VoteServiceTest {
             val repository = mockk<VoteRepository>()
             val staleVoteBlockService = mockk<StaleVoteBlockService>()
             val service = VoteService(repository, staleVoteBlockService, Clock.fixed(Instant.EPOCH, ZoneId.systemDefault()))
+            val staleBlockHash = AttoHash(Random.nextBytes(ByteArray(32)))
 
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 1
-            coEvery { repository.deleteStale() } returns 1
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns listOf(staleBlockHash)
+            coEvery { repository.deleteStaleByBlockHashes(listOf(staleBlockHash)) } returns 1
 
             // when
             service.flush()
@@ -121,14 +127,15 @@ internal class VoteServiceTest {
             // then
             coVerifyOrder {
                 staleVoteBlockService.flushQueued(1_000)
-                repository.deleteStale()
+                repository.deleteStaleByBlockHashes(listOf(staleBlockHash))
             }
+            coVerify(exactly = 0) { repository.deleteStale() }
             coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
             coVerify(exactly = 0) { staleVoteBlockService.deleteUnusedOlderThan(any()) }
         }
 
     @Test
-    fun `should leave stale vote cleanup for next request when cleanup fails`() =
+    fun `should retry requested stale vote cleanup after failure`() =
         runTest {
             // given
             val repository = mockk<VoteRepository>()
@@ -140,7 +147,8 @@ internal class VoteServiceTest {
 
             service.enqueue(vote)
             coEvery { repository.insertIgnoreAll(any()) } returns 1L
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
+            coEvery { repository.deleteStaleByBlockHashes(any()) } returns 0
             coEvery { repository.deleteStale() } coAnswers {
                 deleteAttempts++
                 if (deleteAttempts == 1) {
@@ -151,9 +159,10 @@ internal class VoteServiceTest {
 
             // when
             service.requestOldVoteRemoval()
-            service.flush()
+            val failure = runCatching { service.flush() }.exceptionOrNull()
 
             // then
+            assertEquals("deadlock", failure?.message)
             assertEquals(0, service.getBufferSize())
             coVerifyOrder {
                 repository.insertIgnoreAll(listOf(vote))
@@ -169,13 +178,6 @@ internal class VoteServiceTest {
 
             // then
             assertEquals(0, service.getBufferSize())
-            assertEquals(1, deleteAttempts)
-
-            // when
-            service.requestOldVoteRemoval()
-            service.flush()
-
-            // then
             assertEquals(2, deleteAttempts)
         }
 
@@ -190,7 +192,7 @@ internal class VoteServiceTest {
 
             coEvery { staleVoteBlockService.reconcileOld(Instant.EPOCH.minus(Duration.ofMinutes(5))) } returns 3
             coEvery { staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1))) } returns 0
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
             coEvery { repository.deleteStale() } returns 3
 
             // when
@@ -215,7 +217,7 @@ internal class VoteServiceTest {
             val repository = mockk<VoteRepository>()
             val staleVoteBlockService = mockk<StaleVoteBlockService>()
             val service = VoteService(repository, staleVoteBlockService, Clock.systemUTC())
-            coEvery { staleVoteBlockService.flushQueued(1_000) } returns 0
+            coEvery { staleVoteBlockService.flushQueued(1_000) } returns emptyList()
 
             // when
             service.flush()
@@ -225,7 +227,27 @@ internal class VoteServiceTest {
             coVerify(exactly = 0) { repository.insertIgnoreAll(any()) }
             coVerify(exactly = 1) { staleVoteBlockService.flushQueued(1_000) }
             coVerify(exactly = 0) { repository.deleteStale() }
+            coVerify(exactly = 0) { repository.deleteStaleByBlockHashes(any()) }
             coVerify(exactly = 0) { staleVoteBlockService.reconcileOld(any()) }
+        }
+
+    @Test
+    fun `should delete unused stale vote blocks older than the grace period`() =
+        runTest {
+            // Given
+            val repository = mockk<VoteRepository>()
+            val staleVoteBlockService = mockk<StaleVoteBlockService>()
+            val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
+            val service = VoteService(repository, staleVoteBlockService, clock)
+            coEvery { staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1))) } returns 2
+
+            // When
+            service.deleteUnusedStaleVoteBlocks()
+
+            // Then
+            coVerify(exactly = 1) {
+                staleVoteBlockService.deleteUnusedOlderThan(Instant.EPOCH.minus(Duration.ofDays(1)))
+            }
         }
 
     private fun Vote.Companion.sample(): Vote =

@@ -2,7 +2,6 @@ package cash.atto.node.vote
 
 import cash.atto.commons.AttoHash
 import cash.atto.node.CacheSupport
-import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.sync.Mutex
 import org.springframework.stereotype.Service
 import java.time.Instant
@@ -16,29 +15,30 @@ class StaleVoteBlockService(
     private val buffer = ConcurrentLinkedDeque<AttoHash>()
     private val bufferDepth = AtomicInteger()
     private val flushMutex = Mutex()
-    private val logger = KotlinLogging.logger {}
 
     fun record(blockHash: AttoHash) {
         buffer.addLast(blockHash)
         bufferDepth.incrementAndGet()
     }
 
-    suspend fun flushQueued(limit: Int): Int {
+    suspend fun flushQueued(limit: Int): List<AttoHash> {
         if (!flushMutex.tryLock()) {
-            return 0
+            return emptyList()
         }
 
+        var blockHashes = emptyList<AttoHash>()
         return try {
-            val blockHashes = drainBatch(limit)
+            blockHashes = drainBatch(limit)
             if (blockHashes.isEmpty()) {
-                return 0
+                return emptyList()
             }
 
-            staleVoteBlockRepository.insertIgnoreAll(blockHashes)
-            blockHashes.size
+            val distinctBlockHashes = blockHashes.distinct()
+            staleVoteBlockRepository.insertIgnoreAll(distinctBlockHashes)
+            distinctBlockHashes
         } catch (e: Exception) {
-            logger.warn(e) { "Failed to flush stale vote blocks" }
-            0
+            requeue(blockHashes)
+            throw e
         } finally {
             flushMutex.unlock()
         }
@@ -67,6 +67,11 @@ class StaleVoteBlockService(
             bufferDepth.addAndGet(-blockHashes.size)
         }
 
-        return blockHashes.distinct()
+        return blockHashes
+    }
+
+    private fun requeue(blockHashes: List<AttoHash>) {
+        blockHashes.asReversed().forEach(buffer::addFirst)
+        bufferDepth.addAndGet(blockHashes.size)
     }
 }
