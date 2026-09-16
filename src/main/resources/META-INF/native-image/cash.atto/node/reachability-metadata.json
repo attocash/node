@@ -5260,11 +5260,12 @@
       "type": "cash.atto.node.election.ElectionVoter$Consensus",
       "methods": [
         {
-          "name": "publishVote",
+          "name": "launchVote",
           "parameterTypes": [
             "cash.atto.node.transaction.Transaction",
             "java.time.Instant",
-            "boolean"
+            "boolean",
+            "kotlinx.coroutines.Deferred"
           ]
         }
       ]
@@ -5276,7 +5277,7 @@
       "type": "cash.atto.node.election.ElectionVoter$Consensus$finalVote$1"
     },
     {
-      "type": "cash.atto.node.election.ElectionVoter$Consensus$publishVote$2"
+      "type": "cash.atto.node.election.ElectionVoter$Consensus$launchVote$2"
     },
     {
       "type": "cash.atto.node.election.ElectionVoter$Consensus$reaffirm$1"
@@ -5293,6 +5294,32 @@
     {
       "type": "cash.atto.node.election.ElectionVoterTest",
       "methods": [
+        {
+          "name": "should finish final voting despite delayed election handlers",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "afterEach",
+          "parameterTypes": []
+        },
+        {
+          "name": "should prepare final vote before saving and publish only after both finish",
+          "parameterTypes": [
+            "boolean"
+          ]
+        },
+        {
+          "name": "should cancel prepared final vote when election is discarded",
+          "parameterTypes": [
+            "boolean"
+          ]
+        },
+        {
+          "name": "should never publish prepared final vote for a different saved transaction",
+          "parameterTypes": []
+        },
         {
           "name": "<init>",
           "parameterTypes": []
