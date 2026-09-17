@@ -91,7 +91,7 @@ class ElectionVoterTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
-    fun `should prepare final vote before saving and publish only after both finish`(signBeforeSave: Boolean) =
+    fun `should cache final vote at election start and publish only after both finish`(signBeforeSave: Boolean) =
         runBlocking {
             // Given
             val transaction = Transaction.sample()
@@ -109,10 +109,9 @@ class ElectionVoterTest {
                 context.beanFactory.registerSingleton("electionVoter", electionVoter)
                 context.refresh()
                 val publisher = EventPublisher(context)
-                publisher.publish(ElectionStarted(account, transaction))
 
                 // When
-                publisher.publish(ElectionConsensusReached(account, transaction, emptySet()))
+                publisher.publish(ElectionStarted(account, transaction))
                 withTimeout(3_000) { signingStarted.await() }
                 if (signBeforeSave) {
                     signature.complete(AttoSignature(Random.nextBytes(64)))
@@ -148,7 +147,7 @@ class ElectionVoterTest {
 
     @ParameterizedTest
     @ValueSource(booleans = [true, false])
-    fun `should cancel prepared final vote when election is discarded`(expire: Boolean) =
+    fun `should cancel cached final vote when election is discarded`(expire: Boolean) =
         runBlocking {
             // Given
             val transaction = Transaction.sample()
@@ -167,7 +166,6 @@ class ElectionVoterTest {
                 }
             }
             electionVoter.process(ElectionStarted(account, transaction))
-            electionVoter.process(ElectionConsensusReached(account, transaction, emptySet()))
             withTimeout(3_000) { signingStarted.await() }
 
             // When
@@ -249,33 +247,81 @@ class ElectionVoterTest {
             }
         }
 
-    @Test
-    fun `should never publish prepared final vote for a different saved transaction`() =
+    @ParameterizedTest
+    @ValueSource(strings = ["start", "change", "consensus"])
+    fun `should keep final vote cached for the first election transaction`(subsequentEvent: String) =
         runBlocking {
             // Given
-            val preparedTransaction = Transaction.sample()
-            val savedTransaction = Transaction.sample()
+            val firstTransaction = Transaction.sample()
+            val laterTransaction = Transaction.sample()
             val signingStarted = CompletableDeferred<Unit>()
+            val signature = CompletableDeferred<AttoSignature>()
             coEvery { signer.sign(any<AttoVote>()) } coAnswers {
-                if (firstArg<AttoVote>().isFinal()) {
+                val vote = firstArg<AttoVote>()
+                if (vote.isFinal() && vote.blockHash == firstTransaction.hash) {
                     signingStarted.complete(Unit)
+                    signature.await()
+                } else {
+                    AttoSignature(Random.nextBytes(64))
                 }
-                AttoSignature(Random.nextBytes(64))
             }
-            electionVoter.process(ElectionStarted(account, preparedTransaction))
-            electionVoter.process(ElectionConsensusReached(account, preparedTransaction, emptySet()))
+            electionVoter.process(ElectionStarted(account, firstTransaction))
             withTimeout(3_000) { signingStarted.await() }
 
             // When
+            when (subsequentEvent) {
+                "start" -> electionVoter.process(ElectionStarted(account, laterTransaction))
+                "change" -> electionVoter.process(ElectionConsensusChanged(account, laterTransaction))
+                "consensus" -> electionVoter.process(ElectionConsensusReached(account, laterTransaction, emptySet()))
+            }
+            signature.complete(AttoSignature(Random.nextBytes(64)))
+            electionVoter.process(AccountUpdated(TransactionSource.ELECTION, account, account, firstTransaction))
+
+            // Then
+            verify(exactly = 1, timeout = 3_000) {
+                eventPublisher.publish(match { it is VoteValidated && it.transaction == firstTransaction && it.vote.isFinal() })
+            }
+            coVerify(exactly = 1) {
+                signer.sign(match<AttoVote> { it.isFinal() && it.blockHash == firstTransaction.hash })
+            }
+            coVerify(exactly = 0) {
+                signer.sign(match<AttoVote> { it.isFinal() && it.blockHash == laterTransaction.hash })
+            }
+        }
+
+    @Test
+    fun `should never publish cached final vote for a different saved transaction`() =
+        runBlocking {
+            // Given
+            val cachedTransaction = Transaction.sample()
+            val savedTransaction = Transaction.sample()
+            val cachingStarted = CompletableDeferred<Unit>()
+            val savedSigningStarted = CompletableDeferred<Unit>()
+            coEvery { signer.sign(any<AttoVote>()) } coAnswers {
+                val vote = firstArg<AttoVote>()
+                if (vote.isFinal() && vote.blockHash == cachedTransaction.hash) {
+                    cachingStarted.complete(Unit)
+                }
+                if (vote.isFinal() && vote.blockHash == savedTransaction.hash) {
+                    savedSigningStarted.complete(Unit)
+                }
+                AttoSignature(Random.nextBytes(64))
+            }
+            electionVoter.process(ElectionStarted(account, cachedTransaction))
+            withTimeout(3_000) { cachingStarted.await() }
+
+            // When
             electionVoter.process(AccountUpdated(TransactionSource.ELECTION, account, account, savedTransaction))
+            withTimeout(3_000) { savedSigningStarted.await() }
 
             // Then
             verify(exactly = 1, timeout = 3_000) {
                 eventPublisher.publish(match { it is VoteValidated && it.transaction == savedTransaction && it.vote.isFinal() })
             }
             verify(exactly = 0) {
-                eventPublisher.publish(match { it is VoteValidated && it.transaction == preparedTransaction && it.vote.isFinal() })
+                eventPublisher.publish(match { it is VoteValidated && it.transaction == cachedTransaction && it.vote.isFinal() })
             }
+            coVerify(exactly = 1) { signer.sign(match<AttoVote> { it.isFinal() && it.blockHash == cachedTransaction.hash }) }
             coVerify(exactly = 1) { signer.sign(match<AttoVote> { it.isFinal() && it.blockHash == savedTransaction.hash }) }
         }
 

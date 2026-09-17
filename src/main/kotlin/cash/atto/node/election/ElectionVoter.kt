@@ -46,7 +46,6 @@ import java.math.BigDecimal
 import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Executors
-import kotlin.concurrent.atomics.ExperimentalAtomicApi
 import kotlin.random.Random
 
 @Service
@@ -99,7 +98,7 @@ class ElectionVoter(
     @EventListener
     suspend fun process(event: ElectionConsensusReached) {
         val consensus = consensusFor(event.transaction) ?: return
-        consensus.prepareFinalVote(event.transaction, event.timestamp)
+        consensus.update(event.transaction, event.timestamp)
     }
 
     @EventListener
@@ -141,7 +140,11 @@ class ElectionVoter(
 
     private fun canVote(weight: AttoAmount): Boolean = thisNode.isVoter() && weight >= MIN_WEIGHT
 
-    @OptIn(ExperimentalAtomicApi::class)
+    private data class CachedVote(
+        val blockHash: AttoHash,
+        val signedVote: Deferred<AttoSignedVote>,
+    )
+
     private inner class Consensus(
         private var transaction: Transaction,
     ) {
@@ -150,12 +153,11 @@ class ElectionVoter(
         private val publicKeyHeight = transaction.toPublicKeyHeight()
         private var consensusTimestamp = transaction.block.timestamp.toJavaInstant()
         private var job: Job? = null
-        private var finalVoteHash: AttoHash? = null
-        private var preparedFinalVote: Deferred<AttoSignedVote>? = null
+        private var cachedFinalVote: CachedVote? = null
 
         fun cancel() {
             job?.cancel()
-            preparedFinalVote?.cancel()
+            cachedFinalVote?.signedVote?.cancel()
         }
 
         suspend fun start(timestamp: Instant) {
@@ -164,6 +166,13 @@ class ElectionVoter(
                     return@withLock
                 }
                 started = true
+                if (canVote(voteWeighter.get())) {
+                    cachedFinalVote =
+                        CachedVote(
+                            transaction.hash,
+                            scope.async { signVote(transaction, AttoVote.finalTimestamp.toJavaInstant()) },
+                        )
+                }
                 applyConsensus(transaction, timestamp, forceVote = true)
             }
         }
@@ -182,19 +191,6 @@ class ElectionVoter(
             applyConsensus(transaction, timestamp)
         }
 
-        suspend fun prepareFinalVote(
-            transaction: Transaction,
-            timestamp: Instant,
-        ) = mutex.withLock {
-            applyConsensus(transaction, timestamp)
-            if (finalVoteHash == transaction.hash || !canVote(voteWeighter.get())) {
-                return@withLock
-            }
-            preparedFinalVote?.cancel()
-            finalVoteHash = transaction.hash
-            preparedFinalVote = scope.async { signVote(transaction, AttoVote.finalTimestamp.toJavaInstant()) }
-        }
-
         suspend fun reaffirm() =
             mutex.withLock {
                 publishVote(transaction, Instant.now())
@@ -202,13 +198,17 @@ class ElectionVoter(
 
         suspend fun finalVote(transaction: Transaction) =
             mutex.withLock {
-                val prepared = preparedFinalVote.takeIf { finalVoteHash == transaction.hash }
-                if (prepared != null) {
-                    preparedFinalVote = null
+                val cached = cachedFinalVote?.takeIf { it.blockHash == transaction.hash }
+                if (cached != null) {
+                    cachedFinalVote = null
                 }
                 remove()
                 // Committed final votes must survive late provisional updates.
-                launchVote(transaction, AttoVote.finalTimestamp.toJavaInstant(), prepared = prepared)
+                launchVote(
+                    transaction,
+                    AttoVote.finalTimestamp.toJavaInstant(),
+                    cached = cached?.signedVote,
+                )
             }
 
         suspend fun expire() =
@@ -229,11 +229,11 @@ class ElectionVoter(
             transaction: Transaction,
             timestamp: Instant,
             consensusChanged: Boolean = false,
-            prepared: Deferred<AttoSignedVote>? = null,
+            cached: Deferred<AttoSignedVote>? = null,
         ): Job? {
             val weight = voteWeighter.get()
             if (!canVote(weight)) {
-                prepared?.cancel()
+                cached?.cancel()
                 logger.trace { "This node can't vote yet" }
                 return null
             }
@@ -251,7 +251,7 @@ class ElectionVoter(
                     delay(baseDelay + extraDelay)
                 }
 
-                val attoSignedVote = prepared?.await() ?: signVote(transaction, timestamp)
+                val attoSignedVote = cached?.await() ?: signVote(transaction, timestamp)
 
                 val votePush =
                     AttoVotePush(
