@@ -1770,10 +1770,15 @@
           ]
         },
         {
+          "name": "flush",
+          "parameterTypes": [
+            "kotlin.coroutines.Continuation"
+          ]
+        },
+        {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.account.AccountUpdated",
-            "kotlin.coroutines.Continuation"
+            "cash.atto.node.account.AccountUpdated"
           ]
         }
       ]
@@ -8928,242 +8933,6 @@
       "type": "cash.atto.node.vote.PublicKeyHash__Accessor_s3dk6x"
     },
     {
-      "type": "cash.atto.node.vote.StaleVoteBlock"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockBulkRepository",
-      "methods": [
-        {
-          "name": "insertIgnoreAll",
-          "parameterTypes": [
-            "java.util.Collection",
-            "kotlin.coroutines.Continuation"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockBulkRepositoryImpl",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "org.springframework.r2dbc.core.DatabaseClient"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockBulkRepositoryImpl$insertIgnoreAll$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockBulkRepositoryImpl$insertIgnoreAll$2$3"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockBulkRepositoryImpl__TestContext001_BeanDefinitions"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRecorder",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "cash.atto.node.vote.StaleVoteBlockService"
-          ]
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.account.AccountUpdated"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRecorderTest",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "does not record stale hash when account hash is unchanged",
-          "parameterTypes": []
-        },
-        {
-          "name": "records previous account hash when account advances",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRecorderTest$does not record stale hash when account hash is unchanged$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRecorderTest$records previous account hash when account advances$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRecorder__TestContext001_BeanDefinitions"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRepository"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockRepository__TestContext001_BeanDefinitions"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockService",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "cash.atto.node.vote.StaleVoteBlockRepository"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockService$flushQueued$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "deletes unused stale block hashes through repository",
-          "parameterTypes": []
-        },
-        {
-          "name": "drops stale block hashes when flush fails",
-          "parameterTypes": []
-        },
-        {
-          "name": "flushes at most requested stale block hashes",
-          "parameterTypes": []
-        },
-        {
-          "name": "flushes queued stale block hashes through repository",
-          "parameterTypes": []
-        },
-        {
-          "name": "reconciles old stale block hashes through repository",
-          "parameterTypes": []
-        },
-        {
-          "name": "records stale block hash in queue",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$deletes unused stale block hashes through repository$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$deletes unused stale block hashes through repository$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$deletes unused stale block hashes through repository$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$drops stale block hashes when flush fails$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$drops stale block hashes when flush fails$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$drops stale block hashes when flush fails$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes at most requested stale block hashes$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes at most requested stale block hashes$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes at most requested stale block hashes$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes queued stale block hashes through repository$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes queued stale block hashes through repository$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$flushes queued stale block hashes through repository$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$reconciles old stale block hashes through repository$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$reconciles old stale block hashes through repository$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$reconciles old stale block hashes through repository$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$records stale block hash in queue$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockServiceTest$records stale block hash in queue$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlockService__TestContext001_BeanDefinitions"
-    },
-    {
-      "type": "cash.atto.node.vote.StaleVoteBlock__Accessor_os7gk9"
-    },
-    {
       "type": "cash.atto.node.vote.Vote"
     },
     {
@@ -9397,9 +9166,7 @@
         {
           "name": "<init>",
           "parameterTypes": [
-            "cash.atto.node.vote.VoteRepository",
-            "cash.atto.node.vote.StaleVoteBlockService",
-            "java.time.Clock"
+            "cash.atto.node.vote.VoteRepository"
           ]
         },
         {
@@ -9407,18 +9174,46 @@
           "parameterTypes": [
             "kotlin.coroutines.Continuation"
           ]
-        },
-        {
-          "name": "reconcileOldVoteBlocksOnStartup",
-          "parameterTypes": []
         }
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteService$Companion"
+      "type": "cash.atto.node.vote.VoteCleaner",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.vote.VoteRepository",
+            "java.time.Clock"
+          ]
+        },
+        {
+          "name": "deleteStaleVotesOnStartup",
+          "parameterTypes": []
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.account.AccountUpdated",
+            "kotlin.coroutines.Continuation"
+          ]
+        }
+      ]
     },
     {
-      "type": "cash.atto.node.vote.VoteService$cleanStaleVotes$1"
+      "type": "cash.atto.node.vote.VoteCleaner$Companion"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$deleteStaleVotesOnStartup$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$flush$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$flushBatch$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteService$Companion"
     },
     {
       "type": "cash.atto.node.vote.VoteService$flush$1"
@@ -9427,241 +9222,7 @@
       "type": "cash.atto.node.vote.VoteService$flushBatch$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteService$reconcileOldVoteBlocksOnStartup$1"
-    },
-    {
       "type": "cash.atto.node.vote.VoteService$saveAll$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        },
-        {
-          "name": "should clean stale votes after queued stale blocks are flushed",
-          "parameterTypes": []
-        },
-        {
-          "name": "should enqueue and flush votes",
-          "parameterTypes": []
-        },
-        {
-          "name": "should flush at most one thousand votes at a time",
-          "parameterTypes": []
-        },
-        {
-          "name": "should leave stale vote cleanup for next request when cleanup fails",
-          "parameterTypes": []
-        },
-        {
-          "name": "should not insert votes when buffer is empty",
-          "parameterTypes": []
-        },
-        {
-          "name": "should reconcile old vote blocks once during startup",
-          "parameterTypes": []
-        },
-        {
-          "name": "should remove old votes after flushed votes when removal is requested",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should clean stale votes after queued stale blocks are flushed$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$6"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$6"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should leave stale vote cleanup for next request when cleanup fails$1$7"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$6"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should reconcile old vote blocks once during startup$1$7"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$3"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$4"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$5"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should remove old votes after flushed votes when removal is requested$1$6"
     },
     {
       "type": "cash.atto.node.vote.VoteService__TestContext001_BeanDefinitions"
@@ -29264,17 +28825,6 @@
     {
       "type": {
         "proxy": [
-          "cash.atto.node.vote.StaleVoteBlockRepository",
-          "org.springframework.data.repository.Repository",
-          "org.springframework.transaction.interceptor.TransactionalProxy",
-          "org.springframework.aop.framework.Advised",
-          "org.springframework.core.DecoratingProxy"
-        ]
-      }
-    },
-    {
-      "type": {
-        "proxy": [
           "cash.atto.node.vote.VoteRepository",
           "org.springframework.data.repository.Repository",
           "org.springframework.transaction.interceptor.TransactionalProxy",
@@ -30608,21 +30158,6 @@
       "glob": "cash/atto/node/vote/MissingVote.class"
     },
     {
-      "glob": "cash/atto/node/vote/StaleVoteBlockBulkRepository.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/StaleVoteBlockBulkRepositoryImpl.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/StaleVoteBlockRecorder.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/StaleVoteBlockRepository.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/StaleVoteBlockService.class"
-    },
-    {
       "glob": "cash/atto/node/vote/Vote.class"
     },
     {
@@ -30651,6 +30186,12 @@
     },
     {
       "glob": "cash/atto/node/vote/VoteService$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/vote/VoteCleaner.class"
+    },
+    {
+      "glob": "cash/atto/node/vote/VoteCleaner$Companion.class"
     },
     {
       "glob": "cash/atto/node/vote/VoteService.class"

@@ -8,6 +8,7 @@ import org.springframework.data.r2dbc.repository.Modifying
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import java.math.BigInteger
+import java.time.Instant
 
 interface VoteRepository :
     CoroutineCrudRepository<Vote, AttoHash>,
@@ -29,21 +30,16 @@ interface VoteRepository :
         """
             DELETE v
             FROM vote v
-                     JOIN stale_vote_block s ON s.block_hash = v.block_hash
+                     LEFT JOIN account a ON a.last_transaction_hash = v.block_hash
+            WHERE a.last_transaction_hash IS NULL
+              AND v.received_at < :receivedBefore
         """,
     )
-    suspend fun deleteStale(): Int
+    suspend fun deleteStale(receivedBefore: Instant): Int
 
     @Modifying
-    @Query(
-        """
-            DELETE v
-            FROM vote v
-                     JOIN stale_vote_block s ON s.block_hash = v.block_hash
-            WHERE v.block_hash IN (:blockHashes)
-        """,
-    )
-    suspend fun deleteStaleByBlockHashes(blockHashes: Collection<AttoHash>): Int
+    @Query("DELETE FROM vote WHERE block_hash IN (:blockHashes)")
+    suspend fun deleteByBlockHashes(blockHashes: Collection<AttoHash>): Int
 
     @Query(
         """
