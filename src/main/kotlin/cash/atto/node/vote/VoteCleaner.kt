@@ -2,18 +2,15 @@ package cash.atto.node.vote
 
 import cash.atto.commons.AttoHash
 import cash.atto.node.CacheSupport
+import cash.atto.node.DemandDrivenWorker
 import cash.atto.node.account.AccountUpdated
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
+import jakarta.annotation.PreDestroy
 import org.springframework.boot.context.event.ApplicationReadyEvent
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
 import java.time.Clock
 import java.time.Duration
 import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @Component
@@ -28,7 +25,7 @@ class VoteCleaner(
 
     private val buffer = ConcurrentLinkedDeque<AttoHash>()
     private val bufferDepth = AtomicInteger()
-    private val flushMutex = Mutex()
+    private val worker = DemandDrivenWorker("vote-cleaner", drain = ::drain)
 
     @EventListener
     fun process(event: AccountUpdated) {
@@ -39,30 +36,26 @@ class VoteCleaner(
 
         buffer.addLast(staleBlockHash)
         bufferDepth.incrementAndGet()
-    }
-
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MILLISECONDS)
-    suspend fun flush() {
-        if (!flushMutex.tryLock()) {
-            return
-        }
-
-        try {
-            flushBatch(BATCH_SIZE)
-        } finally {
-            flushMutex.unlock()
-        }
+        worker.request()
     }
 
     @EventListener(ApplicationReadyEvent::class)
-    fun deleteStaleVotesOnStartup() =
-        runBlocking {
-            flushMutex.withLock {
-                voteRepository.deleteStale(clock.instant().minus(STARTUP_CLEANUP_GRACE))
-            }
-        }
+    suspend fun deleteStaleVotesOnStartup() {
+        voteRepository.deleteStale(clock.instant().minus(STARTUP_CLEANUP_GRACE))
+    }
+
+    @PreDestroy
+    fun stop() {
+        worker.cancel()
+    }
 
     fun getBufferSize(): Int = bufferDepth.get()
+
+    private suspend fun drain() {
+        while (bufferDepth.get() > 0) {
+            flushBatch(BATCH_SIZE)
+        }
+    }
 
     override fun clear() {
         buffer.clear()

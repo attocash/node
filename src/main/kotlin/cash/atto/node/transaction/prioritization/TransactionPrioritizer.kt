@@ -4,6 +4,7 @@ import cash.atto.commons.AttoHash
 import cash.atto.commons.PreviousSupport
 import cash.atto.commons.ReceiveSupport
 import cash.atto.node.CacheSupport
+import cash.atto.node.DemandDrivenWorker
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
@@ -21,8 +22,8 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
+import jakarta.annotation.PreDestroy
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
@@ -39,6 +40,7 @@ class TransactionPrioritizer(
     private val maxActiveElections = properties.maxActiveElections!!
     private val duplicateDetector = DuplicateDetector<AttoHash>(60.seconds)
     private val electionDependencies = ConcurrentHashMap<AttoHash, MutableSet<Transaction>>()
+    private val worker = DemandDrivenWorker("transaction-prioritizer", drain = ::drain)
 
     @PostConstruct
     fun start() {
@@ -56,8 +58,12 @@ class TransactionPrioritizer(
             .register(meterRegistry)
     }
 
-    @Scheduled(fixedRateString = "\${atto.transaction.prioritization.frequency}")
-    fun process() {
+    @PreDestroy
+    fun stop() {
+        worker.cancel()
+    }
+
+    private fun drain() {
         do {
             val pendingDependencyCount = electionDependencies.size
             if (pendingDependencyCount >= maxActiveElections) {
@@ -93,7 +99,7 @@ class TransactionPrioritizer(
     fun process(event: AccountUpdated) {
         val hash = event.transaction.hash
 
-        val bufferedTransactions = electionDependencies.remove(hash) ?: emptySet()
+        val bufferedTransactions = electionDependencies.remove(hash) ?: return
 
         if (bufferedTransactions.isNotEmpty()) {
             logger.debug { "Dependency $hash resolved. Re-processing ${bufferedTransactions.size} transactions." }
@@ -101,6 +107,8 @@ class TransactionPrioritizer(
                 add(it)
             }
         }
+
+        worker.request()
     }
 
     @EventListener
@@ -110,13 +118,17 @@ class TransactionPrioritizer(
 
     @EventListener
     fun process(event: ElectionExpired) {
-        electionDependencies.remove(event.transaction.hash)
+        if (electionDependencies.remove(event.transaction.hash) != null) {
+            worker.request()
+        }
         duplicateDetector.remove(event.transaction.hash)
     }
 
     @EventListener
     fun process(event: ElectionLost) {
-        electionDependencies.remove(event.transaction.hash)
+        if (electionDependencies.remove(event.transaction.hash) != null) {
+            worker.request()
+        }
     }
 
     @EventListener
@@ -147,6 +159,7 @@ class TransactionPrioritizer(
         } else {
             logger.debug { "Queued $transaction" }
         }
+        worker.request()
     }
 
     private fun bufferIfElectionActive(

@@ -4,6 +4,7 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
+import cash.atto.node.DemandDrivenWorker
 import cash.atto.node.DuplicateDetector
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountUpdated
@@ -21,10 +22,10 @@ import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.prioritization.VoteQueue.TransactionVote
 import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
+import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
-import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.minutes
@@ -38,6 +39,7 @@ class VotePrioritizer(
 
     private val mutex = Mutex()
     private val queue = VoteQueue(properties.queueMaxSize!!)
+    private val worker = DemandDrivenWorker("vote-prioritizer", drain = ::drain)
 
     private val activeElections = ConcurrentHashMap<AttoHash, Transaction>()
 
@@ -130,9 +132,12 @@ class VotePrioritizer(
                 if (transaction != null) {
                     logger.trace { "Queued for prioritization. $vote" }
 
-                    queue.add(TransactionVote(transaction, vote))?.let {
-                        VoteDropped(it.vote, VoteDropReason.SUPERSEDED)
-                    }
+                    val droppedVote =
+                        queue.add(TransactionVote(transaction, vote))?.let {
+                            VoteDropped(it.vote, VoteDropReason.SUPERSEDED)
+                        }
+                    worker.request()
+                    droppedVote
                 } else if (rejectedTransactionCache.containsKey(vote.blockHash)) {
                     VoteDropped(vote, VoteDropReason.TRANSACTION_DROPPED)
                 } else {
@@ -157,8 +162,12 @@ class VotePrioritizer(
         }
     }
 
-    @Scheduled(fixedRateString = "\${atto.vote.prioritization.frequency}")
-    suspend fun process() {
+    @PreDestroy
+    fun stop() {
+        worker.cancel()
+    }
+
+    private suspend fun drain() {
         do {
             val transactionVote = mutex.withLock { queue.poll() }
             transactionVote?.let {

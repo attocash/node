@@ -1311,6 +1311,59 @@
       "type": "cash.atto.node.CucumberTest"
     },
     {
+      "type": "cash.atto.node.DemandDrivenWorker"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorker$Companion"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorker$job$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "doubles retry backoff up to one minute",
+          "parameterTypes": []
+        },
+        {
+          "name": "resets retry backoff after a successful drain",
+          "parameterTypes": []
+        },
+        {
+          "name": "waits once before draining accumulated requests",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$doubles retry backoff up to one minute$1"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$doubles retry backoff up to one minute$1$worker$1"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$resets retry backoff after a successful drain$1"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$resets retry backoff after a successful drain$1$worker$1"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$waits once before draining accumulated requests$1"
+    },
+    {
+      "type": "cash.atto.node.DemandDrivenWorkerTest$waits once before draining accumulated requests$1$worker$1"
+    },
+    {
       "type": "cash.atto.node.DuplicateDetector"
     },
     {
@@ -4907,16 +4960,8 @@
           "parameterTypes": [
             "cash.atto.node.network.NetworkMessagePublisher",
             "cash.atto.node.account.AccountService",
-            "cash.atto.node.election.ElectionProperties",
             "io.micrometer.core.instrument.MeterRegistry",
-            "org.springframework.transaction.ReactiveTransactionManager",
-            "java.time.Clock"
-          ]
-        },
-        {
-          "name": "flush",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
+            "org.springframework.transaction.ReactiveTransactionManager"
           ]
         },
         {
@@ -4929,14 +4974,15 @@
         {
           "name": "start",
           "parameterTypes": []
+        },
+        {
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessor$PendingElectionConsensus"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessor$flush$1",
+      "type": "cash.atto.node.election.ElectionProcessor$drain$1",
       "fields": [
         {
           "name": "label"
@@ -4955,6 +5001,17 @@
       "type": "cash.atto.node.election.ElectionProcessor$flushBatch$timing$1"
     },
     {
+      "type": "cash.atto.node.election.ElectionProcessor$flushBatchWithMetrics$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessor$worker$1"
+    },
+    {
       "type": "cash.atto.node.election.ElectionProcessorTest",
       "methods": [
         {
@@ -4962,19 +5019,7 @@
           "parameterTypes": []
         },
         {
-          "name": "backoff gate skips queue work until retry time",
-          "parameterTypes": []
-        },
-        {
-          "name": "backs off queued consensus events when persistence fails",
-          "parameterTypes": []
-        },
-        {
-          "name": "does not record persistence phases when commit fails and retries after backoff",
-          "parameterTypes": []
-        },
-        {
-          "name": "keeps consensus event queued after repeated persistence failures",
+          "name": "does not record persistence phases when commit fails before retry",
           "parameterTypes": []
         },
         {
@@ -4982,17 +5027,18 @@
           "parameterTypes": []
         },
         {
-          "name": "persists drained consensus events in one batch",
+          "name": "persists sequential consensus events in FIFO order",
           "parameterTypes": []
         },
         {
-          "name": "skips phase observations when persistence joins an outer transaction",
+          "name": "worker persists queued consensus",
+          "parameterTypes": []
+        },
+        {
+          "name": "worker requeues and retries consensus when persistence fails",
           "parameterTypes": []
         }
       ]
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$MutableClock"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessorTest$RecordingReactiveTransactionManager"
@@ -5001,12 +5047,7 @@
       "type": "cash.atto.node.election.ElectionProcessorTest$RecordingReactiveTransactionManager$TestTransaction"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backoff gate skips queue work until retry time$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ],
+      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails before retry$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -5017,73 +5058,7 @@
       ]
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backoff gate skips queue work until retry time$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backoff gate skips queue work until retry time$1$2"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backs off queued consensus events when persistence fails$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ],
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backs off queued consensus events when persistence fails$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$backs off queued consensus events when persistence fails$1$2"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails and retries after backoff$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ],
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails and retries after backoff$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$keeps consensus event queued after repeated persistence failures$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ],
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$keeps consensus event queued after repeated persistence failures$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.ElectionProcessorTest$keeps consensus event queued after repeated persistence failures$1$2"
+      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails before retry$1$1"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1",
@@ -5106,7 +5081,7 @@
       "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1$2$1"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$persists drained consensus events in one batch$1",
+      "type": "cash.atto.node.election.ElectionProcessorTest$persists sequential consensus events in FIFO order$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -5117,13 +5092,13 @@
       ]
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$persists drained consensus events in one batch$1$1"
+      "type": "cash.atto.node.election.ElectionProcessorTest$persists sequential consensus events in FIFO order$1$1"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$persists drained consensus events in one batch$1$2"
+      "type": "cash.atto.node.election.ElectionProcessorTest$persists sequential consensus events in FIFO order$1$2"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1",
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker persists queued consensus$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -5134,10 +5109,27 @@
       ]
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1$1"
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker persists queued consensus$1$1"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1$2"
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker persists queued consensus$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker requeues and retries consensus when persistence fails$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker requeues and retries consensus when persistence fails$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$worker requeues and retries consensus when persistence fails$1$2"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessor__TestContext001_BeanDefinitions"
@@ -5163,18 +5155,6 @@
           "name": "setExpiringAfterTimeInSeconds",
           "parameterTypes": [
             "java.lang.Long"
-          ]
-        },
-        {
-          "name": "setProcessingRetryInitialBackoffInSeconds",
-          "parameterTypes": [
-            "long"
-          ]
-        },
-        {
-          "name": "setProcessingRetryMaxBackoffInSeconds",
-          "parameterTypes": [
-            "long"
           ]
         }
       ]
@@ -5952,25 +5932,26 @@
           ]
         },
         {
-          "name": "flush",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
-        },
-        {
           "name": "process",
           "parameterTypes": [
             "cash.atto.node.election.ElectionConsensusReached",
             "kotlin.coroutines.Continuation"
           ]
+        },
+        {
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
     },
     {
-      "type": "cash.atto.node.election.VoteTimestampRecorder$flush$1"
+      "type": "cash.atto.node.election.VoteTimestampRecorder$drain$1"
     },
     {
       "type": "cash.atto.node.election.VoteTimestampRecorder$flushPending$1"
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorder$worker$1"
     },
     {
       "type": "cash.atto.node.election.VoteTimestampRecorderTest",
@@ -5980,58 +5961,18 @@
           "parameterTypes": []
         },
         {
-          "name": "should keep newer timestamp that arrives during flush",
-          "parameterTypes": []
-        },
-        {
-          "name": "should keep pending timestamps when recording fails",
-          "parameterTypes": []
-        },
-        {
           "name": "should record latest vote timestamps",
           "parameterTypes": []
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep newer timestamp that arrives during flush$1",
-      "methods": [
+        },
         {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep newer timestamp that arrives during flush$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep newer timestamp that arrives during flush$1$2"
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep pending timestamps when recording fails$1",
-      "methods": [
+          "name": "worker records a newer timestamp that arrives during flush without another delay",
+          "parameterTypes": []
+        },
         {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
+          "name": "worker retries pending timestamps without another delay",
+          "parameterTypes": []
         }
       ]
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep pending timestamps when recording fails$1$1"
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep pending timestamps when recording fails$1$2"
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep pending timestamps when recording fails$1$3$1"
-    },
-    {
-      "type": "cash.atto.node.election.VoteTimestampRecorderTest$should keep pending timestamps when recording fails$1$invokeSuspend$$inlined$assertThrows$1"
     },
     {
       "type": "cash.atto.node.election.VoteTimestampRecorderTest$should record latest vote timestamps$1",
@@ -6049,6 +5990,40 @@
     },
     {
       "type": "cash.atto.node.election.VoteTimestampRecorderTest$should record latest vote timestamps$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker records a newer timestamp that arrives during flush without another delay$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker records a newer timestamp that arrives during flush without another delay$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker records a newer timestamp that arrives during flush without another delay$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker retries pending timestamps without another delay$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker retries pending timestamps without another delay$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.VoteTimestampRecorderTest$worker retries pending timestamps without another delay$1$2"
     },
     {
       "type": "cash.atto.node.election.VoteTimestampRecorder__TestContext001_BeanDefinitions"
@@ -6387,28 +6362,13 @@
       "type": "cash.atto.node.network.NetworkProcessor$bootstrap$1"
     },
     {
-      "type": "cash.atto.node.network.NetworkProcessor$connectAsync$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkProcessor$connectAsync$2"
     },
     {
-      "type": "cash.atto.node.network.NetworkProcessor$connection$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkProcessor$connection$2"
     },
     {
-      "type": "cash.atto.node.network.NetworkProcessor$connection$2$5",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkProcessor$connection$2$5"
     },
     {
       "type": "cash.atto.node.network.NetworkProcessor$connection$2$timeoutJob$1",
@@ -8808,10 +8768,6 @@
         },
         {
           "name": "process",
-          "parameterTypes": []
-        },
-        {
-          "name": "process",
           "parameterTypes": [
             "cash.atto.node.account.AccountUpdated"
           ]
@@ -8831,8 +8787,15 @@
         {
           "name": "start",
           "parameterTypes": []
+        },
+        {
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
+    },
+    {
+      "type": "cash.atto.node.transaction.prioritization.TransactionPrioritizer$worker$1"
     },
     {
       "type": "cash.atto.node.transaction.prioritization.TransactionPrioritizerTest",
@@ -8847,6 +8810,10 @@
         },
         {
           "name": "recoverable rejection allows the same transaction to be queued again",
+          "parameterTypes": []
+        },
+        {
+          "name": "releasing election capacity resumes queued transactions",
           "parameterTypes": []
         }
       ]
@@ -9403,10 +9370,6 @@
         },
         {
           "name": "deleteStaleVotesOnStartup",
-          "parameterTypes": []
-        },
-        {
-          "name": "flush",
           "parameterTypes": [
             "kotlin.coroutines.Continuation"
           ]
@@ -9416,6 +9379,10 @@
           "parameterTypes": [
             "cash.atto.node.account.AccountUpdated"
           ]
+        },
+        {
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
     },
@@ -9426,10 +9393,13 @@
       "type": "cash.atto.node.vote.VoteCleaner$deleteStaleVotesOnStartup$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteCleaner$flush$1"
+      "type": "cash.atto.node.vote.VoteCleaner$drain$1"
     },
     {
       "type": "cash.atto.node.vote.VoteCleaner$flushBatch$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$worker$1"
     },
     {
       "type": "cash.atto.node.vote.VoteCleanerTest",
@@ -9443,15 +9413,19 @@
           "parameterTypes": []
         },
         {
-          "name": "deletes votes for previous account tip when account advances",
-          "parameterTypes": []
-        },
-        {
           "name": "does not delete votes when account tip is unchanged",
           "parameterTypes": []
         },
         {
-          "name": "requeues stale block hashes in FIFO order when deletion fails",
+          "name": "worker deletes queued votes after one coalescing wait",
+          "parameterTypes": []
+        },
+        {
+          "name": "worker retries retained cleanup without another delay",
+          "parameterTypes": []
+        },
+        {
+          "name": "worker retries stale block hashes in FIFO order when deletion fails",
           "parameterTypes": []
         }
       ]
@@ -9474,23 +9448,6 @@
       "type": "cash.atto.node.vote.VoteCleanerTest$deletes stale votes using account tips during startup$1$2"
     },
     {
-      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1$2"
-    },
-    {
       "type": "cash.atto.node.vote.VoteCleanerTest$does not delete votes when account tip is unchanged$1",
       "methods": [
         {
@@ -9505,7 +9462,7 @@
       "type": "cash.atto.node.vote.VoteCleanerTest$does not delete votes when account tip is unchanged$1$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1",
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker deletes queued votes after one coalescing wait$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -9516,13 +9473,44 @@
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$1"
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker deletes queued votes after one coalescing wait$1$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$2"
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker deletes queued votes after one coalescing wait$1$3"
     },
     {
-      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$3"
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries retained cleanup without another delay$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries retained cleanup without another delay$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries retained cleanup without another delay$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries stale block hashes in FIFO order when deletion fails$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries stale block hashes in FIFO order when deletion fails$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$worker retries stale block hashes in FIFO order when deletion fails$1$2"
     },
     {
       "type": "cash.atto.node.vote.VoteCleaner__TestContext001_BeanDefinitions"
@@ -9662,6 +9650,12 @@
         {
           "name": "process",
           "parameterTypes": [
+            "cash.atto.node.vote.VoteRejected"
+          ]
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
             "cash.atto.node.vote.VoteValidated",
             "kotlin.coroutines.Continuation"
           ]
@@ -9727,10 +9721,8 @@
           ]
         },
         {
-          "name": "flush",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
     },
@@ -9738,13 +9730,16 @@
       "type": "cash.atto.node.vote.VoteService$Companion"
     },
     {
-      "type": "cash.atto.node.vote.VoteService$flush$1"
+      "type": "cash.atto.node.vote.VoteService$drain$1"
     },
     {
       "type": "cash.atto.node.vote.VoteService$flushBatch$1"
     },
     {
       "type": "cash.atto.node.vote.VoteService$saveAll$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteService$worker$1"
     },
     {
       "type": "cash.atto.node.vote.VoteServiceTest",
@@ -9754,21 +9749,17 @@
           "parameterTypes": []
         },
         {
-          "name": "should enqueue and flush votes",
+          "name": "worker remains available after a failed insert",
           "parameterTypes": []
         },
         {
-          "name": "should flush at most one thousand votes at a time",
-          "parameterTypes": []
-        },
-        {
-          "name": "should not insert votes when buffer is empty",
+          "name": "worker waits once then drains every queued batch",
           "parameterTypes": []
         }
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1",
+      "type": "cash.atto.node.vote.VoteServiceTest$worker remains available after a failed insert$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -9779,13 +9770,19 @@
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$1"
+      "type": "cash.atto.node.vote.VoteServiceTest$worker remains available after a failed insert$1$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$2"
+      "type": "cash.atto.node.vote.VoteServiceTest$worker remains available after a failed insert$1$2"
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1",
+      "type": "cash.atto.node.vote.VoteServiceTest$worker remains available after a failed insert$1$5"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$worker remains available after a failed insert$1$6"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$worker waits once then drains every queued batch$1",
       "methods": [
         {
           "name": "invokeSuspend",
@@ -9796,24 +9793,10 @@
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$1"
+      "type": "cash.atto.node.vote.VoteServiceTest$worker waits once then drains every queued batch$1$1"
     },
     {
-      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$2"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1",
-      "methods": [
-        {
-          "name": "invokeSuspend",
-          "parameterTypes": [
-            "java.lang.Object"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$1"
+      "type": "cash.atto.node.vote.VoteServiceTest$worker waits once then drains every queued batch$1$2"
     },
     {
       "type": "cash.atto.node.vote.VoteService__TestContext001_BeanDefinitions"
@@ -9852,7 +9835,6 @@
           "name": "<init>",
           "parameterTypes": [
             "cash.atto.node.vote.keeping.VoteKeeper",
-            "cash.atto.node.vote.VoteService",
             "cash.atto.node.vote.VoteRepository",
             "cash.atto.node.vote.weight.VoteWeighter"
           ]
@@ -10031,15 +10013,16 @@
           ]
         },
         {
-          "name": "process",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
+          "name": "stop",
+          "parameterTypes": []
         }
       ]
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$add$3"
+    },
+    {
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$drain$1"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$1"
@@ -10048,13 +10031,13 @@
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$3"
     },
     {
-      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$5"
-    },
-    {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$voteBuffer$1"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$voteBuffer$2"
+    },
+    {
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$worker$1"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizerTest",
@@ -14125,14 +14108,6 @@
       ]
     },
     {
-      "type": "io.ktor.client.plugins.websocket.BuildersKt$webSocket$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.network.selector.InterestSuspensionsMap"
     },
     {
@@ -14146,15 +14121,6 @@
     },
     {
       "type": "io.ktor.network.selector.SelectableBase"
-    },
-    {
-      "type": "io.ktor.network.selector.SelectorManagerSupport$ClosedSelectorCancellationException",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": []
-        }
-      ]
     },
     {
       "type": "io.ktor.network.sockets.CIOReaderKt$attachForReadingDirectImpl$1",
@@ -18129,12 +18095,6 @@
       "type": "java.util.ArrayList"
     },
     {
-      "type": "java.util.Arrays"
-    },
-    {
-      "type": "java.util.Arrays$ArrayList"
-    },
-    {
       "type": "java.util.Collection"
     },
     {
@@ -18244,15 +18204,6 @@
       "type": "java.util.concurrent.Executor"
     },
     {
-      "type": "java.util.concurrent.ForkJoinPool",
-      "methods": [
-        {
-          "name": "getDelayedTaskCount",
-          "parameterTypes": []
-        }
-      ]
-    },
-    {
       "type": "java.util.concurrent.Future"
     },
     {
@@ -18265,12 +18216,6 @@
       "type": "java.util.concurrent.Semaphore"
     },
     {
-      "type": "java.util.concurrent.ThreadFactory"
-    },
-    {
-      "type": "java.util.concurrent.ThreadPerTaskExecutor"
-    },
-    {
       "type": "java.util.concurrent.TimeUnit"
     },
     {
@@ -18278,9 +18223,6 @@
     },
     {
       "type": "java.util.concurrent.atomic.AtomicLong"
-    },
-    {
-      "type": "java.util.concurrent.atomic.AtomicReference"
     },
     {
       "type": "java.util.concurrent.locks.AbstractOwnableSynchronizer",
@@ -18401,9 +18343,6 @@
     },
     {
       "type": "kotlin.Enum"
-    },
-    {
-      "type": "kotlin.Exception"
     },
     {
       "type": "kotlin.Float"
@@ -22209,9 +22148,9 @@
           "parameterTypes": []
         },
         {
-          "name": "taskScheduler",
+          "name": "taskSchedulerVirtualThreads",
           "parameterTypes": [
-            "org.springframework.boot.task.ThreadPoolTaskSchedulerBuilder"
+            "org.springframework.boot.task.SimpleAsyncTaskSchedulerBuilder"
           ]
         }
       ]
@@ -22301,7 +22240,7 @@
           ]
         },
         {
-          "name": "simpleAsyncTaskExecutorBuilder",
+          "name": "simpleAsyncTaskExecutorBuilderVirtualThreads",
           "parameterTypes": []
         }
       ]
@@ -22314,9 +22253,9 @@
           "parameterTypes": []
         },
         {
-          "name": "applicationTaskExecutor",
+          "name": "applicationTaskExecutorVirtualThreads",
           "parameterTypes": [
-            "org.springframework.boot.task.ThreadPoolTaskExecutorBuilder"
+            "org.springframework.boot.task.SimpleAsyncTaskExecutorBuilder"
           ]
         }
       ]
@@ -22387,7 +22326,7 @@
           ]
         },
         {
-          "name": "simpleAsyncTaskSchedulerBuilder",
+          "name": "simpleAsyncTaskSchedulerBuilderVirtualThreads",
           "parameterTypes": []
         }
       ]
@@ -26591,6 +26530,9 @@
       "type": "org.springframework.core.task.AsyncTaskExecutor"
     },
     {
+      "type": "org.springframework.core.task.SimpleAsyncTaskExecutor"
+    },
+    {
       "type": "org.springframework.core.task.TaskExecutor"
     },
     {
@@ -27171,9 +27113,6 @@
       "type": "org.springframework.r2dbc.core.binding.BindMarkersFactoryResolver.BuiltInBindMarkersFactoryProvider"
     },
     {
-      "type": "org.springframework.scheduling.SchedulingTaskExecutor"
-    },
-    {
       "type": "org.springframework.scheduling.TaskScheduler"
     },
     {
@@ -27211,10 +27150,7 @@
       "type": "org.springframework.scheduling.annotation.SchedulingConfigurer"
     },
     {
-      "type": "org.springframework.scheduling.concurrent.CustomizableThreadFactory"
-    },
-    {
-      "type": "org.springframework.scheduling.concurrent.ExecutorConfigurationSupport"
+      "type": "org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler"
     },
     {
       "type": "org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"
@@ -28414,13 +28350,18 @@
       "type": "reactor.core.publisher.StrictSubscriber"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticScheduler"
+      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticScheduler$BoundedServices"
+      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler$BoundedServices"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticScheduler$BoundedState"
+      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler$SequentialThreadPerTaskExecutor",
+      "fields": [
+        {
+          "name": "wipAndRefCnt"
+        }
+      ]
     },
     {
       "type": "reactor.core.scheduler.ParallelScheduler"
@@ -28520,6 +28461,12 @@
     },
     {
       "type": "reactor.util.annotation.Nullable"
+    },
+    {
+      "type": "reactor.util.concurrent.MpscLinkedQueue"
+    },
+    {
+      "type": "reactor.util.concurrent.MpscLinkedQueue$LinkedQueueNode"
     },
     {
       "type": "reactor.util.concurrent.SpscArrayQueueConsumer"
@@ -29619,6 +29566,26 @@
     {
       "type": {
         "lambda": {
+          "declaringClass": "cash.atto.node.election.ElectionProcessorTest",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
+          "declaringClass": "cash.atto.node.election.VoteTimestampRecorderTest",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
           "declaringClass": "cash.atto.node.network.peer.PeerStepDefinition",
           "interfaces": [
             "java.util.concurrent.Callable"
@@ -29639,7 +29606,47 @@
     {
       "type": {
         "lambda": {
+          "declaringClass": "cash.atto.node.transaction.prioritization.TransactionPrioritizerTest",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
+          "declaringClass": "cash.atto.node.vote.VoteCleanerTest",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
+          "declaringClass": "cash.atto.node.vote.VoteServiceTest",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
           "declaringClass": "cash.atto.node.vote.keep.VoteKeepStepDefinition$assertUncheckedCount$1",
+          "interfaces": [
+            "java.util.concurrent.Callable"
+          ]
+        }
+      }
+    },
+    {
+      "type": {
+        "lambda": {
+          "declaringClass": "cash.atto.node.vote.prioritization.VotePrioritizerTest",
           "interfaces": [
             "java.util.concurrent.Callable"
           ]
@@ -30050,6 +30057,9 @@
       "glob": "cash/atto/node/CucumberConfigurationContext.groovy"
     },
     {
+      "glob": "cash/atto/node/DemandDrivenWorker.class"
+    },
+    {
       "glob": "cash/atto/node/Event.class"
     },
     {
@@ -30243,9 +30253,6 @@
     },
     {
       "glob": "cash/atto/node/election/ElectionPersistenceMetrics.class"
-    },
-    {
-      "glob": "cash/atto/node/election/ElectionProcessor$PendingElectionConsensus.class"
     },
     {
       "glob": "cash/atto/node/election/ElectionProcessor.class"
@@ -30813,6 +30820,9 @@
     },
     {
       "glob": "kotlin/jvm/functions/Function3.class"
+    },
+    {
+      "glob": "kotlin/jvm/internal/AdaptedFunctionReference.class"
     },
     {
       "glob": "kotlin/jvm/internal/CallableReference.class"

@@ -13,113 +13,165 @@ import cash.atto.node.transaction.TransactionSource
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.test.runTest
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 class VoteCleanerTest {
     @Test
-    fun `deletes votes for previous account tip when account advances`() =
+    fun `worker deletes queued votes after one coalescing wait`() =
         runTest {
-            // given
-            val previousHash = AttoHash(Random.nextBytes(ByteArray(32)))
-            val previousAccount = sampleAccount(previousHash)
-            val updatedAccount = previousAccount.copy(lastTransactionHash = AttoHash(Random.nextBytes(ByteArray(32))))
+            // Given
+            val blockHash = AttoHash(Random.nextBytes(ByteArray(32)))
             val repository = mockk<VoteRepository>()
             val cleaner = VoteCleaner(repository, Clock.systemUTC())
-            coEvery { repository.deleteByBlockHashes(listOf(previousHash)) } returns 3
+            coEvery { repository.deleteByBlockHashes(listOf(blockHash)) } returns 1
 
-            // when
-            cleaner.process(
-                AccountUpdated(
-                    TransactionSource.ELECTION,
-                    previousAccount,
-                    updatedAccount,
-                    mockk<Transaction>(),
-                ),
-            )
-            cleaner.flush()
+            try {
+                // When
+                cleaner.process(accountUpdated(blockHash))
 
-            // then
-            coVerify(exactly = 1) { repository.deleteByBlockHashes(listOf(previousHash)) }
-            assertEquals(0, cleaner.getBufferSize())
+                // Then
+                awaitCondition { cleaner.getBufferSize() == 0 }
+                coVerify(exactly = 1) { repository.deleteByBlockHashes(listOf(blockHash)) }
+            } finally {
+                cleaner.stop()
+            }
+        }
+
+    @Test
+    fun `worker retries retained cleanup without another delay`() =
+        runTest {
+            // Given
+            val blockHash = AttoHash(Random.nextBytes(ByteArray(32)))
+            val repository = mockk<VoteRepository>()
+            val cleaner = VoteCleaner(repository, Clock.systemUTC())
+            val attempts = AtomicInteger()
+            coEvery { repository.deleteByBlockHashes(listOf(blockHash)) } coAnswers {
+                if (attempts.incrementAndGet() == 1) {
+                    throw IllegalStateException("deadlock")
+                }
+                1
+            }
+
+            try {
+                // When
+                cleaner.process(accountUpdated(blockHash))
+
+                // Then
+                awaitCondition { cleaner.getBufferSize() == 0 && attempts.get() == 2 }
+            } finally {
+                cleaner.stop()
+            }
         }
 
     @Test
     fun `does not delete votes when account tip is unchanged`() =
         runTest {
-            // given
+            // Given
             val account = sampleAccount(AttoHash(Random.nextBytes(ByteArray(32))))
             val repository = mockk<VoteRepository>()
             val cleaner = VoteCleaner(repository, Clock.systemUTC())
 
-            // when
-            cleaner.process(
-                AccountUpdated(
-                    TransactionSource.ELECTION,
-                    account,
-                    account,
-                    mockk<Transaction>(),
-                ),
-            )
+            try {
+                // When
+                cleaner.process(
+                    AccountUpdated(
+                        TransactionSource.ELECTION,
+                        account,
+                        account,
+                        mockk<Transaction>(),
+                    ),
+                )
 
-            // then
-            coVerify(exactly = 0) { repository.deleteByBlockHashes(any()) }
-            assertEquals(0, cleaner.getBufferSize())
+                // Then
+                coVerify(exactly = 0) { repository.deleteByBlockHashes(any()) }
+                assertEquals(0, cleaner.getBufferSize())
+            } finally {
+                cleaner.stop()
+            }
         }
 
     @Test
-    fun `requeues stale block hashes in FIFO order when deletion fails`() =
+    fun `worker retries stale block hashes in FIFO order when deletion fails`() =
         runTest {
-            // given
+            // Given
             val firstHash = AttoHash(Random.nextBytes(ByteArray(32)))
             val secondHash = AttoHash(Random.nextBytes(ByteArray(32)))
             val repository = mockk<VoteRepository>()
             val cleaner = VoteCleaner(repository, Clock.systemUTC())
-            cleaner.process(accountUpdated(firstHash))
-            cleaner.process(accountUpdated(secondHash))
-            coEvery { repository.deleteByBlockHashes(listOf(firstHash, secondHash)) } throws
-                IllegalStateException("deadlock")
+            val attemptedBatches = CopyOnWriteArrayList<List<AttoHash>>()
+            val attempts = AtomicInteger()
+            val firstAttemptStarted = CompletableDeferred<Unit>()
+            val releaseFirstAttempt = CompletableDeferred<Unit>()
+            coEvery { repository.deleteByBlockHashes(any()) } coAnswers {
+                attemptedBatches += firstArg<Collection<AttoHash>>().toList()
+                if (attempts.incrementAndGet() == 1) {
+                    firstAttemptStarted.complete(Unit)
+                    releaseFirstAttempt.await()
+                    throw IllegalStateException("deadlock")
+                }
+                2
+            }
 
-            // when
-            val failure = runCatching { cleaner.flush() }.exceptionOrNull()
+            try {
+                // When
+                cleaner.process(accountUpdated(firstHash))
+                firstAttemptStarted.await()
+                cleaner.process(accountUpdated(secondHash))
+                releaseFirstAttempt.complete(Unit)
 
-            // then
-            assertEquals("deadlock", failure?.message)
-            assertEquals(2, cleaner.getBufferSize())
-
-            // given
-            coEvery { repository.deleteByBlockHashes(listOf(firstHash, secondHash)) } returns 2
-
-            // when
-            cleaner.flush()
-
-            // then
-            assertEquals(0, cleaner.getBufferSize())
-            coVerify(exactly = 2) { repository.deleteByBlockHashes(listOf(firstHash, secondHash)) }
+                // Then
+                awaitCondition { cleaner.getBufferSize() == 0 && attempts.get() == 2 }
+                assertEquals(
+                    listOf(
+                        listOf(firstHash),
+                        listOf(firstHash, secondHash),
+                    ),
+                    attemptedBatches,
+                )
+            } finally {
+                cleaner.stop()
+            }
         }
 
     @Test
     fun `deletes stale votes using account tips during startup`() =
         runTest {
-            // given
+            // Given
             val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
             val cutoff = Instant.EPOCH.minus(Duration.ofMinutes(5))
             val repository = mockk<VoteRepository>()
             val cleaner = VoteCleaner(repository, clock)
             coEvery { repository.deleteStale(cutoff) } returns 3
 
-            // when
-            cleaner.deleteStaleVotesOnStartup()
+            try {
+                // When
+                cleaner.deleteStaleVotesOnStartup()
 
-            // then
-            coVerify(exactly = 1) { repository.deleteStale(cutoff) }
+                // Then
+                coVerify(exactly = 1) { repository.deleteStale(cutoff) }
+            } finally {
+                cleaner.stop()
+            }
         }
+
+    private fun awaitCondition(condition: () -> Boolean) {
+        await()
+            .atMost(5, TimeUnit.SECONDS)
+            .pollInterval(1, TimeUnit.MILLISECONDS)
+            .until(condition)
+    }
 
     private fun accountUpdated(previousHash: AttoHash): AccountUpdated {
         val previousAccount = sampleAccount(previousHash)

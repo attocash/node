@@ -1,11 +1,10 @@
 package cash.atto.node.vote
 
 import cash.atto.node.CacheSupport
-import kotlinx.coroutines.sync.Mutex
-import org.springframework.scheduling.annotation.Scheduled
+import cash.atto.node.DemandDrivenWorker
+import jakarta.annotation.PreDestroy
 import org.springframework.stereotype.Service
 import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 @Service
@@ -18,11 +17,12 @@ class VoteService(
 
     private val buffer = ConcurrentLinkedDeque<Vote>()
     private val bufferDepth = AtomicInteger()
-    private val flushMutex = Mutex()
+    private val worker = DemandDrivenWorker("vote-service", drain = ::drain)
 
     fun enqueue(vote: Vote) {
         buffer.addLast(vote)
         bufferDepth.incrementAndGet()
+        worker.request()
     }
 
     fun enqueueAll(votes: Collection<Vote>) {
@@ -32,6 +32,7 @@ class VoteService(
 
         votes.forEach { buffer.addLast(it) }
         bufferDepth.addAndGet(votes.size)
+        worker.request()
     }
 
     override fun clear() {
@@ -39,19 +40,18 @@ class VoteService(
         bufferDepth.set(0)
     }
 
-    @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MILLISECONDS)
-    suspend fun flush() {
-        if (!flushMutex.tryLock()) {
-            return
-        }
-        try {
-            flushBatch(BATCH_SIZE)
-        } finally {
-            flushMutex.unlock()
-        }
+    @PreDestroy
+    fun stop() {
+        worker.cancel()
     }
 
     fun getBufferSize(): Int = bufferDepth.get()
+
+    private suspend fun drain() {
+        while (bufferDepth.get() > 0) {
+            flushBatch(BATCH_SIZE)
+        }
+    }
 
     private suspend fun saveAll(votes: Collection<Vote>): List<Vote> {
         val distinctVotes = votes.distinctBy { it.signature }

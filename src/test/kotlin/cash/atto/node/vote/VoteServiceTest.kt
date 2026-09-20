@@ -10,75 +10,82 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 internal class VoteServiceTest {
     @Test
-    fun `should enqueue and flush votes`() =
+    fun `worker waits once then drains every queued batch`() =
         runTest {
-            // given
-            val repository = mockk<VoteRepository>()
-            val service = VoteService(repository)
-            val vote = Vote.sample()
-
-            service.enqueue(vote)
-            coEvery { repository.insertIgnoreAll(listOf(vote)) } returns 1L
-
-            // when
-            service.flush()
-
-            // then
-            assertEquals(0, service.getBufferSize())
-            coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(vote)) }
-        }
-
-    @Test
-    fun `should flush at most one thousand votes at a time`() =
-        runTest {
-            // given
+            // Given
             val repository = mockk<VoteRepository>()
             val service = VoteService(repository)
             val votes = List(1_001) { Vote.sample() }
-            val savedVotes = mutableListOf<List<Vote>>()
-
-            service.enqueueAll(votes)
+            val savedVotes = CopyOnWriteArrayList<List<Vote>>()
             coEvery { repository.insertIgnoreAll(any()) } coAnswers {
                 savedVotes += firstArg<Collection<Vote>>().toList()
                 firstArg<Collection<Vote>>().size.toLong()
             }
 
-            // when
-            service.flush()
+            try {
+                // When
+                service.enqueueAll(votes)
 
-            // then
-            assertEquals(1, service.getBufferSize())
-            assertEquals(listOf(votes.take(1_000)), savedVotes)
-
-            // when
-            service.flush()
-
-            // then
-            assertEquals(0, service.getBufferSize())
-            assertEquals(listOf(votes.take(1_000), votes.drop(1_000)), savedVotes)
+                // Then
+                awaitCondition { service.getBufferSize() == 0 }
+                assertEquals(listOf(votes.take(1_000), votes.drop(1_000)), savedVotes)
+            } finally {
+                service.stop()
+            }
         }
 
     @Test
-    fun `should not insert votes when buffer is empty`() =
+    fun `worker remains available after a failed insert`() =
         runTest {
-            // given
+            // Given
             val repository = mockk<VoteRepository>()
             val service = VoteService(repository)
+            val failedVote = Vote.sample()
+            val savedVote = Vote.sample()
+            val attempts = AtomicInteger()
+            coEvery { repository.insertIgnoreAll(any()) } coAnswers {
+                if (attempts.incrementAndGet() == 1) {
+                    throw IllegalStateException("db down")
+                }
+                1
+            }
 
-            // when
-            service.flush()
+            try {
+                // When
+                service.enqueue(failedVote)
 
-            // then
-            assertEquals(0, service.getBufferSize())
-            coVerify(exactly = 0) { repository.insertIgnoreAll(any()) }
+                // Then
+                awaitCondition { attempts.get() == 1 && service.getBufferSize() == 0 }
+
+                // When
+                service.enqueue(savedVote)
+
+                // Then
+                awaitCondition { attempts.get() == 2 && service.getBufferSize() == 0 }
+                coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(failedVote)) }
+                coVerify(exactly = 1) { repository.insertIgnoreAll(listOf(savedVote)) }
+            } finally {
+                service.stop()
+            }
         }
+
+    private fun awaitCondition(condition: () -> Boolean) {
+        await()
+            .atMost(5, TimeUnit.SECONDS)
+            .pollInterval(1, TimeUnit.MILLISECONDS)
+            .until(condition)
+    }
 
     private fun Vote.Companion.sample(): Vote =
         Vote(
