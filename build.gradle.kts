@@ -1,15 +1,15 @@
 plugins {
-    val kotlinVersion = "2.3.0"
+    val kotlinVersion = "2.4.20"
 
     kotlin("jvm") version kotlinVersion
     kotlin("plugin.serialization") version kotlinVersion
     kotlin("plugin.spring") version kotlinVersion
     kotlin("plugin.allopen") version kotlinVersion
 
-    id("org.jetbrains.kotlinx.benchmark") version "0.4.14"
-    id("org.springframework.boot") version "4.1.0"
-    id("org.graalvm.buildtools.native") version "1.1.2"
-    id("org.jlleitschuh.gradle.ktlint") version "14.0.1"
+    id("org.jetbrains.kotlinx.benchmark") version "0.5.0"
+    id("org.springframework.boot") version "4.1.1"
+    id("org.graalvm.buildtools.native") version "1.1.14"
+    id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
 
 group = "cash.atto"
@@ -52,14 +52,11 @@ allOpen {
     annotation("org.openjdk.jmh.annotations.State")
 }
 
-ext["kotlin-coroutines.version"] = "1.9.0"
-ext["kotlin-serialization.version"] = "1.8.0"
-
 dependencies {
-    val commonsVersion = "7.0.2"
-    val cucumberVersion = "7.34.3"
-    val springdocVersion = "3.0.3"
-    val ktorVersion = "3.5.1"
+    val commonsVersion = "8.0.0"
+    val cucumberVersion = "7.34.8"
+    val springdocVersion = "3.1.1"
+    val ktorVersion = "3.6.0"
 
     implementation("cash.atto:commons-core:$commonsVersion")
     implementation("cash.atto:commons-node:$commonsVersion")
@@ -69,9 +66,9 @@ dependencies {
 
     implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
 
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.10.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.11.0")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.8.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf")
 
@@ -104,14 +101,14 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-debug")
 
     implementation("org.springframework.boot:spring-boot-starter-data-r2dbc")
-    implementation("io.asyncer:r2dbc-mysql:1.4.1")
+    implementation("io.asyncer:r2dbc-mysql:1.4.3")
 
     implementation("com.mysql:mysql-connector-j")
     implementation("org.springframework.boot:spring-boot-starter-flyway")
     implementation("org.flywaydb:flyway-mysql")
 
     implementation("net.logstash.logback:logstash-logback-encoder:9.0")
-    implementation("io.github.oshai:kotlin-logging-jvm:7.0.14")
+    implementation("io.github.oshai:kotlin-logging-jvm:8.0.4")
 
     runtimeOnly("io.micrometer:micrometer-registry-prometheus")
 
@@ -120,7 +117,7 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webflux-test") {
         exclude(group = "org.mockito")
     }
-    testImplementation("io.mockk:mockk:1.14.7")
+    testImplementation("io.mockk:mockk:1.14.11")
     testImplementation("io.projectreactor:reactor-test")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test")
 
@@ -134,7 +131,7 @@ dependencies {
     testImplementation("org.testcontainers:testcontainers-junit-jupiter")
     testImplementation("org.testcontainers:testcontainers-mysql")
     testImplementation("org.testcontainers:testcontainers-r2dbc")
-    add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.4.14")
+    add("benchmarkImplementation", "org.jetbrains.kotlinx:kotlinx-benchmark-runtime:0.5.0")
 }
 
 tasks.withType<Test> {
