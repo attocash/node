@@ -430,9 +430,6 @@
       "type": "cash.atto.commons.node.HeightSearch$Companion"
     },
     {
-      "type": "cash.atto.commons.node.HttpSignerRemote"
-    },
-    {
       "type": "cash.atto.commons.node.HttpSignerRemote$BlockSignatureRequest",
       "fields": [
         {
@@ -1203,6 +1200,84 @@
       "type": "cash.atto.node.CacheSupport$DefaultImpls"
     },
     {
+      "type": "cash.atto.node.CgroupCpuMetricProvider",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.CgroupCpuMetricProvider$Companion"
+    },
+    {
+      "type": "cash.atto.node.CgroupCpuMetricProvider$CpuStat"
+    },
+    {
+      "type": "cash.atto.node.CgroupCpuMetricProviderTest",
+      "fields": [
+        {
+          "name": "temporaryDirectory"
+        }
+      ],
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "accepts a private cgroup namespace root when it is the process cgroup",
+          "parameterTypes": []
+        },
+        {
+          "name": "does not substitute hierarchy root statistics when a required file is absent",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "exports Prometheus counter names with seconds and total suffixes",
+          "parameterTypes": []
+        },
+        {
+          "name": "exports the process cgroup counters and converts microseconds to seconds",
+          "parameterTypes": []
+        },
+        {
+          "name": "omits counters for missing or malformed throttling fields",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "rejects a cgroup that does not contain this process",
+          "parameterTypes": []
+        },
+        {
+          "name": "rejects namespace escapes and unrelated mount roots",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "reports unavailable after a read failure and preserves actual counter resets",
+          "parameterTypes": []
+        },
+        {
+          "name": "resolves a subtree mount and decodes escaped mount paths",
+          "parameterTypes": []
+        },
+        {
+          "name": "v1 only and unavailable proc files do not prevent startup",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.CgroupCpuMetricProvider__TestContext001_BeanDefinitions"
+    },
+    {
       "type": "cash.atto.node.CucumberConfiguration",
       "methods": [
         {
@@ -1295,6 +1370,30 @@
     },
     {
       "type": "cash.atto.node.GlobalRequestInterceptor__TestContext001_BeanDefinitions"
+    },
+    {
+      "type": "cash.atto.node.HealthCheckCommand"
+    },
+    {
+      "type": "cash.atto.node.HealthCheckCommandTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "returns failure when health endpoint is unavailable",
+          "parameterTypes": []
+        },
+        {
+          "name": "returns failure when management port is invalid",
+          "parameterTypes": []
+        },
+        {
+          "name": "returns success when health endpoint is successful",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "cash.atto.node.IPv6Test",
@@ -1633,6 +1732,9 @@
       "type": "cash.atto.node.OpenAPITest",
       "fields": [
         {
+          "name": "managementPort"
+        },
+        {
           "name": "webTestClient"
         }
       ],
@@ -1643,6 +1745,10 @@
         },
         {
           "name": "GET OpenAPI docs are reachable",
+          "parameterTypes": []
+        },
+        {
+          "name": "GET health probes are reachable",
           "parameterTypes": []
         }
       ]
@@ -1770,15 +1876,10 @@
           ]
         },
         {
-          "name": "flush",
-          "parameterTypes": [
-            "kotlin.coroutines.Continuation"
-          ]
-        },
-        {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.account.AccountUpdated"
+            "cash.atto.node.account.AccountUpdated",
+            "kotlin.coroutines.Continuation"
           ]
         }
       ]
@@ -1788,6 +1889,9 @@
     },
     {
       "type": "cash.atto.node.account.AccountController$get$1$invokeSuspend$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.account.AccountController$get$1$invokeSuspend$$inlined$map$1$1"
     },
     {
       "type": "cash.atto.node.account.AccountController$get$1$invokeSuspend$$inlined$map$1$2"
@@ -1823,6 +1927,9 @@
       "type": "cash.atto.node.account.AccountController$stream$accountDatabaseFlow$1$invokeSuspend$lambda$1$$inlined$map$1"
     },
     {
+      "type": "cash.atto.node.account.AccountController$stream$accountDatabaseFlow$1$invokeSuspend$lambda$1$$inlined$map$1$1"
+    },
+    {
       "type": "cash.atto.node.account.AccountController$stream$accountDatabaseFlow$1$invokeSuspend$lambda$1$$inlined$map$1$2"
     },
     {
@@ -1830,6 +1937,9 @@
     },
     {
       "type": "cash.atto.node.account.AccountController$stream$suspendImpl$$inlined$filter$1"
+    },
+    {
+      "type": "cash.atto.node.account.AccountController$stream$suspendImpl$$inlined$filter$1$1"
     },
     {
       "type": "cash.atto.node.account.AccountController$stream$suspendImpl$$inlined$filter$1$2"
@@ -1933,12 +2043,7 @@
       "type": "cash.atto.node.account.AccountService$AccountTransaction"
     },
     {
-      "type": "cash.atto.node.account.AccountService$add$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.account.AccountService$add$1"
     },
     {
       "type": "cash.atto.node.account.AccountService$getAccountMap$1"
@@ -2094,6 +2199,9 @@
       "type": "cash.atto.node.account.entry.AccountEntryController$stream$suspendImpl$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.account.entry.AccountEntryController$stream$suspendImpl$$inlined$filter$1$1"
+    },
+    {
       "type": "cash.atto.node.account.entry.AccountEntryController$stream$suspendImpl$$inlined$filter$1$2"
     },
     {
@@ -2112,6 +2220,9 @@
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$1$1"
+    },
+    {
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$1$2"
     },
     {
@@ -2121,6 +2232,9 @@
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$2"
     },
     {
+      "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$2$1"
+    },
+    {
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$filter$2$2"
     },
     {
@@ -2128,6 +2242,9 @@
     },
     {
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$map$1$1"
     },
     {
       "type": "cash.atto.node.account.entry.AccountEntryController$streamMultiple$lambda$2$$inlined$map$1$2"
@@ -2806,6 +2923,13 @@
             "cash.atto.node.transaction.TransactionRejected",
             "kotlin.coroutines.Continuation"
           ]
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.vote.VoteDropped",
+            "kotlin.coroutines.Continuation"
+          ]
         }
       ]
     },
@@ -3322,15 +3446,13 @@
       ]
     },
     {
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$discoverGaps$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$flushAll$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$settle$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController$settle$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.DiscoveryTestController__TestContext001_BeanDefinitions"
@@ -3835,18 +3957,16 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$2$3"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$1$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$1$2"
@@ -3856,6 +3976,9 @@
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$2"
+    },
+    {
+      "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$2$1"
     },
     {
       "type": "cash.atto.node.bootstrap.discovery.LastDiscoverer$broadcastSample$lambda$0$$inlined$map$2$2"
@@ -4223,12 +4346,7 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider$calculate$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider$calculate$1"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionMetricProvider__TestContext001_BeanDefinitions"
@@ -4262,6 +4380,9 @@
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1"
     },
     {
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1$1"
+    },
+    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$process$suspendImpl$$inlined$map$1$2"
     },
     {
@@ -4276,20 +4397,10 @@
       ]
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$elapsed$1$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolve$elapsed$1$1"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolveBatch$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor$resolveBatch$1"
     },
     {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorKt"
@@ -4426,9 +4537,6 @@
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$7"
     },
     {
-      "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessorTest$returns the number of resolved transactions$1$8"
-    },
-    {
       "type": "cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor__TestContext001_BeanDefinitions"
     },
     {
@@ -4445,13 +4553,6 @@
           "parameterTypes": [
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository",
             "cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter"
-          ]
-        },
-        {
-          "name": "cleanUp",
-          "parameterTypes": [
-            "long",
-            "kotlin.coroutines.Continuation"
           ]
         },
         {
@@ -4790,6 +4891,15 @@
       "type": "cash.atto.node.election.ElectionMetricProvider__TestContext001_BeanDefinitions"
     },
     {
+      "type": "cash.atto.node.election.ElectionPersistenceMetrics"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionPersistenceMetrics$Sample"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionPersistenceMetrics$Sample$startBody$1"
+    },
+    {
       "type": "cash.atto.node.election.ElectionProcessor",
       "methods": [
         {
@@ -4842,7 +4952,7 @@
       ]
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessor$flushBatch$2"
+      "type": "cash.atto.node.election.ElectionProcessor$flushBatch$timing$1"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessorTest",
@@ -4860,11 +4970,23 @@
           "parameterTypes": []
         },
         {
+          "name": "does not record persistence phases when commit fails and retries after backoff",
+          "parameterTypes": []
+        },
+        {
           "name": "keeps consensus event queued after repeated persistence failures",
           "parameterTypes": []
         },
         {
+          "name": "partitions successful persistence through transaction cleanup",
+          "parameterTypes": []
+        },
+        {
           "name": "persists drained consensus events in one batch",
+          "parameterTypes": []
+        },
+        {
+          "name": "skips phase observations when persistence joins an outer transaction",
           "parameterTypes": []
         }
       ]
@@ -4876,7 +4998,7 @@
       "type": "cash.atto.node.election.ElectionProcessorTest$RecordingReactiveTransactionManager"
     },
     {
-      "type": "cash.atto.node.election.ElectionProcessorTest$SimpleReactiveTransaction"
+      "type": "cash.atto.node.election.ElectionProcessorTest$RecordingReactiveTransactionManager$TestTransaction"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessorTest$backoff gate skips queue work until retry time$1",
@@ -4923,6 +5045,25 @@
       "type": "cash.atto.node.election.ElectionProcessorTest$backs off queued consensus events when persistence fails$1$2"
     },
     {
+      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails and retries after backoff$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ],
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$does not record persistence phases when commit fails and retries after backoff$1$1"
+    },
+    {
       "type": "cash.atto.node.election.ElectionProcessorTest$keeps consensus event queued after repeated persistence failures$1",
       "fields": [
         {
@@ -4945,6 +5086,26 @@
       "type": "cash.atto.node.election.ElectionProcessorTest$keeps consensus event queued after repeated persistence failures$1$2"
     },
     {
+      "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$partitions successful persistence through transaction cleanup$1$2$1"
+    },
+    {
       "type": "cash.atto.node.election.ElectionProcessorTest$persists drained consensus events in one batch$1",
       "methods": [
         {
@@ -4960,6 +5121,23 @@
     },
     {
       "type": "cash.atto.node.election.ElectionProcessorTest$persists drained consensus events in one batch$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionProcessorTest$skips phase observations when persistence joins an outer transaction$1$2"
     },
     {
       "type": "cash.atto.node.election.ElectionProcessor__TestContext001_BeanDefinitions"
@@ -5212,6 +5390,11 @@
     },
     {
       "type": "cash.atto.node.election.ElectionVoter",
+      "fields": [
+        {
+          "name": "consensusMap"
+        }
+      ],
       "methods": [
         {
           "name": "<init>",
@@ -5259,18 +5442,20 @@
       ]
     },
     {
+      "type": "cash.atto.node.election.ElectionVoter$CachedVote"
+    },
+    {
       "type": "cash.atto.node.election.ElectionVoter$Companion"
     },
     {
       "type": "cash.atto.node.election.ElectionVoter$Consensus",
       "methods": [
         {
-          "name": "launchVote",
+          "name": "signVote",
           "parameterTypes": [
             "cash.atto.node.transaction.Transaction",
             "java.time.Instant",
-            "boolean",
-            "kotlinx.coroutines.Deferred"
+            "kotlin.coroutines.Continuation"
           ]
         }
       ]
@@ -5282,16 +5467,40 @@
       "type": "cash.atto.node.election.ElectionVoter$Consensus$finalVote$1"
     },
     {
-      "type": "cash.atto.node.election.ElectionVoter$Consensus$launchVote$2"
+      "type": "cash.atto.node.election.ElectionVoter$Consensus$launchVote$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.election.ElectionVoter$Consensus$reaffirm$1"
     },
     {
+      "type": "cash.atto.node.election.ElectionVoter$Consensus$signVote$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.election.ElectionVoter$Consensus$start$1"
     },
     {
+      "type": "cash.atto.node.election.ElectionVoter$Consensus$start$2$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.election.ElectionVoter$Consensus$update$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoter$process$6"
     },
     {
       "type": "cash.atto.node.election.ElectionVoter$process$7"
@@ -5300,39 +5509,11 @@
       "type": "cash.atto.node.election.ElectionVoterTest",
       "methods": [
         {
-          "name": "should finish final voting despite delayed election handlers",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
+          "name": "<init>",
+          "parameterTypes": []
         },
         {
           "name": "afterEach",
-          "parameterTypes": []
-        },
-        {
-          "name": "should cache final vote at election start and publish only after both finish",
-          "parameterTypes": [
-            "boolean"
-          ]
-        },
-        {
-          "name": "should cancel cached final vote when election is discarded",
-          "parameterTypes": [
-            "boolean"
-          ]
-        },
-        {
-          "name": "should never publish cached final vote for a different saved transaction",
-          "parameterTypes": []
-        },
-        {
-          "name": "should keep final vote cached for the first election transaction",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
-        },
-        {
-          "name": "<init>",
           "parameterTypes": []
         },
         {
@@ -5432,6 +5613,34 @@
           "parameterTypes": []
         },
         {
+          "name": "should cache final vote at election start and publish only after both finish",
+          "parameterTypes": [
+            "boolean"
+          ]
+        },
+        {
+          "name": "should cancel cached final vote when election is discarded",
+          "parameterTypes": [
+            "boolean"
+          ]
+        },
+        {
+          "name": "should finish final voting despite delayed election handlers",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "should keep final vote cached for the first election transaction",
+          "parameterTypes": [
+            "java.lang.String"
+          ]
+        },
+        {
+          "name": "should never publish cached final vote for a different saved transaction",
+          "parameterTypes": []
+        },
+        {
           "name": "should send final vote when account is updated",
           "parameterTypes": []
         },
@@ -5465,6 +5674,140 @@
     },
     {
       "type": "cash.atto.node.election.ElectionVoterTest$should NOT send vote when consensus does NOT change$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cache final vote at election start and publish only after both finish$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cache final vote at election start and publish only after both finish$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cache final vote at election start and publish only after both finish$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cache final vote at election start and publish only after both finish$1$3$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cache final vote at election start and publish only after both finish$1$3$7"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cancel cached final vote when election is discarded$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cancel cached final vote when election is discarded$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cancel cached final vote when election is discarded$1$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cancel cached final vote when election is discarded$1$3"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should cancel cached final vote when election is discarded$1$4"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should finish final voting despite delayed election handlers$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should finish final voting despite delayed election handlers$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should finish final voting despite delayed election handlers$1$2",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should finish final voting despite delayed election handlers$1$delayedLookupMap$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should finish final voting despite delayed election handlers$1$delayedLookupMap$1$get$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1$3"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1$5"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should keep final vote cached for the first election transaction$1$6"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$1"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$2"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$3"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$4"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$7"
+    },
+    {
+      "type": "cash.atto.node.election.ElectionVoterTest$should never publish cached final vote for a different saved transaction$1$8"
     },
     {
       "type": "cash.atto.node.election.ElectionVoterTest$should send final vote when account is updated$1"
@@ -5796,12 +6139,7 @@
       ]
     },
     {
-      "type": "cash.atto.node.network.HandshakeCallbackService$post$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.HandshakeCallbackService$post$1"
     },
     {
       "type": "cash.atto.node.network.HandshakeCallbackServiceTest",
@@ -5911,20 +6249,10 @@
       "type": "cash.atto.node.network.NetworkDnsResolver$getAllByName$2"
     },
     {
-      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$1"
     },
     {
-      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkDnsResolver$getByName$2"
     },
     {
       "type": "cash.atto.node.network.NetworkDnsResolver__TestContext001_BeanDefinitions"
@@ -6053,12 +6381,7 @@
       "type": "cash.atto.node.network.NetworkProcessor$Companion"
     },
     {
-      "type": "cash.atto.node.network.NetworkProcessor$acceptInboundConnection$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
+      "type": "cash.atto.node.network.NetworkProcessor$acceptInboundConnection$1"
     },
     {
       "type": "cash.atto.node.network.NetworkProcessor$bootstrap$1"
@@ -6260,6 +6583,14 @@
       "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$filterIsInstance$1"
     },
     {
+      "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$filterIsInstance$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$filterIsInstance$1$2"
     },
     {
@@ -6267,6 +6598,14 @@
     },
     {
       "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$map$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.network.NodeConnectionManager$NodeConnection$incomingFlow$$inlined$map$1$2"
@@ -6817,6 +7156,14 @@
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$1$2"
     },
     {
@@ -6824,6 +7171,14 @@
     },
     {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$2"
+    },
+    {
+      "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$2$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$2$2"
@@ -6835,6 +7190,14 @@
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$3"
     },
     {
+      "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$3$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
+    },
+    {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$filter$3$2"
     },
     {
@@ -6842,6 +7205,14 @@
     },
     {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$map$1$1",
+      "fields": [
+        {
+          "name": "label"
+        }
+      ]
     },
     {
       "type": "cash.atto.node.receivable.ReceivableController$stream$suspendImpl$$inlined$map$1$2"
@@ -6962,6 +7333,10 @@
           "parameterTypes": []
         },
         {
+          "name": "should expose zero signing counters before the first call",
+          "parameterTypes": []
+        },
+        {
           "name": "should record cancelled block signing latency",
           "parameterTypes": []
         },
@@ -6970,7 +7345,7 @@
           "parameterTypes": []
         },
         {
-          "name": "should record successful vote signing latency",
+          "name": "should record final and nonfinal vote signing separately",
           "parameterTypes": []
         }
       ]
@@ -6979,22 +7354,25 @@
       "type": "cash.atto.node.signature.MeteredAttoSignerTest$TestSigner"
     },
     {
-      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record cancelled block signing latency$1$1"
+      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should expose zero signing counters before the first call$delegate$1"
     },
     {
       "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record cancelled block signing latency$signer$1"
     },
     {
-      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record failed challenge signing latency$1$1"
+      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record cancelled block signing latency$thrown$1$1"
     },
     {
       "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record failed challenge signing latency$signer$1"
     },
     {
-      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record successful vote signing latency$1"
+      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record failed challenge signing latency$thrown$1$1"
     },
     {
-      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record successful vote signing latency$signer$1"
+      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record final and nonfinal vote signing separately$signatures$1"
+    },
+    {
+      "type": "cash.atto.node.signature.MeteredAttoSignerTest$should record final and nonfinal vote signing separately$signer$1"
     },
     {
       "type": "cash.atto.node.signature.SignatureConfiguration",
@@ -7607,6 +7985,9 @@
       "type": "cash.atto.node.transaction.TransactionController$awaitPending$2$invokeSuspend$$inlined$map$1"
     },
     {
+      "type": "cash.atto.node.transaction.TransactionController$awaitPending$2$invokeSuspend$$inlined$map$1$1"
+    },
+    {
       "type": "cash.atto.node.transaction.TransactionController$awaitPending$2$invokeSuspend$$inlined$map$1$2"
     },
     {
@@ -7640,6 +8021,9 @@
       "type": "cash.atto.node.transaction.TransactionController$stream$suspendImpl$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.transaction.TransactionController$stream$suspendImpl$$inlined$filter$1$1"
+    },
+    {
       "type": "cash.atto.node.transaction.TransactionController$stream$suspendImpl$$inlined$filter$1$2"
     },
     {
@@ -7661,6 +8045,9 @@
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$1$1"
+    },
+    {
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$1$2"
     },
     {
@@ -7670,6 +8057,9 @@
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$2"
     },
     {
+      "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$2$1"
+    },
+    {
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$filter$2$2"
     },
     {
@@ -7677,6 +8067,9 @@
     },
     {
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$map$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$map$1$1"
     },
     {
       "type": "cash.atto.node.transaction.TransactionController$streamMultiple$lambda$2$$inlined$map$1$2"
@@ -7826,6 +8219,19 @@
           "parameterTypes": [
             "cash.atto.node.vote.VoteValidated"
           ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.transaction.TransactionMetricProviderTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "should expose startup zeros and record the first pipeline observation",
+          "parameterTypes": []
         }
       ]
     },
@@ -8490,6 +8896,9 @@
       "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$filter$1"
     },
     {
+      "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$filter$1$1"
+    },
+    {
       "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$filter$1$2"
     },
     {
@@ -8497,6 +8906,9 @@
     },
     {
       "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$mapNotNull$1"
+    },
+    {
+      "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$mapNotNull$1$1"
     },
     {
       "type": "cash.atto.node.transaction.validation.TransactionValidationManager$validate$suspendImpl$$inlined$mapNotNull$1$2"
@@ -8868,10 +9280,16 @@
       "type": "cash.atto.node.unchecked.UncheckedTransactionController$get$suspendImpl$$inlined$map$1"
     },
     {
+      "type": "cash.atto.node.unchecked.UncheckedTransactionController$get$suspendImpl$$inlined$map$1$1"
+    },
+    {
       "type": "cash.atto.node.unchecked.UncheckedTransactionController$get$suspendImpl$$inlined$map$1$2"
     },
     {
       "type": "cash.atto.node.unchecked.UncheckedTransactionController$get$suspendImpl$$inlined$map$1$2$1"
+    },
+    {
+      "type": "cash.atto.node.unchecked.UncheckedTransactionController$process$1"
     },
     {
       "type": "cash.atto.node.unchecked.UncheckedTransactionController__TestContext001_BeanDefinitions"
@@ -8974,6 +9392,142 @@
       "type": "cash.atto.node.vote.VoteBulkRepositoryImpl__TestContext001_BeanDefinitions"
     },
     {
+      "type": "cash.atto.node.vote.VoteCleaner",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": [
+            "cash.atto.node.vote.VoteRepository",
+            "java.time.Clock"
+          ]
+        },
+        {
+          "name": "deleteStaleVotesOnStartup",
+          "parameterTypes": []
+        },
+        {
+          "name": "flush",
+          "parameterTypes": [
+            "kotlin.coroutines.Continuation"
+          ]
+        },
+        {
+          "name": "process",
+          "parameterTypes": [
+            "cash.atto.node.account.AccountUpdated"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$Companion"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$deleteStaleVotesOnStartup$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$flush$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner$flushBatch$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "deletes stale votes using account tips during startup",
+          "parameterTypes": []
+        },
+        {
+          "name": "deletes votes for previous account tip when account advances",
+          "parameterTypes": []
+        },
+        {
+          "name": "does not delete votes when account tip is unchanged",
+          "parameterTypes": []
+        },
+        {
+          "name": "requeues stale block hashes in FIFO order when deletion fails",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes stale votes using account tips during startup$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes stale votes using account tips during startup$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes stale votes using account tips during startup$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$deletes votes for previous account tip when account advances$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$does not delete votes when account tip is unchanged$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$does not delete votes when account tip is unchanged$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleanerTest$requeues stale block hashes in FIFO order when deletion fails$1$3"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteCleaner__TestContext001_BeanDefinitions"
+    },
+    {
       "type": "cash.atto.node.vote.VoteDropReason"
     },
     {
@@ -9037,6 +9591,9 @@
       "type": "cash.atto.node.vote.VoteNetworkProvider$stream$suspendImpl$$inlined$map$1"
     },
     {
+      "type": "cash.atto.node.vote.VoteNetworkProvider$stream$suspendImpl$$inlined$map$1$1"
+    },
+    {
       "type": "cash.atto.node.vote.VoteNetworkProvider$stream$suspendImpl$$inlined$map$1$2"
     },
     {
@@ -9093,13 +9650,13 @@
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.vote.VoteReceived"
+            "cash.atto.node.vote.VoteDropped"
           ]
         },
         {
           "name": "process",
           "parameterTypes": [
-            "cash.atto.node.vote.VoteRejected"
+            "cash.atto.node.vote.VoteReceived"
           ]
         },
         {
@@ -9178,41 +9735,6 @@
       ]
     },
     {
-      "type": "cash.atto.node.vote.VoteCleaner",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "cash.atto.node.vote.VoteRepository",
-            "java.time.Clock"
-          ]
-        },
-        {
-          "name": "deleteStaleVotesOnStartup",
-          "parameterTypes": []
-        },
-        {
-          "name": "process",
-          "parameterTypes": [
-            "cash.atto.node.account.AccountUpdated",
-            "kotlin.coroutines.Continuation"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleaner$Companion"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleaner$deleteStaleVotesOnStartup$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleaner$flush$1"
-    },
-    {
-      "type": "cash.atto.node.vote.VoteCleaner$flushBatch$1"
-    },
-    {
       "type": "cash.atto.node.vote.VoteService$Companion"
     },
     {
@@ -9223,6 +9745,75 @@
     },
     {
       "type": "cash.atto.node.vote.VoteService$saveAll$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        },
+        {
+          "name": "should enqueue and flush votes",
+          "parameterTypes": []
+        },
+        {
+          "name": "should flush at most one thousand votes at a time",
+          "parameterTypes": []
+        },
+        {
+          "name": "should not insert votes when buffer is empty",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should enqueue and flush votes$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$1"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should flush at most one thousand votes at a time$1$2"
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1",
+      "methods": [
+        {
+          "name": "invokeSuspend",
+          "parameterTypes": [
+            "java.lang.Object"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "cash.atto.node.vote.VoteServiceTest$should not insert votes when buffer is empty$1$1"
     },
     {
       "type": "cash.atto.node.vote.VoteService__TestContext001_BeanDefinitions"
@@ -9454,7 +10045,10 @@
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$1"
     },
     {
-      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$4"
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$3"
+    },
+    {
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizer$process$5"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer$voteBuffer$1"
@@ -9488,10 +10082,16 @@
       ]
     },
     {
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizerTest$delayed recoverable rejection does not reject votes for an active election$1"
+    },
+    {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizerTest$permanent rejection drops later votes$1"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizerTest$recoverable rejection allows votes for a later election$1"
+    },
+    {
+      "type": "cash.atto.node.vote.prioritization.VotePrioritizerTest$recoverable rejection drops later final votes for dependency discovery$1"
     },
     {
       "type": "cash.atto.node.vote.prioritization.VotePrioritizer__TestContext001_BeanDefinitions"
@@ -13497,62 +14097,10 @@
       "type": "io.ktor.client.HttpClient"
     },
     {
-      "type": "io.ktor.client.HttpClient$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.HttpClientConfig"
-    },
-    {
       "type": "io.ktor.client.call.HttpClientCall"
     },
     {
-      "type": "io.ktor.client.content.ProgressListener"
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$executeWithinCallContext$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngine$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.engine.HttpClientEngineBase"
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngineCapability"
-    },
-    {
-      "type": "io.ktor.client.engine.HttpClientEngineConfig"
-    },
-    {
-      "type": "io.ktor.client.engine.cio.CIOEngine$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
     },
     {
       "type": "io.ktor.client.engine.cio.CIOEngineContainer"
@@ -13561,110 +14109,7 @@
       "type": "io.ktor.client.engine.cio.Endpoint"
     },
     {
-      "type": "io.ktor.client.engine.cio.Endpoint$connect$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.cio.Endpoint$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.cio.Endpoint$makeDedicatedRequest$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.engine.cio.Endpoint$timeout$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.engine.cio.UtilsKt$readResponse$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.DefaultTransformKt$defaultTransformers$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpCallValidatorKt$HttpCallValidator$2$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRedirectKt$HttpRedirect$2$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRequestLifecycleKt$HttpRequestLifecycle$1$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRetryDelayContext"
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRetryModifyRequestContext"
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpRetryShouldRetryContext"
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpSend"
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpSend$DefaultSender$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpSend$Plugin$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpTimeoutConfig"
-    },
-    {
-      "type": "io.ktor.client.plugins.HttpTimeoutKt$HttpTimeout$3$1",
       "fields": [
         {
           "name": "label"
@@ -13680,101 +14125,7 @@
       ]
     },
     {
-      "type": "io.ktor.client.plugins.RequestError$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.SetupRequestContext$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.api.ClientPluginImpl"
-    },
-    {
-      "type": "io.ktor.client.plugins.api.ClientPluginInstance"
-    },
-    {
-      "type": "io.ktor.client.plugins.api.Send$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.api.TransformRequestBodyHook$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.client.plugins.websocket.BuildersKt$webSocket$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.plugins.websocket.DefaultClientWebSocketSession"
-    },
-    {
-      "type": "io.ktor.client.plugins.websocket.WebSockets"
-    },
-    {
-      "type": "io.ktor.client.plugins.websocket.WebSockets$Plugin$install$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.request.HttpRequest"
-    },
-    {
-      "type": "io.ktor.client.request.HttpRequestBuilder"
-    },
-    {
-      "type": "io.ktor.client.request.ResponseAdapter"
-    },
-    {
-      "type": "io.ktor.client.statement.HttpResponse"
-    },
-    {
-      "type": "io.ktor.client.statement.HttpStatement$execute$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.client.statement.HttpStatement$fetchStreamingResponse$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.http.ContentType"
-    },
-    {
-      "type": "io.ktor.http.HttpStatusCode"
-    },
-    {
-      "type": "io.ktor.http.cio.HttpParserKt$parseResponse$1",
       "fields": [
         {
           "name": "label"
@@ -13847,9 +14198,6 @@
       "type": "io.ktor.server.application.ApplicationCall"
     },
     {
-      "type": "io.ktor.server.application.PluginInstance"
-    },
-    {
       "type": "io.ktor.server.cio.CIOApplicationEngine"
     },
     {
@@ -13897,14 +14245,6 @@
     },
     {
       "type": "io.ktor.server.cio.CIOApplicationEngine$stopSuspend$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.server.cio.CIOApplicationEngine$stopSuspend$2",
       "fields": [
         {
           "name": "label"
@@ -13968,15 +14308,12 @@
       ]
     },
     {
-      "type": "io.ktor.server.cio.backend.ServerPipelineKt$startServerConnectionPipeline$1$2",
+      "type": "io.ktor.server.cio.backend.ServerPipelineKt$startServerPipelineWriter$1",
       "fields": [
         {
           "name": "label"
         }
       ]
-    },
-    {
-      "type": "io.ktor.server.engine.BaseApplicationResponse"
     },
     {
       "type": "io.ktor.server.engine.BaseApplicationResponse$Companion$setupFallbackResponse$1",
@@ -14030,24 +14367,12 @@
       "type": "io.ktor.server.engine.EmbeddedServer"
     },
     {
-      "type": "io.ktor.server.plugins.MutableOriginConnectionPoint"
-    },
-    {
-      "type": "io.ktor.server.request.DoubleReceivePreventionToken"
-    },
-    {
-      "type": "io.ktor.server.routing.RoutingCall"
-    },
-    {
       "type": "io.ktor.server.routing.RoutingNode$buildPipeline$1$1",
       "fields": [
         {
           "name": "label"
         }
       ]
-    },
-    {
-      "type": "io.ktor.server.routing.RoutingRoot"
     },
     {
       "type": "io.ktor.server.routing.RoutingRoot$Plugin$install$1",
@@ -14122,9 +14447,6 @@
       ]
     },
     {
-      "type": "io.ktor.server.websocket.WebSocketUpgrade"
-    },
-    {
       "type": "io.ktor.server.websocket.WebSocketUpgrade$upgrade$2",
       "fields": [
         {
@@ -14133,27 +14455,10 @@
       ]
     },
     {
-      "type": "io.ktor.server.websocket.WebSockets"
-    },
-    {
-      "type": "io.ktor.util.Attributes"
-    },
-    {
       "type": "io.ktor.util.collections.CopyOnWriteHashMap"
     },
     {
       "type": "io.ktor.util.internal.LockFreeLinkedListNode"
-    },
-    {
-      "type": "io.ktor.util.pipeline.DebugPipelineContext$proceedLoop$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.util.reflect.TypeInfo"
     },
     {
       "type": "io.ktor.utils.io.ByteChannel"
@@ -14167,9 +14472,6 @@
       ]
     },
     {
-      "type": "io.ktor.utils.io.ByteReadChannel"
-    },
-    {
       "type": "io.ktor.utils.io.ByteReadChannelOperationsKt$copyAndClose$1",
       "fields": [
         {
@@ -14179,14 +14481,6 @@
     },
     {
       "type": "io.ktor.utils.io.ByteReadChannelOperationsKt$copyTo$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "io.ktor.utils.io.ByteReadChannelOperationsKt$internalReadLineTo$1",
       "fields": [
         {
           "name": "label"
@@ -14224,23 +14518,12 @@
       "type": "io.ktor.websocket.DefaultWebSocketSessionImpl"
     },
     {
-      "type": "io.ktor.websocket.DefaultWebSocketSessionImpl$start$2",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
       "type": "io.ktor.websocket.RawWebSocketJvm$1",
       "fields": [
         {
           "name": "label"
         }
       ]
-    },
-    {
-      "type": "io.ktor.websocket.WebSocketExtension"
     },
     {
       "type": "io.ktor.websocket.WebSocketReader$1",
@@ -15244,13 +15527,96 @@
       ]
     },
     {
-      "type": "io.swagger.v3.oas.annotations.Parameter"
+      "type": "io.swagger.v3.oas.annotations.Parameter",
+      "methods": [
+        {
+          "name": "allowEmptyValue",
+          "parameterTypes": []
+        },
+        {
+          "name": "allowReserved",
+          "parameterTypes": []
+        },
+        {
+          "name": "array",
+          "parameterTypes": []
+        },
+        {
+          "name": "content",
+          "parameterTypes": []
+        },
+        {
+          "name": "deprecated",
+          "parameterTypes": []
+        },
+        {
+          "name": "description",
+          "parameterTypes": []
+        },
+        {
+          "name": "example",
+          "parameterTypes": []
+        },
+        {
+          "name": "examples",
+          "parameterTypes": []
+        },
+        {
+          "name": "explode",
+          "parameterTypes": []
+        },
+        {
+          "name": "extensions",
+          "parameterTypes": []
+        },
+        {
+          "name": "hidden",
+          "parameterTypes": []
+        },
+        {
+          "name": "in",
+          "parameterTypes": []
+        },
+        {
+          "name": "name",
+          "parameterTypes": []
+        },
+        {
+          "name": "ref",
+          "parameterTypes": []
+        },
+        {
+          "name": "required",
+          "parameterTypes": []
+        },
+        {
+          "name": "schema",
+          "parameterTypes": []
+        },
+        {
+          "name": "style",
+          "parameterTypes": []
+        },
+        {
+          "name": "validationGroups",
+          "parameterTypes": []
+        }
+      ]
     },
     {
       "type": "io.swagger.v3.oas.annotations.StringToClassMapItem"
     },
     {
       "type": "io.swagger.v3.oas.annotations.callbacks.Callbacks"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.enums.Explode"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.enums.ParameterIn"
+    },
+    {
+      "type": "io.swagger.v3.oas.annotations.enums.ParameterStyle"
     },
     {
       "type": "io.swagger.v3.oas.annotations.extensions.Extension"
@@ -17090,10 +17456,6 @@
           ]
         },
         {
-          "name": "isNamed",
-          "parameterTypes": []
-        },
-        {
           "name": "isNativeAccessEnabled",
           "parameterTypes": []
         }
@@ -17550,17 +17912,6 @@
       "type": "java.math.BigInteger"
     },
     {
-      "type": "java.net.ConnectException",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String"
-          ]
-        }
-      ]
-    },
-    {
       "type": "java.net.InetAddress"
     },
     {
@@ -17579,9 +17930,6 @@
     {
       "type": "java.net.PortUnreachableException",
       "jniAccessible": true
-    },
-    {
-      "type": "java.net.SocketException"
     },
     {
       "type": "java.net.StandardSocketOptions"
@@ -17750,8 +18098,7 @@
       "type": "java.time.DurationEditor"
     },
     {
-      "type": "java.time.Instant",
-      "serializable": true
+      "type": "java.time.Instant"
     },
     {
       "type": "java.time.InstantSource"
@@ -17856,6 +18203,17 @@
       "type": "java.util.SortedSet"
     },
     {
+      "type": "java.util.SplittableRandom",
+      "methods": [
+        {
+          "name": "nextBytes",
+          "parameterTypes": [
+            "byte[]"
+          ]
+        }
+      ]
+    },
+    {
       "type": "java.util.concurrent.ArrayBlockingQueue",
       "serializable": true
     },
@@ -17886,6 +18244,15 @@
       "type": "java.util.concurrent.Executor"
     },
     {
+      "type": "java.util.concurrent.ForkJoinPool",
+      "methods": [
+        {
+          "name": "getDelayedTaskCount",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "java.util.concurrent.Future"
     },
     {
@@ -17898,10 +18265,13 @@
       "type": "java.util.concurrent.Semaphore"
     },
     {
-      "type": "java.util.concurrent.TimeUnit"
+      "type": "java.util.concurrent.ThreadFactory"
     },
     {
-      "type": "java.util.concurrent.atomic.AtomicBoolean"
+      "type": "java.util.concurrent.ThreadPerTaskExecutor"
+    },
+    {
+      "type": "java.util.concurrent.TimeUnit"
     },
     {
       "type": "java.util.concurrent.atomic.AtomicInteger"
@@ -18042,16 +18412,7 @@
       "type": "kotlin.FloatArray"
     },
     {
-      "type": "kotlin.Function0"
-    },
-    {
       "type": "kotlin.Function1"
-    },
-    {
-      "type": "kotlin.Function2"
-    },
-    {
-      "type": "kotlin.Function3"
     },
     {
       "type": "kotlin.Int"
@@ -18124,9 +18485,6 @@
       "type": "kotlin.String"
     },
     {
-      "type": "kotlin.Throwable"
-    },
-    {
       "type": "kotlin.UByte"
     },
     {
@@ -18158,9 +18516,6 @@
     },
     {
       "type": "kotlin.annotation.AnnotationTarget"
-    },
-    {
-      "type": "kotlin.annotation.AnnotationTarget[]"
     },
     {
       "type": "kotlin.annotation.MustBeDocumented"
@@ -18290,44 +18645,6 @@
     },
     {
       "type": "kotlin.reflect.jvm.internal.impl.load.java.JavaIncompatibilityRulesOverridabilityCondition"
-    },
-    {
-      "type": "kotlin.reflect.jvm.internal.impl.resolve.scopes.DescriptorKindFilter",
-      "fields": [
-        {
-          "name": "ALL"
-        },
-        {
-          "name": "CALLABLES"
-        },
-        {
-          "name": "CLASSIFIERS"
-        },
-        {
-          "name": "Companion"
-        },
-        {
-          "name": "FUNCTIONS"
-        },
-        {
-          "name": "NON_SINGLETON_CLASSIFIERS"
-        },
-        {
-          "name": "PACKAGES"
-        },
-        {
-          "name": "SINGLETON_CLASSIFIERS"
-        },
-        {
-          "name": "TYPE_ALIASES"
-        },
-        {
-          "name": "VALUES"
-        },
-        {
-          "name": "VARIABLES"
-        }
-      ]
     },
     {
       "type": "kotlin.reflect.jvm.internal.impl.serialization.deserialization.builtins.BuiltInsLoaderImpl"
@@ -18484,14 +18801,6 @@
     },
     {
       "type": "kotlinx.coroutines.flow.FlowKt__EmittersKt$onStart$$inlined$unsafeFlow$1$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
-    },
-    {
-      "type": "kotlinx.coroutines.flow.FlowKt__LimitKt$take$$inlined$unsafeFlow$1$1",
       "fields": [
         {
           "name": "label"
@@ -19491,9 +19800,6 @@
       ]
     },
     {
-      "type": "org.hibernate.validator.internal.util.logging.Log_$logger_en"
-    },
-    {
       "type": "org.hibernate.validator.internal.util.logging.Messages_$bundle",
       "fields": [
         {
@@ -19533,6 +19839,9 @@
     },
     {
       "type": "org.mockito.Mockito"
+    },
+    {
+      "type": "org.openapitools.jackson.nullable.JsonNullable"
     },
     {
       "type": "org.opentest4j.TestAbortedException"
@@ -20082,6 +20391,15 @@
       "type": "org.springdoc.core.customizers.SpringDocCustomizers"
     },
     {
+      "type": "org.springdoc.core.deserializers.TypeSetDeserializer",
+      "methods": [
+        {
+          "name": "<init>",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.springdoc.core.discoverer.SpringDocParameterNameDiscoverer"
     },
     {
@@ -20095,6 +20413,9 @@
     },
     {
       "type": "org.springdoc.core.extractor.MethodParameterPojoExtractor"
+    },
+    {
+      "type": "org.springdoc.core.mixins.SchemaTypeMixin"
     },
     {
       "type": "org.springdoc.core.models.GroupedOpenApi"
@@ -21309,6 +21630,9 @@
       "type": "org.springframework.boot.actuate.endpoint.OperationFilter"
     },
     {
+      "type": "org.springframework.boot.actuate.endpoint.OperationResponseBody"
+    },
+    {
       "type": "org.springframework.boot.actuate.endpoint.annotation.Endpoint"
     },
     {
@@ -21885,9 +22209,9 @@
           "parameterTypes": []
         },
         {
-          "name": "taskSchedulerVirtualThreads",
+          "name": "taskScheduler",
           "parameterTypes": [
-            "org.springframework.boot.task.SimpleAsyncTaskSchedulerBuilder"
+            "org.springframework.boot.task.ThreadPoolTaskSchedulerBuilder"
           ]
         }
       ]
@@ -21977,7 +22301,7 @@
           ]
         },
         {
-          "name": "simpleAsyncTaskExecutorBuilderVirtualThreads",
+          "name": "simpleAsyncTaskExecutorBuilder",
           "parameterTypes": []
         }
       ]
@@ -21990,9 +22314,9 @@
           "parameterTypes": []
         },
         {
-          "name": "applicationTaskExecutorVirtualThreads",
+          "name": "applicationTaskExecutor",
           "parameterTypes": [
-            "org.springframework.boot.task.SimpleAsyncTaskExecutorBuilder"
+            "org.springframework.boot.task.ThreadPoolTaskExecutorBuilder"
           ]
         }
       ]
@@ -22063,7 +22387,7 @@
           ]
         },
         {
-          "name": "simpleAsyncTaskSchedulerBuilderVirtualThreads",
+          "name": "simpleAsyncTaskSchedulerBuilder",
           "parameterTypes": []
         }
       ]
@@ -22749,7 +23073,24 @@
       "type": "org.springframework.boot.flyway.testcontainers.FlywayContainerConnectionDetailsFactory$FlywayContainerConnectionDetails"
     },
     {
-      "type": "org.springframework.boot.hateoas.autoconfigure.HateoasProperties"
+      "type": "org.springframework.boot.health.actuate.endpoint.CompositeHealthDescriptor",
+      "methods": [
+        {
+          "name": "getComponents",
+          "parameterTypes": []
+        },
+        {
+          "name": "getDetails",
+          "parameterTypes": []
+        },
+        {
+          "name": "getStatus",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
+      "type": "org.springframework.boot.health.actuate.endpoint.HealthDescriptor"
     },
     {
       "type": "org.springframework.boot.health.actuate.endpoint.HealthEndpoint"
@@ -22767,7 +23108,18 @@
       "type": "org.springframework.boot.health.actuate.endpoint.HttpCodeStatusMapper"
     },
     {
-      "type": "org.springframework.boot.health.actuate.endpoint.ReactiveHealthEndpointWebExtension"
+      "type": "org.springframework.boot.health.actuate.endpoint.ReactiveHealthEndpointWebExtension",
+      "methods": [
+        {
+          "name": "health",
+          "parameterTypes": [
+            "org.springframework.boot.actuate.endpoint.ApiVersion",
+            "org.springframework.boot.actuate.endpoint.web.WebServerNamespace",
+            "org.springframework.boot.actuate.endpoint.SecurityContext",
+            "java.lang.String[]"
+          ]
+        }
+      ]
     },
     {
       "type": "org.springframework.boot.health.actuate.endpoint.SimpleHttpCodeStatusMapper"
@@ -23136,6 +23488,19 @@
       "type": "org.springframework.boot.health.contributor.ReactiveHealthIndicator"
     },
     {
+      "type": "org.springframework.boot.health.contributor.Status",
+      "methods": [
+        {
+          "name": "getCode",
+          "parameterTypes": []
+        },
+        {
+          "name": "getDescription",
+          "parameterTypes": []
+        }
+      ]
+    },
+    {
       "type": "org.springframework.boot.health.registry.AbstractRegistry"
     },
     {
@@ -23308,13 +23673,13 @@
         {
           "name": "jsonFactory",
           "parameterTypes": [
-            "java.util.List"
+            "org.springframework.beans.factory.ObjectProvider"
           ]
         },
         {
           "name": "jsonMapperBuilder",
           "parameterTypes": [
-            "java.util.List",
+            "org.springframework.beans.factory.ObjectProvider",
             "tools.jackson.core.json.JsonFactory"
           ]
         }
@@ -23615,6 +23980,9 @@
       ]
     },
     {
+      "type": "org.springframework.boot.micrometer.metrics.autoconfigure.MeterRegistryCloser"
+    },
+    {
       "type": "org.springframework.boot.micrometer.metrics.autoconfigure.MeterRegistryPostProcessor"
     },
     {
@@ -23635,14 +24003,14 @@
         {
           "name": "meterRegistryCloser",
           "parameterTypes": [
-            "org.springframework.context.ApplicationContext",
-            "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsProperties"
+            "org.springframework.context.ApplicationContext"
           ]
         },
         {
           "name": "meterRegistryPostProcessor",
           "parameterTypes": [
             "org.springframework.context.ApplicationContext",
+            "org.springframework.beans.factory.ObjectProvider",
             "org.springframework.beans.factory.ObjectProvider",
             "org.springframework.beans.factory.ObjectProvider",
             "org.springframework.beans.factory.ObjectProvider",
@@ -23664,9 +24032,6 @@
           ]
         }
       ]
-    },
-    {
-      "type": "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration$MeterRegistryCloser"
     },
     {
       "type": "org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration__TestContext001_BeanDefinitions"
@@ -24971,6 +25336,9 @@
       ]
     },
     {
+      "type": "org.springframework.boot.test.web.server.LocalManagementPort"
+    },
+    {
       "type": "org.springframework.boot.testcontainers.lifecycle.TestcontainersLifecycleApplicationContextInitializer",
       "methods": [
         {
@@ -25339,9 +25707,6 @@
       ]
     },
     {
-      "type": "org.springframework.boot.web.server.servlet.ConfigurableServletWebServerFactory"
-    },
-    {
       "type": "org.springframework.boot.web.server.servlet.context.ServletWebServerApplicationContextFactory",
       "methods": [
         {
@@ -25380,7 +25745,15 @@
       "type": "org.springframework.boot.webflux.actuate.endpoint.web.AbstractWebFluxEndpointHandlerMapping$LinksHandler"
     },
     {
-      "type": "org.springframework.boot.webflux.actuate.endpoint.web.AbstractWebFluxEndpointHandlerMapping$ReadOperationHandler"
+      "type": "org.springframework.boot.webflux.actuate.endpoint.web.AbstractWebFluxEndpointHandlerMapping$ReadOperationHandler",
+      "methods": [
+        {
+          "name": "handle",
+          "parameterTypes": [
+            "org.springframework.web.server.ServerWebExchange"
+          ]
+        }
+      ]
     },
     {
       "type": "org.springframework.boot.webflux.actuate.endpoint.web.AbstractWebFluxEndpointHandlerMapping$WriteOperationHandler"
@@ -25871,7 +26244,7 @@
           "name": "webTestClient",
           "parameterTypes": [
             "org.springframework.context.ApplicationContext",
-            "java.util.List",
+            "org.springframework.beans.factory.ObjectProvider",
             "java.util.List"
           ]
         }
@@ -26125,9 +26498,6 @@
       "type": "org.springframework.core.DefaultParameterNameDiscoverer"
     },
     {
-      "type": "org.springframework.core.NestedRuntimeException"
-    },
-    {
       "type": "org.springframework.core.Ordered"
     },
     {
@@ -26221,9 +26591,6 @@
       "type": "org.springframework.core.task.AsyncTaskExecutor"
     },
     {
-      "type": "org.springframework.core.task.SimpleAsyncTaskExecutor"
-    },
-    {
       "type": "org.springframework.core.task.TaskExecutor"
     },
     {
@@ -26234,39 +26601,6 @@
     },
     {
       "type": "org.springframework.dao.DataAccessException"
-    },
-    {
-      "type": "org.springframework.dao.DataAccessResourceFailureException",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.Throwable"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.springframework.dao.DataIntegrityViolationException"
-    },
-    {
-      "type": "org.springframework.dao.DuplicateKeyException",
-      "methods": [
-        {
-          "name": "<init>",
-          "parameterTypes": [
-            "java.lang.String",
-            "java.lang.Throwable"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "org.springframework.dao.NonTransientDataAccessException"
-    },
-    {
-      "type": "org.springframework.dao.NonTransientDataAccessResourceException"
     },
     {
       "type": "org.springframework.dao.annotation.PersistenceExceptionTranslationPostProcessor"
@@ -26837,6 +27171,9 @@
       "type": "org.springframework.r2dbc.core.binding.BindMarkersFactoryResolver.BuiltInBindMarkersFactoryProvider"
     },
     {
+      "type": "org.springframework.scheduling.SchedulingTaskExecutor"
+    },
+    {
       "type": "org.springframework.scheduling.TaskScheduler"
     },
     {
@@ -26874,7 +27211,10 @@
       "type": "org.springframework.scheduling.annotation.SchedulingConfigurer"
     },
     {
-      "type": "org.springframework.scheduling.concurrent.SimpleAsyncTaskScheduler"
+      "type": "org.springframework.scheduling.concurrent.CustomizableThreadFactory"
+    },
+    {
+      "type": "org.springframework.scheduling.concurrent.ExecutorConfigurationSupport"
     },
     {
       "type": "org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor"
@@ -27224,14 +27564,6 @@
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperator"
-    },
-    {
-      "type": "org.springframework.transaction.reactive.TransactionalOperatorExtensionsKt$executeAndAwait$2$1",
-      "fields": [
-        {
-          "name": "label"
-        }
-      ]
     },
     {
       "type": "org.springframework.transaction.reactive.TransactionalOperatorImpl"
@@ -27600,16 +27932,10 @@
       "type": "org.springframework.web.reactive.config.WebFluxConfigurer"
     },
     {
-      "type": "org.springframework.web.reactive.function.client.DefaultExchangeStrategiesBuilder$DefaultExchangeStrategies"
-    },
-    {
       "type": "org.springframework.web.reactive.function.client.DefaultWebClient"
     },
     {
       "type": "org.springframework.web.reactive.function.client.ExchangeFunction"
-    },
-    {
-      "type": "org.springframework.web.reactive.function.client.ExchangeStrategies"
     },
     {
       "type": "org.springframework.web.reactive.function.client.WebClient"
@@ -27974,6 +28300,9 @@
       "type": "reactor.core.publisher.FluxRetryWhen$RetryWhenMainSubscriber"
     },
     {
+      "type": "reactor.core.publisher.FluxSubscribeOnCallable$CallableSubscribeOnSubscription"
+    },
+    {
       "type": "reactor.core.publisher.FluxSwitchOnFirst$AbstractSwitchOnFirstMain"
     },
     {
@@ -28085,18 +28414,13 @@
       "type": "reactor.core.publisher.StrictSubscriber"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler"
+      "type": "reactor.core.scheduler.BoundedElasticScheduler"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler$BoundedServices"
+      "type": "reactor.core.scheduler.BoundedElasticScheduler$BoundedServices"
     },
     {
-      "type": "reactor.core.scheduler.BoundedElasticThreadPerTaskScheduler$SequentialThreadPerTaskExecutor",
-      "fields": [
-        {
-          "name": "wipAndRefCnt"
-        }
-      ]
+      "type": "reactor.core.scheduler.BoundedElasticScheduler$BoundedState"
     },
     {
       "type": "reactor.core.scheduler.ParallelScheduler"
@@ -28196,12 +28520,6 @@
     },
     {
       "type": "reactor.util.annotation.Nullable"
-    },
-    {
-      "type": "reactor.util.concurrent.MpscLinkedQueue"
-    },
-    {
-      "type": "reactor.util.concurrent.MpscLinkedQueue$LinkedQueueNode"
     },
     {
       "type": "reactor.util.concurrent.SpscArrayQueueConsumer"
@@ -29717,6 +30035,15 @@
       "glob": "cash/atto/node/CacheSupport.class"
     },
     {
+      "glob": "cash/atto/node/CgroupCpuMetricProvider$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/CgroupCpuMetricProvider$CpuStat.class"
+    },
+    {
+      "glob": "cash/atto/node/CgroupCpuMetricProvider.class"
+    },
+    {
       "glob": "cash/atto/node/CucumberConfiguration-context.xml"
     },
     {
@@ -29915,16 +30242,25 @@
       "glob": "cash/atto/node/election/ElectionMetricProvider.class"
     },
     {
+      "glob": "cash/atto/node/election/ElectionPersistenceMetrics.class"
+    },
+    {
       "glob": "cash/atto/node/election/ElectionProcessor$PendingElectionConsensus.class"
     },
     {
       "glob": "cash/atto/node/election/ElectionProcessor.class"
     },
     {
+      "glob": "cash/atto/node/election/ElectionProcessorTest$RecordingReactiveTransactionManager.class"
+    },
+    {
       "glob": "cash/atto/node/election/ElectionProcessorTest.class"
     },
     {
       "glob": "cash/atto/node/election/ElectionProperties.class"
+    },
+    {
+      "glob": "cash/atto/node/election/ElectionVoter$CachedVote.class"
     },
     {
       "glob": "cash/atto/node/election/ElectionVoter$Companion.class"
@@ -30167,6 +30503,12 @@
       "glob": "cash/atto/node/vote/VoteBulkRepositoryImpl.class"
     },
     {
+      "glob": "cash/atto/node/vote/VoteCleaner$Companion.class"
+    },
+    {
+      "glob": "cash/atto/node/vote/VoteCleaner.class"
+    },
+    {
       "glob": "cash/atto/node/vote/VoteNetworkProvider$Companion.class"
     },
     {
@@ -30186,12 +30528,6 @@
     },
     {
       "glob": "cash/atto/node/vote/VoteService$Companion.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/VoteCleaner.class"
-    },
-    {
-      "glob": "cash/atto/node/vote/VoteCleaner$Companion.class"
     },
     {
       "glob": "cash/atto/node/vote/VoteService.class"
@@ -30366,6 +30702,9 @@
     },
     {
       "glob": "io/cucumber/messages/version_en.properties"
+    },
+    {
+      "glob": "io/micrometer/core/instrument/binder/MeterBinder.class"
     },
     {
       "glob": "io/mockk/proxy/jvm/advice/jvm/JvmMockKProxyAdvice.class"
@@ -30705,6 +31044,9 @@
     },
     {
       "glob": "org/springdoc/core/properties/SpringDocConfigProperties$Groups.class"
+    },
+    {
+      "glob": "org/springdoc/core/properties/SpringDocConfigProperties$LoginEndpoint.class"
     },
     {
       "glob": "org/springdoc/core/properties/SpringDocConfigProperties$ModelConverters.class"
@@ -31346,9 +31688,6 @@
       "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/CompositeMeterRegistryConfiguration.class"
     },
     {
-      "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/MetricsAutoConfiguration$MeterRegistryCloser.class"
-    },
-    {
       "glob": "org/springframework/boot/micrometer/metrics/autoconfigure/MetricsAutoConfiguration.class"
     },
     {
@@ -31646,6 +31985,9 @@
       "glob": "org/springframework/context/annotation/Role.class"
     },
     {
+      "glob": "org/springframework/core/Ordered.class"
+    },
+    {
       "glob": "org/springframework/core/ResolvableTypeProvider.class"
     },
     {
@@ -31679,6 +32021,9 @@
       "glob": "org/springframework/test/context/BootstrapWith.class"
     },
     {
+      "glob": "org/springframework/transaction/ConfigurableTransactionManager.class"
+    },
+    {
       "glob": "org/springframework/transaction/ReactiveTransaction.class"
     },
     {
@@ -31701,6 +32046,9 @@
     },
     {
       "glob": "org/springframework/transaction/annotation/TransactionManagementConfigurationSelector.class"
+    },
+    {
+      "glob": "org/springframework/transaction/reactive/AbstractReactiveTransactionManager.class"
     },
     {
       "glob": "org/springframework/transaction/reactive/TransactionSynchronization.class"

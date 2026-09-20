@@ -18,8 +18,8 @@ import java.util.stream.Stream
  */
 class IPv6Test {
     companion object {
-        private val ipv6Host = "ipv6.google.com"
-        private val ipv4Host = "ipv4.google.com"
+        private val ipv6Host = "::1"
+        private val ipv4Host = "127.0.0.1"
 
         val eventLoopGroup = NioEventLoopGroup()
 
@@ -51,15 +51,7 @@ class IPv6Test {
                 .socketChannelType(NioSocketChannel::class.java, true)
                 .build()
 
-        try {
-            val addressFuture = resolver.resolve(host)
-
-            addressFuture.get()
-        } catch (e: Exception) {
-            // issue: https://github.com/netty/netty/issues/13660
-            if (host != ipv6Host) {
-                throw e
-            }
-        }
+        val addressFuture = resolver.resolve(host)
+        addressFuture.get()
     }
 }

@@ -1,4 +1,9 @@
 spring:
+  # Native-image-agent amplifies the 1 ms suspend schedulers; platform
+  # threads keep the integration-test event chain responsive while instrumented.
+  threads:
+    virtual:
+      enabled: false
   r2dbc:
     url:
     username:
