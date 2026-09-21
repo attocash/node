@@ -146,25 +146,24 @@ class VoteCleanerTest {
         }
 
     @Test
-    fun `deletes stale votes using account tips during startup`() =
-        runTest {
-            // Given
-            val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
-            val cutoff = Instant.EPOCH.minus(Duration.ofMinutes(5))
-            val repository = mockk<VoteRepository>()
-            val cleaner = VoteCleaner(repository, clock)
-            coEvery { repository.deleteStale(cutoff) } returns 3
+    fun `deletes stale votes using account tips during startup`() {
+        // Given
+        val clock = Clock.fixed(Instant.EPOCH, ZoneId.systemDefault())
+        val cutoff = Instant.EPOCH.minus(Duration.ofMinutes(5))
+        val repository = mockk<VoteRepository>()
+        val cleaner = VoteCleaner(repository, clock)
+        coEvery { repository.deleteStale(cutoff) } returns 3
 
-            try {
-                // When
-                cleaner.deleteStaleVotesOnStartup()
+        try {
+            // When
+            cleaner.deleteStaleVotesOnStartup()
 
-                // Then
-                coVerify(exactly = 1) { repository.deleteStale(cutoff) }
-            } finally {
-                cleaner.stop()
-            }
+            // Then
+            coVerify(exactly = 1) { repository.deleteStale(cutoff) }
+        } finally {
+            cleaner.stop()
         }
+    }
 
     private fun awaitCondition(condition: () -> Boolean) {
         await()

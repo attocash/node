@@ -4,8 +4,9 @@ import cash.atto.commons.AttoHash
 import cash.atto.node.CacheSupport
 import cash.atto.node.DemandDrivenWorker
 import cash.atto.node.account.AccountUpdated
+import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
-import org.springframework.boot.context.event.ApplicationReadyEvent
+import kotlinx.coroutines.runBlocking
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.time.Clock
@@ -39,9 +40,11 @@ class VoteCleaner(
         worker.request()
     }
 
-    @EventListener(ApplicationReadyEvent::class)
-    suspend fun deleteStaleVotesOnStartup() {
-        voteRepository.deleteStale(clock.instant().minus(STARTUP_CLEANUP_GRACE))
+    @PostConstruct
+    fun deleteStaleVotesOnStartup() {
+        runBlocking {
+            voteRepository.deleteStale(clock.instant().minus(STARTUP_CLEANUP_GRACE))
+        }
     }
 
     @PreDestroy
