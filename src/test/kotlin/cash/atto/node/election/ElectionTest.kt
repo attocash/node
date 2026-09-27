@@ -217,6 +217,30 @@ class ElectionTest {
     }
 
     @Test
+    fun `should clear pending consensus state`() {
+        // given
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val transactionA = Transaction.sample(publicKey = publicKey)
+        val transactionB = Transaction.sample(publicKey = publicKey)
+        val voteA = Vote.sample(blockHash = transactionA.hash, weight = minimalWeight)
+        every { voteWeighter.get(voteA.publicKey) } returns voteA.weight
+
+        // when
+        runBlocking {
+            election.start(TransactionValidated(account, transactionA))
+            election.process(VoteValidated(transactionA, voteA))
+            election.clear()
+            election.start(TransactionValidated(account, transactionB))
+        }
+
+        // then
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionA })
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == transactionB })
+        }
+    }
+
+    @Test
     fun `should publish consensus changed when provisional leader changes`() {
         // given
         every { voteWeighter.getMinimalConfirmationWeight() } returns AttoAmount(2000UL)
