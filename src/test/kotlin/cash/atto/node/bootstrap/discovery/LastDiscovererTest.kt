@@ -153,6 +153,7 @@ class LastDiscovererTest {
         val discoverer =
             LastDiscoverer(
                 thisNode = mockk<AttoNode>(relaxed = true),
+                discoveryProperties = DiscoveryProperties(),
                 accountRepository = accountRepository,
                 transactionRepository = mockk<TransactionRepository>(),
                 uncheckedTransactionRepository = mockk<UncheckedTransactionRepository>(),
