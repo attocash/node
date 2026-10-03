@@ -39,6 +39,15 @@ interface TransactionRepository :
     )
     suspend fun getLastSample(limit: Long): Flow<Transaction>
 
+    @Query(
+        """
+            SELECT t.* FROM transaction t
+            JOIN account a ON t.hash = a.last_transaction_hash
+            WHERE a.public_key IN (:publicKeys)
+        """,
+    )
+    suspend fun findLastByPublicKeys(publicKeys: Collection<AttoPublicKey>): Flow<Transaction>
+
     @Query("SELECT * FROM transaction t WHERE t.public_key = :publicKey AND t.height BETWEEN :fromHeight and :toHeight ORDER BY height ASC")
     suspend fun findAsc(
         publicKey: AttoPublicKey,

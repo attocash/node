@@ -14,7 +14,6 @@ import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.EventPublisher
-import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.network.BroadcastNetworkMessage
@@ -35,7 +34,6 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import java.time.Instant
 
 class LastDiscovererBroadcastTest {
     @Test
@@ -46,12 +44,9 @@ class LastDiscovererBroadcastTest {
             val hintedAddress = AttoAddress(hinted.algorithm, hinted.publicKey)
             val properties = DiscoveryProperties().apply { hintedAddresses = setOf(hintedAddress) }
 
-            val accountRepository = mockk<AccountRepository>()
-            coEvery { accountRepository.findById(hinted.publicKey) } returns account(hinted)
-
             val transactionRepository = mockk<TransactionRepository>()
             coEvery { transactionRepository.getLastSample(10L) } returns flowOf(random, hinted)
-            coEvery { transactionRepository.findById(hinted.hash) } returns hinted
+            coEvery { transactionRepository.findLastByPublicKeys(listOf(hinted.publicKey)) } returns flowOf(hinted)
 
             val uncheckedRepository = mockk<UncheckedTransactionRepository>()
             coEvery { uncheckedRepository.count() } returns 0
@@ -69,7 +64,7 @@ class LastDiscovererBroadcastTest {
                 LastDiscoverer(
                     thisNode = thisNode,
                     discoveryProperties = properties,
-                    accountRepository = accountRepository,
+                    accountRepository = mockk<AccountRepository>(),
                     transactionRepository = transactionRepository,
                     uncheckedTransactionRepository = uncheckedRepository,
                     nodeConnectionManager = connectionManager,
@@ -92,20 +87,6 @@ class LastDiscovererBroadcastTest {
                 discoverer.close()
             }
         }
-
-    private fun account(transaction: Transaction): Account =
-        Account(
-            publicKey = transaction.publicKey,
-            network = transaction.block.network,
-            version = 0U.toAttoVersion(),
-            algorithm = transaction.algorithm,
-            height = transaction.height.value.toLong(),
-            balance = transaction.block.balance,
-            lastTransactionTimestamp = Instant.now(),
-            lastTransactionHash = transaction.hash,
-            representativeAlgorithm = transaction.algorithm,
-            representativePublicKey = transaction.publicKey,
-        )
 
     private fun transaction(marker: Byte): Transaction =
         AttoTransaction(

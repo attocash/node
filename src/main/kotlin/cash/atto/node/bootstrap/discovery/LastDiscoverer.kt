@@ -103,15 +103,14 @@ class LastDiscoverer(
                 return
             }
 
-            val transactions = transactionRepository.getLastSample(RANDOM_SAMPLE_SIZE).toList().toMutableList()
-            for (address in discoveryProperties.hintedAddresses) {
-                val account = accountRepository.findById(address.publicKey)
-                if (account == null || account.algorithm != address.algorithm) {
-                    continue
+            val hintedPublicKeys = discoveryProperties.hintedAddresses.map { it.publicKey }
+            val hintedTransactions =
+                if (hintedPublicKeys.isEmpty()) {
+                    emptyList()
+                } else {
+                    transactionRepository.findLastByPublicKeys(hintedPublicKeys).toList()
                 }
-
-                transactionRepository.findById(account.lastTransactionHash)?.let(transactions::add)
-            }
+            val transactions = transactionRepository.getLastSample(RANDOM_SAMPLE_SIZE).toList() + hintedTransactions
 
             transactions
                 .distinctBy { it.hash }
