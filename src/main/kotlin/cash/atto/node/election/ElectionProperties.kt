@@ -8,6 +8,4 @@ import org.springframework.context.annotation.Configuration
 class ElectionProperties {
     var expiringAfterTimeInSeconds: Long? = null
     var expiredAfterTimeInSeconds: Long? = null
-    var processingRetryInitialBackoffInSeconds: Long = 1
-    var processingRetryMaxBackoffInSeconds: Long = 30
 }

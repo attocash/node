@@ -16,18 +16,21 @@ import cash.atto.node.vote.Vote
 import cash.atto.node.vote.weight.WeightService
 import io.mockk.coEvery
 import io.mockk.mockk
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.runTest
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.assertThrows
 import java.time.Instant
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 class VoteTimestampRecorderTest {
     @Test
     fun `should record latest vote timestamps`() =
-        runBlocking {
-            // given
+        runTest {
+            // Given
             val weightService = mockk<WeightService>()
             val recorder = VoteTimestampRecorder(weightService)
             val transaction = Transaction.sample()
@@ -36,87 +39,79 @@ class VoteTimestampRecorderTest {
             val oldTimestamp = Instant.now().minusSeconds(10)
             val newTimestamp = Instant.now()
             val secondTimestamp = Instant.now().plusSeconds(1)
-            val timestampUpdates = mutableListOf<Map<AttoPublicKey, Instant>>()
+            val timestampUpdates = CopyOnWriteArrayList<Map<AttoPublicKey, Instant>>()
 
             coEvery { weightService.recordLastVoteTimestamps(any()) } coAnswers {
                 timestampUpdates += firstArg<Map<AttoPublicKey, Instant>>()
             }
 
-            // when
-            recorder.process(
-                ElectionConsensusReached(
-                    account = mockk(relaxed = true),
-                    transaction = transaction,
-                    votes =
-                        listOf(
-                            Vote.sample(transaction.hash, firstPublicKey, oldTimestamp),
-                            Vote.sample(transaction.hash, secondPublicKey, secondTimestamp),
-                            Vote.sample(transaction.hash, firstPublicKey, newTimestamp),
-                        ),
-                ),
-            )
-            recorder.flush()
+            try {
+                // When
+                recorder.process(
+                    ElectionConsensusReached(
+                        account = mockk(relaxed = true),
+                        transaction = transaction,
+                        votes =
+                            listOf(
+                                Vote.sample(transaction.hash, firstPublicKey, oldTimestamp),
+                                Vote.sample(transaction.hash, secondPublicKey, secondTimestamp),
+                                Vote.sample(transaction.hash, firstPublicKey, newTimestamp),
+                            ),
+                    ),
+                )
 
-            // then
-            assertEquals(0, recorder.getPendingSize())
-            assertEquals(
-                mapOf(
-                    firstPublicKey to newTimestamp,
-                    secondPublicKey to secondTimestamp,
-                ),
-                timestampUpdates.single(),
-            )
+                // Then
+                awaitCondition { recorder.getPendingSize() == 0 }
+                assertEquals(
+                    mapOf(
+                        firstPublicKey to newTimestamp,
+                        secondPublicKey to secondTimestamp,
+                    ),
+                    timestampUpdates.single(),
+                )
+            } finally {
+                recorder.stop()
+            }
         }
 
     @Test
-    fun `should keep pending timestamps when recording fails`() =
-        runBlocking {
-            // given
+    fun `worker retries pending timestamps without another delay`() =
+        runTest {
+            // Given
             val weightService = mockk<WeightService>()
             val recorder = VoteTimestampRecorder(weightService)
             val transaction = Transaction.sample()
             val vote = Vote.sample(transaction.hash, AttoPublicKey(Random.nextBytes(ByteArray(32))), Instant.now())
-            var attempts = 0
+            val attempts = AtomicInteger()
 
             coEvery { weightService.recordLastVoteTimestamps(any()) } coAnswers {
-                attempts++
-                if (attempts == 1) {
+                if (attempts.incrementAndGet() == 1) {
                     throw IllegalStateException("db down")
                 }
             }
 
-            recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(vote)))
+            try {
+                // When
+                recorder.process(ElectionConsensusReached(mockk(relaxed = true), transaction, listOf(vote)))
 
-            // when
-            assertThrows<RuntimeException> {
-                runBlocking {
-                    recorder.flush()
-                }
+                // Then
+                awaitCondition { recorder.getPendingSize() == 0 && attempts.get() == 2 }
+            } finally {
+                recorder.stop()
             }
-
-            // then
-            assertEquals(1, recorder.getPendingSize())
-            assertEquals(1, attempts)
-
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(0, recorder.getPendingSize())
-            assertEquals(2, attempts)
         }
 
     @Test
-    fun `should keep newer timestamp that arrives during flush`() =
-        runBlocking {
-            // given
+    fun `worker records a newer timestamp that arrives during flush without another delay`() =
+        runTest {
+            // Given
             val weightService = mockk<WeightService>()
             val recorder = VoteTimestampRecorder(weightService)
             val transaction = Transaction.sample()
             val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
             val oldTimestamp = Instant.now().minusSeconds(10)
             val newTimestamp = Instant.now()
-            val timestampUpdates = mutableListOf<Map<AttoPublicKey, Instant>>()
+            val timestampUpdates = CopyOnWriteArrayList<Map<AttoPublicKey, Instant>>()
 
             coEvery { weightService.recordLastVoteTimestamps(any()) } coAnswers {
                 timestampUpdates += firstArg<Map<AttoPublicKey, Instant>>()
@@ -131,27 +126,30 @@ class VoteTimestampRecorderTest {
                 }
             }
 
-            recorder.process(
-                ElectionConsensusReached(
-                    account = mockk(relaxed = true),
-                    transaction = transaction,
-                    votes = listOf(Vote.sample(transaction.hash, publicKey, oldTimestamp)),
-                ),
-            )
+            try {
+                // When
+                recorder.process(
+                    ElectionConsensusReached(
+                        account = mockk(relaxed = true),
+                        transaction = transaction,
+                        votes = listOf(Vote.sample(transaction.hash, publicKey, oldTimestamp)),
+                    ),
+                )
 
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(1, recorder.getPendingSize())
-
-            // when
-            recorder.flush()
-
-            // then
-            assertEquals(0, recorder.getPendingSize())
-            assertEquals(listOf(mapOf(publicKey to oldTimestamp), mapOf(publicKey to newTimestamp)), timestampUpdates)
+                // Then
+                awaitCondition { recorder.getPendingSize() == 0 && timestampUpdates.size == 2 }
+                assertEquals(listOf(mapOf(publicKey to oldTimestamp), mapOf(publicKey to newTimestamp)), timestampUpdates)
+            } finally {
+                recorder.stop()
+            }
         }
+
+    private fun awaitCondition(condition: () -> Boolean) {
+        await()
+            .atMost(5, TimeUnit.SECONDS)
+            .pollInterval(1, TimeUnit.MILLISECONDS)
+            .until(condition)
+    }
 
     private fun Transaction.Companion.sample(): Transaction =
         Transaction(
