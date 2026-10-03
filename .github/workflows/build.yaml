@@ -23,6 +23,7 @@ jobs:
         with:
           distribution: 'graalvm'
           version: '25i-latest'
+          java-version: '25'
           native-image-musl: true
           native-image-enable-sbom: true
           native-image-job-reports: true
