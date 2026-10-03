@@ -22,6 +22,18 @@ internal class MeteredAttoSigner(
 ) : AttoSigner {
     private val timers = ConcurrentHashMap<String, Timer>()
 
+    init {
+        // Expose startup zeros so scrapes can establish a baseline before signing.
+        for (outcome in listOf("success", "cancelled", "error")) {
+            for (operation in listOf("hash", "block", "challenge", "message")) {
+                timer(operation, outcome, "not_applicable")
+            }
+            for (voteType in listOf("final", "nonfinal")) {
+                timer("vote", outcome, voteType)
+            }
+        }
+    }
+
     override val algorithm: AttoAlgorithm
         get() = delegate.algorithm
     override val publicKey: AttoPublicKey
@@ -40,7 +52,7 @@ internal class MeteredAttoSigner(
         }
 
     override suspend fun sign(vote: AttoVote): AttoSignature =
-        record("vote") {
+        record("vote", voteType = if (vote.isFinal()) "final" else "nonfinal") {
             delegate.sign(vote)
         }
 
@@ -59,6 +71,7 @@ internal class MeteredAttoSigner(
 
     private suspend fun <T> record(
         operation: String,
+        voteType: String = "not_applicable",
         action: suspend () -> T,
     ): T {
         val started = System.nanoTime()
@@ -72,20 +85,22 @@ internal class MeteredAttoSigner(
             outcome = "error"
             throw e
         } finally {
-            timer(operation, outcome).record(System.nanoTime() - started, TimeUnit.NANOSECONDS)
+            timer(operation, outcome, voteType).record(System.nanoTime() - started, TimeUnit.NANOSECONDS)
         }
     }
 
     private fun timer(
         operation: String,
         outcome: String,
+        voteType: String,
     ): Timer =
-        timers.computeIfAbsent("$operation:$outcome") {
+        timers.computeIfAbsent("$operation:$outcome:$voteType") {
             Timer
                 .builder("signer.signature.latency")
                 .description("Time taken to sign with this node signer")
                 .tag("operation", operation)
                 .tag("outcome", outcome)
+                .tag("vote_type", voteType)
                 .register(meterRegistry)
         }
 }

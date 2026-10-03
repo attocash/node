@@ -27,10 +27,13 @@ import cash.atto.protocol.AttoTransactionPush
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
 import io.mockk.mockk
+import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
 import java.net.URI
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 internal class TransactionPrioritizerTest {
@@ -69,11 +72,11 @@ internal class TransactionPrioritizerTest {
 
     @Test
     fun `recoverable rejection allows the same transaction to be queued again`() {
-        val published = mutableListOf<Event>()
+        // Given
+        val published = CopyOnWriteArrayList<Event>()
         val eventPublisher = mockk<EventPublisher>()
         every { eventPublisher.publish(any()) } answers {
             published += firstArg<Event>()
-            Unit
         }
         val prioritizer =
             TransactionPrioritizer(
@@ -92,36 +95,39 @@ internal class TransactionPrioritizerTest {
                 AttoTransactionPush(transaction.toAttoTransaction()),
             )
 
-        prioritizer.add(message)
-        prioritizer.process()
-        prioritizer.add(message)
-        prioritizer.process()
+        try {
+            // When
+            prioritizer.add(message)
+            awaitCondition { published.filterIsInstance<TransactionReceived>().size == 1 }
+            prioritizer.add(message)
+            prioritizer.process(
+                TransactionRejected(
+                    TransactionRejectionReason.PREVIOUS_NOT_FOUND,
+                    "Previous transaction is missing",
+                    account,
+                    transaction,
+                ),
+            )
+            prioritizer.add(message)
 
-        prioritizer.process(
-            TransactionRejected(
-                TransactionRejectionReason.PREVIOUS_NOT_FOUND,
-                "Previous transaction is missing",
-                account,
-                transaction,
-            ),
-        )
-        prioritizer.add(message)
-        prioritizer.process()
-
-        assertEquals(
-            listOf(transaction.hash, transaction.hash),
-            published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
-        )
+            // Then
+            awaitCondition { published.filterIsInstance<TransactionReceived>().size == 2 }
+            assertEquals(
+                listOf(transaction.hash, transaction.hash),
+                published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
+            )
+        } finally {
+            prioritizer.stop()
+        }
     }
 
     @Test
     fun `lost election discards buffered dependencies`() {
         // given
-        val published = mutableListOf<Event>()
+        val published = CopyOnWriteArrayList<Event>()
         val eventPublisher = mockk<EventPublisher>()
         every { eventPublisher.publish(any()) } answers {
             published += firstArg<Event>()
-            Unit
         }
         val prioritizer =
             TransactionPrioritizer(
@@ -132,21 +138,69 @@ internal class TransactionPrioritizerTest {
                 eventPublisher,
                 SimpleMeterRegistry(),
             )
-        val dependent = transaction.copy(block = block.copy(sendHash = transaction.hash))
-        prioritizer.process(ElectionStarted(account, transaction))
-        prioritizer.add(dependent)
-        assertEquals(1, prioritizer.getBufferSize())
+        try {
+            val dependent = transaction.copy(block = block.copy(sendHash = transaction.hash))
+            prioritizer.process(ElectionStarted(account, transaction))
+            prioritizer.add(dependent)
+            assertEquals(1, prioritizer.getBufferSize())
 
-        // when
-        prioritizer.process(ElectionLost(account, transaction))
-        prioritizer.add(dependent)
-        prioritizer.process()
+            // when
+            prioritizer.process(ElectionLost(account, transaction))
+            prioritizer.add(dependent)
 
-        // then
-        assertEquals(0, prioritizer.getBufferSize())
-        assertEquals(
-            listOf(dependent.hash),
-            published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
-        )
+            // then
+            awaitCondition { published.filterIsInstance<TransactionReceived>().size == 1 }
+            assertEquals(0, prioritizer.getBufferSize())
+            assertEquals(
+                listOf(dependent.hash),
+                published.filterIsInstance<TransactionReceived>().map { it.transaction.hash },
+            )
+        } finally {
+            prioritizer.stop()
+        }
+    }
+
+    @Test
+    fun `releasing election capacity resumes queued transactions`() {
+        // Given
+        val published = CopyOnWriteArrayList<Event>()
+        val eventPublisher = mockk<EventPublisher>()
+        every { eventPublisher.publish(any()) } answers {
+            published += firstArg<Event>()
+        }
+        val prioritizer =
+            TransactionPrioritizer(
+                TransactionPrioritizationProperties().apply {
+                    groupMaxSize = 10
+                    maxActiveElections = 1
+                },
+                eventPublisher,
+                SimpleMeterRegistry(),
+            )
+
+        try {
+            prioritizer.process(ElectionStarted(account, transaction))
+            prioritizer.add(transaction)
+            await()
+                .during(100, TimeUnit.MILLISECONDS)
+                .atMost(1, TimeUnit.SECONDS)
+                .until { prioritizer.getQueueSize() == 1 && published.isEmpty() }
+
+            // When
+            prioritizer.process(ElectionLost(account, transaction))
+
+            // Then
+            awaitCondition { published.filterIsInstance<TransactionReceived>().size == 1 }
+            assertEquals(0, prioritizer.getQueueSize())
+        } finally {
+            prioritizer.stop()
+        }
+    }
+
+    private fun awaitCondition(condition: () -> Boolean) {
+        await()
+            .atMost(5, TimeUnit.SECONDS)
+            .pollInterval(1, TimeUnit.MILLISECONDS)
+            .until(condition)
     }
 }

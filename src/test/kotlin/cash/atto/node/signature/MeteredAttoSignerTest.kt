@@ -15,9 +15,12 @@ import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
+import io.micrometer.prometheusmetrics.PrometheusConfig
+import io.micrometer.prometheusmetrics.PrometheusMeterRegistry
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNotNull
+import org.junit.jupiter.api.Assertions.assertSame
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import kotlin.coroutines.cancellation.CancellationException
@@ -25,53 +28,106 @@ import kotlin.random.Random
 
 class MeteredAttoSignerTest {
     @Test
-    fun `should record successful vote signing latency`() {
-        // given
-        val meterRegistry = SimpleMeterRegistry()
-        val signer = MeteredAttoSigner(TestSigner { AttoSignature(ByteArray(64)) }, meterRegistry)
-        val vote = AttoVote.sample(signer.publicKey)
+    fun `should expose zero signing counters before the first call`() {
+        // Given
+        val meterRegistry = PrometheusMeterRegistry(PrometheusConfig.DEFAULT)
+        val delegate = TestSigner { error("No signing expected") }
 
-        // when
-        runBlocking {
-            signer.sign(vote)
+        // When
+        MeteredAttoSigner(delegate, meterRegistry)
+        val scrape = meterRegistry.scrape()
+
+        // Then
+        val timers = meterRegistry.find("signer.signature.latency").timers()
+        assertEquals(18, timers.size)
+        timers.forEach { timer ->
+            assertEquals(0, timer.count())
+            assertEquals(
+                setOf("operation", "outcome", "vote_type"),
+                timer.id.tags
+                    .map { it.key }
+                    .toSet(),
+            )
         }
+        assertEquals(18, scrape.lineSequence().count { it.startsWith("signer_signature_latency_seconds_count{") })
+    }
 
-        // then
-        val timer =
+    @Test
+    fun `should record final and nonfinal vote signing separately`() {
+        // Given
+        val meterRegistry = SimpleMeterRegistry()
+        val signature = AttoSignature(ByteArray(64))
+        var calls = 0
+        val signer =
+            MeteredAttoSigner(
+                TestSigner {
+                    calls++
+                    signature
+                },
+                meterRegistry,
+            )
+        val vote = AttoVote.sample(signer.publicKey)
+        val finalVote = vote.copy(timestamp = AttoVote.finalTimestamp)
+
+        // When
+        val signatures =
+            runBlocking {
+                listOf(signer.sign(vote), signer.sign(finalVote), signer.sign(finalVote))
+            }
+
+        // Then
+        assertEquals(3, calls)
+        signatures.forEach { assertSame(signature, it) }
+        val nonfinalTimer =
             meterRegistry
                 .find("signer.signature.latency")
                 .tag("operation", "vote")
                 .tag("outcome", "success")
+                .tag("vote_type", "nonfinal")
                 .timer()
-        assertNotNull(timer)
-        assertEquals(1, timer!!.count())
+        val finalTimer =
+            meterRegistry
+                .find("signer.signature.latency")
+                .tag("operation", "vote")
+                .tag("outcome", "success")
+                .tag("vote_type", "final")
+                .timer()
+        assertNotNull(nonfinalTimer)
+        assertNotNull(finalTimer)
+        assertEquals(1, nonfinalTimer!!.count())
+        assertEquals(2, finalTimer!!.count())
+        assertEquals(3, meterRegistry.find("signer.signature.latency").timers().sumOf { it.count() })
     }
 
     @Test
     fun `should record failed challenge signing latency`() {
-        // given
+        // Given
         val meterRegistry = SimpleMeterRegistry()
+        val failure = IllegalStateException("Failed to sign")
         val signer =
             MeteredAttoSigner(
-                TestSigner { throw IllegalStateException("Failed to sign") },
+                TestSigner { throw failure },
                 meterRegistry,
             )
         val challenge = AttoChallenge.generate()
         val timestamp = AttoInstant.now()
 
-        // when
-        assertThrows(IllegalStateException::class.java) {
-            runBlocking {
-                signer.sign(challenge, timestamp)
+        // When
+        val thrown =
+            assertThrows(IllegalStateException::class.java) {
+                runBlocking {
+                    signer.sign(challenge, timestamp)
+                }
             }
-        }
 
-        // then
+        // Then
+        assertSame(failure, thrown)
         val timer =
             meterRegistry
                 .find("signer.signature.latency")
                 .tag("operation", "challenge")
                 .tag("outcome", "error")
+                .tag("vote_type", "not_applicable")
                 .timer()
         assertNotNull(timer)
         assertEquals(1, timer!!.count())
@@ -79,28 +135,32 @@ class MeteredAttoSignerTest {
 
     @Test
     fun `should record cancelled block signing latency`() {
-        // given
+        // Given
         val meterRegistry = SimpleMeterRegistry()
+        val cancellation = CancellationException("Cancelled")
         val signer =
             MeteredAttoSigner(
-                TestSigner { throw CancellationException("Cancelled") },
+                TestSigner { throw cancellation },
                 meterRegistry,
             )
         val block = AttoBlock.sample(signer.publicKey)
 
-        // when
-        assertThrows(CancellationException::class.java) {
-            runBlocking {
-                signer.sign(block)
+        // When
+        val thrown =
+            assertThrows(CancellationException::class.java) {
+                runBlocking {
+                    signer.sign(block)
+                }
             }
-        }
 
-        // then
+        // Then
+        assertSame(cancellation, thrown)
         val timer =
             meterRegistry
                 .find("signer.signature.latency")
                 .tag("operation", "block")
                 .tag("outcome", "cancelled")
+                .tag("vote_type", "not_applicable")
                 .timer()
         assertNotNull(timer)
         assertEquals(1, timer!!.count())

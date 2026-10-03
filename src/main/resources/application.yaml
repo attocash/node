@@ -44,12 +44,10 @@ atto:
     public-uri: ${ATTO_PUBLIC_URI}
   transaction:
     prioritization:
-      frequency: ${ATTO_TRANSACTION_PRIORITIZATION_FREQUENCY:1}
       group-max-size: ${ATTO_TRANSACTION_GROUP_MAX_SIZE:10000}
       max-active-elections: ${ATTO_TRANSACTION_MAX_ACTIVE_ELECTIONS:10000}
   vote:
     prioritization:
-      frequency: ${ATTO_VOTE_PRIORITIZATION_FREQUENCY:1}
       queue-max-size: ${ATTO_VOTE_QUEUE_MAX_SIZE:10000}
       cache-max-size: 20_000
     weight:
@@ -60,8 +58,6 @@ atto:
     election:
       expiring-after-time-in-seconds: 10
       expired-after-time-in-seconds: 30
-      processing-retry-initial-backoff-in-seconds: ${ATTO_ELECTION_PROCESSING_RETRY_INITIAL_BACKOFF_IN_SECONDS:1}
-      processing-retry-max-backoff-in-seconds: ${ATTO_ELECTION_PROCESSING_RETRY_MAX_BACKOFF_IN_SECONDS:30}
 
 springdoc:
   swagger-ui:

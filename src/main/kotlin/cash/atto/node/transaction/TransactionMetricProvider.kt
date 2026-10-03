@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoBlockType
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionConsensusReached
 import cash.atto.node.election.ElectionStarted
@@ -26,6 +27,25 @@ class TransactionMetricProvider(
             .builder("transactions.dropped")
             .description("Transactions dropped before confirmation")
             .register(meterRegistry)
+
+    init {
+        // Expose startup zeros so scrapes can establish a baseline before transactions arrive.
+        val stages =
+            listOf(
+                "received",
+                "validated",
+                "election_started",
+                "vote_validated",
+                "final_vote_validated",
+                "consensus_reached",
+                "account_updated",
+            )
+        for (stage in stages) {
+            for (type in listOf(AttoBlockType.OPEN, AttoBlockType.RECEIVE, AttoBlockType.SEND, AttoBlockType.CHANGE)) {
+                pipelineTimer(stage, type.name)
+            }
+        }
+    }
 
     @EventListener
     fun process(event: TransactionReceived) {
@@ -107,18 +127,19 @@ class TransactionMetricProvider(
             return
         }
 
-        val type = transaction.block.type.name
-        val key = "$stage:$type"
-        val timer =
-            pipelineTimers.computeIfAbsent(key) {
-                Timer
-                    .builder("transactions.pipeline.latency")
-                    .description("Cumulative transaction latency by pipeline stage")
-                    .tag("stage", stage)
-                    .tag("type", type)
-                    .register(meterRegistry)
-            }
-
-        timer.record(duration)
+        pipelineTimer(stage, transaction.block.type.name).record(duration)
     }
+
+    private fun pipelineTimer(
+        stage: String,
+        type: String,
+    ): Timer =
+        pipelineTimers.computeIfAbsent("$stage:$type") {
+            Timer
+                .builder("transactions.pipeline.latency")
+                .description("Cumulative transaction latency by pipeline stage")
+                .tag("stage", stage)
+                .tag("type", type)
+                .register(meterRegistry)
+        }
 }

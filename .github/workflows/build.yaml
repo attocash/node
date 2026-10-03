@@ -14,9 +14,15 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - uses: actions/download-artifact@v8
+        with:
+          name: native-image-metadata
+          path: src/main/resources/META-INF/native-image
+
       - uses: graalvm/setup-graalvm@v1
         with:
           distribution: 'graalvm'
+          version: '25i-latest'
           java-version: '25'
           native-image-musl: true
           native-image-enable-sbom: true
