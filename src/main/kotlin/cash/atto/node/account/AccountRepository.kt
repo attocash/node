@@ -8,18 +8,17 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.AttoRepository
 import cash.atto.node.executeAfterCommit
+import cash.atto.node.executeAfterCompletion
 import cash.atto.node.getCurrentTransaction
 import com.github.benmanes.caffeine.cache.Caffeine
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flow
 import org.springframework.context.annotation.Primary
-import org.springframework.context.event.EventListener
-import org.springframework.core.Ordered
-import org.springframework.core.annotation.Order
 import org.springframework.data.r2dbc.repository.Query
 import org.springframework.data.repository.kotlin.CoroutineCrudRepository
 import org.springframework.stereotype.Component
+import org.springframework.transaction.reactive.TransactionSynchronization
 import java.time.Duration
 import java.time.Instant
 
@@ -76,6 +75,13 @@ class AccountCachedRepository(
                     )
                 }
 
+            // A failed commit acknowledgement does not prove the database rolled back.
+            executeAfterCompletion { status ->
+                if (status != TransactionSynchronization.STATUS_COMMITTED) {
+                    accounts.forEach { cache.remove(it.publicKey) }
+                }
+            }
+
             accountCrudRepository.upsertAll(accounts)
 
             val currentTransaction = getCurrentTransaction()!!
@@ -84,6 +90,7 @@ class AccountCachedRepository(
                 currentTransaction.bindResource(saved.publicKey, saved)
             }
 
+            // Update before AccountUpdated is published; delayed events must not refill evicted entries.
             executeAfterCommit {
                 accounts.forEach { putIfNewer(it) }
             }
@@ -122,12 +129,6 @@ class AccountCachedRepository(
                 emit(cached ?: account)
             }
         }
-
-    @Order(Ordered.HIGHEST_PRECEDENCE)
-    @EventListener
-    fun process(event: AccountUpdated) {
-        putIfNewer(event.updatedAccount)
-    }
 
     private fun putIfNewer(account: Account): Account? =
         cache.compute(account.publicKey) { _, existingValue ->

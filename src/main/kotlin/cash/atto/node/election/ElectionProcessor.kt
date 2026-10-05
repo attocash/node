@@ -1,7 +1,11 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoPublicKey
 import cash.atto.node.DemandDrivenWorker
+import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
+import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.BroadcastNetworkMessage
 import cash.atto.node.network.BroadcastStrategy
 import cash.atto.node.network.NetworkMessagePublisher
@@ -15,26 +19,27 @@ import io.micrometer.core.instrument.Timer
 import jakarta.annotation.PostConstruct
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.associate
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import org.springframework.transaction.ReactiveTransactionManager
 import org.springframework.transaction.reactive.TransactionalOperator
 import org.springframework.transaction.reactive.executeAndAwait
-import java.util.concurrent.ConcurrentLinkedDeque
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class ElectionProcessor(
     private val messagePublisher: NetworkMessagePublisher,
     private val accountService: AccountService,
+    private val accountRepository: AccountRepository,
     private val meterRegistry: MeterRegistry,
     transactionManager: ReactiveTransactionManager,
 ) {
     private val logger = KotlinLogging.logger {}
 
-    private val buffer = ConcurrentLinkedDeque<ElectionConsensusReached>()
-    private val bufferDepth = AtomicInteger()
+    // Owns transaction-hash deduplication, FIFO order, and in-flight membership.
+    private val bufferLock = Any()
+    private val buffer = LinkedHashMap<AttoHash, ElectionConsensusReached>()
 
     private val transactionalOperator = TransactionalOperator.create(transactionManager)
     private val persistenceMetrics = ElectionPersistenceMetrics(meterRegistry)
@@ -45,7 +50,7 @@ class ElectionProcessor(
     @PostConstruct
     fun start() {
         Gauge
-            .builder("elections.processor.buffer.size", bufferDepth) { it.get().toDouble() }
+            .builder("elections.processor.buffer.size", this) { it.getBufferSize().toDouble() }
             .description("Current election processor consensus buffer size")
             .register(meterRegistry)
         batchTimer =
@@ -77,10 +82,17 @@ class ElectionProcessor(
     }
 
     @EventListener
+    fun process(event: AccountUpdated) {
+        synchronized(bufferLock) {
+            buffer.remove(event.transaction.hash)
+        }
+    }
+
+    @EventListener
     suspend fun process(event: ElectionConsensusReached) {
-        buffer.addLast(event)
-        bufferDepth.incrementAndGet()
-        worker.request()
+        val shouldRequest =
+            synchronized(bufferLock) { buffer.putIfAbsent(event.transaction.hash, event) == null }
+        if (shouldRequest) worker.request()
     }
 
     @PreDestroy
@@ -88,10 +100,10 @@ class ElectionProcessor(
         worker.cancel()
     }
 
-    fun getBufferSize(): Int = bufferDepth.get()
+    fun getBufferSize(): Int = synchronized(bufferLock) { buffer.size }
 
     private suspend fun drain() {
-        while (bufferDepth.get() > 0) {
+        while (getBufferSize() > 0) {
             flushBatchWithMetrics()
         }
     }
@@ -108,51 +120,59 @@ class ElectionProcessor(
     }
 
     private suspend fun flushBatch(size: Int): Int {
-        val pendingEvents = drainBatch(size)
+        val batch = snapshotBatch(size)
+        if (batch.isEmpty()) return 0
 
-        val timing =
-            try {
-                if (pendingEvents.isEmpty()) return 0
-
-                val transactions = pendingEvents.map { it.transaction }
-                val sample = persistenceMetrics.start()
-
-                transactionalOperator.executeAndAwait { transaction ->
-                    sample.startBody(transaction)
-                    accountService.add(TransactionSource.ELECTION, transactions)
-                    sample.finishBody()
+        val sample = persistenceMetrics.start()
+        val transactions = batch.map { it.transaction }
+        try {
+            transactionalOperator.executeAndAwait { transaction ->
+                sample.startBody(transaction)
+                accountService.add(TransactionSource.ELECTION, transactions)
+                sample.finishBody()
+            }
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (persistenceFailure: Exception) {
+            val latestHeights =
+                try {
+                    accountRepository
+                        .findAllById(transactions.map { it.publicKey })
+                        .associate { it.publicKey to it.height }
+                } catch (cancellation: CancellationException) {
+                    throw cancellation
+                } catch (reconciliationFailure: Exception) {
+                    if (reconciliationFailure !== persistenceFailure) {
+                        persistenceFailure.addSuppressed(reconciliationFailure)
+                    }
+                    emptyMap()
                 }
 
-                sample
-            } catch (e: CancellationException) {
-                requeue(pendingEvents)
-                throw e
-            } catch (e: Exception) {
-                requeue(pendingEvents)
-                throw e
+            val obsoleteHashes =
+                transactions
+                    .filter { transaction ->
+                        val savedHeight = latestHeights[transaction.publicKey]?.toULong()
+                        savedHeight != null && savedHeight >= transaction.height.value
+                    }.mapTo(HashSet()) { it.hash }
+
+            synchronized(bufferLock) {
+                obsoleteHashes.forEach { buffer.remove(it) }
             }
 
-        timing.record()
-        return pendingEvents.size
-    }
-
-    private fun drainBatch(size: Int): List<ElectionConsensusReached> {
-        val events = mutableListOf<ElectionConsensusReached>()
-
-        for (i in 1..size) {
-            val event = buffer.pollFirst() ?: break
-            events += event
+            if (transactions.all { it.hash in obsoleteHashes }) return batch.size
+            throw persistenceFailure
         }
 
-        if (events.isNotEmpty()) {
-            bufferDepth.addAndGet(-events.size)
+        synchronized(bufferLock) {
+            batch.forEach { buffer.remove(it.transaction.hash) }
         }
-
-        return events
+        sample.record()
+        return batch.size
     }
 
-    private fun requeue(events: List<ElectionConsensusReached>) {
-        events.asReversed().forEach(buffer::addFirst)
-        bufferDepth.addAndGet(events.size)
-    }
+    private fun snapshotBatch(size: Int): List<ElectionConsensusReached> =
+        synchronized(bufferLock) {
+            val publicKeys = HashSet<AttoPublicKey>()
+            buffer.values.take(size).takeWhile { publicKeys.add(it.transaction.publicKey) }
+        }
 }

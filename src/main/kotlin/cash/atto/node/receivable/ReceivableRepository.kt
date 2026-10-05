@@ -88,7 +88,7 @@ class ReceivableCachedRepository(
             .newBuilder()
             .maximumSize(100_000)
             .expireAfterWrite(Duration.ofMinutes(10))
-            .build<AttoHash, Receivable>()
+            .build<AttoHash, CachedReceivable>()
             .asMap()
 
     override suspend fun saveAll(entities: Iterable<Receivable>): Flow<Receivable> =
@@ -100,19 +100,26 @@ class ReceivableCachedRepository(
 
             val now = Instant.now()
             val savedReceivables = receivables.map { it.copy(persistedAt = now) }
+            val currentTransaction = getCurrentTransaction()!!
+            val pendingCacheEntries = savedReceivables.map { it to CachedReceivable(null) }
+
+            executeAfterCompletion { status ->
+                pendingCacheEntries.forEach { (saved, pending) ->
+                    if (status == TransactionSynchronization.STATUS_COMMITTED) {
+                        // Identity matching prevents a delayed callback from restoring entries removed by a delete.
+                        cache.replace(saved.hash, pending, CachedReceivable(saved))
+                    } else {
+                        cache.remove(saved.hash, pending)
+                    }
+                }
+            }
+            pendingCacheEntries.forEach { (saved, pending) -> cache[saved.hash] = pending }
 
             receivableCrudRepository.insertAll(savedReceivables)
 
-            val currentTransaction = getCurrentTransaction()!!
             savedReceivables.forEach { saved ->
                 currentTransaction.unbindResourceIfPossible(saved.hash)
                 currentTransaction.bindResource(saved.hash, saved)
-            }
-
-            executeAfterCompletion { status ->
-                if (status == TransactionSynchronization.STATUS_COMMITTED) {
-                    savedReceivables.forEach { cache[it.hash] = it }
-                }
             }
 
             savedReceivables.forEach { emit(it) }
@@ -133,7 +140,7 @@ class ReceivableCachedRepository(
             val seen = mutableSetOf<AttoHash>()
 
             ids.forEach { id ->
-                val cached = getCurrentTransaction()?.getResource(id) as Receivable? ?: cache[id]
+                val cached = getCurrentTransaction()?.getResource(id) as Receivable? ?: cache[id]?.value
                 if (cached != null) {
                     emit(cached)
                     seen += id
@@ -165,4 +172,8 @@ class ReceivableCachedRepository(
         cache.clear()
         receivableCrudRepository.deleteAll()
     }
+
+    private class CachedReceivable(
+        val value: Receivable?,
+    )
 }
