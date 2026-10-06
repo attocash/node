@@ -98,7 +98,7 @@ class DependencyDiscoverer(
 
             holder.add(vote)
 
-            val weight = holder.getWeight()
+            val weight = holder.getWeight(voteWeighter::get)
             val minimalConfirmationWeight = voteWeighter.getMinimalConfirmationWeight()
 
             if (weight < minimalConfirmationWeight) {
@@ -133,11 +133,11 @@ private class TransactionHolder(
         votes[vote.publicKey] = vote
     }
 
-    fun getWeight(): AttoAmount =
+    fun getWeight(weightProvider: (AttoPublicKey) -> AttoAmount): AttoAmount =
         votes
-            .values
+            .keys
             .asSequence()
-            .map { it.weight }
+            .map(weightProvider)
             .fold(AttoAmount.MIN) { acc, weight -> acc + weight }
 }
 

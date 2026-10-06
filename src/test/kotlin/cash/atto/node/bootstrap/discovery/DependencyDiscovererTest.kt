@@ -47,11 +47,12 @@ class DependencyDiscovererTest {
             } coAnswers {
                 awaitCancellation()
             }
-            val voteWeighter = mockk<VoteWeighter>()
-            every { voteWeighter.getMinimalConfirmationWeight() } returns ElectionVoter.MIN_WEIGHT
-            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
             val transaction = transaction(1)
             val finalVote = finalVote(transaction.hash)
+            val voteWeighter = mockk<VoteWeighter>()
+            every { voteWeighter.getMinimalConfirmationWeight() } returns ElectionVoter.MIN_WEIGHT
+            every { voteWeighter.get(finalVote.publicKey) } returns ElectionVoter.MIN_WEIGHT
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
             val voteDropped = VoteDropped(finalVote, VoteDropReason.TRANSACTION_DROPPED)
             discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
 
@@ -87,6 +88,177 @@ class DependencyDiscovererTest {
             }
         }
 
+    @Test
+    fun `final vote with high cached weight is not admitted below current confirmation weight`() =
+        runTest {
+            // Given
+            val discoveryQueue = acceptingDiscoveryQueue()
+            val representative = publicKey(10)
+            val voteWeighter = voteWeighter(mapOf(representative to AttoAmount(9UL)))
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
+            val transaction = transaction(2)
+            discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
+
+            // When
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representative, AttoAmount(100UL)),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 0) {
+                discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY)
+            }
+        }
+
+    @Test
+    fun `final vote with high cached weight is not admitted when current representative weight is zero`() =
+        runTest {
+            // Given
+            val discoveryQueue = acceptingDiscoveryQueue()
+            val representative = publicKey(11)
+            val voteWeighter = voteWeighter(emptyMap())
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
+            val transaction = transaction(3)
+            discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
+
+            // When
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representative, AttoAmount(100UL)),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 0) {
+                discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY)
+            }
+        }
+
+    @Test
+    fun `current representative weight admits final vote despite smaller cached weight`() =
+        runTest {
+            // Given
+            val discoveryQueue = acceptingDiscoveryQueue()
+            val representative = publicKey(12)
+            val voteWeighter = voteWeighter(mapOf(representative to AttoAmount(10UL)))
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
+            val transaction = transaction(4)
+            discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
+
+            // When
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representative, AttoAmount(1UL)),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 1) {
+                discoveryQueue.queue(
+                    match { it.transaction.hash == transaction.hash },
+                    DiscoverySource.DEPENDENCY,
+                )
+            }
+        }
+
+    @Test
+    fun `retained votes use current weights and duplicate representatives count once`() =
+        runTest {
+            // Given
+            val discoveryQueue = acceptingDiscoveryQueue()
+            val representativeA = publicKey(13)
+            val representativeB = publicKey(14)
+            val currentWeights = mutableMapOf(representativeA to AttoAmount(6UL))
+            val voteWeighter = voteWeighter(currentWeights)
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
+            val transaction = transaction(5)
+            discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
+
+            // When
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representativeA, AttoAmount(1UL), marker = 15),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representativeA, AttoAmount(1UL), marker = 16),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 0) {
+                discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY)
+            }
+
+            // When
+            currentWeights[representativeA] = AttoAmount(8UL)
+            currentWeights[representativeB] = AttoAmount(2UL)
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representativeB, AttoAmount(1UL), marker = 17),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 1) {
+                discoveryQueue.queue(
+                    match { it.transaction.hash == transaction.hash },
+                    DiscoverySource.DEPENDENCY,
+                )
+            }
+        }
+
+    @Test
+    fun `retained vote weight decrease prevents admission when another representative votes`() =
+        runTest {
+            // Given
+            val discoveryQueue = acceptingDiscoveryQueue()
+            val representativeA = publicKey(18)
+            val representativeB = publicKey(19)
+            val currentWeights = mutableMapOf(representativeA to AttoAmount(6UL))
+            val voteWeighter = voteWeighter(currentWeights)
+            val discoverer = DependencyDiscoverer(voteWeighter, discoveryQueue)
+            val transaction = transaction(6)
+            discoverer.add(TransactionRejectionReason.PREVIOUS_NOT_FOUND, transaction)
+
+            // When
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representativeA, AttoAmount(6UL), marker = 20),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 0) {
+                discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY)
+            }
+
+            // When
+            currentWeights[representativeA] = AttoAmount.MIN
+            currentWeights[representativeB] = AttoAmount(6UL)
+            discoverer.process(
+                VoteDropped(
+                    finalVote(transaction.hash, representativeB, AttoAmount(6UL), marker = 21),
+                    VoteDropReason.TRANSACTION_DROPPED,
+                ),
+            )
+
+            // Then
+            coVerify(exactly = 0) {
+                discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY)
+            }
+        }
+
     private fun transaction(marker: Byte): Transaction =
         Transaction(
             block =
@@ -106,17 +278,37 @@ class DependencyDiscovererTest {
             work = AttoWork(ByteArray(8) { (marker + 4).toByte() }),
         )
 
-    private fun finalVote(blockHash: AttoHash): Vote =
+    private fun finalVote(
+        blockHash: AttoHash,
+        representativePublicKey: AttoPublicKey = publicKey(6),
+        weight: AttoAmount = ElectionVoter.MIN_WEIGHT,
+        marker: Byte = 5,
+    ): Vote =
         Vote(
-            hash = AttoHash(ByteArray(32) { 5 }),
+            hash = AttoHash(ByteArray(32) { marker }),
             version = 0U.toAttoVersion(),
             algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(ByteArray(32) { 6 }),
+            publicKey = representativePublicKey,
             blockAlgorithm = AttoAlgorithm.V1,
             blockHash = blockHash,
             timestamp = AttoVote.finalTimestamp.toJavaInstant(),
-            signature = AttoSignature(ByteArray(64) { 7 }),
-            weight = ElectionVoter.MIN_WEIGHT,
-            receivedAt = Instant.now(),
+            signature = AttoSignature(ByteArray(64) { (marker + 1).toByte() }),
+            weight = weight,
+            receivedAt = Instant.ofEpochSecond(marker.toLong()),
         )
+
+    private fun publicKey(marker: Byte): AttoPublicKey = AttoPublicKey(ByteArray(32) { marker })
+
+    private fun voteWeighter(currentWeights: Map<AttoPublicKey, AttoAmount>): VoteWeighter =
+        mockk<VoteWeighter>().also { voteWeighter ->
+            every { voteWeighter.get(any()) } answers {
+                currentWeights[firstArg<AttoPublicKey>()] ?: AttoAmount.MIN
+            }
+            every { voteWeighter.getMinimalConfirmationWeight() } returns AttoAmount(10UL)
+        }
+
+    private fun acceptingDiscoveryQueue(): DiscoveryQueue =
+        mockk<DiscoveryQueue>().also { discoveryQueue ->
+            coEvery { discoveryQueue.queue(any(), DiscoverySource.DEPENDENCY) } returns true
+        }
 }
