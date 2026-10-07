@@ -39,7 +39,7 @@ Configure `ATTO_DB_*`, `ATTO_PRIVATE_KEY`, and remote signer tokens through envi
 
 ## Security Audit Dispositions
 
-Before security audits or reviews, read [SECURITY_LIMITATIONS.md](SECURITY_LIMITATIONS.md). Match accepted findings by mechanism and aliases, verify that their assumptions still hold, and cross-reference unchanged items as known accepted limitations instead of reporting them as new actionable findings. Reopen the existing record when meaningful new evidence or material source/configuration/deployment changes alter the assessment; explain what changed. Assess distinct mechanisms and interactions separately. Do not add or broaden risk acceptance without the repository owner's explicit direction.
+Before security audits or reviews, read [Accepted risks in SECURITY.md](SECURITY.md#accepted-risks). Match accepted risks by mechanism and prerequisites, verify that their assumptions still hold, and cross-reference unchanged items by their stable risk ID instead of reporting them as new actionable findings. Reopen the existing record when meaningful new evidence or material source/configuration/deployment changes alter the assessment; explain what changed. Assess distinct mechanisms and interactions separately. Do not add or broaden risk acceptance without the repository owner's explicit direction.
 
 ## Event & Concurrency Safety
 
