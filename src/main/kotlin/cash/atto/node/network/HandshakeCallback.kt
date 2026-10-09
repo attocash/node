@@ -17,6 +17,7 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.Serializable
 import org.springframework.stereotype.Component
 import java.net.URI
@@ -33,15 +34,16 @@ class HandshakeCallbackService(
         remoteHost: String,
         publicUri: URI,
         requestFactory: suspend () -> CounterChallengeResponse,
-    ): HandshakeCallbackResult {
-        val validation = peerUriValidator.validate(publicUri)
-        if (validation is PeerUriValidationResult.Rejected) {
-            callbackLogger.trace { "Rejected handshake callback to $publicUri from $remoteHost: ${validation.reason}" }
-            return HandshakeCallbackResult.Rejected(HttpStatusCode.BadRequest)
-        }
+    ): HandshakeCallbackResult =
+        withTimeout(NetworkProcessor.CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
+            val validation = peerUriValidator.validate(publicUri)
+            if (validation is PeerUriValidationResult.Rejected) {
+                callbackLogger.trace { "Rejected handshake callback to $publicUri from $remoteHost: ${validation.reason}" }
+                return@withTimeout HandshakeCallbackResult.Rejected(HttpStatusCode.BadRequest)
+            }
 
-        return callbackClient.post(publicUri.toHandshakeHttpUri(), requestFactory())
-    }
+            callbackClient.post(publicUri.toHandshakeHttpUri(), requestFactory())
+        }
 }
 
 interface HandshakeCallbackClient {
