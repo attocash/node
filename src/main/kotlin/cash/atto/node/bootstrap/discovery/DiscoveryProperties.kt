@@ -1,5 +1,6 @@
 package cash.atto.node.bootstrap.discovery
 
+import cash.atto.commons.AttoAddress
 import jakarta.annotation.PostConstruct
 import kotlinx.coroutines.channels.Channel
 import org.springframework.boot.context.properties.ConfigurationProperties
@@ -12,6 +13,7 @@ class DiscoveryProperties {
     var headroom: Int = 2_000
     var batchSize: Int = 1_000
     var persistenceTargetPerSecond: Long = 1_000
+    var hintedAddresses: Set<AttoAddress> = emptySet()
 
     @PostConstruct
     fun validate() {

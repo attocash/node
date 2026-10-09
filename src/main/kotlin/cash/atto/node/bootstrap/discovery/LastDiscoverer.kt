@@ -34,7 +34,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -48,6 +48,7 @@ import java.util.concurrent.TimeUnit
 @Component
 class LastDiscoverer(
     private val thisNode: AttoNode,
+    private val discoveryProperties: DiscoveryProperties,
     private val accountRepository: AccountRepository,
     private val transactionRepository: TransactionRepository,
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
@@ -102,12 +103,20 @@ class LastDiscoverer(
                 return
             }
 
-            val transactions = transactionRepository.getLastSample(10)
+            val hintedPublicKeys = discoveryProperties.hintedAddresses.map { it.publicKey }
+            val hintedTransactions =
+                if (hintedPublicKeys.isEmpty()) {
+                    emptyList()
+                } else {
+                    transactionRepository.findLastByPublicKeys(hintedPublicKeys).toList()
+                }
+            val transactions = transactionRepository.getLastSample(RANDOM_SAMPLE_SIZE).toList() + hintedTransactions
 
             transactions
+                .distinctBy { it.hash }
                 .map { AttoBootstrapTransactionPush(it.toAttoTransaction()) }
                 .map { BroadcastNetworkMessage(BroadcastStrategy.EVERYONE, setOf(), it) }
-                .collect { nodeConnectionManager.send(it) }
+                .forEach { nodeConnectionManager.send(it) }
         }
     }
 
@@ -220,6 +229,10 @@ class LastDiscoverer(
 
     private fun startElection(transaction: Transaction) {
         eventPublisher.publish(TransactionReceived(transaction))
+    }
+
+    private companion object {
+        const val RANDOM_SAMPLE_SIZE = 10L
     }
 }
 
