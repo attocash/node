@@ -198,8 +198,10 @@ When the node learns about a transaction it cannot immediately apply (missing de
 stores it as an **unchecked transaction**:
 
 - `cash.atto.node.bootstrap.unchecked.*`
-  - `UncheckedTransactionProcessorStarter` runs every second, pulls oldest unchecked txs, validates them against current
-    account state, and applies what it can.
+  - `UncheckedTransactionProcessor` pulls the oldest unchecked transactions, validates them against current account
+    state, and applies what it can.
+  - `BootstrapController` schedules resolution alongside discovery and cleanup, using a shared work budget based on
+    persistence load.
 
 ### Discovery flows
 
@@ -230,10 +232,16 @@ their ledger state.
 
 ## Code map
 
+For implementation work, use these repository guides:
+
+- [Transaction processing and event flow](TRANSACTION-PROCESSING.md): live confirmation, vote processing, bootstrap intersections, state ownership, and how to trace an affected flow.
+- [Network layer](NETWORK.md): peer connections, handshake, and message transport.
+- [Contributor and agent guidelines](AGENTS.md): build/test commands, repository conventions, and concurrency invariants.
+
 Common entry points:
 
 - `src/main/kotlin/cash/atto/node/Application.kt` — Spring Boot entry
-- `src/main/kotlin/cash/atto/node/ApplicationConfiguration.kt` — scheduling, OpenAPI, runtime hints
+- `src/main/kotlin/cash/atto/node/ApplicationConfiguration.kt` — asynchronous event dispatch, scheduling, OpenAPI, runtime hints
 
 Major modules (packages):
 
