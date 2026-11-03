@@ -11,6 +11,7 @@ import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoVersion
+import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
@@ -25,6 +26,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.emptyFlow
@@ -91,6 +93,7 @@ class ElectionProcessorTest {
             // Given
             val transactionManager = RecordingReactiveTransactionManager()
             val accountService = mockk<AccountService>()
+            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val meterRegistry = SimpleMeterRegistry()
             val transactions = listOf(Transaction.sample(), Transaction.sample())
             val queriedPublicKeys = CopyOnWriteArrayList<List<AttoPublicKey>>()
@@ -105,6 +108,7 @@ class ElectionProcessorTest {
                     transactionManager,
                     meterRegistry,
                     accountRepository,
+                    eventPublisher,
                 )
             val attempts = AtomicInteger()
             val batches = CopyOnWriteArrayList<List<Transaction>>()
@@ -140,6 +144,7 @@ class ElectionProcessorTest {
                 assertPhaseCounts(meterRegistry, 1)
                 assertEquals(listOf(listOf(transactions.first()), transactions), batches.toList())
                 assertEquals(listOf(listOf(transactions.first().publicKey)), queriedPublicKeys.toList())
+                verify(exactly = 0) { eventPublisher.publish(any()) }
             } finally {
                 processor.stop()
             }
@@ -278,6 +283,7 @@ class ElectionProcessorTest {
             }
             val transactionManager = RecordingReactiveTransactionManager()
             val accountService = mockk<AccountService>()
+            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val batches = CopyOnWriteArrayList<List<Transaction>>()
             val firstAttemptStarted = CompletableDeferred<Unit>()
             val releaseFirstAttempt = CompletableDeferred<Unit>()
@@ -308,7 +314,13 @@ class ElectionProcessorTest {
                 }
                 emptyList()
             }
-            val processor = newProcessor(accountService, transactionManager, accountRepository = accountRepository)
+            val processor =
+                newProcessor(
+                    accountService,
+                    transactionManager,
+                    accountRepository = accountRepository,
+                    eventPublisher = eventPublisher,
+                )
 
             try {
                 // When
@@ -359,6 +371,7 @@ class ElectionProcessorTest {
                         transactionManager.rollbacks == 1 &&
                         processor.getBufferSize() == 0
                 }
+                verify(exactly = 0) { eventPublisher.publish(any()) }
             } finally {
                 releaseFirstAttempt.complete(Unit)
                 releaseSecondBatch.complete(Unit)
@@ -373,6 +386,7 @@ class ElectionProcessorTest {
             // Given
             val transactionManager = RecordingReactiveTransactionManager()
             val accountService = mockk<AccountService>()
+            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
             val previousAccount = sampleAccount(publicKey, AttoHash(Random.nextBytes(ByteArray(32))), height = 1)
             val transaction =
@@ -437,6 +451,7 @@ class ElectionProcessorTest {
                     transactionManager,
                     meterRegistry = meterRegistry,
                     accountRepository = accountRepository,
+                    eventPublisher = eventPublisher,
                 )
 
             try {
@@ -463,6 +478,12 @@ class ElectionProcessorTest {
                 )
                 assertEquals(listOf(listOf(transaction.publicKey)), queriedPublicKeys.toList())
                 assertPhaseCounts(meterRegistry, 1)
+                verify(exactly = 1) {
+                    eventPublisher.publish(
+                        match<ElectionDiscarded> { it.account == currentHead && it.transaction == transaction },
+                    )
+                }
+                verify(exactly = 1) { eventPublisher.publish(any()) }
             } finally {
                 releaseStaleAttempt.complete(Unit)
                 processor.stop()
@@ -475,6 +496,7 @@ class ElectionProcessorTest {
             // Given
             val commitAttempts = AtomicInteger()
             val accountService = mockk<AccountService>()
+            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val firstPublicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
             val laterPublicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
             val firstHead = sampleAccount(firstPublicKey, AttoHash(Random.nextBytes(ByteArray(32))), height = 1)
@@ -522,6 +544,7 @@ class ElectionProcessorTest {
                     transactionManagerWithBootstrapRace,
                     meterRegistry = meterRegistry,
                     accountRepository = accountRepository,
+                    eventPublisher = eventPublisher,
                 )
             val savedBatches = CopyOnWriteArrayList<List<Transaction>>()
             val firstAttemptStarted = CompletableDeferred<Unit>()
@@ -559,8 +582,183 @@ class ElectionProcessorTest {
                     queriedPublicKeys.toList(),
                 )
                 assertPhaseCounts(meterRegistry, 1)
+                verify(exactly = 1) {
+                    eventPublisher.publish(
+                        match<ElectionDiscarded> {
+                            it.account == savedAccounts.getValue(firstPublicKey) && it.transaction == firstTransaction
+                        },
+                    )
+                }
+                verify(exactly = 1) { eventPublisher.publish(any()) }
             } finally {
                 releaseFirstAttempt.complete(Unit)
+                processor.stop()
+            }
+        }
+
+    @Test
+    fun `publishes exact obsolete outcomes and retries unresolved work from a mixed failed batch`() =
+        runTest {
+            // Given
+            val accounts =
+                List(4) {
+                    sampleAccount(
+                        AttoPublicKey(Random.nextBytes(ByteArray(32))),
+                        AttoHash(Random.nextBytes(ByteArray(32))),
+                        height = 1,
+                    )
+                }
+            val transactions =
+                accounts.map { account ->
+                    Transaction.sample(publicKey = account.publicKey, previous = account.lastTransactionHash)
+                }
+            val savedAccounts =
+                listOf(1, 3).map { index ->
+                    accounts[index].copy(
+                        height = 2,
+                        lastTransactionHash = transactions[index].hash,
+                        lastTransactionTimestamp = Instant.ofEpochMilli(transactions[index].block.timestamp.toEpochMilliseconds()),
+                    )
+                }
+            val accountRepository = mockk<AccountRepository>()
+            val queriedPublicKeys = CopyOnWriteArrayList<List<AttoPublicKey>>()
+            every { accountRepository.findAllById(any<Iterable<AttoPublicKey>>()) } answers {
+                queriedPublicKeys += firstArg<Iterable<AttoPublicKey>>().toList()
+                savedAccounts.asFlow()
+            }
+            val failures = CopyOnWriteArrayList<ElectionDiscarded>()
+            val eventPublisher = mockk<EventPublisher>()
+            every { eventPublisher.publish(any()) } answers { failures += firstArg<ElectionDiscarded>() }
+            val accountService = mockk<AccountService>()
+            val transactionManager = RecordingReactiveTransactionManager()
+            val batches = CopyOnWriteArrayList<List<Transaction>>()
+            val attempts = AtomicInteger()
+            val firstAttemptStarted = CompletableDeferred<Unit>()
+            val releaseFirstAttempt = CompletableDeferred<Unit>()
+            val retryStarted = CompletableDeferred<Unit>()
+            val releaseRetry = CompletableDeferred<Unit>()
+            coEvery { accountService.add(TransactionSource.ELECTION, any()) } coAnswers {
+                batches += secondArg<List<Transaction>>()
+                when (attempts.incrementAndGet()) {
+                    1 -> {
+                        firstAttemptStarted.complete(Unit)
+                        releaseFirstAttempt.await()
+                    }
+
+                    2 -> {
+                        throw IllegalStateException("obsolete transactions cannot be persisted")
+                    }
+
+                    3 -> {
+                        retryStarted.complete(Unit)
+                        releaseRetry.await()
+                    }
+                }
+                emptyList()
+            }
+            val processor =
+                newProcessor(
+                    accountService,
+                    transactionManager,
+                    accountRepository = accountRepository,
+                    eventPublisher = eventPublisher,
+                )
+
+            try {
+                // When
+                processor.process(ElectionConsensusReached(accounts.first(), transactions.first(), emptyList()))
+                firstAttemptStarted.await()
+                (1..3).forEach { index ->
+                    processor.process(ElectionConsensusReached(accounts[index], transactions[index], emptyList()))
+                }
+                releaseFirstAttempt.complete(Unit)
+                retryStarted.await()
+
+                // Then
+                assertEquals(1, processor.getBufferSize())
+                assertEquals(savedAccounts, failures.map { it.account })
+                assertEquals(listOf(transactions[1], transactions[3]), failures.map { it.transaction })
+                assertEquals(
+                    listOf(listOf(transactions.first()), transactions.drop(1), listOf(transactions[2])),
+                    batches.toList(),
+                )
+                assertEquals(listOf(transactions.drop(1).map { it.publicKey }), queriedPublicKeys.toList())
+                releaseRetry.complete(Unit)
+                awaitCondition { transactionManager.commits == 2 && processor.getBufferSize() == 0 }
+                assertEquals(1, transactionManager.rollbacks)
+                assertEquals(2, failures.size)
+            } finally {
+                releaseFirstAttempt.complete(Unit)
+                releaseRetry.complete(Unit)
+                processor.stop()
+            }
+        }
+
+    @Test
+    fun `retains obsolete work until terminal notification publication succeeds`() =
+        runTest {
+            // Given
+            val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+            val account = sampleAccount(publicKey, AttoHash(Random.nextBytes(ByteArray(32))), height = 1)
+            val transaction = Transaction.sample(publicKey = publicKey, previous = account.lastTransactionHash)
+            val savedAccount =
+                account.copy(
+                    height = 2,
+                    lastTransactionHash = transaction.hash,
+                    lastTransactionTimestamp = Instant.ofEpochMilli(transaction.block.timestamp.toEpochMilliseconds()),
+                )
+            val queriedPublicKeys = CopyOnWriteArrayList<List<AttoPublicKey>>()
+            val accountRepository = mockk<AccountRepository>()
+            every { accountRepository.findAllById(any<Iterable<AttoPublicKey>>()) } answers {
+                queriedPublicKeys += firstArg<Iterable<AttoPublicKey>>().toList()
+                listOf(savedAccount).asFlow()
+            }
+            val publicationAttempts = AtomicInteger()
+            val failures = CopyOnWriteArrayList<ElectionDiscarded>()
+            val eventPublisher = mockk<EventPublisher>()
+            every { eventPublisher.publish(any()) } answers {
+                if (publicationAttempts.incrementAndGet() == 1) throw IllegalStateException("publication failed")
+                failures += firstArg<ElectionDiscarded>()
+            }
+            val accountService = mockk<AccountService>()
+            val persistenceAttempts = AtomicInteger()
+            val retryStarted = CompletableDeferred<Unit>()
+            val releaseRetry = CompletableDeferred<Unit>()
+            coEvery { accountService.add(TransactionSource.ELECTION, any()) } coAnswers {
+                if (persistenceAttempts.incrementAndGet() == 2) {
+                    retryStarted.complete(Unit)
+                    releaseRetry.await()
+                }
+                throw IllegalStateException("transaction already persisted")
+            }
+            val transactionManager = RecordingReactiveTransactionManager()
+            val processor =
+                newProcessor(
+                    accountService,
+                    transactionManager,
+                    accountRepository = accountRepository,
+                    eventPublisher = eventPublisher,
+                )
+
+            try {
+                // When
+                processor.process(ElectionConsensusReached(account, transaction, emptyList()))
+                retryStarted.await()
+
+                // Then
+                assertEquals(1, processor.getBufferSize())
+                assertEquals(1, publicationAttempts.get())
+                assertEquals(emptyList<ElectionDiscarded>(), failures.toList())
+                releaseRetry.complete(Unit)
+                awaitCondition { processor.getBufferSize() == 0 }
+                assertEquals(2, publicationAttempts.get())
+                assertEquals(listOf(savedAccount), failures.map { it.account })
+                assertEquals(listOf(transaction), failures.map { it.transaction })
+                assertEquals(List(2) { listOf(transaction.publicKey) }, queriedPublicKeys.toList())
+                assertEquals(2, transactionManager.rollbacks)
+                assertEquals(0, transactionManager.commits)
+            } finally {
+                releaseRetry.complete(Unit)
                 processor.stop()
             }
         }
@@ -657,6 +855,7 @@ class ElectionProcessorTest {
                     },
                 )
             val accountService = mockk<AccountService>()
+            val eventPublisher = mockk<EventPublisher>(relaxed = true)
             val meterRegistry = SimpleMeterRegistry()
             val transaction = Transaction.sample()
             val lookupAttempts = AtomicInteger()
@@ -674,6 +873,7 @@ class ElectionProcessorTest {
                     transactionManager,
                     meterRegistry,
                     accountRepository,
+                    eventPublisher,
                 )
             val batches = CopyOnWriteArrayList<List<Transaction>>()
             coEvery { accountService.add(TransactionSource.ELECTION, any()) } coAnswers {
@@ -698,6 +898,7 @@ class ElectionProcessorTest {
                 assertEquals(1, meterRegistry.get("elections.processor.batch").timer().count())
                 assertEquals(listOf(listOf(transaction.publicKey)), queriedPublicKeys.toList())
                 assertEquals(listOf(listOf(transaction), listOf(transaction)), batches.toList())
+                verify(exactly = 0) { eventPublisher.publish(any()) }
             } finally {
                 processor.stop()
             }
@@ -749,9 +950,11 @@ class ElectionProcessorTest {
             mockk<AccountRepository>().also { repository ->
                 every { repository.findAllById(any<Iterable<AttoPublicKey>>()) } returns emptyFlow()
             },
+        eventPublisher: EventPublisher = mockk(relaxed = true),
     ): ElectionProcessor =
         ElectionProcessor(
             messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true),
+            eventPublisher = eventPublisher,
             accountService = accountService,
             accountRepository = accountRepository,
             meterRegistry = meterRegistry,

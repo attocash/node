@@ -377,6 +377,81 @@ class ElectionTest {
     }
 
     @Test
+    fun `should close discarded consensus height and preserve valid next height after duplicate discard`() {
+        // Given
+        val saved = receiveTransaction()
+        val competing = saved.competing()
+        val initialAccount = accountBefore(saved)
+        val savedAccount = initialAccount.after(saved)
+        val next = saved.next()
+        val savedVote = Vote.sample(blockHash = saved.hash, weight = minimalWeight)
+        val nextVote = Vote.sample(blockHash = next.hash, weight = minimalWeight)
+        every { voteWeighter.get(savedVote.publicKey) } returns savedVote.weight
+        every { voteWeighter.get(nextVote.publicKey) } returns nextVote.weight
+        val discarded = ElectionDiscarded(savedAccount, saved)
+
+        // When
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, saved))
+            election.process(VoteValidated(saved, savedVote))
+            election.process(discarded)
+            election.start(TransactionValidated(savedAccount, next))
+            election.process(discarded)
+            election.start(TransactionValidated(initialAccount, competing))
+            election.process(VoteValidated(next, nextVote))
+        }
+
+        // Then
+        assertEquals(0, election.getSize())
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == saved })
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == next })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == competing })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == competing })
+            eventPublisher.publish(match { it is ElectionLost })
+        }
+    }
+
+    @Test
+    fun `should reconcile stale active candidates from discarded consensus account snapshot`() {
+        // Given
+        val discardedTransaction = receiveTransaction()
+        val historicalSaved = discardedTransaction.next()
+        val historicalCompetitor = historicalSaved.competing()
+        val latestSaved = historicalSaved.next()
+        val initialAccount = accountBefore(discardedTransaction)
+        val discardedAccount = initialAccount.after(discardedTransaction)
+        val historicalAccount = discardedAccount.after(historicalSaved)
+        val latestAccount = historicalAccount.after(latestSaved)
+        val next = latestSaved.next()
+        val vote = Vote.sample(blockHash = discardedTransaction.hash, weight = minimalWeight)
+        every { voteWeighter.get(vote.publicKey) } returns vote.weight
+
+        // When
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, discardedTransaction))
+            election.process(VoteValidated(discardedTransaction, vote))
+            election.start(TransactionValidated(discardedAccount, historicalSaved))
+            election.start(TransactionValidated(discardedAccount, historicalCompetitor))
+            election.start(TransactionValidated(latestAccount, next))
+            election.process(ElectionDiscarded(latestAccount, discardedTransaction))
+        }
+
+        // Then
+        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == historicalSaved })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == historicalCompetitor })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == next })
+        }
+    }
+
+    @Test
     fun `should clear completed height cache and allow validation after cache miss`() {
         // Given
         val saved = receiveTransaction()

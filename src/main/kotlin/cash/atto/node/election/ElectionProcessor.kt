@@ -3,6 +3,7 @@ package cash.atto.node.election
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.DemandDrivenWorker
+import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountService
 import cash.atto.node.account.AccountUpdated
@@ -30,6 +31,7 @@ import java.util.concurrent.TimeUnit
 @Service
 class ElectionProcessor(
     private val messagePublisher: NetworkMessagePublisher,
+    private val eventPublisher: EventPublisher,
     private val accountService: AccountService,
     private val accountRepository: AccountRepository,
     private val meterRegistry: MeterRegistry,
@@ -134,11 +136,11 @@ class ElectionProcessor(
         } catch (cancellation: CancellationException) {
             throw cancellation
         } catch (persistenceFailure: Exception) {
-            val latestHeights =
+            val latestAccounts =
                 try {
                     accountRepository
                         .findAllById(transactions.map { it.publicKey })
-                        .associate { it.publicKey to it.height }
+                        .associate { it.publicKey to it }
                 } catch (cancellation: CancellationException) {
                     throw cancellation
                 } catch (reconciliationFailure: Exception) {
@@ -148,18 +150,25 @@ class ElectionProcessor(
                     emptyMap()
                 }
 
-            val obsoleteHashes =
-                transactions
-                    .filter { transaction ->
-                        val savedHeight = latestHeights[transaction.publicKey]?.toULong()
-                        savedHeight != null && savedHeight >= transaction.height.value
-                    }.mapTo(HashSet()) { it.hash }
+            val obsolete =
+                batch.mapNotNull { event ->
+                    val account = latestAccounts[event.transaction.publicKey] ?: return@mapNotNull null
+                    if (account.height.toULong() >= event.transaction.height.value) event to account else null
+                }
 
-            synchronized(bufferLock) {
-                obsoleteHashes.forEach { buffer.remove(it) }
+            obsolete.forEach { (event, account) ->
+                val hash = event.transaction.hash
+                val stillBuffered = synchronized(bufferLock) { buffer[hash] === event }
+                if (stillBuffered) {
+                    // Keep work retryable until its terminal outcome has been published.
+                    eventPublisher.publish(ElectionDiscarded(account, event.transaction))
+                    synchronized(bufferLock) {
+                        if (buffer[hash] === event) buffer.remove(hash)
+                    }
+                }
             }
 
-            if (transactions.all { it.hash in obsoleteHashes }) return batch.size
+            if (obsolete.size == batch.size) return batch.size
             throw persistenceFailure
         }
 

@@ -86,6 +86,13 @@ class Election(
             complete(transaction.publicKey, transaction.height, transaction.hash)
         }
 
+    @EventListener
+    suspend fun process(event: ElectionDiscarded) =
+        mutex.withLock {
+            val account = event.account
+            complete(account.publicKey, AttoHeight(account.height.toULong()), account.lastTransactionHash)
+        }
+
     private fun complete(
         publicKey: AttoPublicKey,
         height: AttoHeight,
@@ -391,6 +398,13 @@ data class ElectionStarted(
 
 /** A candidate cannot proceed because its account height is already confirmed or awaiting persistence. */
 data class ElectionRejected(
+    val account: Account,
+    override val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
+) : TransactionFailure
+
+/** Persistence discarded a candidate after observing a committed account at or beyond its height. */
+data class ElectionDiscarded(
     val account: Account,
     override val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),

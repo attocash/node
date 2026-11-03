@@ -29,6 +29,7 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionService
 import cash.atto.node.transaction.TransactionSource
+import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.transaction.validation.TransactionValidationManager
 import cash.atto.node.transaction.validation.validator.BlockValidator
 import cash.atto.node.transaction.validation.validator.PreviousValidator
@@ -43,11 +44,14 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import org.awaitility.Awaitility.await
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.context.ApplicationEvent
@@ -72,6 +76,135 @@ import java.util.concurrent.atomic.AtomicReference
 import kotlin.random.Random
 
 class ElectionBootstrapRecoveryTest {
+    @Test
+    fun `discarded persistence refreshes an empty completed height cache through asynchronous events`() =
+        runBlocking {
+            // Given
+            val privateKey = AttoPrivateKey.generate()
+            val initialAccount = account(privateKey.toPublicKeyBlocking())
+            val canonicalHead = receive(privateKey, initialAccount)
+            val accountAtHead =
+                initialAccount.copy(
+                    height = 2,
+                    balance = canonicalHead.block.balance,
+                    lastTransactionHash = canonicalHead.hash,
+                    lastTransactionTimestamp = canonicalHead.block.timestamp.toJavaInstant(),
+                )
+            val delayedHead = TransactionValidated(initialAccount, receive(privateKey, initialAccount))
+            val delayedNext = TransactionValidated(accountAtHead, receive(privateKey, accountAtHead))
+            val canonicalNext = receive(privateKey, accountAtHead)
+            val committedAccount =
+                accountAtHead.copy(
+                    height = 3,
+                    balance = canonicalNext.block.balance,
+                    lastTransactionHash = canonicalNext.hash,
+                    lastTransactionTimestamp = canonicalNext.block.timestamp.toJavaInstant(),
+                )
+            val validNext = TransactionValidated(committedAccount, receive(privateKey, committedAccount))
+            val repository = mockk<AccountRepository>()
+            val currentAccount = AtomicReference(initialAccount)
+            every { repository.findAllById(any()) } answers { flowOf(currentAccount.get()) }
+            val accountService = mockk<AccountService>()
+            coEvery { accountService.add(TransactionSource.ELECTION, any()) } throws
+                IllegalStateException("the account has already advanced beyond this transaction")
+            val errors = CopyOnWriteArrayList<Throwable>()
+            val started = CopyOnWriteArrayList<AttoHash>()
+            val headStarted = CompletableDeferred<Unit>()
+            val nextStarted = CompletableDeferred<Unit>()
+            val validNextStarted = CompletableDeferred<Unit>()
+            val discarded = CompletableDeferred<ElectionDiscarded>()
+            val nextRetired = CompletableDeferred<Unit>()
+            val nextReplayRejected = CompletableDeferred<Unit>()
+
+            AnnotationConfigApplicationContext().use { context ->
+                val publisher = EventPublisher(context)
+                val validation =
+                    TransactionValidationManager(repository, listOf(BlockValidator(node()), PreviousValidator()), publisher)
+                assertNull(validation.validate(delayedHead.account, delayedHead.transaction))
+                assertNull(validation.validate(delayedNext.account, delayedNext.transaction))
+                assertNull(validation.validate(validNext.account, validNext.transaction))
+                val weights = mockk<VoteWeighter>()
+                every { weights.getMinimalConfirmationWeight() } returns AttoAmount(1_000UL)
+                every { weights.get(any()) } returns AttoAmount(1_000UL)
+                val election = Election(ElectionProperties(), weights, publisher, SimpleMeterRegistry())
+                val processor =
+                    ElectionProcessor(
+                        messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true),
+                        eventPublisher = publisher,
+                        accountService = accountService,
+                        accountRepository = repository,
+                        meterRegistry = SimpleMeterRegistry(),
+                        transactionManager = TestTransactionManager(),
+                    ).also { it.start() }
+                val multicaster = ApplicationConfiguration().applicationEventMulticaster() as SimpleApplicationEventMulticaster
+                multicaster.setErrorHandler { errors.add(it) }
+                context.beanFactory.registerSingleton("applicationEventMulticaster", multicaster)
+                context.beanFactory.registerSingleton("election", election)
+                context.beanFactory.registerSingleton("electionProcessor", processor)
+                context.addApplicationListener(
+                    ApplicationListener<ApplicationEvent> { event ->
+                        when (val payload = (event as? PayloadApplicationEvent<*>)?.payload) {
+                            is ElectionStarted -> {
+                                started.add(payload.transaction.hash)
+                                when (payload.transaction.hash) {
+                                    delayedHead.transaction.hash -> headStarted.complete(Unit)
+                                    delayedNext.transaction.hash -> nextStarted.complete(Unit)
+                                    validNext.transaction.hash -> validNextStarted.complete(Unit)
+                                }
+                            }
+
+                            is ElectionDiscarded -> {
+                                discarded.complete(payload)
+                            }
+
+                            is ElectionLost -> {
+                                if (payload.transaction == delayedNext.transaction) nextRetired.complete(Unit)
+                            }
+
+                            is ElectionRejected -> {
+                                if (payload.transaction == delayedNext.transaction) nextReplayRejected.complete(Unit)
+                            }
+                        }
+                    },
+                )
+                context.refresh()
+
+                try {
+                    // When
+                    // Canonical persistence wins after validation, and the completed-height cache is absent on delivery.
+                    currentAccount.set(committedAccount)
+                    election.process(AccountUpdated(TransactionSource.BOOTSTRAP, accountAtHead, committedAccount, canonicalNext))
+                    election.clear()
+                    publisher.publish(delayedHead)
+                    withTimeout(5_000) { headStarted.await() }
+                    publisher.publish(delayedNext)
+                    withTimeout(5_000) { nextStarted.await() }
+                    publisher.publish(VoteValidated(delayedHead.transaction, vote(delayedHead.transaction)))
+                    withTimeout(5_000) { nextRetired.await() }
+
+                    // Then
+                    val outcome = withTimeout(5_000) { discarded.await() }
+                    assertEquals(committedAccount, outcome.account)
+                    assertEquals(delayedHead.transaction, outcome.transaction)
+                    assertEquals(0, election.getSize())
+                    await().atMost(5, TimeUnit.SECONDS).until { processor.getBufferSize() == 0 }
+                    publisher.publish(delayedNext)
+                    withTimeout(5_000) { nextReplayRejected.await() }
+                    assertEquals(0, election.getSize())
+                    publisher.publish(validNext)
+                    withTimeout(5_000) { validNextStarted.await() }
+                    assertEquals(setOf(validNext.transaction.toPublicKeyHeight()), election.getElections().keys)
+                    assertEquals(
+                        listOf(delayedHead.transaction.hash, delayedNext.transaction.hash, validNext.transaction.hash),
+                        started.toList(),
+                    )
+                    assertTrue(errors.isEmpty())
+                } finally {
+                    processor.stop()
+                }
+            }
+        }
+
     @ParameterizedTest
     @ValueSource(booleans = [false, true])
     fun `bootstrap commit retires queued consensus while the next height continues through asynchronous events`(
@@ -179,6 +312,7 @@ class ElectionBootstrapRecoveryTest {
             val processor =
                 ElectionProcessor(
                     messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true),
+                    eventPublisher = publisher,
                     accountService = accountService,
                     accountRepository = repository,
                     meterRegistry = SimpleMeterRegistry(),
