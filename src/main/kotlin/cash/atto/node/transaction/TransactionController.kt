@@ -13,6 +13,7 @@ import cash.atto.commons.toBigInteger
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionExpired
+import cash.atto.node.election.ElectionRejected
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
@@ -25,6 +26,7 @@ import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.filter
@@ -102,6 +104,35 @@ class TransactionController(
                     ),
                 ),
             )
+        }
+    }
+
+    @EventListener
+    suspend fun process(rejection: ElectionRejected) {
+        val hash = rejection.transaction.hash
+        val pending = pendingTransactionStreams[hash] ?: return
+        val result =
+            try {
+                val confirmed = repository.findById(hash)
+                if (confirmed != null) {
+                    PendingTransactionResult.Confirmed(confirmed.toAttoTransaction())
+                } else {
+                    PendingTransactionResult.Failed(
+                        ResponseStatusException(HttpStatus.CONFLICT, "Transaction rejected by local election"),
+                    )
+                }
+            } catch (exception: CancellationException) {
+                throw exception
+            } catch (exception: Exception) {
+                logger.error(exception) { "Failed to resolve rejected transaction $hash" }
+                PendingTransactionResult.Failed(
+                    ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction confirmation lookup failed"),
+                )
+            }
+
+        // Confirmation can complete this attempt while the repository read is suspended.
+        if (pendingTransactionStreams.remove(hash, pending)) {
+            pending.flow.emit(result)
         }
     }
 
@@ -335,6 +366,11 @@ class TransactionController(
                 content = [Content()],
             ),
             ApiResponse(
+                responseCode = "409",
+                description = "The local election rejected this publication attempt and the hash was not found in local storage.",
+                content = [Content()],
+            ),
+            ApiResponse(
                 responseCode = "429",
                 description = "The local transaction queue dropped the transaction. Check its hash before retrying the payment.",
                 content = [Content()],
@@ -457,6 +493,11 @@ class TransactionController(
             ApiResponse(
                 responseCode = "400",
                 description = "Invalid or rejected transaction, or invalid proxy-header configuration, before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "409",
+                description = "The local election rejected this publication attempt before response commitment.",
                 content = [Content()],
             ),
             ApiResponse(

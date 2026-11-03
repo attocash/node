@@ -16,13 +16,16 @@ import cash.atto.commons.worker.AttoWorker
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
+import cash.atto.node.election.ElectionRejected
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
@@ -31,9 +34,12 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertInstanceOf
 import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import org.springframework.http.HttpStatus
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.web.server.ResponseStatusException
@@ -85,6 +91,140 @@ internal class TransactionControllerTest {
             publicUri = URI("ws://localhost:8081"),
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
+
+    @ParameterizedTest
+    @ValueSource(booleans = [false, true])
+    fun `election rejection resolves publication and stream waiters according to stored hash`(confirmed: Boolean) =
+        runTest {
+            // Given
+            val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
+            val repository = mockk<TransactionRepository>()
+            coEvery { repository.findById(transaction.hash) } returns transaction.takeIf { confirmed }
+            val controller = TransactionController(ApplicationProperties(), node, messagePublisher, repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+            val published =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publish(transaction.toAttoTransaction(), request) }
+                }
+            val streamed =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publishAndStream(transaction.toAttoTransaction(), request).first() }
+                }
+
+            // When
+            controller.process(ElectionRejected(account, transaction))
+            val results = withTimeout(1.seconds) { listOf(published.await(), streamed.await()) }
+
+            // Then
+            results.forEach { result ->
+                if (confirmed) {
+                    assertEquals(transaction.toAttoTransaction(), result.getOrThrow())
+                } else {
+                    val failure = assertInstanceOf(ResponseStatusException::class.java, result.exceptionOrNull())
+                    assertEquals(HttpStatus.CONFLICT, failure.statusCode)
+                    assertEquals("Transaction rejected by local election", failure.reason)
+                }
+            }
+            coVerify(exactly = 1) { repository.findById(transaction.hash) }
+        }
+
+    @Test
+    fun `election rejection lookup failure completes all waiters without exposing database details`() =
+        runTest {
+            // Given
+            val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
+            val repository = mockk<TransactionRepository>()
+            coEvery { repository.findById(transaction.hash) } throws IllegalStateException("Private database details")
+            val controller = TransactionController(ApplicationProperties(), node, messagePublisher, repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+            val published =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publish(transaction.toAttoTransaction(), request) }
+                }
+            val streamed =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publishAndStream(transaction.toAttoTransaction(), request).first() }
+                }
+
+            // When
+            controller.process(ElectionRejected(account, transaction))
+            val failures = withTimeout(1.seconds) { listOf(published.await().exceptionOrNull(), streamed.await().exceptionOrNull()) }
+
+            // Then
+            failures.forEach {
+                val failure = assertInstanceOf(ResponseStatusException::class.java, it)
+                assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.statusCode)
+                assertEquals("Transaction confirmation lookup failed", failure.reason)
+                assertNull(failure.cause)
+            }
+        }
+
+    @Test
+    fun `late election rejection lookup cannot replace confirmation or complete a newer publication`() =
+        runTest {
+            // Given
+            val repository = mockk<TransactionRepository>()
+            val lookupStarted = CompletableDeferred<Unit>()
+            val releaseLookup = CompletableDeferred<Unit>()
+            coEvery { repository.findById(transaction.hash) } coAnswers {
+                lookupStarted.complete(Unit)
+                releaseLookup.await()
+                null
+            }
+            val controller = TransactionController(ApplicationProperties(), node, mockk(relaxed = true), repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+            val original =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    controller.publish(transaction.toAttoTransaction(), request)
+                }
+            val rejection =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    controller.process(ElectionRejected(account, transaction))
+                }
+            lookupStarted.await()
+
+            // When
+            controller.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+            val originalResult = withTimeout(1.seconds) { original.await() }
+            val newer =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    controller.publish(transaction.toAttoTransaction(), request)
+                }
+            releaseLookup.complete(Unit)
+            rejection.await()
+
+            // Then
+            assertEquals(transaction.toAttoTransaction(), originalResult)
+            assertFalse(newer.isCompleted)
+            controller.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+            assertEquals(transaction.toAttoTransaction(), withTimeout(1.seconds) { newer.await() })
+        }
+
+    @Test
+    fun `election rejection without publication waiters skips the database lookup`() =
+        runTest {
+            // Given
+            val repository = mockk<TransactionRepository>()
+            val controller = TransactionController(ApplicationProperties(), node, mockk(), repository)
+
+            // When
+            controller.process(ElectionRejected(account, transaction))
+
+            // Then
+            coVerify(exactly = 0) { repository.findById(any()) }
+        }
 
     @Test
     fun `publish and publishAndStream fail promptly when transaction validation fails`() =
