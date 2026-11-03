@@ -35,6 +35,8 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import java.time.Instant
 import kotlin.random.Random
 
@@ -271,6 +273,135 @@ class ElectionTest {
         }
     }
 
+    @ParameterizedTest
+    @EnumSource(TransactionSource::class)
+    fun `should reject delayed validation at saved height and admit next height`(source: TransactionSource) {
+        // Given
+        val saved = receiveTransaction()
+        val competing = saved.competing()
+        val previousAccount = accountBefore(saved)
+        val savedAccount = previousAccount.after(saved)
+        val next = saved.next()
+
+        // When
+        runBlocking {
+            election.process(AccountUpdated(source, previousAccount, savedAccount, saved))
+            election.start(TransactionValidated(previousAccount, saved))
+            election.start(TransactionValidated(previousAccount, competing))
+            election.start(TransactionValidated(savedAccount, next))
+        }
+
+        // Then
+        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionRejected && it.account == previousAccount && it.transaction == saved })
+            eventPublisher.publish(match { it is ElectionRejected && it.account == previousAccount && it.transaction == competing })
+            eventPublisher.publish(match { it is ElectionStarted && it.account == savedAccount && it.transaction == next })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction.height <= saved.height })
+            eventPublisher.publish(match { it is ElectionLost })
+        }
+    }
+
+    @Test
+    fun `should preserve completed height and next election after delayed older account update`() {
+        // Given
+        val olderSaved = receiveTransaction()
+        val newerSaved = olderSaved.next()
+        val initialAccount = accountBefore(olderSaved)
+        val olderAccount = initialAccount.after(olderSaved)
+        val newerAccount = olderAccount.after(newerSaved)
+        val staleCandidate = newerSaved.competing()
+        val next = newerSaved.next()
+        val nextVote = Vote.sample(blockHash = next.hash, weight = minimalWeight)
+        every { voteWeighter.get(nextVote.publicKey) } returns nextVote.weight
+
+        // When
+        runBlocking {
+            election.process(AccountUpdated(TransactionSource.BOOTSTRAP, olderAccount, newerAccount, newerSaved))
+            election.start(TransactionValidated(newerAccount, next))
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, olderAccount, olderSaved))
+            election.start(TransactionValidated(olderAccount, staleCandidate))
+        }
+
+        // Then
+        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == staleCandidate })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost || it is ElectionRejected && it.transaction == next })
+        }
+
+        // When
+        runBlocking {
+            election.process(VoteValidated(next, nextVote))
+        }
+
+        // Then
+        assertEquals(0, election.getSize())
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == next })
+        }
+    }
+
+    @Test
+    fun `should reject historical candidates without reporting saved historical transaction as loser`() {
+        // Given
+        val historicalSaved = receiveTransaction()
+        val historicalCompetitor = historicalSaved.competing()
+        val laterSaved = historicalSaved.next()
+        val initialAccount = accountBefore(historicalSaved)
+        val historicalAccount = initialAccount.after(historicalSaved)
+        val laterAccount = historicalAccount.after(laterSaved)
+
+        // When
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, historicalSaved))
+            election.start(TransactionValidated(initialAccount, historicalCompetitor))
+            election.process(AccountUpdated(TransactionSource.BOOTSTRAP, historicalAccount, laterAccount, laterSaved))
+        }
+
+        // Then
+        assertEquals(0, election.getSize())
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionRejected && it.account == initialAccount && it.transaction == historicalSaved })
+            eventPublisher.publish(
+                match { it is ElectionRejected && it.account == initialAccount && it.transaction == historicalCompetitor },
+            )
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost })
+        }
+    }
+
+    @Test
+    fun `should clear completed height cache and allow validation after cache miss`() {
+        // Given
+        val saved = receiveTransaction()
+        val previousAccount = accountBefore(saved)
+        val savedAccount = previousAccount.after(saved)
+        runBlocking {
+            election.process(AccountUpdated(TransactionSource.ELECTION, previousAccount, savedAccount, saved))
+        }
+
+        // When
+        election.clear()
+        runBlocking {
+            election.start(TransactionValidated(previousAccount, saved))
+        }
+
+        // Then
+        assertEquals(setOf(saved.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == saved })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionRejected })
+        }
+    }
+
     @Test
     fun `should clear pending consensus state`() {
         // given
@@ -457,6 +588,56 @@ class ElectionTest {
             )
         }
     }
+
+    private fun receiveTransaction(): Transaction {
+        val transaction = Transaction.sample()
+        val block = transaction.block as AttoReceiveBlock
+        return transaction.copy(block = block.copy(balance = AttoAmount(100UL)))
+    }
+
+    private fun Transaction.competing(): Transaction =
+        copy(block = (block as AttoReceiveBlock).copy(sendHash = AttoHash(Random.nextBytes(ByteArray(32)))))
+
+    private fun Transaction.next(): Transaction =
+        copy(
+            block =
+                (block as AttoReceiveBlock).copy(
+                    height = (height.value + 1UL).toAttoHeight(),
+                    balance = block.balance + AttoAmount(100UL),
+                    previous = hash,
+                    sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
+                    timestamp =
+                        block.timestamp
+                            .toJavaInstant()
+                            .plusSeconds(1)
+                            .toAtto(),
+                ),
+        )
+
+    private fun accountBefore(transaction: Transaction): Account =
+        Account(
+            publicKey = transaction.publicKey,
+            network = transaction.block.network,
+            version = transaction.block.version,
+            algorithm = transaction.block.algorithm,
+            height = transaction.height.value.toLong() - 1,
+            balance = AttoAmount.MIN,
+            lastTransactionTimestamp =
+                transaction.block.timestamp
+                    .toJavaInstant()
+                    .minusSeconds(1),
+            lastTransactionHash = (transaction.block as AttoReceiveBlock).previous,
+            representativeAlgorithm = AttoAlgorithm.V1,
+            representativePublicKey = transaction.publicKey,
+        )
+
+    private fun Account.after(transaction: Transaction): Account =
+        copy(
+            height = transaction.height.value.toLong(),
+            balance = transaction.block.balance,
+            lastTransactionTimestamp = transaction.block.timestamp.toJavaInstant(),
+            lastTransactionHash = transaction.hash,
+        )
 
     private fun AttoBlock.Companion.sample(publicKey: AttoPublicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))): AttoBlock =
         AttoReceiveBlock(

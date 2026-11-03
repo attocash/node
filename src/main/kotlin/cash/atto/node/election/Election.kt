@@ -2,6 +2,7 @@ package cash.atto.node.election
 
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
+import cash.atto.commons.AttoHeight
 import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.Event
@@ -16,6 +17,7 @@ import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
 import cash.atto.node.vote.weight.VoteWeighter
+import com.github.benmanes.caffeine.cache.Caffeine
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
@@ -46,6 +48,12 @@ class Election(
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
     private val pendingConsensus = HashSet<PublicKeyHeight>()
+    private val confirmedHeights =
+        Caffeine
+            .newBuilder()
+            .maximumSize(100_000)
+            .build<AttoPublicKey, AttoHeight>()
+            .asMap()
 
     @PostConstruct
     fun start() {
@@ -75,22 +83,46 @@ class Election(
     suspend fun process(event: AccountUpdated) =
         mutex.withLock {
             val transaction = event.transaction
-            val publicKeyHeight = transaction.toPublicKeyHeight()
-            pendingConsensus.remove(publicKeyHeight)
-            publicKeyHeightElectionMap.remove(publicKeyHeight)?.let { election ->
-                logger.debug { "Stopped election for ${transaction.hash} since transaction was just saved" }
-                election
-                    .getTransactions()
-                    .filter { it.hash != transaction.hash }
-                    .forEach { eventPublisher.publish(ElectionLost(election.account, it)) }
+            complete(transaction.publicKey, transaction.height, transaction.hash)
+        }
+
+    private fun complete(
+        publicKey: AttoPublicKey,
+        height: AttoHeight,
+        confirmedHash: AttoHash,
+    ) {
+        confirmedHeights.merge(publicKey, height) { previous, updated -> maxOf(previous, updated) }
+        val completed =
+            (pendingConsensus + publicKeyHeightElectionMap.keys)
+                .filter { it.publicKey == publicKey && it.height <= height }
+        completed.forEach { key ->
+            val election = retire(key) ?: return@forEach
+            election.getTransactions().forEach { transaction ->
+                if (transaction.height < height) {
+                    eventPublisher.publish(ElectionRejected(election.account, transaction))
+                } else if (transaction.hash != confirmedHash) {
+                    eventPublisher.publish(ElectionLost(election.account, transaction))
+                }
             }
         }
+    }
+
+    private fun retire(key: PublicKeyHeight): PublicKeyHeightElection? {
+        pendingConsensus.remove(key)
+        return publicKeyHeightElectionMap.remove(key)
+    }
 
     private suspend fun start(
         account: Account,
         transaction: Transaction,
     ) = mutex.withLock {
         val publicKeyHeight = transaction.toPublicKeyHeight()
+        val confirmedHeight = confirmedHeights[transaction.publicKey]
+        if (confirmedHeight != null && transaction.height <= confirmedHeight) {
+            logger.trace { "Rejected $transaction since ${transaction.publicKey} is confirmed through height $confirmedHeight" }
+            eventPublisher.publish(ElectionRejected(account, transaction))
+            return@withLock
+        }
         if (publicKeyHeight in pendingConsensus) {
             logger.trace { "Rejected $transaction since consensus is pending for $publicKeyHeight" }
             eventPublisher.publish(ElectionRejected(account, transaction))
@@ -200,7 +232,7 @@ class Election(
                 .forEach {
                     val transaction = it.getProvisionalLeader().transaction
                     logger.trace { "Expired $transaction" }
-                    publicKeyHeightElectionMap.remove(transaction.toPublicKeyHeight())
+                    retire(transaction.toPublicKeyHeight())
                     it
                         .getTransactions()
                         .filter { candidate -> candidate.hash != transaction.hash }
@@ -212,6 +244,7 @@ class Election(
     override fun clear() {
         publicKeyHeightElectionMap.clear()
         pendingConsensus.clear()
+        confirmedHeights.clear()
     }
 }
 
