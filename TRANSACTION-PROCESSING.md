@@ -23,7 +23,7 @@ from publication, and a listener can publish another event before sibling listen
 | Network message event | [NetworkMessagePublisher.publish][network-messages] → the same multicaster | Routes by the concrete wrapper and payload type, such as `InboundNetworkMessage<AttoTransactionPush>`. These messages do not implement the domain `Event` interface. |
 | Listener dispatch | [ApplicationConfiguration.applicationEventMulticaster][application-config] | Uses a `SimpleAsyncTaskExecutor` with virtual threads and logs listener failures. This dispatcher supplies no FIFO completion or automatic redelivery guarantee. |
 | Queue/worker handoff | [DemandDrivenWorker][worker] plus the caller's owned queue | Coalesces wakeups and drains work in its coroutine. On an exception it requests another drain with backoff; the owner must retain failed work. A wakeup is not the work item. |
-| Election lifecycle completion | [ElectionStarted.completion][election] → [TransactionPrioritizer][transaction-prioritizer] callback | An `Election`-owned `Deferred<Unit>` shared by candidates at a public key/height. Its callback wakes the prioritizer's worker. Completion can mean persistence, expiry, or discarded state; it is not a successful-save receipt. |
+| Transaction admission | [TransactionPrioritizer][transaction-prioritizer] → `TransactionReceived` | Claims the pending hash under the queue's group lock before publishing. Validation and election completion cannot precede this registration. |
 | Direct suspending call | For example, [AccountService.add][account-service] | The caller awaits the called operation. Any events it publishes still have their own dispatch boundary. |
 | After-commit publication | [EventPublisher.publishAfterCommit][event-publisher] | Registers a reactive transaction callback; publishes only after commit. The callback does not await the event consumers. |
 
@@ -69,24 +69,35 @@ flowchart TB
    [NodeConnectionManager.manage][connections]. Both reach `TransactionPrioritizer.add(message)`; rebroadcast tracking
    independently observes the same message.
 2. **Prioritization:** [TransactionPrioritizer][transaction-prioritizer] suppresses duplicate hashes, buffers transactions
-   whose send/previous dependency is a known pending election, and queues the rest. Its demand-driven worker publishes
-   `TransactionReceived`; it does not wait for validation listeners to finish.
+   whose send/previous dependency is a known pending transaction, and queues the rest. Its demand-driven worker
+   rechecks dependencies and claims the pending hash while the queue holds its group lock, then publishes
+   `TransactionReceived` after that lock is released. Queued hashes are deduplicated by the queue. Pending capacity
+   includes validation, elections, and persistence; publication does not wait for validation listeners to finish.
 3. **Validation:** [TransactionValidationManager.process][validation] loads an account snapshot and calls supported
    validators in order, stopping at the first violation. [BlockValidator][block-validator] checks height and other block
    rules; [PreviousValidator][previous-validator] checks the exact previous hash; [ReceiveValidator][receive-validator]
    checks the receivable for receive/open blocks. The result is `TransactionRejected` or `TransactionValidated`.
+   An unexpected lookup/validator exception produces `TransactionValidationFailed`; cancellation still propagates.
 4. **Election:** [Election.start][election] owns candidate admission and publishes `ElectionStarted`. Validated votes
    can change the provisional leader or reach consensus. On consensus it removes the active election, keeps a
-   `pendingConsensus` completion reference for that public key/height, publishes `ElectionLost` for other candidates,
+   `pendingConsensus` marker for that public key/height, publishes `ElectionLost` for other candidates,
    and publishes `ElectionConsensusReached`. This is a consensus result; the transaction is still awaiting local persistence.
+   A candidate arriving while the same public key/height awaits persistence, or at a cached confirmed height,
+   receives `ElectionRejected`, implementing `TransactionFailure`, so its pending prioritizer state can be released.
+   The confirmed-height cache stores the highest committed height for up to 100,000 accounts; delayed older updates
+   cannot lower a retained height. This cache avoids stale admission without an account query, but eviction can permit
+   a stale attempt. Persistence still reconciles such attempts against committed account state.
 5. **Persistence:** [ElectionProcessor.process][election-processor] buffers the result by hash and requests its worker.
    The worker selects an insertion-ordered batch with distinct public keys and directly calls `AccountService.add`
    within a reactive transaction. Account updates, historical entries, transactions, and receivable changes share that
    transaction. `AccountUpdated` is registered during this work and published after commit.
+   If a failed batch is already obsolete according to the existing account reconciliation read, the processor publishes
+   `ElectionDiscarded` before removing that work. Unresolved work and failed outcome publications remain queued for retry.
 6. **Completion:** independently dispatched `AccountUpdated` listeners clear election/persistence state, update voting
-   state, and notify streams. `Election` completes the relevant lifecycle references, waking the prioritizer's worker
-   to release buffered dependents. A published completion event does not mean every listener has finished. Bootstrap
-   also produces this event; consumers must inspect its source where behavior differs.
+   state, and notify streams. Election retires work for the account at or below the committed height and emits failure
+   events for other candidates. The prioritizer releases the matching hash on `AccountUpdated` or a processing failure,
+   then requeues its buffered dependents. A published completion event does not mean every listener has finished.
+   Bootstrap also produces this event; consumers must inspect its source where behavior differs.
 
 ## Vote processing
 
@@ -132,16 +143,19 @@ listener does not mean every event changes its state. Definitions live beside th
 | Event/message | Producer | Behavior listeners |
 | --- | --- | --- |
 | `InboundNetworkMessage<AttoTransactionPush>` | [TransactionController][transaction-controller], [NodeConnectionManager][connections] | [TransactionPrioritizer.add][transaction-prioritizer], [TransactionRebroadcaster.process][transaction-rebroadcaster] |
-| `TransactionReceived` | [TransactionPrioritizer.drain][transaction-prioritizer]; [LastDiscoverer.startElection][last-discoverer] fallback | [TransactionValidationManager.process][validation] |
+| `TransactionReceived` | [TransactionPrioritizer.drain][transaction-prioritizer] | [TransactionValidationManager.process][validation] |
 | `TransactionValidated` | [TransactionValidationManager.process][validation] | [Election.start][election], [TransactionRebroadcaster.process][transaction-rebroadcaster] |
 | `TransactionRejected` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [DependencyDiscoverer][dependency-discoverer], [TransactionController][transaction-controller] |
-| `TransactionDropped` | [TransactionPrioritizer.add][transaction-prioritizer] | [TransactionRebroadcaster][transaction-rebroadcaster], [TransactionController][transaction-controller] |
-| `ElectionStarted` | [Election.start][election] | [TransactionPrioritizer][transaction-prioritizer], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter] |
+| `TransactionValidationFailed` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionController][transaction-controller] |
+| `TransactionDropped` | [TransactionPrioritizer][transaction-prioritizer], on queue eviction | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [TransactionController][transaction-controller] |
+| `ElectionStarted` | [Election.start][election] | [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter] |
+| `ElectionRejected` | [Election.start][election], for pending/completed heights; completion cleanup for historical candidates | [TransactionPrioritizer][transaction-prioritizer] through `TransactionFailure`, [TransactionController][transaction-controller] |
+| `ElectionDiscarded` | [ElectionProcessor][election-processor], after reconciliation observes a committed height at or beyond the candidate | [Election][election], [TransactionPrioritizer][transaction-prioritizer] through `TransactionFailure` |
 | `ElectionConsensusChanged` | [Election.process][election] | [ElectionVoter][election-voter] |
 | `ElectionConsensusReached` | [Election.process][election] | [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [FinalVoteRecorder][final-votes], [VoteTimestampRecorder][vote-timestamps] |
 | `ElectionExpiring` | [Election.notifyExpiring][election], scheduled | [ElectionVoter][election-voter], [ElectionProcessor][election-processor] |
 | `ElectionExpired` | [Election.expireOld][election], scheduled | [TransactionPrioritizer][transaction-prioritizer], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [TransactionController][transaction-controller] |
-| `ElectionLost` | [Election][election], on consensus, expiry, or account completion | No production behavior listener currently |
+| `ElectionLost` | [Election][election], on consensus, expiry, or account completion | [TransactionPrioritizer][transaction-prioritizer] |
 | `VoteReceived` | [VoteConverter][vote-converter] | [VotePrioritizer][vote-prioritizer], [VoteRebroadcaster][vote-rebroadcaster] |
 | `VoteValidated` | [VotePrioritizer.drain][vote-prioritizer], [ElectionVoter][election-voter] | [Election][election], [VoteRebroadcaster][vote-rebroadcaster], [VoteWeighter][vote-weighter] |
 | `VoteRejected` | [VotePrioritizer.add][vote-prioritizer], on vote validation failure | [VoteRebroadcaster][vote-rebroadcaster] |
@@ -149,12 +163,23 @@ listener does not mean every event changes its state. Definitions live beside th
 
 | After-commit event | Registered by | Behavior listeners |
 | --- | --- | --- |
-| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountController][account-controller], [TransactionController][transaction-controller] |
+| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [TransactionPrioritizer][transaction-prioritizer], [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountController][account-controller], [TransactionController][transaction-controller] |
 | `ReceivableSaved` | [ReceivableService.saveAll][receivable-service] | [ReceivableController][receivable-controller] |
 | `AccountEntrySaved` | [AccountEntryService.saveAll][entry-service], historical nodes | [AccountEntryController][entry-controller] |
 
-`TransactionController` completes pending publication results on confirmation, rejection, election expiry, or queue
-drop; `ALREADY_CONFIRMED` is handled as confirmation. It does not listen to `ElectionLost`. A request timeout does not
+`TransactionFailure` is the shared contract for transaction/election admission rejection, validation exceptions,
+queue drops, obsolete persistence discards, election loss, and election expiry. The prioritizer consumes it to release pending state and requeue
+dependents for normal validation.
+`TransactionFailure.recoverable` determines whether the same hash can retry immediately: validation exceptions and
+election expiry are recoverable, while transaction rejections derive the flag from their rejection reason. Other
+failures default to retaining time-based duplicate suppression.
+`TransactionDropped` describes queued work and does not remove an active pending registration with the same hash.
+
+`TransactionController` completes pending publication results on confirmation, rejection, validation exceptions,
+election admission rejection, election expiry, or queue drop; `ALREADY_CONFIRMED` is handled as confirmation. On
+`ElectionRejected`, a stored exact hash completes successfully; otherwise the request receives HTTP 409. Lookup
+failures and validation exceptions return a generic HTTP 500 without exposing their cause. It does not listen to
+`ElectionLost` or `ElectionDiscarded`. A request timeout does not
 prove the transaction failed to commit. Historical vote and timestamp recording have their own queues; they are not
 part of the account transaction merely because they consume the consensus event.
 
@@ -162,10 +187,11 @@ part of the account transaction merely because they consume the consensus event.
 
 | State | Owner and synchronization | Completion/failure behavior to preserve |
 | --- | --- | --- |
-| Transaction priority queue, pending dependency hashes and waiters | [TransactionPrioritizer][transaction-prioritizer]; `dependencyLock` for dependency membership and waiters | Stores each pending hash's shared `ElectionStarted.completion` reference. Completion requests its worker; before draining, it removes completed dependencies and requeues their dependents. `ElectionExpired` separately resets duplicate suppression. |
-| Candidates, votes, pending consensus | [Election][election]; mutex, keyed by `PublicKeyHeight` | Consensus moves active work into pending persistence with the lifecycle reference still incomplete. `AccountUpdated` retires active/pending elections for the same key at or below the saved height and completes their references. Only exact-height competitors receive `ElectionLost`; older heights are retired without loser events. Expiry and `clear()` also complete references. |
+| Pending hashes and dependent transactions | [TransactionPrioritizer][transaction-prioritizer]; concurrent map, with atomic operations per dependency hash | The single worker registers each dispatched hash before validation. `computeIfPresent` attaches hash-deduplicated dependents; `AccountUpdated` and processing failures detach only the completed hash, then requeue dependents outside map callbacks. Election owners report stale/obsolete candidates through failure events. The inbound duplicate filter is advisory; queue admission and the pending claim enforce unique processing. |
+| Transaction priority queue and queued hash membership | [TransactionQueue][transaction-queue]; existing lock per priority group | Queue admission and dequeue claims run under the same group lock, preventing a duplicate from slipping between queue removal and pending registration. The queue deduplicates hashes even when arrival metadata or work differs. Callbacks do not mutate the queue or publish events; deferred candidates leave the queue only after their dependency takes ownership. |
+| Candidates, votes, pending consensus, cached confirmed heights | [Election][election]; mutex for keyed elections, pending markers, their per-account height index, and the bounded confirmed-height cache | Consensus moves the public key/height into `pendingConsensus` while retaining its index membership. `AccountUpdated` and `ElectionDiscarded` advance the retained confirmed height and inspect only that account's indexed active/pending heights for retirement. Newer work is preserved. Exact-height competitors receive `ElectionLost`; historical candidates receive `ElectionRejected`. Expiry and clear also remove index membership. Admission rejects pending or cached completed heights. |
 | Votes awaiting an election and priority queue | [VotePrioritizer][vote-prioritizer]; mutex plus concurrent election membership | `ElectionStarted` releases buffered votes; rejection drops buffered votes; account completion and expiry remove active membership. |
-| Consensus awaiting local persistence | [ElectionProcessor][election-processor]; `bufferLock`, hash-keyed `LinkedHashMap`, one drain worker | Exact duplicates retain their insertion position. A batch stops before repeating a public key; remaining work stays queued. On persistence failure, reconcile saved heights, remove obsolete work, and retain unresolved work for retry. |
+| Consensus awaiting local persistence | [ElectionProcessor][election-processor]; `bufferLock`, hash-keyed `LinkedHashMap`, one drain worker | Exact duplicates retain their insertion position. A batch stops before repeating a public key; remaining work stays queued. On persistence failure, reuse the account reconciliation read and publish `ElectionDiscarded` before removing obsolete work. Publication occurs outside the buffer lock; failure retains that work. Unresolved entries remain queued for retry. |
 | Account and receivable caches | [AccountRepository][account-repository], [ReceivableRepository][receivable-repository]; reactive transaction resources and completion callbacks | Account cache updates after commit and evicts on rollback/unknown completion. Receivable cache replacement/removal is conditional on the pending entry's identity, preventing a late callback from restoring deleted state. These callbacks are separate from `AccountUpdated` listeners. |
 | Local voting/signing jobs | [ElectionVoter][election-voter]; consensus state, mutexes, coroutine jobs | Provisional updates, cancellation, and committed final-vote publication have distinct lifecycles. Trace them before changing cleanup. |
 
@@ -184,7 +210,7 @@ Bootstrap can reach the same persistence and completion owners without traversin
 | Discovery → unchecked storage | [DiscoveryQueue][discovery-queue] admits to its bounded buffer, then publishes `TransactionDiscovered`. [BootstrapController.run][bootstrap-controller] drives [DiscoveryPersistenceWorker.persist][discovery-persistence] | `TransactionDiscovered` is a notification after admission, not the command that persists the transaction. |
 | Unchecked storage → committed account | [UncheckedTransactionProcessor][unchecked-processor] directly calls `TransactionValidationManager.validate`; on success it calls `AccountService.add(BOOTSTRAP)` inside its resolution transaction | This path bypasses `TransactionReceived`, `TransactionValidated`, and normal election admission, while still producing after-commit `AccountUpdated`. |
 | Missing dependency → send discovery | On validation failure, [UncheckedTransactionProcessor][unchecked-processor] publishes `TransactionStuck` and skips later candidates for that public key in the batch. [SendDiscoverer][send-discoverer] consumes `TransactionStuck` and `TransactionDiscovered` | Applicable receive/open transactions trigger discovery of a missing send; follow this loop before treating unchecked work as terminally rejected. |
-| Bootstrap head fallback → live validation | [LastDiscoverer.startElection][last-discoverer] publishes `TransactionReceived` for qualifying evicted head discoveries | This producer bypasses the transaction prioritizer and must be included when reasoning about validation admission. |
+| Bootstrap head → discovery | [LastDiscoverer.processVoteResponse][last-discoverer] calls `DiscoveryQueue.queue` after collected votes reach quorum | Expired or capacity-evicted collections are discarded without starting a live election. A later head advertisement can start another discovery attempt. |
 | Shared completion → source-specific reaction | `AccountUpdated.source` distinguishes `BOOTSTRAP` and `ELECTION` | Most completion owners see both. `ElectionVoter` filters bootstrap updates from its committed-election final-vote path. |
 
 ## Trace an affected flow
@@ -206,7 +232,7 @@ scenario and shared state affected by the change; an unrelated edit does not req
    | --- | --- | --- |
    | `Election.process` → `ElectionProcessor.process` | Async `ElectionConsensusReached`; listener only buffers work | Pending consensus lifecycle; processor owns persistence buffer; drain retries unresolved work |
    | `ElectionProcessor.flushBatch` → `AccountService.add` | Awaited call inside a reactive DB transaction | Distinct public keys per batch; after-commit events have separate delivery |
-   | `Election` lifecycle completion → prioritizer worker | `Deferred.invokeOnCompletion` callback requests a drain | Owner completes on account update, expiry, or clear; worker releases buffered dependents |
+   | `TransactionPrioritizer.drain` → validation | Registers the pending hash, then publishes asynchronous `TransactionReceived` | `AccountUpdated` and `TransactionFailure` remove pending state, requeue dependents, and request another drain |
 
 4. **Establish ordering from code.** Read the multicaster, coroutine scopes, locks, queues, schedules, transaction
    operators, and commit/rollback/unknown callbacks. Separate guaranteed order from a possible interleaving. Event
@@ -246,6 +272,7 @@ calls. Keep source links to files and named methods so routine line movement doe
 [transaction-types]: src/main/kotlin/cash/atto/node/transaction/Transaction.kt
 [transaction-controller]: src/main/kotlin/cash/atto/node/transaction/TransactionController.kt
 [transaction-prioritizer]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionPrioritizer.kt
+[transaction-queue]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionQueue.kt
 [transaction-rebroadcaster]: src/main/kotlin/cash/atto/node/transaction/TransactionRebroadcaster.kt
 [validation]: src/main/kotlin/cash/atto/node/transaction/validation/TransactionValidationManager.kt
 [block-validator]: src/main/kotlin/cash/atto/node/transaction/validation/validator/BlockValidator.kt
