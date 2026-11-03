@@ -2,7 +2,6 @@ package cash.atto.node.bootstrap.discovery
 
 import cash.atto.commons.AttoHash
 import cash.atto.node.CacheSupport
-import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.getByAlgorithmAndPublicKey
 import cash.atto.node.bootstrap.TransactionDiscovered
@@ -15,8 +14,6 @@ import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.network.NodeConnectionManager
-import cash.atto.node.transaction.Transaction
-import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionRepository
 import cash.atto.node.transaction.toTransaction
 import cash.atto.node.vote.convertion.VoteConverter
@@ -29,19 +26,12 @@ import cash.atto.protocol.AttoVoteStreamResponse
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import jakarta.annotation.PreDestroy
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 
@@ -53,14 +43,11 @@ class LastDiscoverer(
     private val uncheckedTransactionRepository: UncheckedTransactionRepository,
     private val nodeConnectionManager: NodeConnectionManager,
     private val networkMessagePublisher: NetworkMessagePublisher,
-    private val eventPublisher: EventPublisher,
     private val discoveryQueue: DiscoveryQueue,
     private val voteConverter: VoteConverter,
     private val voteWeighter: VoteWeighter,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
-
-    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
 
     private val transactionElectionMap =
         Caffeine
@@ -68,12 +55,7 @@ class LastDiscoverer(
             .scheduler(Scheduler.systemScheduler())
             .expireAfterWrite(2, TimeUnit.MINUTES)
             .maximumSize(100_000)
-            .removalListener { _: AttoHash?, election: TransactionElection?, cause ->
-                val retryThreshold = voteWeighter.getMinimalToStaleWeight()
-                if (cause.wasEvicted() && election != null && election.totalWeight >= retryThreshold) {
-                    scope.launch { startElection(election.transaction) }
-                }
-            }.build<AttoHash, TransactionElection>()
+            .build<AttoHash, TransactionElection>()
             .asMap()
 
     private val mutex = Mutex()
@@ -81,14 +63,6 @@ class LastDiscoverer(
 
     override fun clear() {
         transactionElectionMap.clear()
-    }
-
-    @PreDestroy
-    fun close() {
-        logger.info { "Last Discoverer is stopping..." }
-
-        clear()
-        scope.cancel()
     }
 
     @Scheduled(fixedRate = 1, timeUnit = TimeUnit.MINUTES)
@@ -216,10 +190,6 @@ class LastDiscoverer(
                 ),
             )
         }
-    }
-
-    private fun startElection(transaction: Transaction) {
-        eventPublisher.publish(TransactionReceived(transaction))
     }
 }
 

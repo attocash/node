@@ -14,7 +14,6 @@ import cash.atto.commons.AttoVote
 import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
-import cash.atto.node.EventPublisher
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.election.ElectionVoter
@@ -71,7 +70,7 @@ class LastDiscovererTest {
                     fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD)
                 }
             } finally {
-                fixture.discoverer.close()
+                fixture.discoverer.clear()
             }
         }
 
@@ -125,11 +124,50 @@ class LastDiscovererTest {
                 }
                 assertEquals(1, fixture.messages.count { it.payload is AttoVoteStreamCancel })
             } finally {
-                fixture.discoverer.close()
+                fixture.discoverer.clear()
             }
         }
 
-    private fun fixture(initiallyAtCapacity: Boolean): Fixture {
+    @Test
+    fun `partial head votes enter discovery only after reaching quorum`() =
+        runTest {
+            // Given
+            val fixture =
+                fixture(
+                    initiallyAtCapacity = false,
+                    confirmationWeight = AttoAmount(ElectionVoter.MIN_WEIGHT.raw * 2UL),
+                )
+            val transaction = transaction(3)
+            fixture.discoverer.processPush(fixture.push(transaction))
+
+            try {
+                // When
+                fixture.discoverer.processVoteResponse(fixture.voteResponse(transaction, voterMarker = 10))
+
+                // Then
+                coVerify(exactly = 0) { fixture.discoveryQueue.queue(any(), DiscoverySource.HEAD) }
+                assertEquals(0, fixture.messages.count { it.payload is AttoVoteStreamCancel })
+
+                // When
+                fixture.discoverer.processVoteResponse(fixture.voteResponse(transaction, voterMarker = 11))
+
+                // Then
+                coVerify(exactly = 1) {
+                    fixture.discoveryQueue.queue(
+                        match { it.transaction.hash == transaction.hash && it.votes.size == 2 },
+                        DiscoverySource.HEAD,
+                    )
+                }
+                assertEquals(1, fixture.messages.count { it.payload is AttoVoteStreamCancel })
+            } finally {
+                fixture.discoverer.clear()
+            }
+        }
+
+    private fun fixture(
+        initiallyAtCapacity: Boolean,
+        confirmationWeight: AttoAmount = ElectionVoter.MIN_WEIGHT,
+    ): Fixture {
         val atCapacity = AtomicBoolean(initiallyAtCapacity)
         val discoveryQueue = mockk<DiscoveryQueue>()
         every { discoveryQueue.isAtCapacity() } answers { atCapacity.get() }
@@ -137,8 +175,7 @@ class LastDiscovererTest {
 
         val voteWeighter = mockk<VoteWeighter>()
         every { voteWeighter.get(any()) } returns ElectionVoter.MIN_WEIGHT
-        every { voteWeighter.getMinimalConfirmationWeight() } returns ElectionVoter.MIN_WEIGHT
-        every { voteWeighter.getMinimalToStaleWeight() } returns ElectionVoter.MIN_WEIGHT
+        every { voteWeighter.getMinimalConfirmationWeight() } returns confirmationWeight
 
         val voteConverter = mockk<VoteConverter>()
         val messages = mutableListOf<NetworkMessage<*>>()
@@ -158,7 +195,6 @@ class LastDiscovererTest {
                 uncheckedTransactionRepository = mockk<UncheckedTransactionRepository>(),
                 nodeConnectionManager = mockk<NodeConnectionManager>(),
                 networkMessagePublisher = networkMessagePublisher,
-                eventPublisher = mockk<EventPublisher>(relaxed = true),
                 discoveryQueue = discoveryQueue,
                 voteConverter = voteConverter,
                 voteWeighter = voteWeighter,
@@ -191,12 +227,15 @@ class LastDiscovererTest {
                 payload = AttoBootstrapTransactionPush(transaction),
             )
 
-        fun voteResponse(transaction: AttoTransaction): InboundNetworkMessage<AttoVoteStreamResponse> {
+        fun voteResponse(
+            transaction: AttoTransaction,
+            voterMarker: Byte = 10,
+        ): InboundNetworkMessage<AttoVoteStreamResponse> {
             val attoVote =
                 AttoVote(
                     version = 0U.toAttoVersion(),
                     algorithm = AttoAlgorithm.V1,
-                    publicKey = AttoPublicKey(ByteArray(32) { 10 }),
+                    publicKey = AttoPublicKey(ByteArray(32) { voterMarker }),
                     blockAlgorithm = AttoAlgorithm.V1,
                     blockHash = transaction.hash,
                     timestamp = AttoVote.finalTimestamp,

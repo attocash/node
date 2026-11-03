@@ -218,7 +218,8 @@ stores it as an **unchecked transaction**:
 - **Head/last discovery** (`LastDiscoverer`)
   - Historical nodes periodically broadcast a sample of recent “head” transactions (`AttoBootstrapTransactionPush`).
   - If a receiving node is behind, it starts a lightweight vote stream for the head to confirm it’s real, then turns it
-    into a `TransactionDiscovered` event.
+    into a `TransactionDiscovered` event once the votes reach quorum.
+  - Partial vote collections expire without starting a live election. A later head advertisement can retry discovery.
 
 - **Bounded persistence queue** (`DiscoveryQueue`, `DiscoveryPersistenceWorker`)
   - `DiscoveryQueue` deduplicates and buffers discovered transactions.
