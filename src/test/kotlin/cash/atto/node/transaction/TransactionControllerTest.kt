@@ -29,12 +29,18 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertInstanceOf
+import org.junit.jupiter.api.Assertions.assertNull
 import org.junit.jupiter.api.Test
+import org.springframework.http.HttpStatus
 import org.springframework.mock.http.server.reactive.MockServerHttpRequest
+import org.springframework.web.server.ResponseStatusException
 import java.net.InetSocketAddress
 import java.net.URI
 import kotlin.random.Random
+import kotlin.time.Duration.Companion.seconds
 
 internal class TransactionControllerTest {
     private val privateKey = AttoPrivateKey.generate()
@@ -79,6 +85,56 @@ internal class TransactionControllerTest {
             publicUri = URI("ws://localhost:8081"),
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
+
+    @Test
+    fun `publish and publishAndStream fail promptly when transaction validation fails`() =
+        runTest {
+            // Given
+            val applicationProperties =
+                ApplicationProperties().apply {
+                    useXForwardedFor = false
+                }
+            val messagePublisher = mockk<NetworkMessagePublisher>()
+            val repository = mockk<TransactionRepository>()
+            val publishSignals = Channel<Unit>(capacity = Channel.UNLIMITED)
+            every { messagePublisher.publish(any()) } answers {
+                publishSignals.trySend(Unit)
+                Unit
+            }
+            val controller = TransactionController(applicationProperties, node, messagePublisher, repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/transactions/stream")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+            val streamed =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publishAndStream(transaction.toAttoTransaction(), request).first() }
+                }
+            val published =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publish(transaction.toAttoTransaction(), request) }
+                }
+            publishSignals.receive()
+            publishSignals.receive()
+            val cause = IllegalStateException("Database connection failed with private details")
+
+            // When
+            controller.process(TransactionValidationFailed(transaction, cause))
+            val failures =
+                withTimeout(1.seconds) {
+                    listOf(streamed.await().exceptionOrNull(), published.await().exceptionOrNull())
+                }
+
+            // Then
+            failures.forEach {
+                val failure = assertInstanceOf(ResponseStatusException::class.java, it)
+                assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, failure.statusCode)
+                assertEquals("Transaction validation failed", failure.reason)
+                assertNull(failure.cause)
+            }
+            verify(exactly = 2) { messagePublisher.publish(any()) }
+        }
 
     @Test
     fun `publishAndStream allows multiple listeners for the same transaction hash`() =

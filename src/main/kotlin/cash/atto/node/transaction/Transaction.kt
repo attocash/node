@@ -120,6 +120,15 @@ data class TransactionValidated(
     override val timestamp: Instant = Instant.now(),
 ) : Event
 
+data class TransactionValidationFailed(
+    override val transaction: Transaction,
+    val cause: Exception,
+    override val timestamp: Instant = Instant.now(),
+) : TransactionFailure {
+    override val recoverable: Boolean
+        get() = true
+}
+
 enum class TransactionSource {
     BOOTSTRAP,
     ELECTION,

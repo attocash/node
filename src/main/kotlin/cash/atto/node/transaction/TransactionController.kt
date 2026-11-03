@@ -106,6 +106,16 @@ class TransactionController(
     }
 
     @EventListener
+    suspend fun process(failure: TransactionValidationFailed) {
+        emitPending(
+            failure.transaction.hash,
+            PendingTransactionResult.Failed(
+                ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction validation failed"),
+            ),
+        )
+    }
+
+    @EventListener
     suspend fun process(expired: ElectionExpired) {
         val reason = "ELECTION_EXPIRED"
         val message = "Election took too long"

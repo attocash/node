@@ -8,7 +8,9 @@ import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionReceived
 import cash.atto.node.transaction.TransactionRejected
 import cash.atto.node.transaction.TransactionValidated
+import cash.atto.node.transaction.TransactionValidationFailed
 import io.github.oshai.kotlinlogging.KotlinLogging
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.asFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.firstOrNull
@@ -29,8 +31,18 @@ class TransactionValidationManager(
     suspend fun process(event: TransactionReceived) {
         val transaction = event.transaction
         val block = transaction.block
-        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
-        val violation = validate(account, event.transaction)
+        val account: Account
+        val violation: TransactionViolation?
+        try {
+            account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
+            violation = validate(account, transaction)
+        } catch (exception: CancellationException) {
+            throw exception
+        } catch (exception: Exception) {
+            logger.error(exception) { "Failed to validate transaction ${transaction.hash}" }
+            eventPublisher.publish(TransactionValidationFailed(transaction, exception))
+            return
+        }
         if (violation != null) {
             eventPublisher.publish(TransactionRejected(violation.reason, violation.message, account, transaction))
         } else {
