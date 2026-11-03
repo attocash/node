@@ -15,9 +15,15 @@ import cash.atto.node.transaction.prioritization.TransactionQueue
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertThrows
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.Timeout
 import java.time.Instant
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 internal class TransactionQueueTest {
@@ -74,6 +80,175 @@ internal class TransactionQueueTest {
         runBlocking {
             assertNull(queue.poll())
         }
+
+    @Test
+    fun `should deduplicate hash before considering priority or eviction`() {
+        // Given
+        val now = Instant.now()
+        val transaction = createTransaction(10u, now, now)
+        val unique = createTransaction(10u, now.minusSeconds(10), now)
+        val duplicate =
+            transaction.copy(
+                work = AttoWork(Random.nextBytes(ByteArray(8))),
+                receivedAt = now.plusSeconds(1),
+            )
+        queue.add(transaction)
+        queue.add(unique)
+
+        // When
+        val dropped = queue.add(duplicate)
+
+        // Then
+        assertNull(dropped)
+        assertEquals(2, queue.size())
+        assertEquals(transaction, queue.poll())
+        assertEquals(unique, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    fun `should allow an evicted hash to be queued again`() {
+        // Given
+        val now = Instant.now()
+        val queue = TransactionQueue(1)
+        val evicted = createTransaction(10u, now.minusSeconds(10), now)
+        val retained = createTransaction(10u, now, now)
+        queue.add(evicted)
+        assertEquals(evicted, queue.add(retained))
+
+        // When
+        assertEquals(retained, queue.poll())
+        queue.add(evicted)
+
+        // Then
+        assertEquals(evicted, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    fun `should allow a polled hash to be queued again`() {
+        // Given
+        val now = Instant.now()
+        val transaction = createTransaction(10u, now, now)
+        queue.add(transaction)
+        assertEquals(transaction, queue.poll())
+
+        // When
+        queue.add(transaction)
+
+        // Then
+        assertEquals(transaction, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    fun `should allow a cleared hash to be queued again`() {
+        // Given
+        val now = Instant.now()
+        val transaction = createTransaction(10u, now, now)
+        queue.add(transaction)
+        queue.clear()
+
+        // When
+        queue.add(transaction)
+
+        // Then
+        assertEquals(transaction, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    fun `should continue polling after a candidate is transferred by claim`() {
+        // Given
+        val now = Instant.now()
+        val deferred = createTransaction(10u, now, now)
+        val dispatchable = createTransaction(10u, now.minusSeconds(1), now)
+        val transferred = mutableListOf<Transaction>()
+        queue.add(deferred)
+        queue.add(dispatchable)
+
+        // When
+        val polled =
+            queue.poll {
+                if (it.hash == deferred.hash) {
+                    transferred.add(it)
+                    false
+                } else {
+                    true
+                }
+            }
+
+        // Then
+        assertEquals(dispatchable, polled)
+        assertEquals(listOf(deferred), transferred)
+        assertNull(queue.poll())
+        queue.add(deferred)
+        assertEquals(deferred, queue.poll())
+    }
+
+    @Test
+    fun `should retain candidate when claim throws`() {
+        // Given
+        val now = Instant.now()
+        val transaction = createTransaction(10u, now, now)
+        queue.add(transaction)
+
+        // When
+        assertThrows(IllegalStateException::class.java) {
+            queue.poll { error("Claim failed") }
+        }
+
+        // Then
+        assertEquals(1, queue.size())
+        assertEquals(transaction, queue.poll())
+        assertNull(queue.poll())
+    }
+
+    @Test
+    @Timeout(5)
+    fun `should exclude concurrent duplicate during claim handoff`() {
+        // Given
+        val now = Instant.now()
+        val queue = TransactionQueue(1)
+        val transaction = createTransaction(10u, now, now)
+        val duplicate = transaction.copy(receivedAt = now.plusSeconds(1))
+        val pending = ConcurrentHashMap.newKeySet<AttoHash>()
+        val claimEntered = CountDownLatch(1)
+        val finishClaim = CountDownLatch(1)
+        val duplicateStarted = CountDownLatch(1)
+        val executor = Executors.newFixedThreadPool(2)
+        queue.add(transaction)
+
+        try {
+            // When
+            val polled =
+                executor.submit<Transaction?> {
+                    queue.poll {
+                        claimEntered.countDown()
+                        check(finishClaim.await(2, TimeUnit.SECONDS))
+                        pending.add(it.hash)
+                    }
+                }
+            assertTrue(claimEntered.await(2, TimeUnit.SECONDS))
+            val dropped =
+                executor.submit<Transaction?> {
+                    duplicateStarted.countDown()
+                    queue.add(duplicate) { duplicate.hash !in pending }
+                }
+            assertTrue(duplicateStarted.await(2, TimeUnit.SECONDS))
+            finishClaim.countDown()
+
+            // Then
+            assertEquals(transaction, polled.get(2, TimeUnit.SECONDS))
+            assertNull(dropped.get(2, TimeUnit.SECONDS))
+            assertTrue(transaction.hash in pending)
+            assertEquals(0, queue.size())
+            assertNull(queue.poll())
+        } finally {
+            finishClaim.countDown()
+            executor.shutdownNow()
+        }
+    }
 
     private fun createTransaction(
         amount: ULong,

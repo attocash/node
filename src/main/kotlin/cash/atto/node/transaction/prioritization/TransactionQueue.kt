@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.prioritization
 
+import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSendBlock
 import cash.atto.commons.toJavaInstant
 import cash.atto.node.transaction.Transaction
@@ -61,22 +62,40 @@ class TransactionQueue(
 
     private inner class Group {
         private val transactions = TreeSet(comparator)
-        val lock = ReentrantLock()
+        private val hashes = HashSet<AttoHash>()
+        private val lock = ReentrantLock()
 
-        fun add(transaction: Transaction): Transaction? =
+        fun add(
+            transaction: Transaction,
+            canQueue: () -> Boolean,
+        ): Transaction? =
             lock.withLock {
+                if (transaction.hash in hashes || !canQueue()) {
+                    return null
+                }
+
                 transactions.add(transaction)
+                hashes.add(transaction.hash)
 
                 if (transactions.size > groupMaxSize) {
-                    transactions.pollLast()
+                    transactions.pollLast().also { hashes.remove(it.hash) }
                 } else {
                     null
                 }
             }
 
-        fun poll(): Transaction? =
+        fun poll(claim: (Transaction) -> Boolean): Transaction? =
             lock.withLock {
-                return transactions.pollFirst()
+                while (transactions.isNotEmpty()) {
+                    val transaction = transactions.first()
+                    val claimed = claim(transaction)
+                    transactions.remove(transaction)
+                    hashes.remove(transaction.hash)
+                    if (claimed) {
+                        return transaction
+                    }
+                }
+                return null
             }
 
         fun size(): Int =
@@ -87,6 +106,7 @@ class TransactionQueue(
         fun clear() =
             lock.withLock {
                 transactions.clear()
+                hashes.clear()
             }
     }
 
@@ -101,19 +121,29 @@ class TransactionQueue(
     }
 
     /**
+     * [canQueue] runs under the group's lock, atomically with hash deduplication and polling claims.
+     * Callbacks must not mutate this queue or publish events.
+     *
      * @return deleted transaction if queue was full and eviction occurred
      */
-    fun add(transaction: Transaction): Transaction? {
+    fun add(
+        transaction: Transaction,
+        canQueue: () -> Boolean = { true },
+    ): Transaction? {
         val groupIndex = getGroup(transaction)
-        return groups[groupIndex].add(transaction)
+        return groups[groupIndex].add(transaction, canQueue)
     }
 
-    fun poll(): Transaction? {
+    /**
+     * [claim] runs before removal under the group's lock. Returning false removes the candidate and
+     * continues scanning; throwing leaves it queued. Callbacks must not mutate this queue or publish events.
+     */
+    fun poll(claim: (Transaction) -> Boolean = { true }): Transaction? {
         val start = currentGroup.getAndUpdate { (it + 1) % groups.size }
 
         for (i in groups.indices) {
             val index = (start + i) % groups.size
-            val transaction = groups[index].poll()
+            val transaction = groups[index].poll(claim)
 
             if (transaction != null) {
                 return transaction
