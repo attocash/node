@@ -10,8 +10,10 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
+import cash.atto.commons.toAtto
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
+import cash.atto.commons.toJavaInstant
 import cash.atto.node.EventPublisher
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
@@ -179,40 +181,93 @@ class ElectionTest {
     }
 
     @Test
-    fun `should ignore same public key height election while consensus is pending persistence`() {
-        // given
+    fun `should reject competing candidate while consensus is pending persistence and admit next height after save`() {
+        // Given
         val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
-        val transactionA = Transaction.sample(publicKey = publicKey)
-        val transactionB = Transaction.sample(publicKey = publicKey)
+        val blockA = (AttoBlock.sample(publicKey = publicKey) as AttoReceiveBlock).copy(balance = AttoAmount(100UL))
+        val transactionA =
+            Transaction(
+                block = blockA,
+                signature = AttoSignature(Random.nextBytes(ByteArray(64))),
+                work = AttoWork(Random.nextBytes(ByteArray(8))),
+            )
+        val transactionB = transactionA.copy(block = blockA.copy(sendHash = AttoHash(Random.nextBytes(ByteArray(32)))))
+        val initialAccount =
+            Account(
+                publicKey = publicKey,
+                network = blockA.network,
+                version = blockA.version,
+                algorithm = blockA.algorithm,
+                height = 1,
+                balance = AttoAmount.MIN,
+                lastTransactionTimestamp = blockA.timestamp.toJavaInstant().minusSeconds(1),
+                lastTransactionHash = blockA.previous,
+                representativeAlgorithm = AttoAlgorithm.V1,
+                representativePublicKey = publicKey,
+            )
+        val updatedAccount =
+            initialAccount.copy(
+                height = 2,
+                balance = blockA.balance,
+                lastTransactionTimestamp = blockA.timestamp.toJavaInstant(),
+                lastTransactionHash = transactionA.hash,
+            )
+        val nextTransaction =
+            transactionA.copy(
+                block =
+                    blockA.copy(
+                        height = 3U.toAttoHeight(),
+                        balance = AttoAmount(200UL),
+                        previous = transactionA.hash,
+                        sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
+                        timestamp =
+                            blockA.timestamp
+                                .toJavaInstant()
+                                .plusSeconds(1)
+                                .toAtto(),
+                    ),
+            )
         val voteA = Vote.sample(blockHash = transactionA.hash, weight = minimalWeight)
         val voteB = Vote.sample(blockHash = transactionB.hash, weight = minimalWeight)
         every { voteWeighter.get(voteA.publicKey) } returns voteA.weight
         every { voteWeighter.get(voteB.publicKey) } returns voteB.weight
 
-        // when
+        // When
         runBlocking {
-            election.start(TransactionValidated(account, transactionA))
+            election.start(TransactionValidated(initialAccount, transactionA))
             election.process(VoteValidated(transactionA, voteA))
-            assertEquals(0, election.getSize())
-
-            election.start(TransactionValidated(account, transactionB))
+            election.process(VoteValidated(transactionA, voteA))
+            election.start(TransactionValidated(initialAccount, transactionB))
             election.process(VoteValidated(transactionB, voteB))
-            assertEquals(0, election.getSize())
-
-            election.process(AccountUpdated(TransactionSource.ELECTION, account, account, transactionA))
-            election.start(TransactionValidated(account, transactionB))
         }
 
-        // then
-        assertEquals(1, election.getSize())
-        verify(exactly = 2) {
-            eventPublisher.publish(match { it is ElectionStarted })
-        }
+        // Then
+        assertEquals(0, election.getSize())
         verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == transactionA })
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionA })
+            eventPublisher.publish(match { it is ElectionRejected && it.account == initialAccount && it.transaction == transactionB })
+            eventPublisher.publish(match { it is ElectionRejected })
         }
         verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == transactionB })
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionB })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == transactionA })
+        }
+
+        // When
+        runBlocking {
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, updatedAccount, transactionA))
+            election.start(TransactionValidated(updatedAccount, nextTransaction))
+        }
+
+        // Then
+        assertEquals(1, election.getSize())
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionStarted && it.account == updatedAccount && it.transaction == nextTransaction })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == nextTransaction })
         }
     }
 

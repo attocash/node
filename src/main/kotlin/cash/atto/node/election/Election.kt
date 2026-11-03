@@ -92,7 +92,8 @@ class Election(
     ) = mutex.withLock {
         val publicKeyHeight = transaction.toPublicKeyHeight()
         if (publicKeyHeight in pendingConsensus) {
-            logger.trace { "Ignoring $transaction since consensus is pending for $publicKeyHeight" }
+            logger.trace { "Rejected $transaction since consensus is pending for $publicKeyHeight" }
+            eventPublisher.publish(ElectionRejected(account, transaction))
             return@withLock
         }
 
@@ -354,6 +355,13 @@ data class ElectionStarted(
     val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
 ) : Event
+
+/** A candidate cannot proceed because its account height is already confirmed or awaiting persistence. */
+data class ElectionRejected(
+    val account: Account,
+    override val transaction: Transaction,
+    override val timestamp: Instant = Instant.now(),
+) : TransactionFailure
 
 data class ElectionConsensusChanged(
     val account: Account,
