@@ -478,6 +478,113 @@ class ElectionTest {
     }
 
     @Test
+    fun `should complete replayed election after expiry and preserve another account`() {
+        // Given
+        val expired = receiveTransaction().copy(receivedAt = Instant.now().minusSeconds(900))
+        val replayed = expired.copy(receivedAt = Instant.now())
+        val initialAccount = accountBefore(expired)
+        val savedAccount = initialAccount.after(replayed)
+        val unrelated = receiveTransaction()
+        val unrelatedAccount = accountBefore(unrelated)
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, expired))
+            election.start(TransactionValidated(unrelatedAccount, unrelated))
+            election.expireOld()
+        }
+
+        // When
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, replayed))
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, savedAccount, replayed))
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, savedAccount, replayed))
+        }
+
+        // Then
+        assertEquals(setOf(unrelated.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionExpired && it.transaction == expired })
+        }
+        verify(exactly = 2) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == replayed })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost || it is ElectionRejected })
+        }
+    }
+
+    @Test
+    fun `should preserve unrelated active and pending elections across repeated account completion`() {
+        // Given
+        val saved = receiveTransaction()
+        val initialAccount = accountBefore(saved)
+        val savedAccount = initialAccount.after(saved)
+        val unrelatedActive = receiveTransaction()
+        val unrelatedPending = receiveTransaction()
+        val pendingAccount = accountBefore(unrelatedPending)
+        val pendingCompetitor = unrelatedPending.competing()
+        val vote = Vote.sample(blockHash = unrelatedPending.hash, weight = minimalWeight)
+        every { voteWeighter.get(vote.publicKey) } returns vote.weight
+
+        // When
+        runBlocking {
+            election.start(TransactionValidated(initialAccount, saved))
+            election.start(TransactionValidated(accountBefore(unrelatedActive), unrelatedActive))
+            election.start(TransactionValidated(pendingAccount, unrelatedPending))
+            election.process(VoteValidated(unrelatedPending, vote))
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, savedAccount, saved))
+            election.process(AccountUpdated(TransactionSource.ELECTION, initialAccount, savedAccount, saved))
+            election.process(ElectionDiscarded(savedAccount, saved))
+            election.start(TransactionValidated(pendingAccount, pendingCompetitor))
+        }
+
+        // Then
+        assertEquals(setOf(unrelatedActive.toPublicKeyHeight()), election.getElections().keys)
+        verify(exactly = 1) {
+            eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == unrelatedPending })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction == pendingCompetitor })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost })
+            eventPublisher.publish(match { it is ElectionRejected && it.transaction != pendingCompetitor })
+        }
+    }
+
+    @Test
+    fun `should complete readmitted active and pending accounts after clear`() {
+        // Given
+        val active = receiveTransaction()
+        val activeAccount = accountBefore(active)
+        val pending = receiveTransaction()
+        val pendingAccount = accountBefore(pending)
+        val vote = Vote.sample(blockHash = pending.hash, weight = minimalWeight)
+        every { voteWeighter.get(vote.publicKey) } returns vote.weight
+        runBlocking {
+            election.start(TransactionValidated(activeAccount, active))
+            election.start(TransactionValidated(pendingAccount, pending))
+            election.process(VoteValidated(pending, vote))
+        }
+
+        // When
+        election.clear()
+        runBlocking {
+            election.start(TransactionValidated(activeAccount, active))
+            election.start(TransactionValidated(pendingAccount, pending))
+            election.process(AccountUpdated(TransactionSource.ELECTION, activeAccount, activeAccount.after(active), active))
+            election.process(AccountUpdated(TransactionSource.ELECTION, pendingAccount, pendingAccount.after(pending), pending))
+        }
+
+        // Then
+        assertEquals(0, election.getSize())
+        verify(exactly = 2) {
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == active })
+            eventPublisher.publish(match { it is ElectionStarted && it.transaction == pending })
+        }
+        verify(exactly = 0) {
+            eventPublisher.publish(match { it is ElectionLost || it is ElectionRejected })
+        }
+    }
+
+    @Test
     fun `should clear pending consensus state`() {
         // given
         val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))

@@ -48,6 +48,7 @@ class Election(
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
     private val pendingConsensus = HashSet<PublicKeyHeight>()
+    private val heightsByPublicKey = HashMap<AttoPublicKey, MutableSet<AttoHeight>>()
     private val confirmedHeights =
         Caffeine
             .newBuilder()
@@ -99,11 +100,9 @@ class Election(
         confirmedHash: AttoHash,
     ) {
         confirmedHeights.merge(publicKey, height) { previous, updated -> maxOf(previous, updated) }
-        val completed =
-            (pendingConsensus + publicKeyHeightElectionMap.keys)
-                .filter { it.publicKey == publicKey && it.height <= height }
-        completed.forEach { key ->
-            val election = retire(key) ?: return@forEach
+        val completed = heightsByPublicKey[publicKey]?.filter { it <= height } ?: return
+        completed.forEach { completedHeight ->
+            val election = retire(PublicKeyHeight(publicKey, completedHeight)) ?: return@forEach
             election.getTransactions().forEach { transaction ->
                 if (transaction.height < height) {
                     eventPublisher.publish(ElectionRejected(election.account, transaction))
@@ -116,6 +115,12 @@ class Election(
 
     private fun retire(key: PublicKeyHeight): PublicKeyHeightElection? {
         pendingConsensus.remove(key)
+        heightsByPublicKey[key.publicKey]?.let { heights ->
+            heights.remove(key.height)
+            if (heights.isEmpty()) {
+                heightsByPublicKey.remove(key.publicKey)
+            }
+        }
         return publicKeyHeightElectionMap.remove(key)
     }
 
@@ -146,6 +151,7 @@ class Election(
             publicKeyHeightElection.add(transaction)
             publicKeyHeightElection
         }
+        heightsByPublicKey.getOrPut(transaction.publicKey) { HashSet() }.add(transaction.height)
 
         logger.trace { "Started election for $transaction" }
 
@@ -251,6 +257,7 @@ class Election(
     override fun clear() {
         publicKeyHeightElectionMap.clear()
         pendingConsensus.clear()
+        heightsByPublicKey.clear()
         confirmedHeights.clear()
     }
 }
