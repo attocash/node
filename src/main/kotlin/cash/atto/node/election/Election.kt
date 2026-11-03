@@ -11,6 +11,7 @@ import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.Election.Companion.ELECTION_STABILITY_MINIMAL_TIME
 import cash.atto.node.transaction.PublicKeyHeight
 import cash.atto.node.transaction.Transaction
+import cash.atto.node.transaction.TransactionFailure
 import cash.atto.node.transaction.TransactionValidated
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteValidated
@@ -369,9 +370,9 @@ data class ElectionConsensusReached(
 
 data class ElectionLost(
     val account: Account,
-    val transaction: Transaction,
+    override val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
-) : Event
+) : TransactionFailure
 
 data class ElectionExpiring(
     val account: Account,
@@ -381,6 +382,9 @@ data class ElectionExpiring(
 
 data class ElectionExpired(
     val account: Account,
-    val transaction: Transaction,
+    override val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
-) : Event
+) : TransactionFailure {
+    override val recoverable: Boolean
+        get() = true
+}

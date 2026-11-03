@@ -93,15 +93,26 @@ fun AttoTransaction.toTransaction(): Transaction =
         work = work,
     )
 
+/**
+ * Reports an unsuccessful local processing attempt. The transaction may already be confirmed or may confirm later.
+ */
+interface TransactionFailure : Event {
+    val transaction: Transaction
+
+    /** Whether the same transaction hash may be retried immediately after this failure. */
+    val recoverable: Boolean
+        get() = false
+}
+
 data class TransactionReceived(
     val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
 ) : Event
 
 data class TransactionDropped(
-    val transaction: Transaction,
+    override val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
-) : Event
+) : TransactionFailure
 
 data class TransactionValidated(
     val account: Account,
@@ -137,6 +148,9 @@ data class TransactionRejected(
     val reason: TransactionRejectionReason,
     val message: String,
     val account: Account,
-    val transaction: Transaction,
+    override val transaction: Transaction,
     override val timestamp: Instant = Instant.now(),
-) : Event
+) : TransactionFailure {
+    override val recoverable: Boolean
+        get() = reason.recoverable
+}
