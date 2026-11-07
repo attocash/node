@@ -157,6 +157,10 @@ All streaming endpoints use **NDJSON** (`application/x-ndjson`) and combine:
 - database results (historical)
 - in-memory flows of live updates (reactive push)
 
+Address-specific account streams subscribe to live updates before reading account snapshots. Live flow emissions
+wait for that subscriber to finish the snapshot, then continue through the same subscription.
+Each collection forwards only increasing heights for each requested address.
+
 Receivable streams subscribe to live updates before reading the database. They scan the database before draining
 a bounded live-update queue and continuing on the same subscription. Only hashes from the initial
 database scan are retained to suppress overlapping or delayed live notifications; new live hashes do not grow

@@ -17,13 +17,14 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.onSubscription
 import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
@@ -150,11 +151,10 @@ class AccountController(
                 }
             }
 
-        val accountUpdateFlow =
-            accountFlow
-                .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
-
-        return merge(accountDatabaseFlow, accountUpdateFlow)
+        return accountFlow
+            // Register before reading the snapshot so concurrent updates wait for the handoff.
+            .onSubscription { emitAll(accountDatabaseFlow) }
+            .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
             .forwardHeightBy { it.address }
             .onStart { logger.trace { "Started streaming accounts for $addresses" } }
             .onCompletion { logger.trace { "Stopped streaming accounts for $addresses" } }
