@@ -157,6 +157,11 @@ All streaming endpoints use **NDJSON** (`application/x-ndjson`) and combine:
 - database results (historical)
 - in-memory flows of live updates (reactive push)
 
+Receivable streams subscribe to live updates before reading the database. They scan the database before draining
+a bounded live-update queue and continuing on the same subscription. Only hashes from the initial
+database scan are retained to suppress overlapping or delayed live notifications; new live hashes do not grow
+that set. Slow database reads or clients apply backpressure, and disconnecting cancels both the scan and live subscription.
+
 ## How consensus works (high level)
 
 Atto’s consensus in this codebase is vote-driven:
