@@ -12,6 +12,7 @@ import cash.atto.commons.AttoSignature
 import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
+import cash.atto.node.bootstrap.BootstrapLoadMonitor
 import cash.atto.node.transaction.Transaction
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.every
@@ -23,9 +24,11 @@ import io.r2dbc.spi.ConnectionFactory
 import io.r2dbc.spi.ConnectionFactoryMetadata
 import io.r2dbc.spi.Result
 import io.r2dbc.spi.Statement
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
+import org.junit.jupiter.api.Assertions.fail
 import org.junit.jupiter.api.Test
 import org.springframework.r2dbc.core.DatabaseClient
 import reactor.core.publisher.Flux
@@ -55,7 +58,8 @@ class UncheckedTransactionInserterTest {
             every { result.rowsUpdated } returns Mono.just(2L)
 
             val meterRegistry = SimpleMeterRegistry()
-            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry)
+            val loadMonitor = mockk<BootstrapLoadMonitor>(relaxed = true)
+            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry, loadMonitor)
             val transactions = listOf(openTransaction(), receiveTransaction())
 
             // when
@@ -72,6 +76,7 @@ class UncheckedTransactionInserterTest {
             val timer = meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer()
             assertEquals(1L, timer.count())
             assertTrue(timer.totalTime(TimeUnit.NANOSECONDS) > 0)
+            verify(exactly = 1) { loadMonitor.recordInsert(timer.totalTime(TimeUnit.NANOSECONDS).toLong()) }
             verify(exactly = 1) { connection.createStatement(any()) }
             verify(exactly = 13) { statement.bind(any<Int>(), any()) }
             verify(exactly = 1) { statement.bindNull(3, ByteArray::class.java) }
@@ -88,7 +93,8 @@ class UncheckedTransactionInserterTest {
             every { connectionFactory.metadata } returns connectionFactoryMetadata
             every { connectionFactoryMetadata.name } returns "MySQL"
             val meterRegistry = SimpleMeterRegistry()
-            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry)
+            val loadMonitor = mockk<BootstrapLoadMonitor>(relaxed = true)
+            val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry, loadMonitor)
 
             // when
             val inserted = inserter.insert(emptyList())
@@ -97,7 +103,44 @@ class UncheckedTransactionInserterTest {
             assertEquals(0L, inserted)
             assertEquals(0L, meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer().count())
             verify(exactly = 0) { connectionFactory.create() }
+            verify(exactly = 0) { loadMonitor.recordInsert(any()) }
         }
+
+    @Test
+    fun `failed insert reports the same elapsed time as its timer`() =
+        runTest {
+            verifyFailedInsert(IllegalStateException("simulated insert failure"))
+        }
+
+    @Test
+    fun `cancelled insert reports elapsed time before propagating cancellation`() =
+        runTest {
+            verifyFailedInsert(CancellationException("simulated insert cancellation"))
+        }
+
+    private suspend fun verifyFailedInsert(failure: Exception) {
+        // Given
+        val connectionFactory = mockk<ConnectionFactory>()
+        val connectionFactoryMetadata = mockk<ConnectionFactoryMetadata>()
+        every { connectionFactory.metadata } returns connectionFactoryMetadata
+        every { connectionFactoryMetadata.name } returns "MySQL"
+        every { connectionFactory.create() } returns Mono.error(failure)
+        val meterRegistry = SimpleMeterRegistry()
+        val loadMonitor = mockk<BootstrapLoadMonitor>(relaxed = true)
+        val inserter = UncheckedTransactionInserter(DatabaseClient.create(connectionFactory), meterRegistry, loadMonitor)
+
+        // When
+        try {
+            inserter.insert(listOf(openTransaction()))
+            fail("Expected insert failure")
+        } catch (exception: Exception) {
+            // Then
+            assertTrue(generateSequence<Throwable>(exception) { it.cause }.any { it === failure })
+        }
+        val timer = meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer()
+        assertEquals(1L, timer.count())
+        verify(exactly = 1) { loadMonitor.recordInsert(timer.totalTime(TimeUnit.NANOSECONDS).toLong()) }
+    }
 
     private fun openTransaction(): UncheckedTransaction {
         val publicKey = AttoPublicKey(ByteArray(32) { 1 })

@@ -13,8 +13,8 @@ import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
+import cash.atto.node.network.MutableConnectedPeers
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnected
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.NodeFeature
@@ -160,6 +160,50 @@ class TransactionNetworkProviderTest {
             verify(exactly = 0) { publisher.publish(any()) }
         }
 
+    @Test
+    fun `disconnected requester cannot start repository work`() =
+        runTest {
+            // Given
+            val repository = mockk<TransactionRepository>()
+            val fixture = fixture(repository)
+            fixture.connectedPeers.disconnect(fixture.peer.publicUri)
+
+            // When
+            fixture.provider.stream(fixture.request(publicKey(1)))
+
+            // Then
+            coVerify(exactly = 0) { repository.findDesc(any(), any(), any()) }
+        }
+
+    @Test
+    fun `disconnect while publishing stops remaining materialized responses`() =
+        runTest {
+            // Given
+            val repository = mockk<TransactionRepository>()
+            val first = transaction(publicKey(1))
+            val second = transaction(publicKey(1), height = 2U, previous = first.hash)
+            coEvery { repository.findDesc(any(), any(), any()) } returns
+                flow {
+                    emit(first)
+                    emit(second)
+                }
+            val publisher = mockk<NetworkMessagePublisher>()
+            val fixture = fixture(repository, publisher)
+            every { publisher.publish(any()) } answers {
+                fixture.connectedPeers.disconnect(fixture.peer.publicUri)
+            }
+            val request =
+                fixture.request(first.publicKey).copy(
+                    payload = AttoTransactionStreamRequest(first.publicKey, 1U.toAttoHeight(), 2U.toAttoHeight()),
+                )
+
+            // When
+            fixture.provider.stream(request)
+
+            // Then
+            verify(exactly = 1) { publisher.publish(any()) }
+        }
+
     private fun fixture(
         repository: TransactionRepository,
         publisher: NetworkMessagePublisher = mockk(relaxed = true),
@@ -167,14 +211,15 @@ class TransactionNetworkProviderTest {
     ): Fixture {
         val thisNode = node(100)
         val peer = node(101)
-        val provider = TransactionNetworkProvider(thisNode, repository, publisher, clock)
-        provider.add(NodeConnected(socketAddress(peer), peer))
-        return Fixture(provider, peer)
+        val connectedPeers = MutableConnectedPeers().apply { connect(peer) }
+        val provider = TransactionNetworkProvider(thisNode, repository, publisher, clock, connectedPeers)
+        return Fixture(provider, peer, connectedPeers)
     }
 
     private data class Fixture(
         val provider: TransactionNetworkProvider,
         val peer: AttoNode,
+        val connectedPeers: MutableConnectedPeers,
     ) {
         fun request(
             publicKey: AttoPublicKey,
@@ -222,17 +267,21 @@ class TransactionNetworkProviderTest {
 
         fun socketAddress(node: AttoNode): InetSocketAddress = InetSocketAddress(node.publicUri.host, node.publicUri.port)
 
-        fun transaction(publicKey: AttoPublicKey): Transaction {
+        fun transaction(
+            publicKey: AttoPublicKey,
+            height: UInt = 1U,
+            previous: AttoHash = AttoHash(ByteArray(32)),
+        ): Transaction {
             val block =
                 AttoSendBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
                     algorithm = AttoAlgorithm.V1,
                     publicKey = publicKey,
-                    height = 1U.toAttoHeight(),
+                    height = height.toAttoHeight(),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),
-                    previous = AttoHash(ByteArray(32)),
+                    previous = previous,
                     receiverAlgorithm = AttoAlgorithm.V1,
                     receiverPublicKey = publicKey(102),
                     amount = AttoAmount.MAX,

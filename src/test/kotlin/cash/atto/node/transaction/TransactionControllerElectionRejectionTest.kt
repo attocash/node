@@ -23,6 +23,7 @@ import cash.atto.node.election.Election
 import cash.atto.node.election.ElectionProperties
 import cash.atto.node.election.ElectionRejected
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.guardian.ExpectedResponses
 import cash.atto.node.transaction.prioritization.TransactionPrioritizationProperties
 import cash.atto.node.transaction.prioritization.TransactionPrioritizer
 import cash.atto.node.transaction.validation.TransactionValidationManager
@@ -59,6 +60,7 @@ import org.springframework.mock.http.server.reactive.MockServerHttpRequest
 import org.springframework.web.server.ResponseStatusException
 import java.net.InetSocketAddress
 import java.net.URI
+import java.time.Clock
 import java.time.Instant
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
@@ -145,11 +147,16 @@ internal class TransactionControllerElectionRejectionTest {
                             publisher,
                         )
                     val controller =
-                        TransactionController(ApplicationProperties(), node, NetworkMessagePublisher(context), repository)
+                        TransactionPublicationController(
+                            ApplicationProperties(),
+                            node,
+                            NetworkMessagePublisher(context, ExpectedResponses(Clock.systemUTC())),
+                            repository,
+                        )
                     val multicaster = ApplicationConfiguration().applicationEventMulticaster() as SimpleApplicationEventMulticaster
                     multicaster.setErrorHandler { errors += it }
                     context.beanFactory.registerSingleton("applicationEventMulticaster", multicaster)
-                    context.beanFactory.registerSingleton("transactionController", controller)
+                    context.beanFactory.registerSingleton("transactionPublicationController", controller)
                     context.beanFactory.registerSingleton("transactionPrioritizer", prioritizer)
                     context.beanFactory.registerSingleton("transactionValidationManager", validation)
                     context.beanFactory.registerSingleton("election", election)

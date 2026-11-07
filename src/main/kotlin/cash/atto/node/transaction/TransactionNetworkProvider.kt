@@ -1,10 +1,9 @@
 package cash.atto.node.transaction
 
+import cash.atto.node.network.ConnectedPeers
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnected
-import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionRequest
 import cash.atto.protocol.AttoTransactionResponse
@@ -14,9 +13,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.sync.Mutex
 import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
-import java.net.URI
 import java.time.Clock
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.Semaphore
 
 @Component
@@ -25,26 +22,14 @@ class TransactionNetworkProvider(
     private val transactionRepository: TransactionRepository,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val clock: Clock,
+    private val connectedPeers: ConnectedPeers,
 ) {
     companion object {
         private const val MAX_CONCURRENT_FINDS = 64
     }
 
-    private val peers = ConcurrentHashMap.newKeySet<URI>()
     private val findPermits = Semaphore(MAX_CONCURRENT_FINDS)
     private val streamMutex = Mutex()
-
-    @EventListener
-    fun add(nodeEvent: NodeConnected) {
-        val node = nodeEvent.node
-        peers.add(node.publicUri)
-    }
-
-    @EventListener
-    fun remove(nodeEvent: NodeDisconnected) {
-        val node = nodeEvent.node
-        peers.remove(node.publicUri)
-    }
 
     @EventListener
     suspend fun find(message: InboundNetworkMessage<AttoTransactionRequest>) {
@@ -52,7 +37,7 @@ class TransactionNetworkProvider(
             return
         }
 
-        if (!peers.contains(message.publicUri)) {
+        if (!connectedPeers.isConnected(message.publicUri)) {
             return
         }
 
@@ -83,7 +68,7 @@ class TransactionNetworkProvider(
         }
 
         try {
-            if (!peers.contains(message.publicUri) || message.isExpired()) {
+            if (!connectedPeers.isConnected(message.publicUri) || message.isExpired()) {
                 return
             }
 
@@ -101,7 +86,7 @@ class TransactionNetworkProvider(
             }
 
             for (transaction in transactions) {
-                if (!peers.contains(message.publicUri)) {
+                if (!connectedPeers.isConnected(message.publicUri)) {
                     break
                 }
                 val response = AttoTransactionStreamResponse(transaction.toAttoTransaction())

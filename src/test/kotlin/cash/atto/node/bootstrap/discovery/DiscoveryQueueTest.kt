@@ -253,6 +253,9 @@ class DiscoveryQueueTest {
             )
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
             assertEquals(1.0, fixture.counter("transactions.discovery.persistence.failures"))
+            verify(exactly = 1) { fixture.loadMonitor.recordFailure() }
+            verify(exactly = 1) { fixture.loadMonitor.recordPersisted(2) }
+            verify(exactly = 1) { fixture.loadMonitor.recordPersisted(1) }
         }
 
     @Test
@@ -274,6 +277,8 @@ class DiscoveryQueueTest {
 
             // Then
             assertEquals(0.0, fixture.counter("transactions.discovery.persistence.failures"))
+            verify(exactly = 0) { fixture.loadMonitor.recordFailure() }
+            verify(exactly = 0) { fixture.loadMonitor.recordPersisted(any()) }
         }
 
     @Test
@@ -449,6 +454,7 @@ class DiscoveryQueueTest {
             assertFalse(fixture.queue.isAtCapacity())
             assertEquals(2, fixture.queue.remainingTargetCapacity())
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
+            verify(exactly = 0) { fixture.loadMonitor.recordPersisted(any()) }
 
             // When
             releaseSave.complete(Unit)
@@ -458,6 +464,26 @@ class DiscoveryQueueTest {
             assertFalse(fixture.queue.isAtCapacity())
             assertEquals(2, fixture.queue.remainingTargetCapacity())
             assertEquals(0.0, fixture.gauge("transactions.discovery.backlog.depth"))
+            verify(exactly = 1) { fixture.loadMonitor.recordPersisted(2) }
+        }
+
+    @Test
+    fun `committed duplicate rows credit attempted discoveries instead of affected rows`() =
+        runTest {
+            // Given
+            val service = mockk<UncheckedTransactionService>()
+            coEvery { service.save(any()) } returns 0L
+            val fixture = fixture(service)
+            fixture.queue.queue(event(45), DiscoverySource.HEAD)
+
+            // When
+            val persisted = fixture.worker.persist()
+
+            // Then
+            assertEquals(1, persisted)
+            verify(exactly = 1) { fixture.loadMonitor.recordPersisted(1) }
+            assertEquals(1.0, fixture.counter("transactions.discovery.persisted", "source", "head"))
+            assertEquals(0.0, fixture.counter("transactions.discovery.affected"))
         }
 
     @Test
@@ -512,6 +538,7 @@ class DiscoveryQueueTest {
                 uncheckedTransactionService = service,
                 queue = queue,
                 metrics = metrics,
+                loadMonitor = loadMonitor,
             )
         return Fixture(
             queue,
@@ -523,7 +550,7 @@ class DiscoveryQueueTest {
     }
 
     private fun loadMonitor(discoveryCapacity: AtomicInteger): BootstrapLoadMonitor =
-        mockk {
+        mockk(relaxed = true) {
             every {
                 targetCapacity()
             } answers {

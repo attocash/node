@@ -17,8 +17,8 @@ import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
+import cash.atto.node.network.MutableConnectedPeers
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionStreamRequest
@@ -253,6 +253,41 @@ class GapDiscovererTest {
         }
 
     @Test
+    fun `delayed old disconnect preserves session after same URI reconnects`() =
+        runTest {
+            // Given
+            val peer = node(100)
+            val fixture = fixture(gaps = listOf(gap(publicKey(1), 1U, 2U, hash(1))), nodes = listOf(peer))
+            fixture.discover()
+            val oldDisconnect = NodeDisconnected(InetSocketAddress(peer.publicUri.host, peer.publicUri.port), peer)
+            fixture.connectedPeers.disconnect(peer.publicUri)
+            fixture.connectedPeers.connect(peer, InetSocketAddress("127.0.0.1", 10_001))
+
+            // When
+            fixture.discoverer.remove(oldDisconnect)
+            fixture.discover()
+
+            // Then
+            assertEquals(1, fixture.discoverer.activeSessionCount())
+            assertEquals(1, fixture.requests.size)
+        }
+
+    @Test
+    fun `connected peer without historical capability prevents gap query`() =
+        runTest {
+            // Given
+            val peer = node(100).copy(features = setOf(NodeFeature.VOTING))
+            val fixture = fixture(gaps = listOf(gap(publicKey(1), 1U, 1U, hash(1))), nodes = listOf(peer))
+
+            // When
+            fixture.discover()
+
+            // Then
+            coVerify(exactly = 0) { fixture.repository.findGaps(any()) }
+            assertTrue(fixture.requests.isEmpty())
+        }
+
+    @Test
     fun `caffeine expires sessions after one minute without progress`() =
         runTest {
             // given
@@ -431,6 +466,7 @@ class GapDiscovererTest {
             requests += firstArg<DirectNetworkMessage<AttoTransactionStreamRequest>>()
         }
 
+        val connectedPeers = MutableConnectedPeers()
         val discoverer =
             GapDiscoverer(
                 uncheckedTransactionRepository = repository,
@@ -439,6 +475,7 @@ class GapDiscovererTest {
                 discoveryProperties = properties,
                 meterRegistry = SimpleMeterRegistry(),
                 clock = clock,
+                connectedPeers = connectedPeers,
             )
         return Fixture(
             discoverer = discoverer,
@@ -446,6 +483,7 @@ class GapDiscovererTest {
             repository = repository,
             requests = requests,
             nodes = nodes,
+            connectedPeers = connectedPeers,
         ).also {
             if (connect) {
                 it.connect()
@@ -459,16 +497,18 @@ class GapDiscovererTest {
         val repository: UncheckedTransactionRepository,
         val requests: List<DirectNetworkMessage<AttoTransactionStreamRequest>>,
         val nodes: List<AttoNode>,
+        val connectedPeers: MutableConnectedPeers,
     ) {
         suspend fun discover(): Int = discoverer.discover()
 
         fun connect() {
             nodes.forEach { node ->
-                discoverer.add(NodeConnected(socketAddress(node), node))
+                connectedPeers.connect(node, socketAddress(node))
             }
         }
 
         fun disconnect(node: AttoNode = nodes.first()) {
+            connectedPeers.disconnect(node.publicUri)
             discoverer.remove(NodeDisconnected(socketAddress(node), node))
         }
 

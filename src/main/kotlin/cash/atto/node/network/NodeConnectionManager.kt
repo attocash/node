@@ -42,7 +42,8 @@ class NodeConnectionManager(
     private val thisNode: AttoNode,
     private val messagePublisher: NetworkMessagePublisher,
     private val eventPublisher: EventPublisher,
-) : CacheSupport {
+) : CacheSupport,
+    ConnectedPeers {
     private val logger = KotlinLogging.logger {}
 
     private val supervisorJob = SupervisorJob()
@@ -92,7 +93,9 @@ class NodeConnectionManager(
         scope.cancel()
     }
 
-    fun isConnected(publicUri: URI): Boolean = connectionMap.containsKey(publicUri)
+    override fun snapshot(): List<ConnectedPeer> = connectionMap.values.map { ConnectedPeer(it.node, it.connectionInetSocketAddress) }
+
+    override fun isConnected(publicUri: URI): Boolean = connectionMap.containsKey(publicUri)
 
     suspend fun manage(
         node: AttoNode,
@@ -111,9 +114,7 @@ class NodeConnectionManager(
         try {
             connection
                 .incomingFlow()
-                .onStart {
-                    eventPublisher.publish(NodeConnected(connectionSocketAddress, node))
-                }.onCompletion {
+                .onCompletion {
                     val cause = it?.takeUnless { it is CancellationException }
                     logger.trace(cause) { "Inbound message stream from ${node.publicUri} completed" }
                     connectionMap.remove(publicUri, connection)
@@ -127,7 +128,8 @@ class NodeConnectionManager(
                     }
 
                     if (message is AttoKeepAlive) {
-                        connectionMap[publicUri] = connection
+                        // Buffered frames from a replaced session must not restore its ownership.
+                        connectionMap.replace(publicUri, connection, connection)
                     }
 
                     logger.trace { "Received from $publicUri $message ${it.toHex()}" }

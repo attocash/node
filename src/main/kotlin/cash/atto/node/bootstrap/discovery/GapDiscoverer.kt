@@ -5,10 +5,10 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.node.CacheSupport
 import cash.atto.node.bootstrap.unchecked.GapView
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
+import cash.atto.node.network.ConnectedPeers
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoTransactionStreamResponse
@@ -22,7 +22,6 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Component
 import java.net.URI
 import java.time.Clock
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -33,9 +32,9 @@ class GapDiscoverer(
     private val discoveryProperties: DiscoveryProperties,
     meterRegistry: MeterRegistry,
     private val clock: Clock,
+    private val connectedPeers: ConnectedPeers,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
-    private val peers = ConcurrentHashMap.newKeySet<URI>()
     private val activeSessionCache =
         Caffeine
             .newBuilder()
@@ -57,19 +56,11 @@ class GapDiscoverer(
             .register(meterRegistry)
 
     @EventListener
-    fun add(nodeEvent: NodeConnected) {
-        val node = nodeEvent.node
-        if (!node.isHistorical()) {
-            return
-        }
-
-        peers += node.publicUri
-    }
-
-    @EventListener
     fun remove(nodeEvent: NodeDisconnected) {
         val publicUri = nodeEvent.node.publicUri
-        peers.remove(publicUri)
+        if (connectedPeers.isConnected(publicUri)) {
+            return
+        }
         activeSessions
             .values
             .filter { it.peer == publicUri }
@@ -139,7 +130,13 @@ class GapDiscoverer(
 
     private fun availablePeers(): List<URI> {
         val activePeers = activeSessions.values.mapTo(mutableSetOf(), GapSession::peer)
-        return peers.filterNot(activePeers::contains)
+        return connectedPeers
+            .snapshot()
+            .asSequence()
+            .filter { it.node.isHistorical() }
+            .map { it.node.publicUri }
+            .filterNot(activePeers::contains)
+            .toList()
     }
 
     private fun remainingRequestBudget(): Int {
@@ -164,7 +161,7 @@ class GapDiscoverer(
                 discoveryQueue = discoveryQueue,
             )
         activeSessions[view.publicKey] = session
-        if (!peers.contains(peer)) {
+        if (!connectedPeers.isConnected(peer)) {
             activeSessions.remove(view.publicKey, session)
             return 0
         }

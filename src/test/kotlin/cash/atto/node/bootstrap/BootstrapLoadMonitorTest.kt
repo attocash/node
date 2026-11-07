@@ -1,10 +1,6 @@
 package cash.atto.node.bootstrap
 
-import cash.atto.node.bootstrap.discovery.DiscoveryMetrics
 import cash.atto.node.bootstrap.discovery.DiscoveryProperties
-import cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter
-import io.micrometer.core.instrument.Counter
-import io.micrometer.core.instrument.Timer
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
@@ -148,6 +144,83 @@ class BootstrapLoadMonitorTest {
     }
 
     @Test
+    fun `observations are consumed once and do not require persistence meters`() {
+        // Given
+        val fixture = fixture()
+        fixture.completeInsertWithoutPolling(500, Duration.ofMillis(250))
+
+        // When
+        fixture.monitor.poll()
+        fixture.monitor.poll()
+
+        // Then
+        assertEquals(1_500, fixture.monitor.targetCapacity())
+        assertEquals(1L, fixture.targetRatio.count())
+        assertEquals(0.5, fixture.targetRatio.totalAmount())
+        assertEquals(
+            0,
+            fixture.registry
+                .find("transactions.unchecked.insert")
+                .timers()
+                .size,
+        )
+        assertEquals(
+            0,
+            fixture.registry
+                .find("transactions.discovery.persisted")
+                .counters()
+                .size,
+        )
+    }
+
+    @Test
+    fun `failure consumes accumulated success and elapsed before the next poll`() {
+        // Given
+        val fixture = fixture()
+        fixture.completeInsert(1_000, Duration.ofMillis(500))
+        fixture.completeInsertWithoutPolling(1_000, Duration.ofMillis(500))
+        fixture.failInsert(Duration.ofSeconds(10))
+
+        // When
+        fixture.monitor.poll()
+
+        // Then
+        assertEquals(1_000, fixture.monitor.targetCapacity())
+        assertEquals(1L, fixture.targetRatio.count())
+
+        // When
+        fixture.completeInsert(500, Duration.ofMillis(250))
+
+        // Then
+        assertEquals(1_500, fixture.monitor.targetCapacity())
+        assertEquals(2L, fixture.targetRatio.count())
+        assertEquals(1.0, fixture.targetRatio.totalAmount())
+    }
+
+    @Test
+    fun `uncommitted insert elapsed is aggregated only until the next poll`() {
+        // Given
+        val fixture = fixture()
+        fixture.monitor.recordInsert(Duration.ofSeconds(10).toNanos())
+
+        // When
+        fixture.monitor.poll()
+
+        // Then
+        assertEquals(1_000, fixture.monitor.targetCapacity())
+        assertEquals(0L, fixture.targetRatio.count())
+
+        // When
+        fixture.monitor.recordInsert(Duration.ofMillis(250).toNanos())
+        fixture.completeInsertWithoutPolling(500, Duration.ofMillis(250))
+        fixture.monitor.poll()
+
+        // Then
+        assertEquals(1_500, fixture.monitor.targetCapacity())
+        assertEquals(1.0, fixture.targetRatio.totalAmount())
+    }
+
+    @Test
     fun `persistence throughput target must be positive`() {
         // Given
         val zero = properties().apply { persistenceTargetPerSecond = 0 }
@@ -168,25 +241,9 @@ class BootstrapLoadMonitorTest {
     ): Fixture {
         val properties = properties(capacity, batchSize).also(DiscoveryProperties::validate)
         val registry = SimpleMeterRegistry()
-        val timer =
-            Timer
-                .builder(UncheckedTransactionInserter.METRIC_NAME)
-                .register(registry)
-        val persistedCounter =
-            Counter
-                .builder(DiscoveryMetrics.PERSISTED_METRIC_NAME)
-                .tag("source", "test")
-                .register(registry)
-        val failureCounter =
-            Counter
-                .builder(DiscoveryMetrics.PERSISTENCE_FAILURE_METRIC_NAME)
-                .register(registry)
         return Fixture(
             monitor = BootstrapLoadMonitor(properties, registry),
             registry = registry,
-            timer = timer,
-            persistedCounter = persistedCounter,
-            failureCounter = failureCounter,
         )
     }
 
@@ -203,9 +260,6 @@ class BootstrapLoadMonitorTest {
     private data class Fixture(
         val monitor: BootstrapLoadMonitor,
         val registry: SimpleMeterRegistry,
-        val timer: Timer,
-        val persistedCounter: Counter,
-        val failureCounter: Counter,
     ) {
         val targetRatio = registry.get(BootstrapLoadMonitor.TARGET_RATIO_METRIC_NAME).summary()
 
@@ -221,13 +275,13 @@ class BootstrapLoadMonitorTest {
             attemptedRows: Int,
             elapsed: Duration,
         ) {
-            timer.record(elapsed)
-            persistedCounter.increment(attemptedRows.toDouble())
+            monitor.recordInsert(elapsed.toNanos())
+            monitor.recordPersisted(attemptedRows)
         }
 
         fun failInsert(elapsed: Duration) {
-            timer.record(elapsed)
-            failureCounter.increment()
+            monitor.recordInsert(elapsed.toNanos())
+            monitor.recordFailure()
         }
     }
 }

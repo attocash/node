@@ -40,7 +40,7 @@ are listed in [Events and completion](#events-and-completion).
 
 ```mermaid
 flowchart TB
-    REST["TransactionController<br/>REST submission"]
+    REST["TransactionPublicationController<br/>REST submission"]
     P2P["NodeConnectionManager<br/>peer transaction push"]
     PRIORITY["TransactionPrioritizer<br/>deduplicate and buffer dependencies"]
     TXWORK["Transaction queue + worker"]
@@ -64,7 +64,7 @@ flowchart TB
     COMMIT -.->|"AccountUpdated after commit"| COMPLETE
 ```
 
-1. **Admission:** [TransactionController.publishAndConfirm][transaction-controller] checks transaction structure and
+1. **Admission:** [TransactionPublicationController.publishAndConfirm][transaction-publication] checks transaction structure and
    network, registers a hash-specific pending result, and publishes a REST-sourced message. Peer pushes come through
    [NodeConnectionManager.manage][connections]. Both reach `TransactionPrioritizer.add(message)`; rebroadcast tracking
    independently observes the same message.
@@ -142,19 +142,19 @@ listener does not mean every event changes its state. Definitions live beside th
 
 | Event/message | Producer | Behavior listeners |
 | --- | --- | --- |
-| `InboundNetworkMessage<AttoTransactionPush>` | [TransactionController][transaction-controller], [NodeConnectionManager][connections] | [TransactionPrioritizer.add][transaction-prioritizer], [TransactionRebroadcaster.process][transaction-rebroadcaster] |
+| `InboundNetworkMessage<AttoTransactionPush>` | [TransactionPublicationController][transaction-publication], [NodeConnectionManager][connections] | [TransactionPrioritizer.add][transaction-prioritizer], [TransactionRebroadcaster.process][transaction-rebroadcaster] |
 | `TransactionReceived` | [TransactionPrioritizer.drain][transaction-prioritizer] | [TransactionValidationManager.process][validation] |
 | `TransactionValidated` | [TransactionValidationManager.process][validation] | [Election.start][election], [TransactionRebroadcaster.process][transaction-rebroadcaster] |
-| `TransactionRejected` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [DependencyDiscoverer][dependency-discoverer], [TransactionController][transaction-controller] |
-| `TransactionValidationFailed` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionController][transaction-controller] |
-| `TransactionDropped` | [TransactionPrioritizer][transaction-prioritizer], on queue eviction | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [TransactionController][transaction-controller] |
+| `TransactionRejected` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [DependencyDiscoverer][dependency-discoverer], [TransactionPublicationController][transaction-publication] |
+| `TransactionValidationFailed` | [TransactionValidationManager.process][validation] | [TransactionPrioritizer][transaction-prioritizer], [TransactionPublicationController][transaction-publication] |
+| `TransactionDropped` | [TransactionPrioritizer][transaction-prioritizer], on queue eviction | [TransactionPrioritizer][transaction-prioritizer], [TransactionRebroadcaster][transaction-rebroadcaster], [TransactionPublicationController][transaction-publication] |
 | `ElectionStarted` | [Election.start][election] | [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter] |
-| `ElectionRejected` | [Election.start][election], for pending/completed heights; completion cleanup for historical candidates | [TransactionPrioritizer][transaction-prioritizer] through `TransactionFailure`, [TransactionController][transaction-controller] |
+| `ElectionRejected` | [Election.start][election], for pending/completed heights; completion cleanup for historical candidates | [TransactionPrioritizer][transaction-prioritizer] through `TransactionFailure`, [TransactionPublicationController][transaction-publication] |
 | `ElectionDiscarded` | [ElectionProcessor][election-processor], after reconciliation observes a committed height at or beyond the candidate | [Election][election], [TransactionPrioritizer][transaction-prioritizer] through `TransactionFailure` |
 | `ElectionConsensusChanged` | [Election.process][election] | [ElectionVoter][election-voter] |
 | `ElectionConsensusReached` | [Election.process][election] | [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [FinalVoteRecorder][final-votes], [VoteTimestampRecorder][vote-timestamps] |
 | `ElectionExpiring` | [Election.notifyExpiring][election], scheduled | [ElectionVoter][election-voter], [ElectionProcessor][election-processor] |
-| `ElectionExpired` | [Election.expireOld][election], scheduled | [TransactionPrioritizer][transaction-prioritizer], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [TransactionController][transaction-controller] |
+| `ElectionExpired` | [Election.expireOld][election], scheduled | [TransactionPrioritizer][transaction-prioritizer], [VotePrioritizer][vote-prioritizer], [ElectionVoter][election-voter], [TransactionPublicationController][transaction-publication] |
 | `ElectionLost` | [Election][election], on consensus, expiry, or account completion | [TransactionPrioritizer][transaction-prioritizer] |
 | `VoteReceived` | [VoteConverter][vote-converter] | [VotePrioritizer][vote-prioritizer], [VoteRebroadcaster][vote-rebroadcaster] |
 | `VoteValidated` | [VotePrioritizer.drain][vote-prioritizer], [ElectionVoter][election-voter] | [Election][election], [VoteRebroadcaster][vote-rebroadcaster], [VoteWeighter][vote-weighter] |
@@ -163,7 +163,7 @@ listener does not mean every event changes its state. Definitions live beside th
 
 | After-commit event | Registered by | Behavior listeners |
 | --- | --- | --- |
-| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [TransactionPrioritizer][transaction-prioritizer], [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountController][account-controller], [TransactionController][transaction-controller] |
+| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [TransactionPrioritizer][transaction-prioritizer], [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountController][account-controller], [TransactionPublicationController][transaction-publication], [TransactionController][transaction-controller] |
 | `ReceivableSaved` | [ReceivableService.saveAll][receivable-service], after a successful insert | [ReceivableController][receivable-controller]; each stream buffers live updates before scanning the database, then suppresses notifications matching retained database hashes |
 | `AccountEntrySaved` | [AccountEntryService.saveAll][entry-service], historical nodes | [AccountEntryController][entry-controller] |
 
@@ -175,27 +175,33 @@ election expiry are recoverable, while transaction rejections derive the flag fr
 failures default to retaining time-based duplicate suppression.
 `TransactionDropped` describes queued work and does not remove an active pending registration with the same hash.
 
-`TransactionController` completes pending publication results on confirmation, rejection, validation exceptions,
+`TransactionPublicationController` completes pending publication results on confirmation, rejection, validation exceptions,
 election admission rejection, election expiry, or queue drop; `ALREADY_CONFIRMED` is handled as confirmation. On
 `ElectionRejected`, a stored exact hash completes successfully; otherwise the request receives HTTP 409. Lookup
 failures and validation exceptions return a generic HTTP 500 without exposing their cause. It does not listen to
 `ElectionLost` or `ElectionDiscarded`. A request timeout does not
-prove the transaction failed to commit. Historical vote and timestamp recording have their own queues; they are not
+prove the transaction failed to commit. The separate [TransactionController][transaction-controller] consumes
+`AccountUpdated` independently to emit its live query feeds; publication confirmation does not wait for those streams.
+Historical vote and timestamp recording have their own queues; they are not
 part of the account transaction merely because they consume the consensus event.
 
 ## State ownership and recovery
 
 | State | Owner and synchronization | Completion/failure behavior to preserve |
 | --- | --- | --- |
+| Pending HTTP publication attempts | [TransactionPublicationController][transaction-publication]; concurrent hash map with per-hash registration/removal of waiter counts and replayed results | Registration precedes publication. Same-hash requests can share one attempt; joining and retiring waiters update membership and counts atomically so a retiring caller cannot detach a new waiter; each caller removes only its own registration on completion or cancellation. A suspended election-rejection lookup completes only the attempt it observed, so it cannot replace a confirmation or complete a newer publication. |
 | Pending hashes and dependent transactions | [TransactionPrioritizer][transaction-prioritizer]; concurrent map, with atomic operations per dependency hash | The single worker registers each dispatched hash before validation. `computeIfPresent` attaches hash-deduplicated dependents; `AccountUpdated` and processing failures detach only the completed hash, then requeue dependents outside map callbacks. Election owners report stale/obsolete candidates through failure events. The inbound duplicate filter is advisory; queue admission and the pending claim enforce unique processing. |
 | Transaction priority queue and queued hash membership | [TransactionQueue][transaction-queue]; existing lock per priority group | Queue admission and dequeue claims run under the same group lock, preventing a duplicate from slipping between queue removal and pending registration. The queue deduplicates hashes even when arrival metadata or work differs. Callbacks do not mutate the queue or publish events; deferred candidates leave the queue only after their dependency takes ownership. |
-| Candidates, votes, pending consensus, cached confirmed heights | [Election][election]; mutex for keyed elections, pending markers, their per-account height index, and the bounded confirmed-height cache | Consensus moves the public key/height into `pendingConsensus` while retaining its index membership. `AccountUpdated` and `ElectionDiscarded` advance the retained confirmed height and inspect only that account's indexed active/pending heights for retirement. Newer work is preserved. Exact-height competitors receive `ElectionLost`; historical candidates receive `ElectionRejected`. Expiry and clear also remove index membership. Admission rejects pending or cached completed heights. |
+| Candidates, votes, pending consensus, cached confirmed heights | [Election][election]; one coroutine mutex for keyed elections, pending markers, their per-account height index, the bounded confirmed-height cache, clear, and detached diagnostic snapshots | Consensus moves the public key/height into `pendingConsensus` while retaining its index membership. `AccountUpdated` and `ElectionDiscarded` advance the retained confirmed height and inspect only that account's indexed active/pending heights for retirement. Newer work is preserved. Exact-height competitors receive `ElectionLost`; historical candidates receive `ElectionRejected`. Expiry and clear also remove index membership. Admission rejects pending or cached completed heights. Synchronous diagnostics and clear acquire the same mutex through a blocking bridge; suspended transitions retain cancellable acquisition. Diagnostics copy nested candidates, votes, weights, and quorum while holding the mutex; readers cannot mutate live elections. |
 | Votes awaiting an election and priority queue | [VotePrioritizer][vote-prioritizer]; mutex plus concurrent election membership | `ElectionStarted` releases buffered votes; rejection drops buffered votes; account completion and expiry remove active membership. |
 | Consensus awaiting local persistence | [ElectionProcessor][election-processor]; `bufferLock`, hash-keyed `LinkedHashMap`, one drain worker | Exact duplicates retain their insertion position. A batch stops before repeating a public key; remaining work stays queued. On persistence failure, reuse the account reconciliation read and publish `ElectionDiscarded` before removing obsolete work. Publication occurs outside the buffer lock; failure retains that work. Unresolved entries remain queued for retry. |
+| Final votes awaiting persistence | [VoteService][vote-service]; `bufferLock` protects the FIFO buffer and clear generation, with one drain worker | Each batch deduplicates signatures before insertion. Failed batches return ahead of newer votes for the worker's retry; cancellation propagates. Clearing advances the generation so an in-flight failure cannot restore cleared votes. Repository I/O runs outside the lock. |
 | Account and receivable caches | [AccountRepository][account-repository], [ReceivableRepository][receivable-repository]; reactive transaction resources and completion callbacks | Account cache updates after commit and evicts on rollback/unknown completion. Receivable cache replacement/removal is conditional on the pending entry's identity, preventing a late callback from restoring deleted state. These callbacks are separate from `AccountUpdated` listeners. |
 | Account stream snapshot and latest heights | [AccountController][account-controller]; registered SharedFlow subscription and one height map per collection | `onSubscription` reads the database after registration. Concurrent live emissions wait until that subscriber finishes its snapshot; the same subscription then delivers live updates. `forwardHeightBy` suppresses equal/older heights per requested address. Cancellation or a failed query detaches the subscriber. |
+| Transaction and account-entry stream snapshots | [TransactionController][transaction-controller] and [AccountEntryController][account-entry-controller]; one registered SharedFlow subscription per hash or account range | `onSubscription` reads the database after registration, then the same subscription supplies live updates. Hash streams take one result; range streams sort and deduplicate by height and complete at the requested count. Cancellation detaches the subscription and cancels a pending snapshot read. |
 | Receivable stream snapshot hashes and live buffer | [ReceivableController][receivable-controller]; one collecting coroutine owns the snapshot hash set, one child collector sends to a bounded live channel | Live subscription starts before the database scan. Database hashes remain for delayed overlapping notifications; live-only hashes are never added. The stream drains database rows before consuming live updates. Backpressure suspends live producers, and cancellation or a failed scan cancels the live collector and channel. |
 | Local voting/signing jobs | [ElectionVoter][election-voter]; consensus state, mutexes, coroutine jobs | Provisional updates, cancellation, and committed final-vote publication have distinct lifecycles. Trace them before changing cleanup. |
+| Bootstrap persistence observations and admission target | [BootstrapLoadMonitor][bootstrap-load]; synchronized recording and polling, with a volatile capacity snapshot | Insert completion records elapsed time, successful discovery persistence records attempted rows after commit, and non-cancelled failure records a reset. Each poll consumes its accumulated observations once. Metric registration and meter values do not drive admission. |
 
 The intended admission invariant is **one current election height per public key**, with competing hashes at that
 height. Validate it through the account snapshot, predecessor checks, and reachable transitions. Do not confuse it with
@@ -210,9 +216,11 @@ Bootstrap can reach the same persistence and completion owners without traversin
 | --- | --- | --- |
 | Live rejection → dependency discovery | [DependencyDiscoverer][dependency-discoverer] tracks recoverable `TransactionRejected` events and qualifying final `VoteDropped` events; sufficient weight leads to a direct `DiscoveryQueue.queue` call | A rejected live attempt can later enter bootstrap recovery. |
 | Discovery → unchecked storage | [DiscoveryQueue][discovery-queue] admits to its bounded buffer, then publishes `TransactionDiscovered`. [BootstrapController.run][bootstrap-controller] drives [DiscoveryPersistenceWorker.persist][discovery-persistence] | `TransactionDiscovered` is a notification after admission, not the command that persists the transaction. |
+| Unchecked persistence → adaptive admission | [UncheckedTransactionInserter][unchecked-inserter] records insert-only elapsed time in `finally`; [DiscoveryPersistenceWorker][discovery-persistence] records committed attempted rows or non-cancelled failure directly into [BootstrapLoadMonitor][bootstrap-load] | The next controller poll aggregates those observations. SQL affected rows and whole-save duration remain separate measurements; cancellation does not record a persistence failure. |
 | Unchecked storage → committed account | [UncheckedTransactionProcessor][unchecked-processor] directly calls `TransactionValidationManager.validate`; on success it calls `AccountService.add(BOOTSTRAP)` inside its resolution transaction | This path bypasses `TransactionReceived`, `TransactionValidated`, and normal election admission, while still producing after-commit `AccountUpdated`. |
 | Missing dependency → send discovery | On validation failure, [UncheckedTransactionProcessor][unchecked-processor] publishes `TransactionStuck` and skips later candidates for that public key in the batch. [SendDiscoverer][send-discoverer] consumes `TransactionStuck` and `TransactionDiscovered` | Applicable receive/open transactions trigger discovery of a missing send; follow this loop before treating unchecked work as terminally rejected. |
 | Bootstrap head → discovery | [LastDiscoverer.processVoteResponse][last-discoverer] calls `DiscoveryQueue.queue` after collected votes reach quorum | Expired or capacity-evicted collections are discarded without starting a live election. A later head advertisement can start another discovery attempt. |
+| Scheduled head advertisement → peers | [BootstrapHeadBroadcaster.broadcastSample][head-broadcaster] samples stored transactions once per minute on a historical node with no unchecked backlog, then awaits connection-manager sends | Outbound advertising has its own mutex and lifecycle; it does not own inbound quorum collection. |
 | Shared completion → source-specific reaction | `AccountUpdated.source` distinguishes `BOOTSTRAP` and `ELECTION` | Most completion owners see both. `ElectionVoter` filters bootstrap updates from its committed-election final-vote path. |
 
 ## Trace an affected flow
@@ -273,6 +281,7 @@ calls. Keep source links to files and named methods so routine line movement doe
 [connections]: src/main/kotlin/cash/atto/node/network/NodeConnectionManager.kt
 [transaction-types]: src/main/kotlin/cash/atto/node/transaction/Transaction.kt
 [transaction-controller]: src/main/kotlin/cash/atto/node/transaction/TransactionController.kt
+[transaction-publication]: src/main/kotlin/cash/atto/node/transaction/TransactionPublicationController.kt
 [transaction-prioritizer]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionPrioritizer.kt
 [transaction-queue]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionQueue.kt
 [transaction-rebroadcaster]: src/main/kotlin/cash/atto/node/transaction/TransactionRebroadcaster.kt
@@ -300,11 +309,17 @@ calls. Keep source links to files and named methods so routine line movement doe
 [vote-prioritizer]: src/main/kotlin/cash/atto/node/vote/prioritization/VotePrioritizer.kt
 [vote-rebroadcaster]: src/main/kotlin/cash/atto/node/vote/VoteRebroadcaster.kt
 [vote-cleaner]: src/main/kotlin/cash/atto/node/vote/VoteCleaner.kt
+[vote-service]: src/main/kotlin/cash/atto/node/vote/VoteService.kt
 [vote-weighter]: src/main/kotlin/cash/atto/node/vote/weight/VoteWeighter.kt
 [dependency-discoverer]: src/main/kotlin/cash/atto/node/bootstrap/discovery/DependencyDiscoverer.kt
 [discovery-queue]: src/main/kotlin/cash/atto/node/bootstrap/discovery/DiscoveryQueue.kt
 [discovery-persistence]: src/main/kotlin/cash/atto/node/bootstrap/discovery/DiscoveryPersistenceWorker.kt
 [bootstrap-controller]: src/main/kotlin/cash/atto/node/bootstrap/BootstrapController.kt
+[bootstrap-load]: src/main/kotlin/cash/atto/node/bootstrap/BootstrapLoadMonitor.kt
+[unchecked-inserter]: src/main/kotlin/cash/atto/node/bootstrap/unchecked/UncheckedTransactionInserter.kt
 [unchecked-processor]: src/main/kotlin/cash/atto/node/bootstrap/unchecked/UncheckedTransactionProcessor.kt
 [last-discoverer]: src/main/kotlin/cash/atto/node/bootstrap/discovery/LastDiscoverer.kt
+[head-broadcaster]: src/main/kotlin/cash/atto/node/bootstrap/discovery/BootstrapHeadBroadcaster.kt
 [send-discoverer]: src/main/kotlin/cash/atto/node/bootstrap/discovery/SendDiscoverer.kt
+
+[account-entry-controller]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryController.kt

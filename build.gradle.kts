@@ -139,6 +139,10 @@ tasks.withType<Test> {
     maxHeapSize = "4g"
 }
 
+tasks.named("check") {
+    dependsOn("compileBenchmarkKotlin")
+}
+
 graalvmNative {
     binaries {
         named("main") {

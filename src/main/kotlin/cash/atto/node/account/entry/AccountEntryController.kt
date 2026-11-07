@@ -19,12 +19,13 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.onSubscription
 import kotlinx.coroutines.flow.take
 import org.springframework.context.event.EventListener
 import org.springframework.http.HttpStatus
@@ -94,24 +95,14 @@ class AccountEntryController(
     )
     suspend fun stream(
         @PathVariable hash: AttoHash,
-    ): Flow<AttoAccountEntry> {
-        val entryDatabaseFlow: Flow<AttoAccountEntry> =
-            flow {
-                val transaction = repository.findById(hash)
-                if (transaction != null) {
-                    emit(transaction.toAtto())
-                }
-            }
-
-        val entryFlow =
-            entryFlow
-                .filter { it.hash == hash }
-
-        return merge(entryFlow, entryDatabaseFlow)
+    ): Flow<AttoAccountEntry> =
+        entryFlow
+            .onSubscription {
+                repository.findById(hash)?.let { emit(it.toAtto()) }
+            }.filter { it.hash == hash }
             .onStart { logger.trace { "Started streaming $hash account entry" } }
             .onCompletion { logger.trace { "Stopped streaming $hash account entry" } }
             .take(1)
-    }
 
     @PostMapping("/accounts/entries/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
@@ -149,17 +140,14 @@ class AccountEntryController(
                         if (it.value > Int.MAX_VALUE.toUInt()) Int.MAX_VALUE else it.value.toInt()
                     }
 
-                val dbFlow =
-                    repository
-                        .findAsc(publicKey, range.fromHeight.value.toBigInteger(), range.toHeight.value.toBigInteger())
-                        .map { it.toAtto() }
-
-                val liveFlow =
-                    entryFlow
-                        .filter { it.publicKey == publicKey }
-                        .filter { it.height in fromHeight..toHeight }
-
-                merge(liveFlow, dbFlow)
+                entryFlow
+                    .onSubscription {
+                        emitAll(
+                            repository
+                                .findAsc(publicKey, fromHeight.value.toBigInteger(), toHeight.value.toBigInteger())
+                                .map { it.toAtto() },
+                        )
+                    }.filter { it.publicKey == publicKey && it.height in fromHeight..toHeight }
                     .sortByHeight(fromHeight)
                     .take(expectedCount)
             }

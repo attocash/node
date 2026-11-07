@@ -22,6 +22,7 @@ import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
 import jakarta.annotation.PostConstruct
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import org.springframework.context.event.EventListener
@@ -44,7 +45,8 @@ class Election(
         val ELECTION_STABILITY_MINIMAL_TIME: Duration = Duration.ofSeconds(5)
     }
 
-    private val mutex = Mutex()
+    // Suspend transitions keep cancellable acquisition; synchronous diagnostics and clear share the same guard.
+    private val stateLock = Mutex()
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
     private val pendingConsensus = HashSet<PublicKeyHeight>()
@@ -64,9 +66,17 @@ class Election(
             .register(meterRegistry)
     }
 
-    fun getSize(): Int = publicKeyHeightElectionMap.size
+    fun getSize(): Int =
+        runBlocking {
+            stateLock.withLock { publicKeyHeightElectionMap.size }
+        }
 
-    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> = publicKeyHeightElectionMap
+    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> =
+        runBlocking {
+            stateLock.withLock {
+                publicKeyHeightElectionMap.mapValues { (_, election) -> election.snapshot() }
+            }
+        }
 
     @EventListener
     suspend fun start(event: TransactionValidated) {
@@ -82,14 +92,14 @@ class Election(
 
     @EventListener
     suspend fun process(event: AccountUpdated) =
-        mutex.withLock {
+        stateLock.withLock {
             val transaction = event.transaction
             complete(transaction.publicKey, transaction.height, transaction.hash)
         }
 
     @EventListener
     suspend fun process(event: ElectionDiscarded) =
-        mutex.withLock {
+        stateLock.withLock {
             val account = event.account
             complete(account.publicKey, AttoHeight(account.height.toULong()), account.lastTransactionHash)
         }
@@ -127,7 +137,7 @@ class Election(
     private suspend fun start(
         account: Account,
         transaction: Transaction,
-    ) = mutex.withLock {
+    ) = stateLock.withLock {
         val publicKeyHeight = transaction.toPublicKeyHeight()
         val confirmedHeight = confirmedHeights[transaction.publicKey]
         if (confirmedHeight != null && transaction.height <= confirmedHeight) {
@@ -161,7 +171,7 @@ class Election(
     private suspend fun process(
         transaction: Transaction,
         vote: Vote,
-    ) = mutex.withLock {
+    ) = stateLock.withLock {
         val publicKeyHeight = transaction.toPublicKeyHeight()
 
         logger.trace { "Processing $vote" }
@@ -219,7 +229,7 @@ class Election(
 
     @Scheduled(fixedRate = 5, timeUnit = TimeUnit.SECONDS)
     suspend fun notifyExpiring() =
-        mutex.withLock {
+        stateLock.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiringAfterTimeInSeconds!!)
 
             publicKeyHeightElectionMap
@@ -235,7 +245,7 @@ class Election(
 
     @Scheduled(initialDelay = 1, fixedRate = 5, timeUnit = TimeUnit.SECONDS)
     suspend fun expireOld() =
-        mutex.withLock {
+        stateLock.withLock {
             val minimalTimestamp = Instant.now().minusSeconds(properties.expiredAfterTimeInSeconds!!)
 
             publicKeyHeightElectionMap
@@ -254,12 +264,15 @@ class Election(
                 }
         }
 
-    override fun clear() {
-        publicKeyHeightElectionMap.clear()
-        pendingConsensus.clear()
-        heightsByPublicKey.clear()
-        confirmedHeights.clear()
-    }
+    override fun clear() =
+        runBlocking {
+            stateLock.withLock {
+                publicKeyHeightElectionMap.clear()
+                pendingConsensus.clear()
+                heightsByPublicKey.clear()
+                confirmedHeights.clear()
+            }
+        }
 }
 
 private class VoterChange(
@@ -275,6 +288,23 @@ class PublicKeyHeightElection(
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
     private val voterChangeMap = HashMap<AttoPublicKey, VoterChange>()
     private val latestVoteTimestampMap = HashMap<AttoPublicKey, Instant>()
+
+    internal fun snapshot(): PublicKeyHeightElection {
+        val minimalWeight = minimalConfirmationWeightProvider()
+        val weights =
+            transactionElectionMap.values
+                .flatMap { it.votes.values }
+                .associate { it.publicKey to voteWeightProvider(it) }
+        val snapshot = PublicKeyHeightElection(account, { minimalWeight }, { weights.getValue(it.publicKey) })
+        transactionElectionMap.forEach { (hash, election) ->
+            val copy = TransactionElection(election.transaction, { minimalWeight }, { weights.getValue(it.publicKey) })
+            copy.votes.putAll(election.votes)
+            snapshot.transactionElectionMap[hash] = copy
+        }
+        snapshot.voterChangeMap.putAll(voterChangeMap)
+        snapshot.latestVoteTimestampMap.putAll(latestVoteTimestampMap)
+        return snapshot
+    }
 
     fun add(transaction: Transaction) {
         if (transactionElectionMap.containsKey(transaction.hash)) {

@@ -160,6 +160,9 @@ All streaming endpoints use **NDJSON** (`application/x-ndjson`) and combine:
 Address-specific account streams subscribe to live updates before reading account snapshots. Live flow emissions
 wait for that subscriber to finish the snapshot, then continue through the same subscription.
 Each collection forwards only increasing heights for each requested address.
+Transaction and account-entry hash/range streams use the same subscription-before-query handoff. Hash streams
+complete after one result; range streams order and deduplicate results by height before completing the requested range.
+Slow snapshot reads or clients backpressure the shared live feed; disconnecting cancels that subscriber and its query.
 
 Receivable streams subscribe to live updates before reading the database. They scan the database before draining
 a bounded live-update queue and continuing on the same subscription. Only hashes from the initial
@@ -224,8 +227,9 @@ stores it as an **unchecked transaction**:
     `AttoTransactionStreamRequest/Response`.
   - Handles out-of-order deliveries with an in-memory buffer.
 
-- **Head/last discovery** (`LastDiscoverer`)
-  - Historical nodes periodically broadcast a sample of recent “head” transactions (`AttoBootstrapTransactionPush`).
+- **Head/last discovery** (`BootstrapHeadBroadcaster`, `LastDiscoverer`)
+  - `BootstrapHeadBroadcaster` periodically broadcasts a sample of recent “head” transactions
+    (`AttoBootstrapTransactionPush`) from historical nodes with no unchecked backlog.
   - If a receiving node is behind, it starts a lightweight vote stream for the head to confirm it’s real, then turns it
     into a `TransactionDiscovered` event once the votes reach quorum.
   - Partial vote collections expire without starting a live election. A later head advertisement can retry discovery.

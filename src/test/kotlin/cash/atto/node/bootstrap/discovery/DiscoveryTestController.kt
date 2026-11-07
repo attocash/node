@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RestController
 class DiscoveryTestController(
     val discoveryPersistenceWorker: DiscoveryPersistenceWorker,
     val gapDiscoverer: GapDiscoverer,
-    val lastDiscoverer: LastDiscoverer,
+    val bootstrapHeadBroadcaster: BootstrapHeadBroadcaster,
     val uncheckedTransactionProcessor: UncheckedTransactionProcessor,
 ) {
     @PostMapping("/gap")
@@ -23,7 +23,7 @@ class DiscoveryTestController(
     @PostMapping("/last")
     @Operation(description = "Start broadcast of last transactions")
     suspend fun last() {
-        lastDiscoverer.broadcastSample()
+        bootstrapHeadBroadcaster.broadcastSample()
     }
 
     @PostMapping("/flush")
