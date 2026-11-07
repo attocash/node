@@ -1,6 +1,5 @@
 package cash.atto.node.transaction
 
-import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoTransaction
 import cash.atto.node.ApplicationProperties
 import cash.atto.node.account.AccountUpdated
@@ -9,6 +8,8 @@ import cash.atto.node.election.ElectionRejected
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.transaction.PendingTransactionRegistry.Result
+import cash.atto.node.transaction.PendingTransactionRegistry.Stream
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,7 +21,6 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -36,7 +36,6 @@ import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
 import org.springframework.web.server.ResponseStatusException
 import java.net.InetSocketAddress
-import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 
 @RestController
@@ -58,12 +57,12 @@ class TransactionPublicationController(
 
     private val useXForwardedForKey = "X-FORWARDED-FOR"
 
-    private val pendingTransactionStreams = ConcurrentHashMap<AttoHash, PendingTransactionStream>()
+    private val pendingTransactions = PendingTransactionRegistry()
 
     @EventListener
     suspend fun process(accountUpdated: AccountUpdated) {
         val transaction = accountUpdated.transaction.toAttoTransaction()
-        emitPending(transaction.hash, PendingTransactionResult.Confirmed(transaction))
+        pendingTransactions.emit(transaction.hash, Result.Confirmed(transaction))
     }
 
     @EventListener
@@ -71,14 +70,14 @@ class TransactionPublicationController(
         val reason = rejection.reason.toString()
 
         if (rejection.reason == TransactionRejectionReason.ALREADY_CONFIRMED) {
-            emitPending(
+            pendingTransactions.emit(
                 rejection.transaction.hash,
-                PendingTransactionResult.Confirmed(rejection.transaction.toAttoTransaction()),
+                Result.Confirmed(rejection.transaction.toAttoTransaction()),
             )
         } else {
-            emitPending(
+            pendingTransactions.emit(
                 rejection.transaction.hash,
-                PendingTransactionResult.Failed(
+                Result.Failed(
                     ResponseStatusException(
                         HttpStatus.BAD_REQUEST,
                         "Transaction rejected due to $reason: ${rejection.message}",
@@ -91,14 +90,14 @@ class TransactionPublicationController(
     @EventListener
     suspend fun process(rejection: ElectionRejected) {
         val hash = rejection.transaction.hash
-        val pending = pendingTransactionStreams[hash] ?: return
+        val pending = pendingTransactions[hash] ?: return
         val result =
             try {
                 val confirmed = repository.findById(hash)
                 if (confirmed != null) {
-                    PendingTransactionResult.Confirmed(confirmed.toAttoTransaction())
+                    Result.Confirmed(confirmed.toAttoTransaction())
                 } else {
-                    PendingTransactionResult.Failed(
+                    Result.Failed(
                         ResponseStatusException(HttpStatus.CONFLICT, "Transaction rejected by local election"),
                     )
                 }
@@ -106,22 +105,20 @@ class TransactionPublicationController(
                 throw exception
             } catch (exception: Exception) {
                 logger.error(exception) { "Failed to resolve rejected transaction $hash" }
-                PendingTransactionResult.Failed(
+                Result.Failed(
                     ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction confirmation lookup failed"),
                 )
             }
 
         // Confirmation can complete this attempt while the repository read is suspended.
-        if (pendingTransactionStreams.remove(hash, pending)) {
-            pending.flow.emit(result)
-        }
+        pendingTransactions.emit(hash, pending, result)
     }
 
     @EventListener
     suspend fun process(failure: TransactionValidationFailed) {
-        emitPending(
+        pendingTransactions.emit(
             failure.transaction.hash,
-            PendingTransactionResult.Failed(
+            Result.Failed(
                 ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Transaction validation failed"),
             ),
         )
@@ -131,9 +128,9 @@ class TransactionPublicationController(
     suspend fun process(expired: ElectionExpired) {
         val reason = "ELECTION_EXPIRED"
         val message = "Election took too long"
-        emitPending(
+        pendingTransactions.emit(
             expired.transaction.hash,
-            PendingTransactionResult.Failed(
+            Result.Failed(
                 ResponseStatusException(
                     HttpStatus.SERVICE_UNAVAILABLE,
                     "Transaction rejected due to $reason: $message",
@@ -146,9 +143,9 @@ class TransactionPublicationController(
     suspend fun process(dropped: TransactionDropped) {
         val reason = "TRANSACTION_DROPPED"
         val message = "Transaction queue dropped the transaction"
-        emitPending(
+        pendingTransactions.emit(
             dropped.transaction.hash,
-            PendingTransactionResult.Failed(
+            Result.Failed(
                 ResponseStatusException(
                     HttpStatus.TOO_MANY_REQUESTS,
                     "Transaction rejected due to $reason: $message",
@@ -223,7 +220,7 @@ class TransactionPublicationController(
         }
 
         val socketAddress = getSocketAddress(transaction, request)
-        val pending = registerPending(transaction.hash)
+        val pending = pendingTransactions.register(transaction.hash)
 
         try {
             if (!deduplicate || pending.created) {
@@ -232,7 +229,7 @@ class TransactionPublicationController(
 
             return awaitPending(pending.stream)
         } finally {
-            removePending(transaction.hash, pending.stream)
+            pendingTransactions.remove(transaction.hash, pending.stream)
         }
     }
 
@@ -341,75 +338,15 @@ class TransactionPublicationController(
             emit(publishAndConfirm(transaction, request, deduplicate))
         }
 
-    private suspend fun awaitPending(stream: PendingTransactionStream): AttoTransaction =
+    private suspend fun awaitPending(stream: Stream): AttoTransaction =
         withTimeout(40.seconds) {
             stream
                 .flow
                 .map {
                     when (it) {
-                        is PendingTransactionResult.Confirmed -> it.transaction
-                        is PendingTransactionResult.Failed -> throw it.failure
+                        is Result.Confirmed -> it.transaction
+                        is Result.Failed -> throw it.failure
                     }
                 }.first()
         }
-
-    private fun registerPending(hash: AttoHash): PendingTransactionRegistration {
-        var created = false
-        var stream: PendingTransactionStream? = null
-
-        pendingTransactionStreams.compute(hash) { _, existing ->
-            val value =
-                existing ?: PendingTransactionStream().also {
-                    created = true
-                }
-            value.waiters++
-            stream = value
-            value
-        }
-
-        return PendingTransactionRegistration(stream!!, created)
-    }
-
-    private fun removePending(
-        hash: AttoHash,
-        stream: PendingTransactionStream,
-    ) {
-        pendingTransactionStreams.computeIfPresent(hash) { _, existing ->
-            if (existing === stream) {
-                existing.waiters--
-                existing.takeIf { it.waiters > 0 }
-            } else {
-                existing
-            }
-        }
-    }
-
-    private suspend fun emitPending(
-        hash: AttoHash,
-        result: PendingTransactionResult,
-    ) {
-        pendingTransactionStreams.remove(hash)?.flow?.emit(result)
-    }
-
-    private class PendingTransactionStream {
-        val flow = MutableSharedFlow<PendingTransactionResult>(replay = 1)
-
-        // Registration and removal update this count under the per-hash map computation.
-        var waiters = 0
-    }
-
-    private class PendingTransactionRegistration(
-        val stream: PendingTransactionStream,
-        val created: Boolean,
-    )
-
-    private sealed interface PendingTransactionResult {
-        data class Confirmed(
-            val transaction: AttoTransaction,
-        ) : PendingTransactionResult
-
-        data class Failed(
-            val failure: Throwable,
-        ) : PendingTransactionResult
-    }
 }

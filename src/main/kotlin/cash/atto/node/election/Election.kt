@@ -45,7 +45,7 @@ class Election(
         val ELECTION_STABILITY_MINIMAL_TIME: Duration = Duration.ofSeconds(5)
     }
 
-    // Suspend transitions keep cancellable acquisition; synchronous diagnostics and clear share the same guard.
+    // All election state shares one guard; coroutine transitions retain cancellable acquisition.
     private val stateLock = Mutex()
 
     private val publicKeyHeightElectionMap = HashMap<PublicKeyHeight, PublicKeyHeightElection>()
@@ -61,21 +61,16 @@ class Election(
     @PostConstruct
     fun start() {
         Gauge
-            .builder("elections.active", this) { it.getSize().toDouble() }
+            .builder("elections.active", this) { runBlocking { it.getSize().toDouble() } }
             .description("Current active elections")
             .register(meterRegistry)
     }
 
-    fun getSize(): Int =
-        runBlocking {
-            stateLock.withLock { publicKeyHeightElectionMap.size }
-        }
+    suspend fun getSize(): Int = stateLock.withLock { publicKeyHeightElectionMap.size }
 
-    fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> =
-        runBlocking {
-            stateLock.withLock {
-                publicKeyHeightElectionMap.mapValues { (_, election) -> election.snapshot() }
-            }
+    suspend fun getElections(): Map<PublicKeyHeight, PublicKeyHeightElection> =
+        stateLock.withLock {
+            publicKeyHeightElectionMap.mapValues { (_, election) -> election.snapshot() }
         }
 
     @EventListener

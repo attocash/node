@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import kotlinx.coroutines.runBlocking
 import org.springframework.boot.actuate.info.Info
 import org.springframework.boot.actuate.info.InfoContributor
 import org.springframework.stereotype.Component
@@ -9,7 +10,7 @@ class ElectionInfoContributor(
     val election: Election,
 ) : InfoContributor {
     override fun contribute(builder: Info.Builder) {
-        val elections = election.getElections()
+        val elections = runBlocking { election.getElections() }
         val details =
             mapOf(
                 "weights" to elections,

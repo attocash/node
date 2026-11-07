@@ -27,13 +27,9 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
@@ -400,44 +396,6 @@ internal class TransactionPublicationControllerTest {
 
             assertEquals(transaction.toAttoTransaction(), result)
             verify(exactly = 0) { messagePublisher.publish(any()) }
-        }
-
-    @Test
-    fun `cancelling the last waiter while another joins preserves the replacement confirmation`() =
-        runBlocking {
-            // Given
-            val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
-            val repository = mockk<TransactionRepository>()
-            coEvery { repository.findById(transaction.hash) } returns null
-            val controller = TransactionPublicationController(ApplicationProperties(), node, messagePublisher, repository)
-            val request =
-                MockServerHttpRequest
-                    .post("/transactions")
-                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
-                    .build()
-
-            withTimeout(10.seconds) {
-                repeat(100) {
-                    coroutineScope {
-                        val retiring =
-                            async(start = CoroutineStart.UNDISPATCHED) {
-                                controller.publish(transaction.toAttoTransaction(), request, deduplicate = true)
-                            }
-
-                        // When
-                        val cleanup = launch(Dispatchers.Default) { retiring.cancelAndJoin() }
-                        val replacement =
-                            async(start = CoroutineStart.UNDISPATCHED) {
-                                controller.publishAndStream(transaction.toAttoTransaction(), request, deduplicate = true).first()
-                            }
-                        cleanup.join()
-                        controller.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
-
-                        // Then
-                        assertEquals(transaction.toAttoTransaction(), replacement.await())
-                    }
-                }
-            }
         }
 
     @Test

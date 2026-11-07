@@ -38,6 +38,7 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertNull
@@ -95,7 +96,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
         verify {
             eventPublisher.publish(
                 match { it is ElectionStarted && it.transaction == transaction },
@@ -115,7 +116,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
     }
 
     @Test
@@ -235,7 +236,7 @@ class ElectionTest {
                 assertTrue(snapshotStarted.await(5, TimeUnit.SECONDS))
                 val expiry = launch(start = CoroutineStart.UNDISPATCHED) { election.expireOld() }
                 assertFalse(expiry.isCompleted)
-                expiry.cancelAndJoin()
+                withTimeout(5_000) { expiry.cancelAndJoin() }
 
                 // Then
                 assertTrue(expiry.isCancelled)
@@ -268,7 +269,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify {
             eventPublisher.publish(match { it is ElectionLost && it.transaction == loser })
         }
@@ -290,7 +291,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 0) {
             eventPublisher.publish(match { it is ElectionConsensusReached })
         }
@@ -313,7 +314,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify {
             eventPublisher.publish(
                 match { it is ElectionConsensusReached && it.transaction == transaction },
@@ -389,7 +390,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionStarted && it.transaction == transactionA })
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == transactionA })
@@ -409,7 +410,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionStarted && it.account == updatedAccount && it.transaction == nextTransaction })
         }
@@ -437,7 +438,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(next.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionRejected && it.account == previousAccount && it.transaction == saved })
             eventPublisher.publish(match { it is ElectionRejected && it.account == previousAccount && it.transaction == competing })
@@ -471,7 +472,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(next.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionRejected && it.transaction == staleCandidate })
         }
@@ -485,7 +486,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == next })
         }
@@ -509,7 +510,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionRejected && it.account == initialAccount && it.transaction == historicalSaved })
             eventPublisher.publish(
@@ -547,7 +548,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == saved })
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == next })
@@ -585,7 +586,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(next.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(next.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionRejected && it.transaction == historicalSaved })
             eventPublisher.publish(match { it is ElectionRejected && it.transaction == historicalCompetitor })
@@ -613,7 +614,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(saved.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(saved.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionStarted && it.transaction == saved })
         }
@@ -645,7 +646,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(unrelated.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(unrelated.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionExpired && it.transaction == expired })
         }
@@ -683,7 +684,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(setOf(unrelatedActive.toPublicKeyHeight()), election.getElections().keys)
+        assertEquals(setOf(unrelatedActive.toPublicKeyHeight()), runBlocking { election.getElections().keys })
         verify(exactly = 1) {
             eventPublisher.publish(match { it is ElectionConsensusReached && it.transaction == unrelatedPending })
             eventPublisher.publish(match { it is ElectionRejected && it.transaction == pendingCompetitor })
@@ -719,7 +720,7 @@ class ElectionTest {
         }
 
         // Then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify(exactly = 2) {
             eventPublisher.publish(match { it is ElectionStarted && it.transaction == active })
             eventPublisher.publish(match { it is ElectionStarted && it.transaction == pending })
@@ -776,7 +777,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
         verify {
             eventPublisher.publish(
                 match { it is ElectionConsensusChanged && it.transaction == transactionB },
@@ -821,7 +822,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
         verify {
             eventPublisher.publish(
                 match { it is ElectionExpired && it.transaction == oldTransaction },
@@ -848,7 +849,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(0, election.getSize())
+        assertEquals(0, runBlocking { election.getSize() })
     }
 
     @Test
@@ -869,7 +870,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
         verify(exactly = 0) {
             eventPublisher.publish(
                 match { it is ElectionConsensusChanged },
@@ -907,7 +908,7 @@ class ElectionTest {
         }
 
         // then
-        assertEquals(1, election.getSize())
+        assertEquals(1, runBlocking { election.getSize() })
         // No ConsensusChanged event since leader stays the same (single transaction)
         verify(exactly = 0) {
             eventPublisher.publish(
