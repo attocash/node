@@ -5,7 +5,9 @@ import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
+import cash.atto.commons.toAttoHeight
 import cash.atto.node.EventPublisher
+import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NodeBanned
@@ -13,6 +15,7 @@ import cash.atto.node.network.NodeConnected
 import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
+import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.NodeFeature
 import io.mockk.every
@@ -28,6 +31,10 @@ import org.junit.jupiter.api.extension.ExtendWith
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
+import java.time.Clock
+import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.Executors
 import kotlin.random.Random
 
 @ExtendWith(MockKExtension::class)
@@ -47,6 +54,11 @@ class GuardianTest {
     @RelaxedMockK
     lateinit var guardianProperties: GuardianProperties
 
+    @RelaxedMockK
+    lateinit var clock: Clock
+
+    private var now = Instant.parse("2026-11-07T00:00:00Z")
+
     @InjectMockKs
     lateinit var guardian: Guardian
 
@@ -55,6 +67,7 @@ class GuardianTest {
         every { guardianProperties.minimalMedian } returns minimalMedian
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
         every { guardianProperties.connectionRequestLimitPerMinute } returns 60
+        every { clock.instant() } answers { now }
         guardian.clear()
     }
 
@@ -190,6 +203,269 @@ class GuardianTest {
         assertEquals(InboundConnectionDecision.Banned, decision)
         assertThat(guardian.getSnapshot()).isEmpty()
     }
+
+    @Test
+    fun `should discard completed statistics after an idle window`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val socket = randomSocketAddress()
+        guardian.count(inboundMessage(node.publicUri, socket))
+        guardian.requestInboundConnection(socket.address)
+        guardian.guard()
+        assertEquals(mapOf(socket to 1UL, InetSocketAddress(socket.address, 0) to 1UL), guardian.getSnapshot())
+
+        // When
+        guardian.guard()
+
+        // Then
+        assertThat(guardian.getSnapshot()).isEmpty()
+    }
+
+    @Test
+    fun `should include idle voters in successive window medians`() {
+        // Given
+        val voters = (1..3).map { NodeConnected(randomSocketAddress(), createNode(AttoAmount.MAX)) }
+        voters.forEach {
+            guardian.add(it)
+            every { voteWeighter.isAboveMinimalRebroadcastWeight(it.node.publicKey) } returns true
+            guardian.count(inboundMessage(it.node.publicUri, it.connectionSocketAddress))
+        }
+        guardian.guard()
+        val active = voters.first()
+
+        // When
+        repeat(2) {
+            repeat(100) {
+                guardian.count(inboundMessage(active.node.publicUri, active.connectionSocketAddress))
+            }
+            guardian.guard()
+        }
+
+        // Then
+        assertEquals(mapOf(active.connectionSocketAddress to 100UL), guardian.getSnapshot())
+        verify(exactly = 0) { eventPublisher.publish(match { it is NodeBanned }) }
+    }
+
+    @Test
+    fun `should release departed socket statistics across reconnects`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val address = InetAddress.getByName("8.8.8.8")
+
+        // When
+        repeat(20) { index ->
+            val socket = InetSocketAddress(address, 10_000 + index)
+            guardian.add(NodeConnected(socket, node))
+            guardian.count(inboundMessage(node.publicUri, socket))
+            guardian.remove(NodeDisconnected(socket, node))
+            guardian.guard()
+            assertEquals(mapOf(socket to 1UL), guardian.getSnapshot())
+        }
+        guardian.guard()
+
+        // Then
+        assertThat(guardian.getSnapshot()).isEmpty()
+        assertThat(guardian.getVoters()).isEmpty()
+    }
+
+    @Test
+    fun `should count every concurrent message in exactly one window`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val message = inboundMessage(node.publicUri, randomSocketAddress())
+        val start = CountDownLatch(1)
+
+        // When
+        val total =
+            Executors.newFixedThreadPool(5).use { executor ->
+                val counters =
+                    (1..4).map {
+                        executor.submit {
+                            start.await()
+                            repeat(500) { guardian.count(message) }
+                        }
+                    }
+                val windows =
+                    executor.submit<ULong> {
+                        start.await()
+                        var total = 0UL
+                        repeat(200) {
+                            guardian.guard()
+                            total += guardian.getSnapshot().values.sum()
+                        }
+                        total
+                    }
+                start.countDown()
+                counters.forEach { it.get() }
+                val completed = windows.get()
+                guardian.guard()
+                completed + guardian.getSnapshot().values.sum()
+            }
+
+        // Then
+        assertEquals(2_000UL, total)
+    }
+
+    @Test
+    fun `should exempt final expected response and immediately remove its credit`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val message = inboundMessage(node.publicUri, randomSocketAddress())
+        guardian.count(request(node, 2UL))
+
+        // When
+        guardian.count(message)
+        guardian.count(message)
+        guardian.guard()
+
+        // Then
+        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertThat(guardian.getSnapshot()).isEmpty()
+        guardian.count(message)
+        guardian.guard()
+        assertEquals(mapOf(message.socketAddress to 1UL), guardian.getSnapshot())
+    }
+
+    @Test
+    fun `should preserve reconnect credits across delayed old disconnect and expire unanswered credit`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val oldSocket = InetSocketAddress(InetAddress.getLoopbackAddress(), 10_000)
+        val newSocket = InetSocketAddress(InetAddress.getLoopbackAddress(), 10_001)
+        guardian.add(NodeConnected(oldSocket, node))
+        val delayedDisconnect = NodeDisconnected(oldSocket, node, timestamp = now)
+        now = now.plusSeconds(1)
+        guardian.add(NodeConnected(newSocket, node))
+        guardian.count(request(node, 2UL))
+
+        // When
+        guardian.remove(delayedDisconnect)
+        guardian.count(inboundMessage(node.publicUri, newSocket))
+        guardian.guard()
+
+        // Then
+        assertEquals(mapOf(newSocket to node.publicKey), guardian.getVoters())
+        assertEquals(1, guardian.expectedResponsePeerCount())
+        assertThat(guardian.getSnapshot()).isEmpty()
+        now = now.plus(AttoTransactionStreamRequest.TIMEOUT)
+        guardian.guard()
+        assertEquals(0, guardian.expectedResponsePeerCount())
+        guardian.count(inboundMessage(node.publicUri, newSocket))
+        guardian.guard()
+        assertEquals(mapOf(newSocket to 1UL), guardian.getSnapshot())
+    }
+
+    @Test
+    fun `should expire late request credits against their original timestamp`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val request = request(node, 2UL)
+        guardian.remove(NodeDisconnected(randomSocketAddress(), node))
+        now = now.plusSeconds(30)
+
+        // When
+        guardian.count(request)
+        assertEquals(1, guardian.expectedResponsePeerCount())
+        now = now.plusSeconds(30)
+        guardian.guard()
+
+        // Then
+        assertEquals(0, guardian.expectedResponsePeerCount())
+    }
+
+    @Test
+    fun `should ignore already expired outbound requests`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val request = request(node, 2UL)
+        now = now.plus(AttoTransactionStreamRequest.TIMEOUT)
+
+        // When
+        guardian.count(request)
+
+        // Then
+        assertEquals(0, guardian.expectedResponsePeerCount())
+    }
+
+    @Test
+    fun `should expire remaining credits without extending them on response`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val message = inboundMessage(node.publicUri, randomSocketAddress())
+        guardian.count(request(node, 2UL))
+        now = now.plusSeconds(59)
+        guardian.count(message)
+
+        // When
+        now = now.plusSeconds(1)
+        guardian.count(message)
+        guardian.guard()
+
+        // Then
+        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(mapOf(message.socketAddress to 1UL), guardian.getSnapshot())
+    }
+
+    @Test
+    fun `should preserve latest request expiry when outbound events arrive out of order`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val older = request(node, 2UL)
+        now = now.plusSeconds(30)
+        guardian.count(request(node, 2UL))
+        guardian.count(older)
+        val message = inboundMessage(node.publicUri, randomSocketAddress())
+
+        // When
+        now = now.plusSeconds(30)
+        guardian.count(message)
+        guardian.guard()
+
+        // Then
+        assertEquals(1, guardian.expectedResponsePeerCount())
+        assertThat(guardian.getSnapshot()).isEmpty()
+        now = now.plusSeconds(30)
+        guardian.guard()
+        assertEquals(0, guardian.expectedResponsePeerCount())
+    }
+
+    @Test
+    fun `should consume expected credits atomically under concurrent responses`() {
+        // Given
+        val node = createNode(AttoAmount.MAX)
+        val message = inboundMessage(node.publicUri, randomSocketAddress())
+        guardian.count(request(node, 200UL))
+        val start = CountDownLatch(1)
+
+        // When
+        Executors.newFixedThreadPool(4).use { executor ->
+            val counters =
+                (1..4).map {
+                    executor.submit {
+                        start.await()
+                        repeat(100) { guardian.count(message) }
+                    }
+                }
+            start.countDown()
+            counters.forEach { it.get() }
+        }
+        guardian.guard()
+
+        // Then
+        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(mapOf(message.socketAddress to 200UL), guardian.getSnapshot())
+    }
+
+    private fun request(
+        node: AttoNode,
+        count: ULong,
+    ): DirectNetworkMessage<AttoTransactionStreamRequest> =
+        DirectNetworkMessage(
+            publicUri = node.publicUri,
+            payload = AttoTransactionStreamRequest(node.publicKey, 1UL.toAttoHeight(), count.toAttoHeight()),
+            expectedResponseCount = count,
+            timestamp = now,
+        )
 
     private fun createNode(weight: AttoAmount): AttoNode {
         val publicUri = randomURI()

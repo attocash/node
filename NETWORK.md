@@ -14,7 +14,7 @@ connections with a mutual challenge-based handshake.
 An embedded Ktor CIO server exposes two endpoints:
 
 - **`POST /handshakes`** – Receives a `CounterChallengeResponse` from a connecting peer. Rejects requests from banned
-  addresses (via `BannedMonitor`), publishes an `InboundConnectionRequested` event for rate-limiting, validates the
+  addresses (via `BannedMonitor`), calls `Guardian.requestInboundConnection` for rate-limiting, validates the
   challenge, verifies the cryptographic signature and genesis hash, signs the counter-challenge, and emits the peer's
   `AttoNode` into a `MutableSharedFlow` so the WebSocket handler (or the outbound connector) can proceed.
 - **`WS /`** – Accepts inbound WebSocket connections. The connecting client must provide `Atto-Public-Uri` and
@@ -73,6 +73,13 @@ An embedded Ktor CIO server exposes two endpoints:
    (resetting the 60-second TTL).
 6. On flow completion or exception, the connection is removed from the map and the session is disconnected.
 
+Connection events are delivered by independent asynchronous listener tasks; publishing `NodeConnected` before
+`NodeDisconnected` does not guarantee that their listeners finish in that order. The peer projections in
+`TransactionNetworkProvider`, `GapDiscoverer`, and `SendDiscoverer` currently use unconditional add/remove operations.
+A delayed connect listener can therefore add a stale URI/public-key entry after disconnect cleanup has run.
+These projections have no expiry or reconciliation, so that metadata remains until a later removal or process restart.
+The authoritative connection map and WebSocket lifecycle are separate from these retained peer entries.
+
 #### Sending Messages
 
 - **`send(publicUri, message)`** – Serializes and sends a message to a specific peer. On failure, removes the
@@ -104,15 +111,20 @@ The `guardian` package provides automatic rate-limiting and banning of misbehavi
 `Guardian` is a Spring `@Service` that monitors inbound message rates and bans peers that exceed a threshold derived
 from voter behaviour.
 
-- **Message Counting** – Tracks per-socket-address message counts in `statisticsMap`. Outbound `DirectNetworkMessage`
-  events increment an `expectedResponseCountMap` so that solicited responses are not counted against the peer.
+- **Message Counting** – Tracks per-socket-address message counts in `statisticsMap`. Counting and window rotation
+  share a lock; `guard()` swaps out the map and retains only the latest completed window as its snapshot.
+  Outbound `DirectNetworkMessage` events with positive expected-response counts add per-URI credits so that solicited
+  responses are not counted against the peer. Consuming the final credit removes the entry immediately. Unanswered
+  credits expire one minute after the latest request's original timestamp; inbound responses do not extend that deadline.
+  Expired entries are removed when a response is counted or during the next guard sweep, including credits added by
+  a delayed outbound listener after disconnect.
 - **Voter Tracking** – Maintains a `voterMap` of connected voters (peers above minimal rebroadcast weight). Updated on
   `NodeConnected` / `NodeDisconnected` events.
-- **`guard()`** – Runs every 15 seconds. Computes the difference in message counts since the last snapshot, calculates
-  the median rate among voters, and bans any address whose merged rate exceeds `median × toleranceMultiplier`
+- **`guard()`** – Runs every 15 seconds. Drains the current counts, calculates the median rate among connected eligible
+  voters (including zero for idle voters), and bans any address whose merged rate exceeds `median × toleranceMultiplier`
   (configurable via `GuardianProperties`). A `minimalMedian` threshold prevents banning when overall traffic is too low.
-- **Connection Requests** – Also counts `InboundConnectionRequested` events (published by `NetworkProcessor` on every
-  handshake/WebSocket attempt) to detect connection-flood attacks.
+- **Connection Requests** – `NetworkProcessor` calls `requestInboundConnection` directly for handshake/WebSocket
+  admission. Guardian counts non-banned attempts by IP and applies the configured per-minute connection limit.
 
 #### BannedMonitor
 
@@ -131,7 +143,6 @@ entries. It listens for `NodeBanned` and `NodeUnbanned` events and exposes `isBa
 
 | Event                        | Published By            | Consumed By                                          |
 |------------------------------|-------------------------|------------------------------------------------------|
-| `InboundConnectionRequested` | `NetworkProcessor`      | `Guardian`                                           |
 | `NodeConnected`              | `NodeConnectionManager` | `Guardian`                                           |
 | `NodeDisconnected`           | `NodeConnectionManager` | `Guardian`                                           |
 | `NodeBanned`                 | `Guardian`              | `BannedMonitor`, `NodeConnectionManager`, `Unbanner` |

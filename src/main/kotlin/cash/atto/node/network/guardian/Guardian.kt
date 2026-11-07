@@ -11,6 +11,7 @@ import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.network.NodeUnbanned
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
+import cash.atto.protocol.AttoTransactionStreamRequest
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -20,7 +21,9 @@ import org.springframework.stereotype.Service
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.URI
+import java.time.Clock
 import java.time.Duration
+import java.time.Instant
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -31,10 +34,13 @@ class Guardian(
     private val voteWeighter: VoteWeighter,
     private val eventPublisher: EventPublisher,
     private val guardianProperties: GuardianProperties,
+    private val clock: Clock,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
-    private val statisticsMap = ConcurrentHashMap<InetSocketAddress, ULong>()
+    // Counting and window rotation share this lock so each hit belongs to exactly one window.
+    private val statisticsLock = Any()
+    private var statisticsMap = HashMap<InetSocketAddress, ULong>()
     private val voterMap = ConcurrentHashMap<InetSocketAddress, AttoPublicKey>()
     private val banned = ConcurrentHashMap.newKeySet<InetAddress>()
     private val connectionRequestCounters =
@@ -46,10 +52,8 @@ class Guardian(
             .build<InetAddress, AtomicInteger>()
             .asMap()
 
-    /**
-     * Allow extra requests when messages were actually requested
-     */
-    private val expectedResponseCountMap = ConcurrentHashMap<URI, ULong>()
+    // Only outbound requests extend expiry; delayed delivery keeps the request's original deadline.
+    private val expectedResponseCountMap = ConcurrentHashMap<URI, ExpectedResponses>()
 
     @Volatile
     private var snapshot: Map<InetSocketAddress, ULong> = mapOf()
@@ -76,13 +80,22 @@ class Guardian(
 
     @EventListener
     fun count(message: DirectNetworkMessage<*>) {
-        val uri = message.publicUri
-        expectedResponseCountMap.compute(uri) { _, v ->
-            val count = (v ?: 0UL) + message.expectedResponseCount
-            if (count == 0UL) {
-                return@compute null
-            }
-            return@compute count
+        if (message.expectedResponseCount == 0UL) {
+            return
+        }
+
+        val now = clock.instant()
+        val expiresAt = message.timestamp.plus(AttoTransactionStreamRequest.TIMEOUT)
+        if (!now.isBefore(expiresAt)) {
+            return
+        }
+
+        expectedResponseCountMap.compute(message.publicUri) { _, responses ->
+            val remaining = responses?.takeIf { now.isBefore(it.expiresAt) }
+            ExpectedResponses(
+                count = (remaining?.count ?: 0UL) + message.expectedResponseCount,
+                expiresAt = maxOf(remaining?.expiresAt ?: expiresAt, expiresAt),
+            )
         }
     }
 
@@ -93,21 +106,23 @@ class Guardian(
             return
         }
 
-        val socketAddress = message.socketAddress
-        val expectedCount =
-            expectedResponseCountMap.compute(message.publicUri) { _, v ->
-                val count = v ?: 0UL
-                if (count == 0UL) {
-                    return@compute null
-                }
-                return@compute count - 1UL
+        val now = clock.instant()
+        var expected = false
+        expectedResponseCountMap.computeIfPresent(message.publicUri) { _, responses ->
+            if (!now.isBefore(responses.expiresAt)) {
+                return@computeIfPresent null
             }
-        if (expectedCount != null) {
+            expected = true
+            if (responses.count == 1UL) {
+                null
+            } else {
+                responses.copy(count = responses.count - 1UL)
+            }
+        }
+        if (expected) {
             return
         }
-        statisticsMap.compute(socketAddress) { _, v ->
-            (v ?: 0UL) + 1UL
-        }
+        count(message.socketAddress)
     }
 
     @EventListener
@@ -137,12 +152,24 @@ class Guardian(
     @Scheduled(fixedRate = 15, timeUnit = TimeUnit.SECONDS)
     @Synchronized
     fun guard() {
-        val newSnapshot = statisticsMap.toMap()
+        val now = clock.instant()
+        expectedResponseCountMap.keys.forEach { uri ->
+            expectedResponseCountMap.computeIfPresent(uri) { _, responses ->
+                responses.takeIf { now.isBefore(it.expiresAt) }
+            }
+        }
+        val windowCounts =
+            synchronized(statisticsLock) {
+                val completed = statisticsMap
+                statisticsMap = HashMap()
+                completed
+            }
+        snapshot = windowCounts
 
-        val differenceMap = calculateDifference(newSnapshot, snapshot)
-        snapshot = newSnapshot
-
-        val voterValues = extractVoters(differenceMap).values
+        val voterValues =
+            voterMap.entries
+                .filter { voteWeighter.isAboveMinimalRebroadcastWeight(it.value) }
+                .map { windowCounts[it.key] ?: 0UL }
         if (voterValues.isEmpty()) {
             return
         }
@@ -156,7 +183,7 @@ class Guardian(
         val threshold = median * guardianProperties.toleranceMultiplier
 
         val mergedDifferenceMap =
-            differenceMap
+            windowCounts
                 .entries
                 .groupBy({ it.key.address }, { it.value })
                 .mapValues { it.value.sum() }
@@ -167,26 +194,6 @@ class Guardian(
                 logger.info { "Banning $address. Received $count requests while median of voters is $median per second" }
                 eventPublisher.publish(NodeBanned(address))
             }
-    }
-
-    private fun calculateDifference(
-        newSnapshot: Map<InetSocketAddress, ULong>,
-        oldSnapshot: Map<InetSocketAddress, ULong>,
-    ): HashMap<InetSocketAddress, ULong> {
-        val treeMap = HashMap<InetSocketAddress, ULong>()
-        return newSnapshot
-            .asSequence()
-            .map {
-                val hits = it.value - (oldSnapshot[it.key] ?: 0U)
-                Pair(it.key, hits)
-            }.toMap(treeMap)
-    }
-
-    private fun extractVoters(snapshot: Map<InetSocketAddress, ULong>): Map<InetSocketAddress, ULong> {
-        return snapshot.filter {
-            val publicKey = voterMap[it.key] ?: return@filter false
-            return@filter voteWeighter.isAboveMinimalRebroadcastWeight(publicKey)
-        }
     }
 
     private fun median(hits: Collection<ULong>): ULong {
@@ -204,21 +211,33 @@ class Guardian(
 
     fun getVoters(): Map<InetSocketAddress, AttoPublicKey> = voterMap.toMap()
 
+    internal fun expectedResponsePeerCount(): Int = expectedResponseCountMap.size
+
     private fun countInboundConnection(address: InetAddress) {
-        val socketAddress = InetSocketAddress(address, 0)
-        statisticsMap.compute(socketAddress) { _, v ->
-            (v ?: 0UL) + 1UL
+        count(InetSocketAddress(address, 0))
+    }
+
+    private fun count(socketAddress: InetSocketAddress) {
+        synchronized(statisticsLock) {
+            statisticsMap[socketAddress] = (statisticsMap[socketAddress] ?: 0UL) + 1UL
         }
     }
 
     override fun clear() {
-        statisticsMap.clear()
+        synchronized(statisticsLock) {
+            statisticsMap.clear()
+        }
         snapshot = mapOf()
         voterMap.clear()
         expectedResponseCountMap.clear()
         banned.clear()
         connectionRequestCounters.clear()
     }
+
+    private data class ExpectedResponses(
+        val count: ULong,
+        val expiresAt: Instant,
+    )
 }
 
 sealed interface InboundConnectionDecision {
