@@ -1,21 +1,16 @@
 package cash.atto.node.bootstrap
 
-import cash.atto.node.bootstrap.discovery.DiscoveryMetrics
 import cash.atto.node.bootstrap.discovery.DiscoveryProperties
-import cash.atto.node.bootstrap.unchecked.UncheckedTransactionInserter
 import io.micrometer.core.instrument.DistributionSummary
 import io.micrometer.core.instrument.Gauge
 import io.micrometer.core.instrument.MeterRegistry
-import io.micrometer.core.instrument.Timer
 import org.springframework.stereotype.Component
 import java.time.Duration
-import java.util.concurrent.TimeUnit
-import kotlin.math.roundToLong
 
 @Component
 class BootstrapLoadMonitor(
     private val properties: DiscoveryProperties,
-    private val meterRegistry: MeterRegistry,
+    meterRegistry: MeterRegistry,
 ) {
     private val targetRatioSummary =
         DistributionSummary
@@ -23,16 +18,12 @@ class BootstrapLoadMonitor(
             .description("Unchecked persistence elapsed time divided by its proportional target")
             .register(meterRegistry)
 
-    private val insertTimer: Timer by lazy {
-        meterRegistry.get(UncheckedTransactionInserter.METRIC_NAME).timer()
-    }
-
     @Volatile
     private var targetCapacity = properties.batchSize
-    private var observedInsertCount = 0L
-    private var observedInsertNanos = 0L
-    private var observedPersistedRows = 0L
-    private var observedFailureCount = 0L
+    private var pendingInsertCount = 0L
+    private var pendingInsertNanos = 0L
+    private var pendingPersistedRows = 0L
+    private var pendingFailureCount = 0L
 
     init {
         Gauge
@@ -47,31 +38,31 @@ class BootstrapLoadMonitor(
     internal fun targetCapacity(): Int = targetCapacity
 
     @Synchronized
+    internal fun recordInsert(elapsedNanos: Long) {
+        pendingInsertCount++
+        pendingInsertNanos += elapsedNanos
+    }
+
+    @Synchronized
+    internal fun recordPersisted(rowCount: Int) {
+        pendingPersistedRows += rowCount
+    }
+
+    @Synchronized
+    internal fun recordFailure() {
+        pendingFailureCount++
+    }
+
+    @Synchronized
     internal fun poll() {
-        val insertCount = insertTimer.count()
-        val insertNanos = insertTimer.totalTime(TimeUnit.NANOSECONDS).roundToLong()
-        val persistedRows =
-            meterRegistry
-                .find(DiscoveryMetrics.PERSISTED_METRIC_NAME)
-                .counters()
-                .sumOf { it.count() }
-                .roundToLong()
-        val failureCount =
-            meterRegistry
-                .get(DiscoveryMetrics.PERSISTENCE_FAILURE_METRIC_NAME)
-                .counter()
-                .count()
-                .roundToLong()
-
-        val completedInsertDelta = insertCount - observedInsertCount
-        val elapsedNanosDelta = maxOf(0L, insertNanos - observedInsertNanos)
-        val persistedRowsDelta = persistedRows - observedPersistedRows
-        val failureCountDelta = failureCount - observedFailureCount
-
-        observedInsertCount = insertCount
-        observedInsertNanos = insertNanos
-        observedPersistedRows = persistedRows
-        observedFailureCount = failureCount
+        val completedInsertDelta = pendingInsertCount
+        val elapsedNanosDelta = maxOf(0L, pendingInsertNanos)
+        val persistedRowsDelta = pendingPersistedRows
+        val failureCountDelta = pendingFailureCount
+        pendingInsertCount = 0
+        pendingInsertNanos = 0
+        pendingPersistedRows = 0
+        pendingFailureCount = 0
 
         if (failureCountDelta > 0) {
             targetCapacity = properties.batchSize
@@ -81,7 +72,7 @@ class BootstrapLoadMonitor(
             return
         }
         check(completedInsertDelta > 0) {
-            "Persisted $persistedRowsDelta unchecked transactions without an insert timer measurement"
+            "Persisted $persistedRowsDelta unchecked transactions without an insert measurement"
         }
 
         val elapsed = Duration.ofNanos(elapsedNanosDelta)

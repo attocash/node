@@ -7,19 +7,19 @@ import cash.atto.commons.AttoNetwork
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.toAttoHeight
 import cash.atto.node.EventPublisher
+import cash.atto.node.network.ConnectedPeer
+import cash.atto.node.network.ConnectedPeers
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
+import cash.atto.node.network.MutableConnectedPeers
 import cash.atto.node.network.NodeBanned
-import cash.atto.node.network.NodeConnected
-import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionStreamRequest
 import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.NodeFeature
 import io.mockk.every
-import io.mockk.impl.annotations.InjectMockKs
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.verify
@@ -57,10 +57,16 @@ class GuardianTest {
     @RelaxedMockK
     lateinit var clock: Clock
 
+    @RelaxedMockK
+    lateinit var connectedPeers: ConnectedPeers
+
+    private val peers = MutableConnectedPeers()
+
     private var now = Instant.parse("2026-11-07T00:00:00Z")
 
-    @InjectMockKs
-    lateinit var guardian: Guardian
+    private lateinit var expectedResponses: ExpectedResponses
+    private lateinit var peerBans: PeerBans
+    private lateinit var guardian: Guardian
 
     @BeforeEach
     fun beforeEach() {
@@ -68,36 +74,40 @@ class GuardianTest {
         every { guardianProperties.toleranceMultiplier } returns toleranceMultiplier
         every { guardianProperties.connectionRequestLimitPerMinute } returns 60
         every { clock.instant() } answers { now }
-        guardian.clear()
+        peers.clear()
+        every { connectedPeers.snapshot() } answers { peers.snapshot() }
+        expectedResponses = ExpectedResponses(clock)
+        peerBans = PeerBans(eventPublisher, clock)
+        guardian = Guardian(thisNode, voteWeighter, guardianProperties, peerBans, expectedResponses, connectedPeers)
     }
 
     @Test
     fun `should take snapshot`() {
         val node = createNode(AttoAmount.MAX)
-        val event = NodeConnected(randomSocketAddress(), node)
-        guardian.add(NodeConnected(randomSocketAddress(), node))
-        guardian.count(inboundMessage(node.publicUri, event.connectionSocketAddress))
+        val event = ConnectedPeer(node, randomSocketAddress())
+        peers.connect(event)
+        guardian.count(inboundMessage(node.publicUri, event.socketAddress))
 
         // when
         guardian.guard()
 
         // then
-        assertEquals(mapOf(event.connectionSocketAddress to 1UL), guardian.getSnapshot())
+        assertEquals(mapOf(event.socketAddress to 1UL), guardian.getSnapshot())
         verify(exactly = 0) { eventPublisher.publish(any()) }
     }
 
     @Test
     fun `should ban when node deviate from single voter`() {
         val voteNode = createNode(AttoAmount.MAX)
-        val voterEvent = NodeConnected(randomSocketAddress(), voteNode)
-        guardian.add(voterEvent)
-        guardian.count(inboundMessage(voterEvent.node.publicUri, voterEvent.connectionSocketAddress))
+        val voterEvent = ConnectedPeer(voteNode, randomSocketAddress())
+        peers.connect(voterEvent)
+        guardian.count(inboundMessage(voterEvent.node.publicUri, voterEvent.socketAddress))
 
         val normalPeer = createNode(AttoAmount.MAX)
-        val normalEvent = NodeConnected(randomSocketAddress(), normalPeer)
-        guardian.add(normalEvent)
+        val normalEvent = ConnectedPeer(normalPeer, randomSocketAddress())
+        peers.connect(normalEvent)
         for (i in 0UL..toleranceMultiplier) {
-            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.connectionSocketAddress))
+            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.socketAddress))
         }
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent.node.publicKey) } returns true
@@ -110,29 +120,53 @@ class GuardianTest {
             eventPublisher.publish(
                 match { event ->
                     event as NodeBanned
-                    event.address == normalEvent.connectionSocketAddress.address
+                    event.address == normalEvent.socketAddress.address
                 },
             )
         }
     }
 
     @Test
+    fun `guard rejects banned addresses before dispatching their notification`() {
+        // Given
+        val voter = createNode(AttoAmount.MAX)
+        val voterSocket = InetSocketAddress(InetAddress.getByName("8.8.8.8"), 10_000)
+        peers.connect(ConnectedPeer(voter, voterSocket))
+        every { voteWeighter.isAboveMinimalRebroadcastWeight(voter.publicKey) } returns true
+        guardian.count(inboundMessage(voter.publicUri, voterSocket))
+        val peer = createNode(AttoAmount.MAX)
+        val peerSocket = InetSocketAddress(InetAddress.getByName("1.1.1.1"), 10_001)
+        repeat(11) { guardian.count(inboundMessage(peer.publicUri, peerSocket)) }
+        every { eventPublisher.publish(any()) } answers {
+            val event = firstArg<NodeBanned>()
+            assertEquals(InboundConnectionDecision.Banned, guardian.requestInboundConnection(event.address))
+        }
+
+        // When
+        guardian.guard()
+
+        // Then
+        assertEquals(setOf(peerSocket.address), peerBans.snapshot())
+        verify(exactly = 1) { eventPublisher.publish(match { it is NodeBanned && it.address == peerSocket.address }) }
+    }
+
+    @Test
     fun `should ban when node deviate from voters median`() {
         val votePeer1 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
-        val voterEvent1 = NodeConnected(randomSocketAddress(), votePeer1)
-        guardian.add(voterEvent1)
-        guardian.count(inboundMessage(voterEvent1.node.publicUri, voterEvent1.connectionSocketAddress))
+        val voterEvent1 = ConnectedPeer(votePeer1, randomSocketAddress())
+        peers.connect(voterEvent1)
+        guardian.count(inboundMessage(voterEvent1.node.publicUri, voterEvent1.socketAddress))
 
         val votePeer2 = createNode(AttoAmount(ULong.MAX_VALUE / 2U))
-        val voterEvent2 = NodeConnected(randomSocketAddress(), votePeer2)
-        guardian.add(voterEvent2)
-        guardian.count(inboundMessage(voterEvent2.node.publicUri, voterEvent2.connectionSocketAddress))
+        val voterEvent2 = ConnectedPeer(votePeer2, randomSocketAddress())
+        peers.connect(voterEvent2)
+        guardian.count(inboundMessage(voterEvent2.node.publicUri, voterEvent2.socketAddress))
 
         val normalPeer = createNode(AttoAmount.MAX)
-        val normalEvent = NodeConnected(randomSocketAddress(), normalPeer)
-        guardian.add(normalEvent)
+        val normalEvent = ConnectedPeer(normalPeer, randomSocketAddress())
+        peers.connect(normalEvent)
         for (i in 0UL..toleranceMultiplier) {
-            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.connectionSocketAddress))
+            guardian.count(inboundMessage(normalEvent.node.publicUri, normalEvent.socketAddress))
         }
 
         every { voteWeighter.isAboveMinimalRebroadcastWeight(voterEvent1.node.publicKey) } returns true
@@ -146,7 +180,7 @@ class GuardianTest {
             eventPublisher.publish(
                 match { event ->
                     event as NodeBanned
-                    event.address == normalEvent.connectionSocketAddress.address
+                    event.address == normalEvent.socketAddress.address
                 },
             )
         }
@@ -156,14 +190,30 @@ class GuardianTest {
     fun `should remove voter when disconnected`() {
         // given
         val node = createNode(AttoAmount.MAX)
-        val event = NodeConnected(randomSocketAddress(), node)
-        guardian.add(event)
+        val event = ConnectedPeer(node, randomSocketAddress())
+        peers.connect(event)
 
         // when
-        guardian.remove(NodeDisconnected(event.connectionSocketAddress, node))
+        peers.disconnect(node.publicUri)
 
         // then
         assertThat(guardian.getVoters()).isEmpty()
+    }
+
+    @Test
+    fun `voter query follows current connections and excludes non voters`() {
+        // Given
+        val old = createNode(AttoAmount.MAX)
+        peers.connect(old, randomSocketAddress())
+        val voter = createNode(AttoAmount.MAX)
+        val voterSocket = randomSocketAddress()
+        peers.connect(voter, voterSocket)
+
+        // When
+        peers.connect(old.copy(features = setOf(NodeFeature.HISTORICAL)), randomSocketAddress())
+
+        // Then
+        assertEquals(mapOf(voterSocket to voter.publicKey), guardian.getVoters())
     }
 
     @Test
@@ -194,14 +244,25 @@ class GuardianTest {
 
     @Test
     fun `should reject banned inbound connection without recording statistics`() {
+        // Given
         val address = InetAddress.getByName("1.1.1.1")
-        guardian.ban(NodeBanned(address))
+        peerBans.ban(address)
 
+        // When
         val decision = guardian.requestInboundConnection(address)
         guardian.guard()
 
+        // Then
         assertEquals(InboundConnectionDecision.Banned, decision)
         assertThat(guardian.getSnapshot()).isEmpty()
+
+        // When
+        now = now.plusSeconds(3_600)
+        peerBans.review()
+        val afterExpiry = guardian.requestInboundConnection(address)
+
+        // Then
+        assertEquals(InboundConnectionDecision.Accepted, afterExpiry)
     }
 
     @Test
@@ -224,11 +285,11 @@ class GuardianTest {
     @Test
     fun `should include idle voters in successive window medians`() {
         // Given
-        val voters = (1..3).map { NodeConnected(randomSocketAddress(), createNode(AttoAmount.MAX)) }
+        val voters = (1..3).map { ConnectedPeer(createNode(AttoAmount.MAX), randomSocketAddress()) }
         voters.forEach {
-            guardian.add(it)
+            peers.connect(it)
             every { voteWeighter.isAboveMinimalRebroadcastWeight(it.node.publicKey) } returns true
-            guardian.count(inboundMessage(it.node.publicUri, it.connectionSocketAddress))
+            guardian.count(inboundMessage(it.node.publicUri, it.socketAddress))
         }
         guardian.guard()
         val active = voters.first()
@@ -236,13 +297,13 @@ class GuardianTest {
         // When
         repeat(2) {
             repeat(100) {
-                guardian.count(inboundMessage(active.node.publicUri, active.connectionSocketAddress))
+                guardian.count(inboundMessage(active.node.publicUri, active.socketAddress))
             }
             guardian.guard()
         }
 
         // Then
-        assertEquals(mapOf(active.connectionSocketAddress to 100UL), guardian.getSnapshot())
+        assertEquals(mapOf(active.socketAddress to 100UL), guardian.getSnapshot())
         verify(exactly = 0) { eventPublisher.publish(match { it is NodeBanned }) }
     }
 
@@ -255,9 +316,9 @@ class GuardianTest {
         // When
         repeat(20) { index ->
             val socket = InetSocketAddress(address, 10_000 + index)
-            guardian.add(NodeConnected(socket, node))
+            peers.connect(ConnectedPeer(node, socket))
             guardian.count(inboundMessage(node.publicUri, socket))
-            guardian.remove(NodeDisconnected(socket, node))
+            peers.disconnect(node.publicUri)
             guardian.guard()
             assertEquals(mapOf(socket to 1UL), guardian.getSnapshot())
         }
@@ -311,7 +372,7 @@ class GuardianTest {
         // Given
         val node = createNode(AttoAmount.MAX)
         val message = inboundMessage(node.publicUri, randomSocketAddress())
-        guardian.count(request(node, 2UL))
+        expectedResponses.record(request(node, 2UL))
 
         // When
         guardian.count(message)
@@ -319,7 +380,7 @@ class GuardianTest {
         guardian.guard()
 
         // Then
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
         assertThat(guardian.getSnapshot()).isEmpty()
         guardian.count(message)
         guardian.guard()
@@ -327,29 +388,28 @@ class GuardianTest {
     }
 
     @Test
-    fun `should preserve reconnect credits across delayed old disconnect and expire unanswered credit`() {
+    fun `should preserve credits across reconnect and expire unanswered credit`() {
         // Given
         val node = createNode(AttoAmount.MAX)
         val oldSocket = InetSocketAddress(InetAddress.getLoopbackAddress(), 10_000)
         val newSocket = InetSocketAddress(InetAddress.getLoopbackAddress(), 10_001)
-        guardian.add(NodeConnected(oldSocket, node))
-        val delayedDisconnect = NodeDisconnected(oldSocket, node, timestamp = now)
+        peers.connect(ConnectedPeer(node, oldSocket))
+        peers.disconnect(node.publicUri)
         now = now.plusSeconds(1)
-        guardian.add(NodeConnected(newSocket, node))
-        guardian.count(request(node, 2UL))
+        peers.connect(ConnectedPeer(node, newSocket))
+        expectedResponses.record(request(node, 2UL))
 
         // When
-        guardian.remove(delayedDisconnect)
         guardian.count(inboundMessage(node.publicUri, newSocket))
         guardian.guard()
 
         // Then
         assertEquals(mapOf(newSocket to node.publicKey), guardian.getVoters())
-        assertEquals(1, guardian.expectedResponsePeerCount())
+        assertEquals(1, expectedResponses.peerCount)
         assertThat(guardian.getSnapshot()).isEmpty()
         now = now.plus(AttoTransactionStreamRequest.TIMEOUT)
         guardian.guard()
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
         guardian.count(inboundMessage(node.publicUri, newSocket))
         guardian.guard()
         assertEquals(mapOf(newSocket to 1UL), guardian.getSnapshot())
@@ -360,17 +420,17 @@ class GuardianTest {
         // Given
         val node = createNode(AttoAmount.MAX)
         val request = request(node, 2UL)
-        guardian.remove(NodeDisconnected(randomSocketAddress(), node))
+        peers.disconnect(node.publicUri)
         now = now.plusSeconds(30)
 
         // When
-        guardian.count(request)
-        assertEquals(1, guardian.expectedResponsePeerCount())
+        expectedResponses.record(request)
+        assertEquals(1, expectedResponses.peerCount)
         now = now.plusSeconds(30)
         guardian.guard()
 
         // Then
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
     }
 
     @Test
@@ -381,10 +441,10 @@ class GuardianTest {
         now = now.plus(AttoTransactionStreamRequest.TIMEOUT)
 
         // When
-        guardian.count(request)
+        expectedResponses.record(request)
 
         // Then
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
     }
 
     @Test
@@ -392,7 +452,7 @@ class GuardianTest {
         // Given
         val node = createNode(AttoAmount.MAX)
         val message = inboundMessage(node.publicUri, randomSocketAddress())
-        guardian.count(request(node, 2UL))
+        expectedResponses.record(request(node, 2UL))
         now = now.plusSeconds(59)
         guardian.count(message)
 
@@ -402,7 +462,7 @@ class GuardianTest {
         guardian.guard()
 
         // Then
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
         assertEquals(mapOf(message.socketAddress to 1UL), guardian.getSnapshot())
     }
 
@@ -412,8 +472,8 @@ class GuardianTest {
         val node = createNode(AttoAmount.MAX)
         val older = request(node, 2UL)
         now = now.plusSeconds(30)
-        guardian.count(request(node, 2UL))
-        guardian.count(older)
+        expectedResponses.record(request(node, 2UL))
+        expectedResponses.record(older)
         val message = inboundMessage(node.publicUri, randomSocketAddress())
 
         // When
@@ -422,11 +482,11 @@ class GuardianTest {
         guardian.guard()
 
         // Then
-        assertEquals(1, guardian.expectedResponsePeerCount())
+        assertEquals(1, expectedResponses.peerCount)
         assertThat(guardian.getSnapshot()).isEmpty()
         now = now.plusSeconds(30)
         guardian.guard()
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
     }
 
     @Test
@@ -434,7 +494,7 @@ class GuardianTest {
         // Given
         val node = createNode(AttoAmount.MAX)
         val message = inboundMessage(node.publicUri, randomSocketAddress())
-        guardian.count(request(node, 200UL))
+        expectedResponses.record(request(node, 200UL))
         val start = CountDownLatch(1)
 
         // When
@@ -452,7 +512,7 @@ class GuardianTest {
         guardian.guard()
 
         // Then
-        assertEquals(0, guardian.expectedResponsePeerCount())
+        assertEquals(0, expectedResponses.peerCount)
         assertEquals(mapOf(message.socketAddress to 200UL), guardian.getSnapshot())
     }
 

@@ -13,14 +13,23 @@ import cash.atto.commons.AttoTransaction
 import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
+import cash.atto.node.bootstrap.TransactionDiscovered
 import cash.atto.node.bootstrap.TransactionStuck
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
+import cash.atto.node.network.BroadcastNetworkMessage
+import cash.atto.node.network.BroadcastStrategy
+import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
+import cash.atto.node.network.MutableConnectedPeers
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionRejectionReason
+import cash.atto.node.vote.Vote
+import cash.atto.protocol.AttoNode
+import cash.atto.protocol.AttoTransactionRequest
 import cash.atto.protocol.AttoTransactionResponse
+import cash.atto.protocol.NodeFeature
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,6 +56,7 @@ class SendDiscovererTest {
                     discoveryQueue,
                     uncheckedTransactionRepository,
                     SimpleMeterRegistry(),
+                    MutableConnectedPeers(),
                 )
             val missingSend = sendTransaction(1)
             val receive = transaction(2, missingSend.hash)
@@ -99,6 +109,7 @@ class SendDiscovererTest {
                 discoveryQueue,
                 uncheckedTransactionRepository,
                 SimpleMeterRegistry(),
+                MutableConnectedPeers(),
             )
         val missingSend = sendTransaction(1)
         val receive = transaction(2, missingSend.hash)
@@ -135,6 +146,7 @@ class SendDiscovererTest {
                     discoveryQueue,
                     uncheckedTransactionRepository,
                     meterRegistry,
+                    MutableConnectedPeers(),
                 )
             val missingSend = sendTransaction(1)
             val firstReceive = transaction(2, missingSend.hash)
@@ -189,6 +201,81 @@ class SendDiscovererTest {
                     .count(),
             )
         }
+
+    @Test
+    fun `missing send request follows first connected representative in vote order`() {
+        // Given
+        val publisher = mockk<NetworkMessagePublisher>(relaxed = true)
+        val queue = mockk<DiscoveryQueue> { every { isAtCapacity() } returns false }
+        val peers = MutableConnectedPeers()
+        val disconnected = representative(10)
+        val first = representative(11)
+        val second = representative(12)
+        peers.connect(second)
+        peers.connect(first)
+        val discoverer = SendDiscoverer(publisher, queue, mockk(), SimpleMeterRegistry(), peers)
+        val missingSend = sendTransaction(1)
+        val votes =
+            listOf(disconnected, first, second).map { node ->
+                mockk<Vote> { every { publicKey } returns node.publicKey }
+            }
+
+        // When
+        discoverer.process(
+            TransactionDiscovered(TransactionRejectionReason.RECEIVABLE_NOT_FOUND, transaction(2, missingSend.hash), votes),
+        )
+
+        // Then
+        verify(exactly = 1) {
+            publisher.publish(
+                match {
+                    it is DirectNetworkMessage<*> &&
+                        it.publicUri == first.publicUri &&
+                        (it.payload as AttoTransactionRequest).hash == missingSend.hash
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `departed representative falls back to broadcast without a disconnect listener`() {
+        // Given
+        val publisher = mockk<NetworkMessagePublisher>(relaxed = true)
+        val queue = mockk<DiscoveryQueue> { every { isAtCapacity() } returns false }
+        val peers = MutableConnectedPeers()
+        val representative = representative(10)
+        peers.connect(representative)
+        val discoverer = SendDiscoverer(publisher, queue, mockk(), SimpleMeterRegistry(), peers)
+        val missingSend = sendTransaction(1)
+        val vote = mockk<Vote> { every { publicKey } returns representative.publicKey }
+        peers.disconnect(representative.publicUri)
+
+        // When
+        discoverer.process(
+            TransactionDiscovered(TransactionRejectionReason.RECEIVABLE_NOT_FOUND, transaction(2, missingSend.hash), listOf(vote)),
+        )
+
+        // Then
+        verify(exactly = 1) {
+            publisher.publish(
+                match {
+                    it is BroadcastNetworkMessage<*> &&
+                        it.strategy == BroadcastStrategy.EVERYONE &&
+                        (it.payload as AttoTransactionRequest).hash == missingSend.hash
+                },
+            )
+        }
+    }
+
+    private fun representative(marker: Byte): AttoNode =
+        AttoNode(
+            network = AttoNetwork.LOCAL,
+            protocolVersion = AttoNode.CURRENT_PROTOCOL_VERSION,
+            algorithm = AttoAlgorithm.V1,
+            publicKey = AttoPublicKey(ByteArray(32) { marker }),
+            publicUri = URI("ws://127.0.0.1:${8_000 + marker}"),
+            features = setOf(NodeFeature.VOTING),
+        )
 
     private fun sendTransaction(marker: Byte): AttoTransaction {
         val publicKey = AttoPublicKey(ByteArray(32) { marker })

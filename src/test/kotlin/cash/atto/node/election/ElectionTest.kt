@@ -30,14 +30,27 @@ import io.mockk.impl.annotations.MockK
 import io.mockk.impl.annotations.RelaxedMockK
 import io.mockk.junit5.MockKExtension
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.ExtendWith
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import org.springframework.boot.actuate.info.Info
 import java.time.Instant
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import kotlin.random.Random
 
 @ExtendWith(MockKExtension::class)
@@ -104,6 +117,138 @@ class ElectionTest {
         // then
         assertEquals(1, election.getSize())
     }
+
+    @Test
+    fun `diagnostics retain detached candidates votes and voting weights after later transitions`() =
+        runBlocking {
+            // Given
+            val transaction = receiveTransaction()
+            val previousAccount = accountBefore(transaction)
+            val competitor = transaction.competing()
+            val vote = Vote.sample(blockHash = transaction.hash, weight = AttoAmount(100UL))
+            every { voteWeighter.get(vote.publicKey) } returns vote.weight
+            election.start(TransactionValidated(previousAccount, transaction))
+            election.process(VoteValidated(transaction, vote))
+            val builder = Info.Builder()
+            ElectionInfoContributor(election).contribute(builder)
+            val details = builder.build().details["elections"] as Map<*, *>
+            val snapshot = details["weights"] as Map<*, *>
+            val captured = snapshot[transaction.toPublicKeyHeight()] as PublicKeyHeightElection
+
+            // When
+            val newerVote = vote.copy(blockHash = competitor.hash, timestamp = vote.timestamp.plusSeconds(1))
+            every { voteWeighter.get(vote.publicKey) } returns AttoAmount(200UL)
+            election.start(TransactionValidated(previousAccount, competitor))
+            election.process(VoteValidated(competitor, newerVote))
+            election.clear()
+            every { voteWeighter.getMinimalConfirmationWeight() } returns AttoAmount(50UL)
+
+            // Then
+            assertEquals(1, details["active"])
+            assertEquals(setOf(transaction.toPublicKeyHeight()), snapshot.keys)
+            assertEquals(listOf(transaction), captured.getTransactions())
+            assertEquals(mapOf(vote.publicKey to vote), captured.getProvisionalLeader().votes)
+            assertEquals(vote.weight, captured.getProvisionalLeader().totalWeight)
+            assertNull(captured.getConsensus())
+            assertEquals(0, election.getSize())
+        }
+
+    @Test
+    fun `diagnostic consumers cannot mutate live election candidates or votes`() =
+        runBlocking {
+            // Given
+            val transaction = receiveTransaction()
+            val previousAccount = accountBefore(transaction)
+            val vote = Vote.sample(blockHash = transaction.hash, weight = AttoAmount(100UL))
+            every { voteWeighter.get(vote.publicKey) } returns vote.weight
+            election.start(TransactionValidated(previousAccount, transaction))
+            election.process(VoteValidated(transaction, vote))
+            val captured = election.getElections().getValue(transaction.toPublicKeyHeight())
+
+            // When
+            captured.add(transaction.competing())
+            captured.getProvisionalLeader().votes.clear()
+
+            // Then
+            val current = election.getElections().getValue(transaction.toPublicKeyHeight())
+            assertEquals(listOf(transaction), current.getTransactions())
+            assertEquals(mapOf(vote.publicKey to vote), current.getProvisionalLeader().votes)
+            assertEquals(vote.weight, current.getProvisionalLeader().totalWeight)
+        }
+
+    @Test
+    fun `diagnostics remain coherent while elections start and clear concurrently`() =
+        runBlocking<Unit> {
+            // Given
+            val transaction = receiveTransaction()
+            val previousAccount = accountBefore(transaction)
+            val start = CompletableDeferred<Unit>()
+            val contributor = ElectionInfoContributor(election)
+
+            // When
+            val transitions =
+                async(Dispatchers.Default) {
+                    start.await()
+                    repeat(500) {
+                        election.start(TransactionValidated(previousAccount, transaction))
+                        election.clear()
+                    }
+                }
+            val observations =
+                async(Dispatchers.Default) {
+                    start.await()
+                    repeat(500) {
+                        val builder = Info.Builder()
+                        contributor.contribute(builder)
+                        val details = builder.build().details["elections"] as Map<*, *>
+                        val elections = details["weights"] as Map<*, *>
+
+                        // Then
+                        assertEquals(elections.size, details["active"])
+                        elections.values.forEach { value ->
+                            assertEquals(listOf(transaction), (value as PublicKeyHeightElection).getTransactions())
+                        }
+                    }
+                }
+
+            start.complete(Unit)
+            awaitAll(transitions, observations)
+        }
+
+    @Test
+    fun `scheduled expiry can be cancelled while a diagnostic snapshot owns election state`() =
+        runBlocking {
+            // Given
+            val transaction = receiveTransaction().copy(receivedAt = Instant.now().minusSeconds(1_000))
+            election.start(TransactionValidated(accountBefore(transaction), transaction))
+            val snapshotStarted = CountDownLatch(1)
+            val releaseSnapshot = CountDownLatch(1)
+            every { voteWeighter.getMinimalConfirmationWeight() } answers {
+                snapshotStarted.countDown()
+                check(releaseSnapshot.await(5, TimeUnit.SECONDS)) { "Snapshot was not released" }
+                minimalWeight
+            }
+            val snapshot = async(Dispatchers.Default) { election.getElections() }
+
+            try {
+                // When
+                assertTrue(snapshotStarted.await(5, TimeUnit.SECONDS))
+                val expiry = launch(start = CoroutineStart.UNDISPATCHED) { election.expireOld() }
+                assertFalse(expiry.isCompleted)
+                expiry.cancelAndJoin()
+
+                // Then
+                assertTrue(expiry.isCancelled)
+                assertEquals(1L, releaseSnapshot.count)
+                verify(exactly = 0) { eventPublisher.publish(any<ElectionExpired>()) }
+                releaseSnapshot.countDown()
+                assertEquals(setOf(transaction.toPublicKeyHeight()), snapshot.await().keys)
+                assertEquals(1, election.getSize())
+            } finally {
+                releaseSnapshot.countDown()
+                snapshot.cancelAndJoin()
+            }
+        }
 
     @Test
     fun `should remove election when AccountUpdated event is received`() {

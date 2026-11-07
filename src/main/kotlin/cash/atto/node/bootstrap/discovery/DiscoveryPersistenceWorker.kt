@@ -1,6 +1,7 @@
 package cash.atto.node.bootstrap.discovery
 
 import cash.atto.node.CacheSupport
+import cash.atto.node.bootstrap.BootstrapLoadMonitor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionService
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.CancellationException
@@ -15,6 +16,7 @@ class DiscoveryPersistenceWorker(
     private val uncheckedTransactionService: UncheckedTransactionService,
     private val queue: DiscoveryQueue,
     private val metrics: DiscoveryMetrics,
+    private val loadMonitor: BootstrapLoadMonitor,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
     private val flushMutex = Mutex()
@@ -48,6 +50,7 @@ class DiscoveryPersistenceWorker(
             } catch (e: Exception) {
                 if (e !is CancellationException) {
                     retryBatch = discoveries
+                    loadMonitor.recordFailure()
                     metrics.persistenceFailed()
                 }
                 throw e
@@ -55,6 +58,7 @@ class DiscoveryPersistenceWorker(
 
         val elapsed = Duration.ofNanos(System.nanoTime() - startedAt)
         retryBatch = null
+        loadMonitor.recordPersisted(discoveries.size)
         metrics.persisted(discoveries)
         metrics.affectedRows(affectedRows)
         logger.info { "Saved ${discoveries.size} unchecked transactions in $elapsed" }

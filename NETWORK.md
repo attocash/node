@@ -1,149 +1,144 @@
-### Network Layer Overview
+# Network Layer
 
-This document describes how the networking subsystem works in the Atto node, focusing on `NetworkProcessor`,
-`NodeConnectionManager`, and the Guardian rate-limiting system.
----
+The networking subsystem authenticates peers in [NetworkProcessor][processor], manages their WebSocket sessions in
+[NodeConnectionManager][connections], and counts traffic in [Guardian][guardian]. These owners communicate through direct
+queries and asynchronous network-message and lifecycle events.
 
-### NetworkProcessor
+## Peer Authentication
 
-`NetworkProcessor` is a Spring `@Component` responsible for establishing and accepting peer-to-peer WebSocket
-connections with a mutual challenge-based handshake.
+`NetworkProcessor` starts an embedded Ktor CIO server with two endpoints:
 
-#### Embedded Server
+- **`POST /handshakes`** accepts a `CounterChallengeResponse`. Guardian admits the remote address, the processor consumes
+  a one-time challenge, checks the expected public URI, genesis hash, signature and counter-challenge prefix, then signs
+  a `ChallengeResponse`. Successful authentication completes the waiting outbound attempt before the HTTP response is sent.
+- **`WS /`** accepts a WebSocket with `Atto-Public-Uri` and `Atto-Http-Challenge` headers. Guardian admits the remote address,
+  the processor validates the headers and challenge prefix, then posts a counter-challenge to the peer's `/handshakes`
+  endpoint. It checks the returned URI and signature before handing the session to `NodeConnectionManager.manage()`.
 
-An embedded Ktor CIO server exposes two endpoints:
+An inbound HTTP handshake has a five-second preparation deadline covering admission, body reading, verification and signing.
+A separate semaphore limits concurrent HTTP handshakes to 64. The [callback service][callback] applies a five-second deadline
+covering URI validation, request construction/signing and the callback exchange. Both handshake payload directions have bounded
+body readers in [HandshakePayloadLimit][payload-limit]. Cancellation propagates to ongoing handshake work.
 
-- **`POST /handshakes`** – Receives a `CounterChallengeResponse` from a connecting peer. Rejects requests from banned
-  addresses (via `BannedMonitor`), calls `Guardian.requestInboundConnection` for rate-limiting, validates the
-  challenge, verifies the cryptographic signature and genesis hash, signs the counter-challenge, and emits the peer's
-  `AttoNode` into a `MutableSharedFlow` so the WebSocket handler (or the outbound connector) can proceed.
-- **`WS /`** – Accepts inbound WebSocket connections. The connecting client must provide `Atto-Public-Uri` and
-  `Atto-Http-Challenge` headers. The server rejects banned addresses, validates the challenge prefix, performs a mutual
-  handshake by calling the client's `/handshakes` endpoint over HTTP, verifies the response signature and `publicUri`
-  match, and then delegates the live WebSocket session to `NodeConnectionManager.manage()`.
+### Outbound Connections
 
-#### Outbound Connections (Client Side)
+`bootstrap()` runs every second and tries the configured default nodes. An inbound `AttoKeepAlive` can also supply a neighbour
+URI for discovery. `connectAsync()` reserves the URI in `connectingMap` before starting a connection coroutine; non-default
+outbound work also needs a permit from a pool of 64.
 
-- **`bootstrap()`** – Runs every 1 second (`@Scheduled(fixedRate = 1_000)`). Iterates over configured default nodes and
-  calls `connectAsync()` for each.
-- **`onKeepAlive()`** – Listens for inbound `AttoKeepAlive` messages. If a neighbour URI is present, attempts to connect
-  to it (peer discovery via gossip).
-- **`connectAsync()` / `connection()`** – Opens a WebSocket to the remote peer, sends challenge headers, waits (with a
-  5-second timeout) for the handshake flow to complete, verifies the `publicUri` matches, and then hands the session to
-  `NodeConnectionManager.manage()`.
+`connection()` validates the peer URI, checks whether it is already connected, and opens a WebSocket with the challenge
+headers. It waits for its [OutboundConnectionAttempt][attempt] to produce the authenticated node. A timeout task expires an
+unauthenticated attempt and cancels the connection coroutine after five seconds. Authentication and expiration compete through
+the same `CompletableDeferred`; expiration cannot win after authentication. After authentication, the timeout is cancelled and
+`manage()` owns the established session. The coroutine's `finally` block releases its reservation and any outbound permit.
 
-#### Handshake Protocol
+### Handshake State
 
-1. **Client** opens a WebSocket to the server, sending its `publicUri` and a generated challenge (prefixed with the
-   server's URI) in headers.
-2. **Server** validates the challenge prefix, signs the client's challenge, generates its own counter-challenge, and
-   POSTs a `CounterChallengeResponse` (including the genesis hash) to the client's `/handshakes` endpoint.
-3. **Client's `/handshakes`** handler validates the counter-challenge, verifies the signature and genesis hash, signs
-   the counter-challenge, and responds with a `ChallengeResponse`.
-4. **Server** verifies the client's signature on the counter-challenge and that the `publicUri` matches. If valid, the
-   WebSocket is promoted to a managed connection. Both sides prove ownership of their private key by signing challenges,
-   preventing impersonation. The genesis hash exchange ensures both peers are on the same network.
+- `connectingMap` is a Caffeine cache of `URI → OutboundConnectionAttempt`. It reserves pending peer work and lets an HTTP
+  callback complete the outbound attempt's deferred node. Entries expire after five seconds.
+- [ChallengeStore][challenges] generates random one-time challenges prefixed with the target URI. Entries expire after five
+  seconds; consuming a challenge removes it.
+- [PeerUriValidator][uri-validator] owns callback/outbound URI policy, including configured default-node exceptions and
+  address checks. [NetworkDnsResolver][dns] owns the dispatcher used for blocking DNS calls.
 
-#### Key Data Structures
+## Active Connections and Peer Queries
 
-- **`connectingMap`** – A Caffeine cache (`URI → MutableSharedFlow<AttoNode>`) that coordinates the async handshake.
-  Entries expire after 5 seconds.
-- **`ChallengeStore`** – Generates and validates one-time challenges prefixed with the target node's URI.
+`NodeConnectionManager` is the sole owner of active connections. Its Caffeine map stores `URI → NodeConnection`, with a
+60-second expiry refreshed by keepalives from the current session. Registering another connection for the same URI replaces
+and disconnects the previous session: the last registration wins.
 
----
+The manager implements [ConnectedPeers][connected-peers], exposing `snapshot()` and `isConnected(publicUri)`. A snapshot
+contains detached `ConnectedPeer(node, socketAddress)` metadata, without transport objects. These queries describe current
+local state; a peer may disconnect immediately after a query. They do not reserve a connection or promise delivery.
 
-### NodeConnectionManager
+Consumers query this owner instead of reconstructing membership from connection events:
 
-`NodeConnectionManager` is a Spring `@Component` that manages the lifecycle of all active peer connections.
+| Consumer | Query and feature-owned policy |
+| --- | --- |
+| `TransactionNetworkProvider` | Checks membership before transaction lookup/streaming and between streamed responses. Historical-node eligibility, concurrent lookup permits, stream serialization and request deadlines remain with the provider. |
+| `GapDiscoverer` | Selects connected historical peers and excludes peers with active gap sessions. It owns session budgets and cancellation; a disconnect event releases sessions only when the URI is currently disconnected. |
+| `SendDiscoverer` | Finds a connected representative from the supplied votes, preserving vote order; otherwise broadcasts the missing-send request. |
+| `VoteKeeper` | Finds a connected historical representative for missing votes. Local vote signing and missing-vote tracking remain with the keeper. |
+| `Guardian` | Derives the current voter socket/public-key view, then applies its own current-weight eligibility check. |
+| `NetworkInfoContributor` | Builds the `paired` diagnostic output from current connection metadata. |
 
-#### Connection Storage
+### Session Lifecycle
 
-- **`connectionMap`** – A Caffeine cache (`URI → NodeConnection`) with a 60-second expiry. When an entry is evicted
-  (timeout, explicit removal, or replacement), the removal listener disconnects the session and publishes a
-  `NodeDisconnected` event.
+`manage()` registers the connection and consumes binary frames from its incoming channel. It deserializes each binary
+message through [NetworkSerializer][serializer], which also checks protocol validity. Invalid messages remove the connection. Valid messages become `InboundNetworkMessage` events with the peer URI,
+socket address and `WEBSOCKET` source.
 
-#### Connection Lifecycle (`manage()`)
+A current session's keepalive renews its map entry without replacing a newer session. Flow completion, decoding rejection and
+send failures remove entries conditionally using the session identity, so an old session cannot remove its replacement.
+The `finally` block initiates transport close. Cache removal also schedules close and then publishes `NodeDisconnected`;
+expiry, explicit removal and replacement use this same cleanup path.
 
-1. Wraps the `AttoNode`, socket address, and `WebSocketSession` into a `NodeConnection`.
-2. Inserts into `connectionMap` via `put`. If a connection already exists for that URI, the previous one is disconnected
-   and replaced (last connection wins).
-3. Consumes the WebSocket's incoming binary frames as a Kotlin `Flow`.
-4. On flow start, publishes a `NodeConnected` event.
-5. Each frame is deserialized; invalid messages cause disconnection. `AttoKeepAlive` messages refresh the cache entry
-   (resetting the 60-second TTL).
-6. On flow completion or exception, the connection is removed from the map and the session is disconnected.
+Lifecycle events run through independent asynchronous listener tasks. Their publication order does not guarantee consumer
+completion order, and an old session's disconnect event can arrive after its replacement is registered. Current peer queries
+avoid relying on that order. `GapDiscoverer` retains a disconnect reaction because cancelling its feature-owned work is a real
+side effect; its connectivity check prevents a delayed disconnect from releasing sessions solely because the URI reconnected.
+Gap sessions identify peers by URI and retain their existing expiry; this is not connection-generation isolation.
 
-Connection events are delivered by independent asynchronous listener tasks; publishing `NodeConnected` before
-`NodeDisconnected` does not guarantee that their listeners finish in that order. The peer projections in
-`TransactionNetworkProvider`, `GapDiscoverer`, and `SendDiscoverer` currently use unconditional add/remove operations.
-A delayed connect listener can therefore add a stale URI/public-key entry after disconnect cleanup has run.
-These projections have no expiry or reconciliation, so that metadata remains until a later removal or process restart.
-The authoritative connection map and WebSocket lifecycle are separate from these retained peer entries.
+`clear()` removes connections and waits for already scheduled cleanup jobs. `stop()` clears the map and cancels the manager's
+scope. `NetworkProcessor.stop()` separately closes its client, cancels outbound work and stops its embedded server.
 
-#### Sending Messages
+### Sending and Keepalives
 
-- **`send(publicUri, message)`** – Serializes and sends a message to a specific peer. On failure, removes the
-  connection.
-- **`send(DirectNetworkMessage)`** – Event listener that sends a message to a single peer.
-- **`send(BroadcastNetworkMessage)`** – Event listener that broadcasts a message to all connected peers matching the
-  broadcast filter. `BroadcastNetworkMessage` carries a `BroadcastStrategy` (`EVERYONE` or `VOTERS`) and an optional
-  `exceptions` set of URIs to exclude. The `accepts(target, node)` method determines whether each peer should receive
-  the message.
+- `send(publicUri, message)` serializes and sends to the current session, returning if the URI is absent. Failure removes
+  that session conditionally.
+- `DirectNetworkMessage` listeners send to one URI. `BroadcastNetworkMessage` selects all connected peers matching its
+  `EVERYONE` or `VOTERS` strategy and optional URI exceptions.
+- `NodeBanned` disconnects active connections using the banned IP address.
+- Every ten seconds, `keepAlive()` broadcasts `AttoKeepAlive` with a random connected neighbour URI, if one is available.
+  Recipients refresh their connection lifetime and may discover that neighbour.
 
-#### Banning
+## Traffic Admission and Banning
 
-- **`ban(NodeBanned)`** – Event listener that disconnects all connections whose address matches the banned address.
+Guardian owns traffic statistics, threshold decisions and inbound connection request counters. [PeerBans][peer-bans] owns
+active bans and their expiry; [ExpectedResponses][expected-responses] owns per-URI response credits. `NetworkProcessor` calls
+Guardian's `requestInboundConnection()` directly for HTTP handshake and WebSocket admission. Guardian queries current ban state
+before counting; other attempts contribute to statistics and the configured per-minute connection limit.
 
-#### Keep-Alive
+Message counting and window rotation share a lock, so each counted hit belongs to one window. Every 15 seconds, `guard()`
+swaps out the current window and retains it as the latest diagnostic snapshot. It queries connected voters, applies current
+minimal rebroadcast weight, and includes zero for idle eligible voters. If the median meets `minimalMedian`, addresses whose
+merged count reaches `median × toleranceMultiplier` are banned through `PeerBans`. The owner updates admission state before
+publishing `NodeBanned`; its asynchronous consumers cannot delay that state transition.
 
-- **`keepAlive()`** – Runs every 10 seconds. Picks a random connected peer as a "neighbour" sample and broadcasts an
-  `AttoKeepAlive` message to all peers. This serves two purposes: resetting the 60-second connection TTL and enabling
-  peer discovery (recipients learn about the sampled neighbour).
+`NetworkMessagePublisher` records positive expected-response counts synchronously in `ExpectedResponses` before dispatching
+an outbound `DirectNetworkMessage`. A transport listener can therefore send a request and receive a fast response without
+racing a separate credit-allocation listener. Guardian consumes credits instead of counting solicited inbound responses;
+consuming the final credit immediately removes the entry. Only outbound request timestamps extend credit expiry. Inbound
+responses do not, and delayed publication retains the request's original deadline. Expired credits are removed during response
+counting or the next guard sweep. Credit lifetime is independent of peer metadata and survives reconnects until consumption
+or expiry. Credits retain the existing publication-based contract: publication does not promise successful transport delivery.
 
----
+`PeerBans` reviews active bans every minute and removes them after one hour from the latest ban. Renewal, expiry, admission
+queries and snapshots share its lock, so an expiry cannot remove a concurrent renewal. `NodeBanned` and `NodeUnbanned` report
+completed state changes; they do not update the owner's state. Diagnostic banned output queries this same owner directly,
+so delayed lifecycle listeners cannot leave admission and diagnostics with conflicting ban projections.
 
-### Guardian (Rate Limiting)
+## Events
 
-The `guardian` package provides automatic rate-limiting and banning of misbehaving peers.
+Network messages use the asynchronous application event dispatcher. Their publisher returns without waiting for every
+transport, feature, traffic-accounting or metrics listener to finish.
 
-#### Guardian
+| Event | Producer | Current lifecycle consumers |
+| --- | --- | --- |
+| `NodeDisconnected` | `NodeConnectionManager` | `GapDiscoverer` session cleanup. |
+| `NodeBanned` | `PeerBans`, called by `Guardian` | `NodeConnectionManager` disconnects affected sessions. |
+| `NodeUnbanned` | `PeerBans` expiry review | No current consumers. |
 
-`Guardian` is a Spring `@Service` that monitors inbound message rates and bans peers that exceed a threshold derived
-from voter behaviour.
-
-- **Message Counting** – Tracks per-socket-address message counts in `statisticsMap`. Counting and window rotation
-  share a lock; `guard()` swaps out the map and retains only the latest completed window as its snapshot.
-  Outbound `DirectNetworkMessage` events with positive expected-response counts add per-URI credits so that solicited
-  responses are not counted against the peer. Consuming the final credit removes the entry immediately. Unanswered
-  credits expire one minute after the latest request's original timestamp; inbound responses do not extend that deadline.
-  Expired entries are removed when a response is counted or during the next guard sweep, including credits added by
-  a delayed outbound listener after disconnect.
-- **Voter Tracking** – Maintains a `voterMap` of connected voters (peers above minimal rebroadcast weight). Updated on
-  `NodeConnected` / `NodeDisconnected` events.
-- **`guard()`** – Runs every 15 seconds. Drains the current counts, calculates the median rate among connected eligible
-  voters (including zero for idle voters), and bans any address whose merged rate exceeds `median × toleranceMultiplier`
-  (configurable via `GuardianProperties`). A `minimalMedian` threshold prevents banning when overall traffic is too low.
-- **Connection Requests** – `NetworkProcessor` calls `requestInboundConnection` directly for handshake/WebSocket
-  admission. Guardian counts non-banned attempts by IP and applies the configured per-minute connection limit.
-
-#### BannedMonitor
-
-`BannedMonitor` is a singleton `@Component` that maintains an in-memory `ConcurrentHashSet` of banned `InetAddress`
-entries. It listens for `NodeBanned` and `NodeUnbanned` events and exposes `isBanned(address)` for use by
-`NetworkProcessor` to reject connections early.
-
-#### Unbanner
-
-`Unbanner` is a
-`@Component` that automatically lifts bans after 1 hour. It tracks ban timestamps and runs a review every 1 minute, publishing
-`NodeUnbanned` events for expired bans.
----
-
-### Network Events Summary
-
-| Event                        | Published By            | Consumed By                                          |
-|------------------------------|-------------------------|------------------------------------------------------|
-| `NodeConnected`              | `NodeConnectionManager` | `Guardian`                                           |
-| `NodeDisconnected`           | `NodeConnectionManager` | `Guardian`                                           |
-| `NodeBanned`                 | `Guardian`              | `BannedMonitor`, `NodeConnectionManager`, `Unbanner` |
-| `NodeUnbanned`               | `Unbanner`              | `BannedMonitor`                                      |
+[processor]: src/main/kotlin/cash/atto/node/network/NetworkProcessor.kt
+[connections]: src/main/kotlin/cash/atto/node/network/NodeConnectionManager.kt
+[connected-peers]: src/main/kotlin/cash/atto/node/network/ConnectedPeers.kt
+[guardian]: src/main/kotlin/cash/atto/node/network/guardian/Guardian.kt
+[callback]: src/main/kotlin/cash/atto/node/network/HandshakeCallback.kt
+[payload-limit]: src/main/kotlin/cash/atto/node/network/HandshakePayloadLimit.kt
+[attempt]: src/main/kotlin/cash/atto/node/network/OutboundConnectionAttempt.kt
+[challenges]: src/main/kotlin/cash/atto/node/network/ChallengeStore.kt
+[uri-validator]: src/main/kotlin/cash/atto/node/network/PeerUriValidator.kt
+[dns]: src/main/kotlin/cash/atto/node/network/NetworkDnsResolver.kt
+[serializer]: src/main/kotlin/cash/atto/node/network/NetworkSerializer.kt
+[peer-bans]: src/main/kotlin/cash/atto/node/network/guardian/PeerBans.kt
+[expected-responses]: src/main/kotlin/cash/atto/node/network/guardian/ExpectedResponses.kt

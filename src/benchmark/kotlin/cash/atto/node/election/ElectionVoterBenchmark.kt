@@ -18,11 +18,12 @@ import cash.atto.node.account.Account
 import cash.atto.node.account.AccountRepository
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.network.NetworkMessagePublisher
+import cash.atto.node.network.guardian.ExpectedResponses
 import cash.atto.node.transaction.Transaction
 import cash.atto.node.transaction.TransactionSource
-import cash.atto.node.vote.VoteRepository
 import cash.atto.node.vote.weight.VoteWeightProperties
 import cash.atto.node.vote.weight.VoteWeighter
+import cash.atto.node.vote.weight.Weight
 import cash.atto.node.vote.weight.WeightRepository
 import cash.atto.node.vote.weight.WeightService
 import cash.atto.protocol.AttoNode
@@ -35,15 +36,20 @@ import kotlinx.benchmark.TearDown
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.openjdk.jmh.annotations.Level
 import org.openjdk.jmh.annotations.Threads
 import org.springframework.context.ApplicationEvent
 import org.springframework.context.ApplicationEventPublisher
+import org.springframework.transaction.ReactiveTransaction
+import org.springframework.transaction.ReactiveTransactionManager
+import org.springframework.transaction.TransactionDefinition
+import reactor.core.publisher.Mono
 import java.lang.reflect.Proxy
 import java.net.URI
+import java.time.Clock
 import java.time.Instant
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -86,12 +92,13 @@ class ElectionVoterBenchmark {
                 signer = signer,
                 voteWeighter = voteWeighter,
                 eventPublisher = EventPublisher(springPublisher),
-                messagePublisher = NetworkMessagePublisher(springPublisher),
+                messagePublisher = NetworkMessagePublisher(springPublisher, ExpectedResponses(Clock.systemUTC())),
                 accountRepository = accountRepository,
             )
         account = createAccount(node)
     }
 
+    // Measures event handling and scheduling; signing completes asynchronously.
     @Benchmark
     @Threads(100)
     fun processElectionFlow() =
@@ -213,47 +220,36 @@ private fun createVoteWeighter(node: AttoNode): VoteWeighter {
             minimalRebroadcastWeight = "1"
             samplePeriodInDays = 1
         }
-    val voteWeighter =
-        VoteWeighter(
-            thisNode = node,
-            properties = properties,
-            weightService = WeightService(interfaceProxy<WeightRepository>()),
-            voteRepository = interfaceProxy<VoteRepository>(),
-            genesisTransaction = createTransaction(node, 1U),
-        )
-
-    val weightMapField = VoteWeighter::class.java.getDeclaredField("weightMap")
-    weightMapField.isAccessible = true
-    @Suppress("UNCHECKED_CAST")
-    val weightMap = weightMapField.get(voteWeighter) as ConcurrentHashMap<AttoPublicKey, AttoAmount>
-    weightMap[node.publicKey] = AttoAmount.MAX
-
-    return voteWeighter
+    val weight = Weight(node.publicKey, AttoAmount.MAX, Instant.now())
+    return VoteWeighter(
+        thisNode = node,
+        properties = properties,
+        weightService = WeightService(weightRepository(weight), BenchmarkTransactionManager()),
+        genesisTransaction = createTransaction(node, 1U),
+    ).also { it.init() }
 }
 
-private inline fun <reified T> interfaceProxy(): T =
+private fun weightRepository(weight: Weight): WeightRepository =
     Proxy
         .newProxyInstance(
-            T::class.java.classLoader,
-            arrayOf(T::class.java),
+            WeightRepository::class.java.classLoader,
+            arrayOf(WeightRepository::class.java),
         ) { proxy, method, args ->
             when (method.name) {
-                "toString" -> "${T::class.java.simpleName}Proxy"
+                "findCalculatedWeights" -> flowOf(weight)
+                "upsert", "deleteAllExcept" -> Unit
+                "toString" -> "BenchmarkWeightRepository"
                 "hashCode" -> System.identityHashCode(proxy)
                 "equals" -> proxy === args?.singleOrNull()
-                else -> defaultValue(method.returnType)
+                else -> error("Unexpected benchmark repository call: ${method.name}")
             }
-        } as T
+        } as WeightRepository
 
-private fun defaultValue(returnType: Class<*>): Any? =
-    when (returnType) {
-        java.lang.Boolean.TYPE -> false
-        java.lang.Byte.TYPE -> 0.toByte()
-        java.lang.Short.TYPE -> 0.toShort()
-        java.lang.Integer.TYPE -> 0
-        java.lang.Long.TYPE -> 0L
-        java.lang.Float.TYPE -> 0f
-        java.lang.Double.TYPE -> 0.0
-        java.lang.Character.TYPE -> 0.toChar()
-        else -> null
-    }
+private class BenchmarkTransactionManager : ReactiveTransactionManager {
+    override fun getReactiveTransaction(definition: TransactionDefinition?): Mono<ReactiveTransaction> =
+        Mono.just(object : ReactiveTransaction {})
+
+    override fun commit(transaction: ReactiveTransaction): Mono<Void> = Mono.empty()
+
+    override fun rollback(transaction: ReactiveTransaction): Mono<Void> = error("Unexpected benchmark initialization rollback")
+}

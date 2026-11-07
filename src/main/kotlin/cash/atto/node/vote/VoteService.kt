@@ -4,8 +4,6 @@ import cash.atto.node.CacheSupport
 import cash.atto.node.DemandDrivenWorker
 import jakarta.annotation.PreDestroy
 import org.springframework.stereotype.Service
-import java.util.concurrent.ConcurrentLinkedDeque
-import java.util.concurrent.atomic.AtomicInteger
 
 @Service
 class VoteService(
@@ -15,13 +13,15 @@ class VoteService(
         private const val BATCH_SIZE = 1_000
     }
 
-    private val buffer = ConcurrentLinkedDeque<Vote>()
-    private val bufferDepth = AtomicInteger()
+    private val bufferLock = Any()
+    private val buffer = ArrayDeque<Vote>()
+    private var clearGeneration = 0L
     private val worker = DemandDrivenWorker("vote-service", drain = ::drain)
 
     fun enqueue(vote: Vote) {
-        buffer.addLast(vote)
-        bufferDepth.incrementAndGet()
+        synchronized(bufferLock) {
+            buffer.addLast(vote)
+        }
         worker.request()
     }
 
@@ -30,14 +30,17 @@ class VoteService(
             return
         }
 
-        votes.forEach { buffer.addLast(it) }
-        bufferDepth.addAndGet(votes.size)
+        synchronized(bufferLock) {
+            buffer.addAll(votes)
+        }
         worker.request()
     }
 
     override fun clear() {
-        buffer.clear()
-        bufferDepth.set(0)
+        synchronized(bufferLock) {
+            buffer.clear()
+            clearGeneration++
+        }
     }
 
     @PreDestroy
@@ -45,48 +48,35 @@ class VoteService(
         worker.cancel()
     }
 
-    fun getBufferSize(): Int = bufferDepth.get()
+    fun getBufferSize(): Int = synchronized(bufferLock) { buffer.size }
 
     private suspend fun drain() {
-        while (bufferDepth.get() > 0) {
-            flushBatch(BATCH_SIZE)
+        while (true) {
+            val batch = drainBatch() ?: return
+            try {
+                voteRepository.insertIgnoreAll(batch.votes.distinctBy { it.signature })
+            } catch (exception: Exception) {
+                synchronized(bufferLock) {
+                    if (batch.clearGeneration == clearGeneration) {
+                        batch.votes.asReversed().forEach(buffer::addFirst)
+                    }
+                }
+                throw exception
+            }
         }
     }
 
-    private suspend fun saveAll(votes: Collection<Vote>): List<Vote> {
-        val distinctVotes = votes.distinctBy { it.signature }
-
-        if (distinctVotes.isEmpty()) {
-            return distinctVotes
+    private fun drainBatch(): PendingBatch? =
+        synchronized(bufferLock) {
+            if (buffer.isEmpty()) {
+                return@synchronized null
+            }
+            val votes = List(minOf(BATCH_SIZE, buffer.size)) { buffer.removeFirst() }
+            PendingBatch(votes, clearGeneration)
         }
 
-        voteRepository.insertIgnoreAll(distinctVotes)
-
-        return distinctVotes
-    }
-
-    private suspend fun flushBatch(size: Int): Int {
-        val votes = drainBatch(size)
-        if (votes.isEmpty()) {
-            return 0
-        }
-
-        saveAll(votes)
-        return votes.size
-    }
-
-    private fun drainBatch(size: Int): List<Vote> {
-        val votes = mutableListOf<Vote>()
-
-        for (i in 1..size) {
-            val vote = buffer.pollFirst() ?: break
-            votes += vote
-        }
-
-        if (votes.isNotEmpty()) {
-            bufferDepth.addAndGet(-votes.size)
-        }
-
-        return votes
-    }
+    private data class PendingBatch(
+        val votes: List<Vote>,
+        val clearGeneration: Long,
+    )
 }

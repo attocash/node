@@ -2,18 +2,16 @@ package cash.atto.node.vote.keeping
 
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
-import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoSignedVote
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toBigInteger
 import cash.atto.node.CacheSupport
+import cash.atto.node.network.ConnectedPeers
 import cash.atto.node.network.DirectNetworkMessage
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnected
-import cash.atto.node.network.NodeDisconnected
 import cash.atto.node.vote.MissingVote
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.VoteRepository
@@ -27,9 +25,7 @@ import com.github.benmanes.caffeine.cache.Scheduler
 import org.springframework.context.event.EventListener
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.URI
 import java.time.Duration
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
 @Component
@@ -40,12 +36,11 @@ class VoteKeeper(
     private val voteService: VoteService,
     private val networkMessagePublisher: NetworkMessagePublisher,
     private val signer: AttoSigner,
+    private val connectedPeers: ConnectedPeers,
 ) : CacheSupport {
     companion object {
         internal val cacheExpiration = Duration.ofSeconds(10)
     }
-
-    private val peers = ConcurrentHashMap<AttoPublicKey, URI>()
 
     private val missingVoteMap =
         Caffeine
@@ -54,21 +49,6 @@ class VoteKeeper(
             .expireAfterWrite(cacheExpiration)
             .build<MissingVote, MissingVote>()
             .asMap()
-
-    @EventListener
-    fun add(nodeEvent: NodeConnected) {
-        val node = nodeEvent.node
-        if (!node.isHistorical()) {
-            return
-        }
-        peers[node.publicKey] = node.publicUri
-    }
-
-    @EventListener
-    fun remove(nodeEvent: NodeDisconnected) {
-        val node = nodeEvent.node
-        peers.remove(node.publicKey)
-    }
 
     @EventListener
     suspend fun process(message: InboundNetworkMessage<AttoVoteResponse>) {
@@ -104,7 +84,13 @@ class VoteKeeper(
             return
         }
 
-        val representative = peers[missingVote.representativePublicKey] ?: return
+        val representative =
+            connectedPeers
+                .snapshot()
+                .firstOrNull {
+                    it.node.isHistorical() && it.node.publicKey == missingVote.representativePublicKey
+                }?.node
+                ?.publicUri ?: return
         missingVoteMap.computeIfAbsent(missingVote) {
             val voteRequest = AttoVoteRequest(AttoAlgorithm.V1, missingVote.lastTransactionHash)
             val message = DirectNetworkMessage(representative, voteRequest)
@@ -133,7 +119,6 @@ class VoteKeeper(
     }
 
     override fun clear() {
-        peers.clear()
         missingVoteMap.clear()
     }
 }

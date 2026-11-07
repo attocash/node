@@ -20,13 +20,26 @@ class OpenAPITest {
     var managementPort: Int = 0
 
     @Test
-    fun `GET OpenAPI docs are reachable`() {
-        webTestClient
-            .get()
-            .uri("/v3/api-docs")
-            .exchange()
+    fun `OpenAPI exposes transaction query and publication endpoints`() {
+        // Given
+        val request = webTestClient.get().uri("/v3/api-docs")
+
+        // When
+        val response = request.exchange()
+
+        // Then
+        response
             .expectStatus()
             .isOk
+            .expectBody()
+            .jsonPath("$.paths['/transactions'].post.responses['200']")
+            .exists()
+            .jsonPath("$.paths['/transactions/stream'].post.responses['200']")
+            .exists()
+            .jsonPath("$.paths['/transactions/stream'].get.responses['200']")
+            .exists()
+            .jsonPath("$.paths['/transactions/{hash}'].get.responses['200']")
+            .exists()
     }
 
     @Test

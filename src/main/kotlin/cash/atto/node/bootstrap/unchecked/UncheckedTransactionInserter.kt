@@ -2,6 +2,7 @@ package cash.atto.node.bootstrap.unchecked
 
 import cash.atto.commons.toBigInteger
 import cash.atto.commons.toJavaInstant
+import cash.atto.node.bootstrap.BootstrapLoadMonitor
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
 import kotlinx.coroutines.reactive.awaitSingle
@@ -17,6 +18,7 @@ import java.util.concurrent.ConcurrentHashMap
 class UncheckedTransactionInserter(
     private val databaseClient: DatabaseClient,
     private val meterRegistry: MeterRegistry,
+    private val loadMonitor: BootstrapLoadMonitor,
 ) {
     private val insertTimer =
         Timer
@@ -75,7 +77,7 @@ class UncheckedTransactionInserter(
                         .reduce(0L, Long::plus)
                 }.awaitSingle()
         } finally {
-            sample.stop(insertTimer)
+            loadMonitor.recordInsert(sample.stop(insertTimer))
         }
     }
 

@@ -27,9 +27,13 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
@@ -48,7 +52,7 @@ import java.net.URI
 import kotlin.random.Random
 import kotlin.time.Duration.Companion.seconds
 
-internal class TransactionControllerTest {
+internal class TransactionPublicationControllerTest {
     private val privateKey = AttoPrivateKey.generate()
     private val block =
         AttoReceiveBlock(
@@ -100,7 +104,7 @@ internal class TransactionControllerTest {
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             coEvery { repository.findById(transaction.hash) } returns transaction.takeIf { confirmed }
-            val controller = TransactionController(ApplicationProperties(), node, messagePublisher, repository)
+            val controller = TransactionPublicationController(ApplicationProperties(), node, messagePublisher, repository)
             val request =
                 MockServerHttpRequest
                     .post("/transactions")
@@ -139,7 +143,7 @@ internal class TransactionControllerTest {
             val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
             val repository = mockk<TransactionRepository>()
             coEvery { repository.findById(transaction.hash) } throws IllegalStateException("Private database details")
-            val controller = TransactionController(ApplicationProperties(), node, messagePublisher, repository)
+            val controller = TransactionPublicationController(ApplicationProperties(), node, messagePublisher, repository)
             val request =
                 MockServerHttpRequest
                     .post("/transactions")
@@ -179,7 +183,7 @@ internal class TransactionControllerTest {
                 releaseLookup.await()
                 null
             }
-            val controller = TransactionController(ApplicationProperties(), node, mockk(relaxed = true), repository)
+            val controller = TransactionPublicationController(ApplicationProperties(), node, mockk(relaxed = true), repository)
             val request =
                 MockServerHttpRequest
                     .post("/transactions")
@@ -217,7 +221,7 @@ internal class TransactionControllerTest {
         runTest {
             // Given
             val repository = mockk<TransactionRepository>()
-            val controller = TransactionController(ApplicationProperties(), node, mockk(), repository)
+            val controller = TransactionPublicationController(ApplicationProperties(), node, mockk(), repository)
 
             // When
             controller.process(ElectionRejected(account, transaction))
@@ -241,7 +245,7 @@ internal class TransactionControllerTest {
                 publishSignals.trySend(Unit)
                 Unit
             }
-            val controller = TransactionController(applicationProperties, node, messagePublisher, repository)
+            val controller = TransactionPublicationController(applicationProperties, node, messagePublisher, repository)
             val request =
                 MockServerHttpRequest
                     .post("/transactions/stream")
@@ -292,7 +296,7 @@ internal class TransactionControllerTest {
             }
 
             val controller =
-                TransactionController(
+                TransactionPublicationController(
                     applicationProperties,
                     node,
                     messagePublisher,
@@ -339,7 +343,7 @@ internal class TransactionControllerTest {
             }
 
             val controller =
-                TransactionController(
+                TransactionPublicationController(
                     applicationProperties,
                     node,
                     messagePublisher,
@@ -380,7 +384,7 @@ internal class TransactionControllerTest {
             coEvery { repository.findById(transaction.hash) } returns transaction
 
             val controller =
-                TransactionController(
+                TransactionPublicationController(
                     applicationProperties,
                     node,
                     messagePublisher,
@@ -399,6 +403,44 @@ internal class TransactionControllerTest {
         }
 
     @Test
+    fun `cancelling the last waiter while another joins preserves the replacement confirmation`() =
+        runBlocking {
+            // Given
+            val messagePublisher = mockk<NetworkMessagePublisher>(relaxed = true)
+            val repository = mockk<TransactionRepository>()
+            coEvery { repository.findById(transaction.hash) } returns null
+            val controller = TransactionPublicationController(ApplicationProperties(), node, messagePublisher, repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+
+            withTimeout(10.seconds) {
+                repeat(100) {
+                    coroutineScope {
+                        val retiring =
+                            async(start = CoroutineStart.UNDISPATCHED) {
+                                controller.publish(transaction.toAttoTransaction(), request, deduplicate = true)
+                            }
+
+                        // When
+                        val cleanup = launch(Dispatchers.Default) { retiring.cancelAndJoin() }
+                        val replacement =
+                            async(start = CoroutineStart.UNDISPATCHED) {
+                                controller.publishAndStream(transaction.toAttoTransaction(), request, deduplicate = true).first()
+                            }
+                        cleanup.join()
+                        controller.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+
+                        // Then
+                        assertEquals(transaction.toAttoTransaction(), replacement.await())
+                    }
+                }
+            }
+        }
+
+    @Test
     fun `publish waits for confirmation response`() =
         runTest {
             val applicationProperties =
@@ -414,7 +456,7 @@ internal class TransactionControllerTest {
             }
 
             val controller =
-                TransactionController(
+                TransactionPublicationController(
                     applicationProperties,
                     node,
                     messagePublisher,

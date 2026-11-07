@@ -15,19 +15,16 @@ import cash.atto.commons.AttoWork
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.node.account.AccountRepository
-import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
 import cash.atto.node.election.ElectionVoter
 import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.MessageSource
 import cash.atto.node.network.NetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
-import cash.atto.node.network.NodeConnectionManager
 import cash.atto.node.transaction.TransactionRepository
 import cash.atto.node.vote.Vote
 import cash.atto.node.vote.convertion.VoteConverter
 import cash.atto.node.vote.weight.VoteWeighter
 import cash.atto.protocol.AttoBootstrapTransactionPush
-import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoVoteStreamCancel
 import cash.atto.protocol.AttoVoteStreamRequest
 import cash.atto.protocol.AttoVoteStreamResponse
@@ -189,11 +186,8 @@ class LastDiscovererTest {
 
         val discoverer =
             LastDiscoverer(
-                thisNode = mockk<AttoNode>(relaxed = true),
                 accountRepository = accountRepository,
                 transactionRepository = mockk<TransactionRepository>(),
-                uncheckedTransactionRepository = mockk<UncheckedTransactionRepository>(),
-                nodeConnectionManager = mockk<NodeConnectionManager>(),
                 networkMessagePublisher = networkMessagePublisher,
                 discoveryQueue = discoveryQueue,
                 voteConverter = voteConverter,

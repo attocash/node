@@ -1,5 +1,6 @@
 package cash.atto.node.network
 
+import cash.atto.node.network.guardian.ExpectedResponses
 import cash.atto.protocol.AttoMessage
 import cash.atto.protocol.AttoNode
 import io.github.oshai.kotlinlogging.KotlinLogging
@@ -65,11 +66,16 @@ data class BroadcastNetworkMessage<T : AttoMessage>(
 @Component
 class NetworkMessagePublisher(
     private val publisher: ApplicationEventPublisher,
+    private val expectedResponses: ExpectedResponses,
 ) {
     private val logger = KotlinLogging.logger {}
 
     fun publish(message: NetworkMessage<*>) {
         logger.trace { "$message" }
+        // Reserve response credits before an asynchronous transport listener can send the request.
+        if (message is DirectNetworkMessage<*>) {
+            expectedResponses.record(message)
+        }
         publisher.publishEvent(message)
     }
 }
