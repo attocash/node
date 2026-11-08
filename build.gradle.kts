@@ -124,7 +124,6 @@ dependencies {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    maxHeapSize = "4g"
     val neighbourMode = providers.systemProperty("atto.test.neighbour-mode").orElse("classpath").get()
     require(neighbourMode in setOf("classpath", "live")) { "Unsupported neighbour mode: $neighbourMode" }
     systemProperty("atto.test.neighbour-mode", neighbourMode)
