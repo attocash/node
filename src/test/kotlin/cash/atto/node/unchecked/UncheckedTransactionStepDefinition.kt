@@ -181,6 +181,9 @@ class UncheckedTransactionStepDefinition(
         expectedHash: AttoHash,
     ): String =
         runCatching {
+            if (neighbour.released) {
+                return@runCatching "released scheduler, hasTransaction=${hasTransaction(neighbour, expectedHash)}"
+            }
             val uncheckedTransactions = findUncheckedTransactions(neighbour)
             val uncheckedHashes = uncheckedTransactions.map { it.hash }
             "hasTransaction=${hasTransaction(neighbour, expectedHash)}, " +
@@ -199,6 +202,10 @@ class UncheckedTransactionStepDefinition(
         neighbour: Neighbour,
         path: String,
     ) {
+        // Released nodes run the production schedulers and do not contain test controllers.
+        if (neighbour.released) {
+            return
+        }
         webClient
             .post()
             .uri("http://localhost:${neighbour.httpPort}$path")
@@ -208,11 +215,13 @@ class UncheckedTransactionStepDefinition(
             .block(Duration.ofSeconds(6))
     }
 
-    private fun findUncheckedTransactions(neighbour: Neighbour): List<AttoTransaction> =
-        webClient
+    private fun findUncheckedTransactions(neighbour: Neighbour): List<AttoTransaction> {
+        require(!neighbour.released) { "Unchecked state is available only on classpath test nodes" }
+        return webClient
             .get()
             .uri("http://localhost:${neighbour.httpPort}/unchecked-transactions")
             .retrieve()
             .bodyToMono<List<AttoTransaction>>()
             .block()!!
+    }
 }

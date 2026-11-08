@@ -57,7 +57,8 @@ admission, shutdown, and separate `atto-signer-io` event loops, connection provi
 The whole signing operation runs on that dispatcher, including codecs, retry waits and signature validation.
 Peer server/client I/O uses separate `atto-peer-server-io` and `atto-peer-client-io` groups. Each transport closes only its owned
 resources. Virtual-thread executors have separate lifecycles but share the JVM's carrier scheduler. Local signing and signer
-metrics retain their existing interfaces. The node runtime does not depend on Ktor.
+metrics retain their existing interfaces. The node runtime does not depend on Ktor. Cucumber's `live` neighbour mode checks
+compatibility with the actual released node image, including connections initiated in either direction and reconnection.
 
 ### Outbound Connections
 
