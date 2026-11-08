@@ -11,59 +11,47 @@ import cash.atto.node.network.guardian.InboundConnectionDecision
 import cash.atto.node.transaction.Transaction
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
-import cash.atto.protocol.AttoTransactionStreamRequest
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.client.HttpClient
-import io.ktor.client.request.header
-import io.ktor.http.HttpStatusCode
-import io.ktor.http.isSuccess
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.ApplicationCall
-import io.ktor.server.application.install
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.plugins.origin
-import io.ktor.server.request.contentLength
-import io.ktor.server.request.receiveChannel
-import io.ktor.server.response.respond
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
-import io.ktor.server.websocket.DefaultWebSocketServerSession
-import io.ktor.server.websocket.webSocket
-import io.ktor.utils.io.ByteReadChannel
-import io.ktor.websocket.ChannelOverflow
+import io.netty.handler.codec.http.HttpHeaderNames
+import io.netty.handler.codec.http.HttpResponseStatus
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.serialization.encodeToString
 import org.springframework.context.event.EventListener
 import org.springframework.core.env.Environment
 import org.springframework.scheduling.annotation.Scheduled
 import org.springframework.stereotype.Component
-import java.net.InetSocketAddress
+import reactor.core.publisher.Mono
+import reactor.netty.http.server.HttpServerRequest
+import reactor.netty.http.server.HttpServerResponse
 import java.net.URI
 import java.time.Duration
 import java.util.concurrent.Executors
 import java.util.concurrent.Semaphore
+import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration.Companion.seconds
-import io.ktor.client.plugins.websocket.webSocket as clientWebSocket
 
 private sealed interface InboundHandshakePreparation {
-    data object Responded : InboundHandshakePreparation
-
     data class Rejected(
-        val status: HttpStatusCode,
+        val status: HttpResponseStatus,
+        val closeConnection: Boolean = false,
     ) : InboundHandshakePreparation
 
     data class Accepted(
@@ -72,6 +60,11 @@ private sealed interface InboundHandshakePreparation {
         val response: ChallengeResponse,
     ) : InboundHandshakePreparation
 }
+
+private data class InboundPeerHeaders(
+    val publicUri: URI,
+    val challenge: String,
+)
 
 @Component
 class NetworkProcessor(
@@ -85,11 +78,11 @@ class NetworkProcessor(
     private val dnsResolver: NetworkDnsResolver,
     private val connectionManager: NodeConnectionManager,
     private val guardian: Guardian,
+    private val peerClient: PeerNettyClient,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
 
     companion object {
-        const val MAX_MESSAGE_SIZE = 300
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
         const val CHALLENGE_HEADER = "Atto-Http-Challenge"
         const val CONNECTION_TIMEOUT_IN_SECONDS = 5L
@@ -97,33 +90,12 @@ class NetworkProcessor(
         private const val MAX_CONCURRENT_OUTBOUND_CONNECTIONS = 64
     }
 
-    private val websocketClient =
-        HttpClient(io.ktor.client.engine.cio.CIO) {
-            install(
-                io
-                    .ktor
-                    .client
-                    .plugins
-                    .websocket
-                    .WebSockets,
-            ) {
-                maxFrameSize = MAX_MESSAGE_SIZE.toLong()
-                channels {
-                    incoming =
-                        bounded(
-                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
-                            onOverflow = ChannelOverflow.CLOSE,
-                        )
-                    outgoing =
-                        bounded(
-                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
-                            onOverflow = ChannelOverflow.CLOSE,
-                        )
-                }
-            }
-        }
-
-    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + SupervisorJob())
+    private val dispatcher =
+        Executors
+            .newThreadPerTaskExecutor(Thread.ofVirtual().name("atto-peer-connect-work-", 0).factory())
+            .asCoroutineDispatcher()
+    private val stopped = AtomicBoolean()
+    private val scope = CoroutineScope(dispatcher + SupervisorJob())
     private val handshakePermits = Semaphore(MAX_CONCURRENT_HANDSHAKES)
     private val outboundConnectionPermits = Semaphore(MAX_CONCURRENT_OUTBOUND_CONNECTIONS)
 
@@ -137,113 +109,80 @@ class NetworkProcessor(
             .asMap()
 
     private val server =
-        embeddedServer(io.ktor.server.cio.CIO, port = environment.getRequiredProperty("websocket.port", Int::class.java)) {
-            install(
-                io
-                    .ktor
-                    .server
-                    .websocket
-                    .WebSockets,
-            ) {
-                maxFrameSize = MAX_MESSAGE_SIZE.toLong()
-                channels {
-                    incoming =
-                        bounded(
-                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
-                            onOverflow = ChannelOverflow.CLOSE,
-                        )
-                    outgoing =
-                        bounded(
-                            capacity = AttoTransactionStreamRequest.MAX_TRANSACTIONS.toInt(),
-                            onOverflow = ChannelOverflow.CLOSE,
-                        )
-                }
-            }
-            install(
-                io
-                    .ktor
-                    .server
-                    .plugins
-                    .contentnegotiation
-                    .ContentNegotiation,
-            ) {
-                json()
-            }
-            routing {
-                post("/handshakes") {
-                    call.handleInboundHandshake()
-                }
-                webSocket(path = "/") {
-                    handleInboundWebSocket()
-                }
-            }
-        }.start(wait = false)
+        PeerNettyServer(
+            environment.getRequiredProperty("websocket.port", Int::class.java),
+            ::handleInboundHandshake,
+            ::handleInboundWebSocket,
+        )
 
-    private suspend fun ApplicationCall.handleInboundHandshake() {
-        val channel = receiveChannel()
+    private suspend fun handleInboundHandshake(
+        request: HttpServerRequest,
+        response: HttpServerResponse,
+    ) {
         if (!handshakePermits.tryAcquire()) {
-            channel.cancel(null)
-            respond(HttpStatusCode.TooManyRequests)
+            response.keepAlive(false).respond(HttpResponseStatus.TOO_MANY_REQUESTS)
             return
         }
 
         try {
             val preparation =
                 withTimeout(CONNECTION_TIMEOUT_IN_SECONDS.seconds) {
-                    prepareInboundHandshake(channel)
+                    prepareInboundHandshake(request)
                 }
             when (preparation) {
-                InboundHandshakePreparation.Responded -> Unit
-                is InboundHandshakePreparation.Rejected -> respond(preparation.status)
-                is InboundHandshakePreparation.Accepted -> finishInboundHandshake(preparation)
+                is InboundHandshakePreparation.Rejected -> {
+                    if (preparation.closeConnection) response.keepAlive(false)
+                    response.respond(preparation.status)
+                }
+
+                is InboundHandshakePreparation.Accepted -> {
+                    response.finishInboundHandshake(preparation)
+                }
             }
         } catch (e: TimeoutCancellationException) {
-            channel.cancel(e)
-            respond(HttpStatusCode.RequestTimeout)
+            response.keepAlive(false).respond(HttpResponseStatus.REQUEST_TIMEOUT)
         } catch (e: CancellationException) {
-            channel.cancel(e)
             throw e
         } catch (e: HandshakePayloadTooLargeException) {
-            logger.trace(e) { "Oversized handshake from ${request.origin.remoteHost}" }
-            respond(HttpStatusCode.PayloadTooLarge)
+            logger.trace(e) { "Oversized handshake from ${request.remoteHost()}" }
+            response.keepAlive(false).respond(HttpResponseStatus.REQUEST_ENTITY_TOO_LARGE)
         } catch (e: Exception) {
-            channel.cancel(e)
-            logger.trace(e) { "Exception during handshake with ${request.origin.remoteHost}" }
-            respond(HttpStatusCode.InternalServerError)
+            logger.trace(e) { "Exception during handshake with ${request.remoteHost()}" }
+            response.keepAlive(false).respond(HttpResponseStatus.INTERNAL_SERVER_ERROR)
         } finally {
             handshakePermits.release()
         }
     }
 
-    private suspend fun ApplicationCall.prepareInboundHandshake(channel: ByteReadChannel): InboundHandshakePreparation {
-        val remoteHost = request.origin.remoteHost
-        if (!acceptInboundConnection(remoteHost, "handshake")) {
-            channel.cancel(null)
-            return InboundHandshakePreparation.Responded
+    private suspend fun prepareInboundHandshake(request: HttpServerRequest): InboundHandshakePreparation {
+        val remoteHost = request.remoteHost()
+        val rejection = inboundConnectionRejection(remoteHost, "handshake")
+        if (rejection != null) {
+            return InboundHandshakePreparation.Rejected(rejection, closeConnection = true)
         }
 
         val counterResponse =
-            channel.receiveHandshakePayload<CounterChallengeResponse>(
+            request.receive().receiveHandshakePayload<CounterChallengeResponse>(
                 MAX_COUNTER_CHALLENGE_RESPONSE_SIZE_BYTES,
-                request.contentLength(),
+                request.requestHeaders().get(HttpHeaderNames.CONTENT_LENGTH)?.toLongOrNull(),
             )
         val challenge = counterResponse.challenge
 
         val publicUri = ChallengeStore.remove(challenge)
         if (publicUri == null) {
             logger.trace { "Received invalid challenge request from $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpStatusCode.BadRequest)
+            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
         }
 
         val node = counterResponse.node
         if (node.publicUri != publicUri) {
             logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri from $remoteHost" }
-            return InboundHandshakePreparation.Rejected(HttpStatusCode.BadRequest)
+            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
         }
 
         if (counterResponse.genesis != genesisTransaction.hash) {
             logger.trace { "Received mismatched genesis hash from $publicUri $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpStatusCode.BadRequest)
+            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
         }
 
         val counterTimestamp = counterResponse.timestamp
@@ -258,7 +197,7 @@ class NetworkProcessor(
         val signature = counterResponse.signature
         if (!signature.isValid(node.publicKey, hash)) {
             logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpStatusCode.BadRequest)
+            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
         }
 
         val counterChallenge = counterResponse.counterChallenge
@@ -267,7 +206,7 @@ class NetworkProcessor(
                 "Received invalid challenge prefix request from $publicUri $remoteHost " +
                     "$counterResponse"
             }
-            return InboundHandshakePreparation.Rejected(HttpStatusCode.BadRequest)
+            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
         }
 
         logger.trace { "Challenge $challenge validated successfully" }
@@ -283,160 +222,151 @@ class NetworkProcessor(
         return InboundHandshakePreparation.Accepted(publicUri, node, response)
     }
 
-    private suspend fun ApplicationCall.finishInboundHandshake(handshake: InboundHandshakePreparation.Accepted) {
+    private suspend fun HttpServerResponse.finishInboundHandshake(handshake: InboundHandshakePreparation.Accepted) {
         currentCoroutineContext().ensureActive()
         val connectionAttempt = connectingMap[handshake.publicUri]
         if (connectionAttempt == null || !connectionAttempt.authenticate(handshake.node)) {
             logger.trace { "Received valid handshake but connection already expired" }
-            respond(HttpStatusCode.InternalServerError)
+            respond(HttpResponseStatus.INTERNAL_SERVER_ERROR)
             return
         }
 
-        respond(HttpStatusCode.OK, handshake.response)
+        status(HttpResponseStatus.OK)
+            .header(HttpHeaderNames.CONTENT_TYPE, "application/json")
+            .sendString(Mono.just(peerJson.encodeToString(handshake.response)))
+            .then()
+            .awaitSingleOrNull()
     }
 
-    private suspend fun DefaultWebSocketServerSession.handleInboundWebSocket() {
+    private suspend fun handleInboundWebSocket(
+        request: HttpServerRequest,
+        session: PeerSession,
+    ) {
         try {
-            val remoteHost = call.request.origin.remoteHost
+            val remoteHost = request.remoteHost()
             logger.trace { "New websocket connection attempt from $remoteHost" }
+            if (inboundConnectionRejection(remoteHost, "websocket") != null) return
 
-            if (!call.acceptInboundConnection(remoteHost, "websocket")) return
-
-            val publicUriHeader = call.request.headers[PUBLIC_URI_HEADER]
-            val challengeHeader = call.request.headers[CHALLENGE_HEADER]
-            if (publicUriHeader == null || challengeHeader == null) {
-                logger.trace { "Missing required headers from $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val publicUri = publicUriHeader.toUriOrNull()
-            if (publicUri == null) {
-                logger.trace { "Invalid public URI header '$publicUriHeader' from $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val scheme = publicUri.scheme
-            if (scheme != "ws" && scheme != "wss") {
-                logger.trace { "Invalid URI scheme '$scheme' from $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            if (publicUri == thisNode.publicUri) {
-                logger.trace { "Can't connect as a server to $publicUri. This uri is this node." }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            logger.trace { "Headers received: publicUri=$publicUri, challenge=$challengeHeader" }
-            if (!challengeHeader.isChallengePrefixValid()) {
-                logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val connectionAttempt = OutboundConnectionAttempt()
-            if (connectingMap.putIfAbsent(publicUri, connectionAttempt) != null) {
-                logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val timestamp = AttoInstant.now()
-            var counterChallenge: String? = null
-            val callbackResult =
-                postHandshakeCallback(remoteHost, publicUri, connectionAttempt) {
-                    val generatedCounterChallenge = ChallengeStore.generate(publicUri)
-                    counterChallenge = generatedCounterChallenge
-                    CounterChallengeResponse(
-                        challengeHeader,
-                        genesisTransaction.hash,
-                        thisNode,
-                        timestamp,
-                        signer.sign(AttoChallenge(challengeHeader.fromHexToByteArray()), timestamp),
-                        generatedCounterChallenge,
-                    )
-                }
-
-            if (callbackResult is HandshakeCallbackResult.Rejected) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                call.respond(callbackResult.status)
-                return
-            }
-
-            val result = callbackResult as HandshakeCallbackResult.Completed
-            logger.trace { "Challenge response status from ${publicUri.toHandshakeHttpUri()}: ${result.status}" }
-            if (!result.status.isSuccess()) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                logger.trace { "Received invalid ${result.status.value} challenge status from $publicUri $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val response = result.response
-            if (response == null) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                logger.trace { "Received empty challenge response from $publicUri $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val expectedCounterChallenge = counterChallenge
-            if (expectedCounterChallenge == null || ChallengeStore.remove(expectedCounterChallenge) == null) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val node = response.node
-            if (node.publicUri != publicUri) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                logger.trace { "Node publicUri ${node.publicUri} doesn't match header $publicUri from $remoteHost" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val counterHash =
-                AttoHash.hash(
-                    64,
-                    node.publicKey.value,
-                    expectedCounterChallenge.fromHexToByteArray(),
-                    response.timestamp.toByteArray(),
-                )
-
-            val signature = response.signature
-            if (!signature.isValid(node.publicKey, counterHash)) {
-                connectingMap.remove(publicUri, connectionAttempt)
-                logger.trace { "Received invalid signature from client $remoteHost $response" }
-                call.respond(HttpStatusCode.BadRequest)
-                return
-            }
-
-            val connectionSocketAddress = InetSocketAddress(call.request.origin.remoteHost, call.request.origin.remotePort)
-            connectionManager.manage(node, connectionSocketAddress, this)
+            val headers = readInboundPeerHeaders(request, remoteHost) ?: return
+            val node = authenticateInboundPeer(remoteHost, headers) ?: return
+            connectionManager.manage(node, requireNotNull(request.remoteAddress()), session)
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
-            logger.trace(e) { "Exception during handshake with ${call.request.origin.remoteHost}" }
-            call.respond(HttpStatusCode.InternalServerError)
+            logger.trace(e) { "Exception during handshake with ${request.remoteHost()}" }
         }
     }
 
-    private suspend fun postHandshakeCallback(
+    private fun readInboundPeerHeaders(
+        request: HttpServerRequest,
+        remoteHost: String,
+    ): InboundPeerHeaders? {
+        val publicUriHeader = request.requestHeaders().get(PUBLIC_URI_HEADER)
+        val challengeHeader = request.requestHeaders().get(CHALLENGE_HEADER)
+        if (publicUriHeader == null || challengeHeader == null) {
+            logger.trace { "Missing required headers from $remoteHost" }
+            return null
+        }
+
+        val publicUri = publicUriHeader.toUriOrNull()
+        if (publicUri == null) {
+            logger.trace { "Invalid public URI header '$publicUriHeader' from $remoteHost" }
+            return null
+        }
+        if (publicUri.scheme != "ws" && publicUri.scheme != "wss") {
+            logger.trace { "Invalid URI scheme '${publicUri.scheme}' from $remoteHost" }
+            return null
+        }
+        if (publicUri == thisNode.publicUri) {
+            logger.trace { "Can't connect as a server to $publicUri. This uri is this node." }
+            return null
+        }
+
+        logger.trace { "Headers received: publicUri=$publicUri, challenge=$challengeHeader" }
+        if (!challengeHeader.isChallengePrefixValid()) {
+            logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost" }
+            return null
+        }
+        return InboundPeerHeaders(publicUri, challengeHeader)
+    }
+
+    private suspend fun authenticateInboundPeer(
+        remoteHost: String,
+        headers: InboundPeerHeaders,
+    ): AttoNode? {
+        val publicUri = headers.publicUri
+        val connectionAttempt = OutboundConnectionAttempt()
+        if (connectingMap.putIfAbsent(publicUri, connectionAttempt) != null) {
+            logger.trace { "Can't connect as a server to $publicUri. Connection attempt in progress." }
+            return null
+        }
+
+        var authenticatedNode: AttoNode? = null
+        try {
+            val timestamp = AttoInstant.now()
+            var counterChallenge: String? = null
+            val callbackResult =
+                handshakeCallbackService.post(remoteHost, publicUri) {
+                    val generatedCounterChallenge = ChallengeStore.generate(publicUri)
+                    counterChallenge = generatedCounterChallenge
+                    CounterChallengeResponse(
+                        headers.challenge,
+                        genesisTransaction.hash,
+                        thisNode,
+                        timestamp,
+                        signer.sign(AttoChallenge(headers.challenge.fromHexToByteArray()), timestamp),
+                        generatedCounterChallenge,
+                    )
+                }
+            val result = callbackResult as? HandshakeCallbackResult.Completed ?: return null
+            authenticatedNode = validateInboundCallback(remoteHost, publicUri, counterChallenge, result)
+            return authenticatedNode
+        } finally {
+            // Failed attempts release admission; successful attempts retain the existing expiry window.
+            if (authenticatedNode == null) connectingMap.remove(publicUri, connectionAttempt)
+        }
+    }
+
+    private suspend fun validateInboundCallback(
         remoteHost: String,
         publicUri: URI,
-        connectionAttempt: OutboundConnectionAttempt,
-        requestFactory: suspend () -> CounterChallengeResponse,
-    ): HandshakeCallbackResult =
-        try {
-            handshakeCallbackService.post(remoteHost, publicUri, requestFactory)
-        } catch (e: Throwable) {
-            connectingMap.remove(publicUri, connectionAttempt)
-            throw e
+        counterChallenge: String?,
+        result: HandshakeCallbackResult.Completed,
+    ): AttoNode? {
+        logger.trace { "Challenge response status from ${publicUri.toHandshakeHttpUri()}: ${result.status}" }
+        if (result.status.code() !in 200..299) {
+            logger.trace { "Received invalid ${result.status.code()} challenge status from $publicUri $remoteHost" }
+            return null
         }
+
+        val response = result.response
+        if (response == null) {
+            logger.trace { "Received empty challenge response from $publicUri $remoteHost" }
+            return null
+        }
+        if (counterChallenge == null || ChallengeStore.remove(counterChallenge) == null) {
+            logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
+            return null
+        }
+
+        val node = response.node
+        if (node.publicUri != publicUri) {
+            logger.trace { "Node publicUri ${node.publicUri} doesn't match header $publicUri from $remoteHost" }
+            return null
+        }
+        val counterHash =
+            AttoHash.hash(
+                64,
+                node.publicKey.value,
+                counterChallenge.fromHexToByteArray(),
+                response.timestamp.toByteArray(),
+            )
+        if (!response.signature.isValid(node.publicKey, counterHash)) {
+            logger.trace { "Received invalid signature from client $remoteHost $response" }
+            return null
+        }
+        return node
+    }
 
     override fun clear() {
         connectingMap.clear()
@@ -444,11 +374,33 @@ class NetworkProcessor(
 
     @PreDestroy
     fun stop() {
+        if (!stopped.compareAndSet(false, true)) return
         logger.info { "Network Processor is stopping..." }
+        server.stopAccepting()
         clear()
-        websocketClient.close()
-        scope.cancel()
-        server.stop()
+        try {
+            runBlocking {
+                withTimeoutOrNull(5.seconds) { scope.coroutineContext.job.cancelAndJoin() }
+            }
+        } finally {
+            try {
+                closeTransports()
+            } finally {
+                try {
+                    connectionManager.clear()
+                } finally {
+                    dispatcher.close()
+                }
+            }
+        }
+    }
+
+    private fun closeTransports() {
+        try {
+            server.close()
+        } finally {
+            peerClient.close()
+        }
     }
 
     @Scheduled(fixedRate = 1_000)
@@ -471,7 +423,7 @@ class NetworkProcessor(
     }
 
     private suspend fun connectAsync(publicUri: URI) {
-        if (publicUri == thisNode.publicUri) {
+        if (stopped.get() || publicUri == thisNode.publicUri) {
             return
         }
 
@@ -503,27 +455,31 @@ class NetworkProcessor(
         }
     }
 
-    private suspend fun ApplicationCall.acceptInboundConnection(
+    private suspend fun inboundConnectionRejection(
         remoteHost: String,
         requestType: String,
-    ): Boolean =
+    ): HttpResponseStatus? =
         when (guardian.requestInboundConnection(dnsResolver.getByName(remoteHost))) {
             InboundConnectionDecision.Accepted -> {
-                true
+                null
             }
 
             InboundConnectionDecision.Banned -> {
                 logger.trace { "Rejected $requestType from banned address $remoteHost" }
-                respond(HttpStatusCode.Forbidden)
-                false
+                HttpResponseStatus.FORBIDDEN
             }
 
             InboundConnectionDecision.RateLimited -> {
                 logger.trace { "Rejected $requestType from rate limited address $remoteHost" }
-                respond(HttpStatusCode.TooManyRequests)
-                false
+                HttpResponseStatus.TOO_MANY_REQUESTS
             }
         }
+
+    private suspend fun HttpServerResponse.respond(status: HttpResponseStatus) {
+        status(status).send().awaitSingleOrNull()
+    }
+
+    private fun HttpServerRequest.remoteHost(): String = requireNotNull(remoteAddress()).address.hostAddress
 
     private suspend fun connection(
         publicUri: URI,
@@ -555,28 +511,22 @@ class NetworkProcessor(
 
             logger.trace { "Connecting to $publicUri" }
 
-            websocketClient.clientWebSocket(
-                urlString = publicUri.toString(),
-                request = {
-                    header(PUBLIC_URI_HEADER, thisNode.publicUri.toString())
-                    header(CHALLENGE_HEADER, ChallengeStore.generate(publicUri))
-                },
-            ) {
-                val connectionSocketAddress =
-                    InetSocketAddress(
-                        call.request.url.host,
-                        call.request.url.port,
-                    )
-
+            peerClient.webSocket(
+                publicUri,
+                mapOf(
+                    PUBLIC_URI_HEADER to thisNode.publicUri.toString(),
+                    CHALLENGE_HEADER to ChallengeStore.generate(publicUri),
+                ),
+            ) { session, connectionSocketAddress ->
                 val node = connectionAttempt.awaitNode()
 
                 if (node.publicUri != publicUri) {
                     logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri" }
-                    return@clientWebSocket
+                    return@webSocket
                 }
 
                 timeoutJob.cancel()
-                connectionManager.manage(node, connectionSocketAddress, this)
+                connectionManager.manage(node, connectionSocketAddress, session)
             }
         } finally {
             timeoutJob.cancel()

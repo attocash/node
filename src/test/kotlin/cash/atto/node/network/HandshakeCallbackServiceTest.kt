@@ -1,9 +1,9 @@
 package cash.atto.node.network
 
-import io.ktor.http.HttpStatusCode
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
+import io.netty.handler.codec.http.HttpResponseStatus
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -63,13 +63,13 @@ class HandshakeCallbackServiceTest {
 
                 // Then
                 assertInstanceOf(HandshakeCallbackResult.Rejected::class.java, result)
-                assertEquals(HttpStatusCode.BadRequest, (result as HandshakeCallbackResult.Rejected).status)
+                assertEquals(HttpResponseStatus.BAD_REQUEST, (result as HandshakeCallbackResult.Rejected).status)
             }
 
             // Then
             assertFalse(requestBuilt)
             coVerify(exactly = unsafeUris.size) { dnsResolver.getAllByName(any()) }
-            coVerify(exactly = 0) { callbackClient.post(any(), any()) }
+            coVerify(exactly = 0) { callbackClient.postHandshake(any(), any()) }
         }
 
     @Test
@@ -81,8 +81,8 @@ class HandshakeCallbackServiceTest {
             val service = callbackService(safeCallbackProperties(), callbackClient)
 
             coEvery {
-                callbackClient.post(URI("http://93.184.216.34:7070/handshakes"), request)
-            } returns HandshakeCallbackResult.Completed(HttpStatusCode.OK, null)
+                callbackClient.postHandshake(URI("http://93.184.216.34:7070/handshakes"), request)
+            } returns HandshakeCallbackResult.Completed(HttpResponseStatus.OK, null)
 
             // When
             val result =
@@ -93,7 +93,7 @@ class HandshakeCallbackServiceTest {
             // Then
             assertInstanceOf(HandshakeCallbackResult.Completed::class.java, result)
             coVerify(exactly = 1) {
-                callbackClient.post(URI("http://93.184.216.34:7070/handshakes"), request)
+                callbackClient.postHandshake(URI("http://93.184.216.34:7070/handshakes"), request)
             }
         }
 
@@ -103,10 +103,10 @@ class HandshakeCallbackServiceTest {
             // Given
             val callbackClient = mockk<HandshakeCallbackClient>()
             val request = mockk<CounterChallengeResponse>()
-            val result = HandshakeCallbackResult.Completed(HttpStatusCode.OK, null)
+            val result = HandshakeCallbackResult.Completed(HttpResponseStatus.OK, null)
             val service = callbackService(safeCallbackProperties(), callbackClient)
             var factoryCancelled = false
-            coEvery { callbackClient.post(any(), any()) } returns result
+            coEvery { callbackClient.postHandshake(any(), any()) } returns result
 
             // When
             val stalledCall =
@@ -120,7 +120,7 @@ class HandshakeCallbackServiceTest {
             // Then
             assertInstanceOf(TimeoutCancellationException::class.java, stalledCall.await().exceptionOrNull())
             assertTrue(factoryCancelled)
-            coVerify(exactly = 0) { callbackClient.post(any(), any()) }
+            coVerify(exactly = 0) { callbackClient.postHandshake(any(), any()) }
 
             // When
             var nextFactoryCalled = false
@@ -133,7 +133,7 @@ class HandshakeCallbackServiceTest {
             // Then
             assertSame(result, nextResult)
             assertTrue(nextFactoryCalled)
-            coVerify(exactly = 1) { callbackClient.post(any(), request) }
+            coVerify(exactly = 1) { callbackClient.postHandshake(any(), request) }
         }
 
     @Test
@@ -145,7 +145,7 @@ class HandshakeCallbackServiceTest {
             val service = callbackService(safeCallbackProperties(), callbackClient)
             var callbackStarted = false
             var callbackCancelled = false
-            coEvery { callbackClient.post(any(), request) } coAnswers {
+            coEvery { callbackClient.postHandshake(any(), request) } coAnswers {
                 callbackStarted = true
                 awaitCancellationWithCleanup { callbackCancelled = true }
             }
@@ -204,7 +204,7 @@ class HandshakeCallbackServiceTest {
             assertInstanceOf(CancellationException::class.java, cancellation)
             assertEquals(parentCancellation.message, cancellation.message)
             assertTrue(request.isCancelled)
-            coVerify(exactly = 0) { callbackClient.post(any(), any()) }
+            coVerify(exactly = 0) { callbackClient.postHandshake(any(), any()) }
         }
 
     private fun callbackService(

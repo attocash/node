@@ -4,7 +4,7 @@ Atto Node is the network-facing service for the **Atto** cryptocurrency. It expo
 submitting/querying blocks (transactions), maintains account state in a MySQL database, connects to other nodes over
 WebSockets, and participates in consensus by producing and relaying votes.
 
-This repository is a **Kotlin + Spring Boot (WebFlux)** application with a small embedded **Ktor WebSocket/HTTP server**
+This repository is a **Kotlin + Spring Boot (WebFlux)** application with a dedicated **Reactor Netty WebSocket/HTTP server**
 for node-to-node communication.
 
 [Website](https://atto.cash/) | [Docs](https://atto.cash/docs/integration) | [Commons](https://github.com/attocash/commons)
@@ -115,7 +115,7 @@ From `application.yaml`:
 
 - **8080**: public REST API (Spring WebFlux)
 - **8081**: management/metrics (Actuator + Prometheus)
-- **8082**: node-to-node WebSocket server (Ktor)
+- **8082**: node-to-node WebSocket server (Reactor Netty)
 
 Swagger UI is configured at:
 
