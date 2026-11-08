@@ -7,16 +7,12 @@ import cash.atto.node.EventPublisher
 import cash.atto.protocol.AttoKeepAlive
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
-import io.ktor.websocket.Frame
-import io.ktor.websocket.WebSocketExtension
-import io.ktor.websocket.WebSocketSession
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.consumeAsFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -26,7 +22,6 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.net.InetSocketAddress
 import java.net.URI
-import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class NodeConnectionManagerTest {
@@ -52,7 +47,7 @@ class NodeConnectionManagerTest {
 
                 // When
                 val next = launch(start = CoroutineStart.UNDISPATCHED) { manager.manage(replacement, nextSocket, nextSession) }
-                firstSession.incoming.close()
+                firstSession.messages.close()
                 first.join()
 
                 // Then
@@ -60,7 +55,7 @@ class NodeConnectionManagerTest {
                 assertEquals(listOf(ConnectedPeer(original, firstSocket)), initialSnapshot)
 
                 // When
-                nextSession.incoming.close()
+                nextSession.messages.close()
                 next.join()
 
                 // Then
@@ -86,7 +81,7 @@ class NodeConnectionManagerTest {
             val nextSession = ChannelSession()
             try {
                 val first = launch(start = CoroutineStart.UNDISPATCHED) { manager.manage(original, firstSocket, firstSession) }
-                firstSession.incoming.send(Frame.Binary(true, NetworkSerializer.serialize(AttoKeepAlive())))
+                firstSession.messages.send(NetworkSerializer.serialize(AttoKeepAlive()))
 
                 // When: replace before the scheduled old frame collector resumes.
                 val next = launch(start = CoroutineStart.UNDISPATCHED) { manager.manage(replacement, nextSocket, nextSession) }
@@ -96,8 +91,8 @@ class NodeConnectionManagerTest {
                 assertEquals(listOf(ConnectedPeer(replacement, nextSocket)), manager.snapshot())
 
                 // When
-                firstSession.incoming.close()
-                nextSession.incoming.close()
+                firstSession.messages.close()
+                nextSession.messages.close()
                 first.join()
                 next.join()
             } finally {
@@ -126,7 +121,7 @@ class NodeConnectionManagerTest {
                 // Then
                 assertFalse(manager.isConnected(peer.publicUri))
                 assertTrue(manager.snapshot().isEmpty())
-                assertTrue(session.outgoing.tryReceive().getOrNull() is Frame.Close)
+                assertTrue(session.closeInitiated)
             } finally {
                 session.cancel()
                 manager.stop()
@@ -141,19 +136,20 @@ class NodeConnectionManagerTest {
         )
 
     // Sending Close starts graceful shutdown; frames already received can still be consumed until the peer closes.
-    private class ChannelSession : WebSocketSession {
-        override val coroutineContext: CoroutineContext = SupervisorJob()
-        override var masking: Boolean = false
-        override var maxFrameSize: Long = Long.MAX_VALUE
-        override val incoming = Channel<Frame>(Channel.UNLIMITED)
-        override val outgoing = Channel<Frame>(Channel.UNLIMITED)
-        override val extensions: List<WebSocketExtension<*>> = emptyList()
+    private class ChannelSession : PeerSession {
+        val messages = Channel<ByteArray>(Channel.UNLIMITED)
+        override val incoming = messages.consumeAsFlow()
+        var closeInitiated = false
+            private set
 
-        override suspend fun flush() = Unit
+        override suspend fun send(message: ByteArray) = Unit
 
-        @Deprecated("Use cancel() instead.", level = DeprecationLevel.ERROR)
-        override fun terminate() {
-            cancel()
+        override suspend fun close() {
+            closeInitiated = true
+        }
+
+        override fun cancel() {
+            messages.cancel()
         }
     }
 

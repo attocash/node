@@ -10,10 +10,6 @@ import cash.atto.protocol.AttoNode
 import com.github.benmanes.caffeine.cache.Caffeine
 import com.github.benmanes.caffeine.cache.Scheduler
 import io.github.oshai.kotlinlogging.KotlinLogging
-import io.ktor.websocket.Frame
-import io.ktor.websocket.WebSocketSession
-import io.ktor.websocket.close
-import io.ktor.websocket.readBytes
 import jakarta.annotation.PreDestroy
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -21,9 +17,6 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.consumeAsFlow
-import kotlinx.coroutines.flow.filterIsInstance
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.joinAll
@@ -47,7 +40,8 @@ class NodeConnectionManager(
     private val logger = KotlinLogging.logger {}
 
     private val supervisorJob = SupervisorJob()
-    private val scope = CoroutineScope(Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher() + supervisorJob)
+    private val dispatcher = Executors.newVirtualThreadPerTaskExecutor().asCoroutineDispatcher()
+    private val scope = CoroutineScope(dispatcher + supervisorJob)
 
     private val connectionMap =
         Caffeine
@@ -91,6 +85,7 @@ class NodeConnectionManager(
         logger.info { "Node Connection Manager is stopping..." }
         clear()
         scope.cancel()
+        dispatcher.close()
     }
 
     override fun snapshot(): List<ConnectedPeer> = connectionMap.values.map { ConnectedPeer(it.node, it.connectionInetSocketAddress) }
@@ -100,7 +95,7 @@ class NodeConnectionManager(
     suspend fun manage(
         node: AttoNode,
         connectionSocketAddress: InetSocketAddress,
-        session: WebSocketSession,
+        session: PeerSession,
     ) {
         val publicUri = node.publicUri
         val connection = NodeConnection(node, connectionSocketAddress, session)
@@ -211,17 +206,15 @@ class NodeConnectionManager(
     private inner class NodeConnection(
         val node: AttoNode,
         val connectionInetSocketAddress: InetSocketAddress,
-        val session: WebSocketSession,
+        val session: PeerSession,
     ) {
         fun incomingFlow(): Flow<ByteArray> =
             session
                 .incoming
-                .consumeAsFlow()
-                .filterIsInstance<Frame.Binary>()
                 .onStart { logger.info { "Connected to ${node.publicUri} ${node.publicKey}" } }
                 .onCompletion { cause ->
                     logger.info(cause?.takeUnless { it is CancellationException }) { "Disconnected from ${node.publicUri}" }
-                }.map { it.readBytes() }
+                }
 
         suspend fun disconnect() {
             try {
@@ -233,7 +226,7 @@ class NodeConnectionManager(
         }
 
         suspend fun send(message: ByteArray) {
-            session.outgoing.send(Frame.Binary(true, message))
+            session.send(message)
         }
     }
 }

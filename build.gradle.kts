@@ -137,6 +137,12 @@ dependencies {
 tasks.withType<Test> {
     useJUnitPlatform()
     maxHeapSize = "4g"
+    systemProperty(
+        "atto.test.runtime-classpath",
+        sourceSets.test
+            .get()
+            .runtimeClasspath.asPath,
+    )
 }
 
 tasks.named("check") {

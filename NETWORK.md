@@ -4,9 +4,30 @@ The networking subsystem authenticates peers in [NetworkProcessor][processor], m
 [NodeConnectionManager][connections], and counts traffic in [Guardian][guardian]. These owners communicate through direct
 queries and asynchronous network-message and lifecycle events.
 
+## Transport Ownership
+
+The [peer server][peer-server] uses Reactor Netty directly on `websocket.port` (default `8082`). It owns its I/O event loops
+and virtual-thread application dispatcher. Spring WebFlux controllers remain on `server.port` (default `8080`), with management
+on `8081` by default.
+
+[PeerNettyClient][peer-client] owns the outgoing Reactor Netty WebSocket and HTTP callback clients. They use private event
+loops, a virtual-thread application dispatcher, separate connection providers and an asynchronous bridge to the existing JVM
+DNS resolver. Neither peer transport uses Spring's shared Reactor resources. Request hostnames remain available for HTTP Host,
+TLS SNI and certificate hostname verification.
+Callback POSTs do not follow redirects or retry automatically; WebSocket redirects retain the existing secure-downgrade
+restriction and request limit.
+
+[PeerSession][peer-session] exposes complete binary messages, ordered enqueue, graceful close and cancellation to the
+connection manager. The [Reactor session][peer-reactor-session] owns transport framing and cleanup for inbound and outbound
+connections, including enabling frame aggregation synchronously in the upgrade callback, before application dispatch.
+Both directions retain a 300-byte receive limit,
+including cumulative fragmented messages, and bounded incoming/outgoing queues with close-on-overflow. These transport limits
+belong to the session contract.
+Text messages are ignored after admission to the incoming queue; ping/pong and close frames remain transport concerns.
+
 ## Peer Authentication
 
-`NetworkProcessor` starts an embedded Ktor CIO server with two endpoints:
+`NetworkProcessor` starts its private peer server with two endpoints:
 
 - **`POST /handshakes`** accepts a `CounterChallengeResponse`. Guardian admits the remote address, the processor consumes
   a one-time challenge, checks the expected public URI, genesis hash, signature and counter-challenge prefix, then signs
@@ -14,11 +35,15 @@ queries and asynchronous network-message and lifecycle events.
 - **`WS /`** accepts a WebSocket with `Atto-Public-Uri` and `Atto-Http-Challenge` headers. Guardian admits the remote address,
   the processor validates the headers and challenge prefix, then posts a counter-challenge to the peer's `/handshakes`
   endpoint. It checks the returned URI and signature before handing the session to `NodeConnectionManager.manage()`.
+  Authentication owns its attempt reservation: failure or cancellation removes that attempt conditionally by identity;
+  success retains the existing five-second expiry window.
 
 An inbound HTTP handshake has a five-second preparation deadline covering admission, body reading, verification and signing.
 A separate semaphore limits concurrent HTTP handshakes to 64. The [callback service][callback] applies a five-second deadline
 covering URI validation, request construction/signing and the callback exchange. Both handshake payload directions have bounded
 body readers in [HandshakePayloadLimit][payload-limit]. Cancellation propagates to ongoing handshake work.
+Early HTTP rejection closes the connection after writing its status, so unread request content cannot leave a reusable
+connection stalled. WebSocket authentication runs after upgrade; a rejected attempt terminates without registering a peer.
 
 ### Outbound Connections
 
@@ -64,7 +89,7 @@ Consumers query this owner instead of reconstructing membership from connection 
 
 ### Session Lifecycle
 
-`manage()` registers the connection and consumes binary frames from its incoming channel. It deserializes each binary
+`manage()` registers the connection and consumes complete binary messages from its peer session. It deserializes each binary
 message through [NetworkSerializer][serializer], which also checks protocol validity. Invalid messages remove the connection. Valid messages become `InboundNetworkMessage` events with the peer URI,
 socket address and `WEBSOCKET` source.
 
@@ -80,7 +105,10 @@ side effect; its connectivity check prevents a delayed disconnect from releasing
 Gap sessions identify peers by URI and retain their existing expiry; this is not connection-generation isolation.
 
 `clear()` removes connections and waits for already scheduled cleanup jobs. `stop()` clears the map and cancels the manager's
-scope. `NetworkProcessor.stop()` separately closes its client, cancels outbound work and stops its embedded server.
+scope. `NetworkProcessor.stop()` stops admission, cancels outbound work, closes the server and client transports, then clears
+managed connections. Closing the transports first releases stalled writes before manager cleanup waits for disconnect jobs.
+`PeerNettyClient` cancels active operations and closes sockets before disposing its connection providers, resolver work and
+event loops. Transport closure is idempotent. Neither shutdown path disposes Spring's HTTP resources.
 
 ### Sending and Keepalives
 
@@ -130,6 +158,10 @@ transport, feature, traffic-accounting or metrics listener to finish.
 | `NodeUnbanned` | `PeerBans` expiry review | No current consumers. |
 
 [processor]: src/main/kotlin/cash/atto/node/network/NetworkProcessor.kt
+[peer-server]: src/main/kotlin/cash/atto/node/network/PeerNettyServer.kt
+[peer-client]: src/main/kotlin/cash/atto/node/network/PeerNettyClient.kt
+[peer-session]: src/main/kotlin/cash/atto/node/network/PeerSession.kt
+[peer-reactor-session]: src/main/kotlin/cash/atto/node/network/ReactorPeerSession.kt
 [connections]: src/main/kotlin/cash/atto/node/network/NodeConnectionManager.kt
 [connected-peers]: src/main/kotlin/cash/atto/node/network/ConnectedPeers.kt
 [guardian]: src/main/kotlin/cash/atto/node/network/guardian/Guardian.kt
