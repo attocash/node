@@ -65,6 +65,11 @@ Run `./gradlew test` to test with neighbours built from the current checkout. Fo
 throughout the run, and logs its digest and release metadata. It requires a local Linux container engine with host networking.
 Released neighbours use their production APIs and scheduled bootstrap processing; test-only controls remain on classpath nodes.
 
+CI runs the full suite through the Terraform-managed classpath workflow. The node-owned
+[compatibility workflow](.github/workflows/compatibility.yaml) runs Cucumber against `:live` for pull requests and is also
+called by the [pipeline](.github/workflows/pipeline.yaml). Builds require both checks; native-image metadata comes from the
+classpath run. Keep released-node checks in the node-owned workflow so Terraform can regenerate the shared workflows.
+
 ## Configuration
 
 Configuration is split across `application.yaml` and profile overrides such as:

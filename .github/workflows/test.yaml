@@ -8,11 +8,6 @@ on:
         required: false
         default: false
         type: boolean
-      neighbour_mode:
-        description: "Neighbour node implementation used by integration tests"
-        required: false
-        default: "classpath"
-        type: string
 
 jobs:
   test:
@@ -31,7 +26,7 @@ jobs:
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast -Datto.test.neighbour-mode=${{ inputs.neighbour_mode }}
+      - run: ./gradlew ${{ inputs.agent_enabled && '-Pagent' || '' }} test --no-daemon --info --fail-fast
 
       - uses: actions/upload-artifact@v7
         if: inputs.agent_enabled

@@ -1,0 +1,41 @@
+# Owned by node; management-terraform supplies the separate classpath test workflow.
+name: Compatibility
+
+on:
+  pull_request:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  compatibility:
+    name: Released node compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: gradle/actions/wrapper-validation@v6
+
+      - uses: graalvm/setup-graalvm@v1
+        with:
+          distribution: 'graalvm'
+          version: '25i-latest'
+          native-image-musl: true
+          cache: 'gradle'
+
+      - uses: gradle/actions/setup-gradle@v6
+
+      - name: Test against the released node
+        run: ./gradlew test --tests cash.atto.node.CucumberTest --no-daemon --info --fail-fast -Datto.test.neighbour-mode=live
+
+      - uses: actions/upload-artifact@v7
+        if: failure()
+        with:
+          name: released-node-compatibility-reports
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+            build/reports/Cucumber.html
+            build/reports/released-neighbours
