@@ -21,27 +21,33 @@ object NodeHolder {
     fun clear(except: Closeable) {
         val toClose = nodes.filter { it.context != except }
 
-        toClose.forEach { it.context.close() }
+        val failures = mutableListOf<Throwable>()
+        toClose.forEach { node ->
+            runCatching { node.context.close() }.onFailure { failures.add(it) }
+        }
 
         toClose.forEach { node ->
             val classLoader = node.classLoader as? URLClassLoader ?: return@forEach
-            val remaining = waitForThreads(classLoader)
-
-            if (remaining.isEmpty()) {
-                classLoader.close()
-                return@forEach
-            }
-
-            Thread
-                .getAllStackTraces()
-                .keys
-                .filter { it.contextClassLoader == classLoader && it.isAlive && it.isDaemon }
-                .forEach { it.contextClassLoader = null }
-
-            logger.warn { "Leaving classloader open with ${remaining.size} threads still alive: ${remaining.map { it.name }}" }
+            runCatching { closeClassLoader(classLoader) }.onFailure { failures.add(it) }
         }
 
         nodes.removeAll(toClose.toSet())
+        if (failures.isNotEmpty()) {
+            val failure = IllegalStateException("Failed to close ${failures.size} neighbour resources")
+            failures.forEach { failure.addSuppressed(it) }
+            throw failure
+        }
+    }
+
+    private fun closeClassLoader(classLoader: URLClassLoader) {
+        val remaining = waitForThreads(classLoader)
+        if (remaining.isEmpty()) {
+            classLoader.close()
+            return
+        }
+
+        remaining.filter { it.isDaemon }.forEach { it.contextClassLoader = null }
+        logger.warn { "Leaving classloader open with ${remaining.size} threads still alive: ${remaining.map { it.name }}" }
     }
 
     private fun waitForThreads(classLoader: ClassLoader): List<Thread> {

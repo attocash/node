@@ -69,6 +69,7 @@ class CucumberConfiguration(
 
     @After
     fun after() {
-//        DebugProbes.dumpCoroutines()
+        networkProperties.defaultNodes.clear()
+        NodeHolder.clear(except = context)
     }
 }

@@ -60,6 +60,11 @@ On startup, the node will:
 - start the REST API
 - start the node-to-node WebSocket server
 
+Run `./gradlew test` to test with neighbours built from the current checkout. For compatibility with the released node, run
+`./gradlew test -Datto.test.neighbour-mode=live`. This mode pulls `ghcr.io/attocash/node:live` once, reuses the resolved image
+throughout the run, and logs its digest and release metadata. It requires a local Linux container engine with host networking.
+Released neighbours use their production APIs and scheduled bootstrap processing; test-only controls remain on classpath nodes.
+
 ## Configuration
 
 Configuration is split across `application.yaml` and profile overrides such as:

@@ -59,7 +59,7 @@ class TransactionStepDefinition(
 
         logger.info { "Publishing $sendTransaction" }
 
-        publish("THIS", sendTransaction)
+        publish(senderShortId, sendTransaction)
 
         PropertyHolder.add(transactionShortId, sendTransaction)
     }
@@ -99,7 +99,7 @@ class TransactionStepDefinition(
 
         logger.info { "Publishing $transaction" }
 
-        publish("THIS", transaction)
+        publish(receiverShortId, transaction)
 
         PropertyHolder.add(transactionShortId, transaction)
     }
