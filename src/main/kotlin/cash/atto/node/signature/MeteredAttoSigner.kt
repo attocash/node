@@ -12,6 +12,7 @@ import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVote
 import io.micrometer.core.instrument.MeterRegistry
 import io.micrometer.core.instrument.Timer
+import jakarta.annotation.PreDestroy
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.cancellation.CancellationException
@@ -19,7 +20,8 @@ import kotlin.coroutines.cancellation.CancellationException
 internal class MeteredAttoSigner(
     internal val delegate: AttoSigner,
     private val meterRegistry: MeterRegistry,
-) : AttoSigner {
+) : AttoSigner,
+    AutoCloseable {
     private val timers = ConcurrentHashMap<String, Timer>()
 
     init {
@@ -87,6 +89,11 @@ internal class MeteredAttoSigner(
         } finally {
             timer(operation, outcome, voteType).record(System.nanoTime() - started, TimeUnit.NANOSECONDS)
         }
+    }
+
+    @PreDestroy
+    override fun close() {
+        (delegate as? AutoCloseable)?.close()
     }
 
     private fun timer(

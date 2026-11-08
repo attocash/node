@@ -45,6 +45,20 @@ body readers in [HandshakePayloadLimit][payload-limit]. Cancellation propagates 
 Early HTTP rejection closes the connection after writing its status, so unread request content cannot leave a reusable
 connection stalled. WebSocket authentication runs after upgrade; a rejected attempt terminates without registering a peer.
 
+### Remote Signing
+
+When `atto.signer.backend=REMOTE`, [NettyRemoteSigner][remote-signer] calls the existing signer's `public-keys`, `blocks`,
+`votes` and `challenges` endpoints. It preserves the configured authorization token, lazy public-key cache, signature checks,
+one-second retry delay and socket timeouts (five seconds for the public key, one second for signing). HTTP 408 and 429 are
+retried, as are transport and decoding failures; other HTTP errors terminate the operation. Cancellation stops retrying.
+
+The signer owns JSON, retries and signature validation. Its [HTTP transport][signer-transport] owns connection and operation
+admission, shutdown, and separate `atto-signer-io` event loops, connection provider and `atto-signer-work` virtual-thread dispatcher.
+The whole signing operation runs on that dispatcher, including codecs, retry waits and signature validation.
+Peer server/client I/O uses separate `atto-peer-server-io` and `atto-peer-client-io` groups. Each transport closes only its owned
+resources. Virtual-thread executors have separate lifecycles but share the JVM's carrier scheduler. Local signing and signer
+metrics retain their existing interfaces. The node runtime does not depend on Ktor.
+
 ### Outbound Connections
 
 `bootstrap()` runs every second and tries the configured default nodes. An inbound `AttoKeepAlive` can also supply a neighbour
@@ -162,6 +176,8 @@ transport, feature, traffic-accounting or metrics listener to finish.
 [peer-client]: src/main/kotlin/cash/atto/node/network/PeerNettyClient.kt
 [peer-session]: src/main/kotlin/cash/atto/node/network/PeerSession.kt
 [peer-reactor-session]: src/main/kotlin/cash/atto/node/network/ReactorPeerSession.kt
+[remote-signer]: src/main/kotlin/cash/atto/node/signature/NettyRemoteSigner.kt
+[signer-transport]: src/main/kotlin/cash/atto/node/signature/RemoteSignerHttpTransport.kt
 [connections]: src/main/kotlin/cash/atto/node/network/NodeConnectionManager.kt
 [connected-peers]: src/main/kotlin/cash/atto/node/network/ConnectedPeers.kt
 [guardian]: src/main/kotlin/cash/atto/node/network/guardian/Guardian.kt

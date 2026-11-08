@@ -12,37 +12,31 @@ import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.AttoReceivable
 import cash.atto.commons.AttoReceiveBlock
 import cash.atto.commons.AttoSignature
-import cash.atto.commons.AttoSigner
 import cash.atto.commons.AttoVersion
 import cash.atto.commons.AttoVote
-import cash.atto.commons.node.remote
 import cash.atto.commons.toAttoAmount
 import cash.atto.commons.toAttoHeight
 import cash.atto.commons.toAttoVersion
 import cash.atto.commons.toSignerBlocking
-import io.ktor.serialization.kotlinx.json.json
-import io.ktor.server.application.install
-import io.ktor.server.cio.CIO
-import io.ktor.server.engine.embeddedServer
-import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.server.request.receive
-import io.ktor.server.response.respond
-import io.ktor.server.routing.get
-import io.ktor.server.routing.post
-import io.ktor.server.routing.routing
+import kotlinx.coroutines.reactor.mono
 import kotlinx.coroutines.runBlocking
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.AfterAll
+import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import java.net.ServerSocket
+import reactor.core.publisher.Mono
+import reactor.netty.DisposableServer
+import reactor.netty.http.server.HttpServer
+import reactor.netty.resources.LoopResources
+import java.time.Duration
 import kotlin.random.Random
 
 class SignerTest {
     companion object {
-        private val signerPort = randomPort()
-        private val signerServer = MocktRemoteSigner(signerPort)
+        private val signerServer = MockRemoteSigner()
 
         @JvmStatic
         @BeforeAll
@@ -55,17 +49,14 @@ class SignerTest {
         fun stop() {
             signerServer.stop()
         }
-
-        private fun randomPort(): Int =
-            ServerSocket(0).use {
-                it.localPort
-            }
     }
 
-    val signer =
-        AttoSigner.remote("http://localhost:$signerPort") {
-            mapOf("Authorization" to "mock_test")
-        }
+    val signer = NettyRemoteSigner("http://localhost:${signerServer.port}", "mock_test")
+
+    @AfterEach
+    fun closeSigner() {
+        signer.close()
+    }
 
     @Test
     fun `should sign block`(): Unit =
@@ -145,49 +136,85 @@ class SignerTest {
             amount = 1000UL.toAttoAmount(),
         )
 
-    class MocktRemoteSigner(
-        port: Int,
-    ) {
+    class MockRemoteSigner {
         val signer = AttoPrivateKey.generate().toSignerBlocking()
-
-        val server =
-            embeddedServer(CIO, port = port) {
-                install(ContentNegotiation) {
-                    json()
-                }
-
-                routing {
-                    get("/public-keys") {
-                        val response = PublicKeyResponse(signer.publicKey)
-                        call.respond(response)
-                    }
-
-                    post("/blocks") {
-                        val request = call.request.call.receive<BlockSignatureRequest>()
-                        val signature = signer.sign(request.target)
-                        call.respond(SignatureResponse(signature))
-                    }
-
-                    post("/votes") {
-                        val request = call.request.call.receive<VoteSignatureRequest>()
-                        val signature = signer.sign(request.target)
-                        call.respond(SignatureResponse(signature))
-                    }
-
-                    post("/challenges") {
-                        val request = call.request.call.receive<ChallengeSignatureRequest>()
-                        val signature = signer.sign(request.target, request.timestamp)
-                        call.respond(SignatureResponse(signature))
-                    }
-                }
+        private val loops = LoopResources.create("signer-contract-test-server", 1, true)
+        private val timeout = Duration.ofSeconds(5)
+        private val json =
+            Json {
+                encodeDefaults = true
+                isLenient = true
+                allowSpecialFloatingPointValues = true
+                allowStructuredMapKeys = true
+                prettyPrint = false
+                useArrayPolymorphism = false
             }
+        private lateinit var server: DisposableServer
+
+        val port: Int
+            get() = server.port()
 
         fun start() {
-            server.start()
+            try {
+                server =
+                    HttpServer
+                        .create()
+                        .host("localhost")
+                        .port(0)
+                        .runOn(loops)
+                        .route { routes ->
+                            routes.get("/public-keys") { _, response ->
+                                response.header("Content-Type", "application/json").sendString(
+                                    Mono.fromSupplier { json.encodeToString(PublicKeyResponse(signer.publicKey)) },
+                                )
+                            }
+                            routes.post("/blocks") { request, response ->
+                                val body =
+                                    request.receive().aggregate().asString().flatMap { payload ->
+                                        mono {
+                                            val target = json.decodeFromString<BlockSignatureRequest>(payload).target
+                                            json.encodeToString(SignatureResponse(signer.sign(target)))
+                                        }
+                                    }
+                                response.header("Content-Type", "application/json").sendString(body)
+                            }
+                            routes.post("/votes") { request, response ->
+                                val body =
+                                    request.receive().aggregate().asString().flatMap { payload ->
+                                        mono {
+                                            val target = json.decodeFromString<VoteSignatureRequest>(payload).target
+                                            json.encodeToString(SignatureResponse(signer.sign(target)))
+                                        }
+                                    }
+                                response.header("Content-Type", "application/json").sendString(body)
+                            }
+                            routes.post("/challenges") { request, response ->
+                                val body =
+                                    request.receive().aggregate().asString().flatMap { payload ->
+                                        mono {
+                                            val target = json.decodeFromString<ChallengeSignatureRequest>(payload)
+                                            json.encodeToString(SignatureResponse(signer.sign(target.target, target.timestamp)))
+                                        }
+                                    }
+                                response.header("Content-Type", "application/json").sendString(body)
+                            }
+                        }.bindNow(timeout)
+            } catch (exception: Exception) {
+                disposeLoops()
+                throw exception
+            }
         }
 
         fun stop() {
-            server.stop()
+            try {
+                server.disposeNow(timeout)
+            } finally {
+                disposeLoops()
+            }
+        }
+
+        private fun disposeLoops() {
+            loops.disposeLater(Duration.ZERO, timeout).block(timeout.plusSeconds(1))
         }
     }
 

@@ -56,12 +56,10 @@ dependencies {
     val commonsVersion = "8.0.0"
     val cucumberVersion = "7.34.8"
     val springdocVersion = "3.1.1"
-    val ktorVersion = "3.6.0"
 
     implementation("cash.atto:commons-core:$commonsVersion")
     implementation("cash.atto:commons-node:$commonsVersion")
     implementation("cash.atto:commons-worker:$commonsVersion")
-    implementation("cash.atto:commons-signer-remote:$commonsVersion")
     implementation("cash.atto:commons-spring-boot-starter:$commonsVersion")
 
     implementation(platform(org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES))
@@ -75,16 +73,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-webflux")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
-
-    implementation("io.ktor:ktor-client-cio:$ktorVersion")
-    implementation("io.ktor:ktor-server-cio:$ktorVersion")
-    implementation("io.ktor:ktor-serialization-kotlinx-json:$ktorVersion")
-
-    implementation("io.ktor:ktor-server-websockets:$ktorVersion")
-    implementation("io.ktor:ktor-server-content-negotiation:$ktorVersion")
-
-    implementation("io.ktor:ktor-client-websockets:$ktorVersion")
-    implementation("io.ktor:ktor-client-content-negotiation:$ktorVersion")
 
     implementation("org.springdoc:springdoc-openapi-starter-webflux-ui:$springdocVersion")
 
