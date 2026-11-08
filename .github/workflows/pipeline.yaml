@@ -11,12 +11,15 @@ jobs:
     uses: ./.github/workflows/test.yaml
     with:
       agent_enabled: true
+  compatibility:
+    uses: ./.github/workflows/compatibility.yaml
   build:
     permissions:
       contents: write
       packages: write
     needs:
       - test
+      - compatibility
     uses: ./.github/workflows/build.yaml
   release-tag:
     permissions:
