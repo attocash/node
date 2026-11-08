@@ -29,11 +29,10 @@ jobs:
           native-image-job-reports: true
           native-image-pr-reports: true
           native-image-pr-reports-update-existing: true
-          cache: 'gradle'
 
       - uses: gradle/actions/setup-gradle@v6
 
-      - run: ./gradlew --no-daemon nativeCompile
+      - run: ./gradlew --build-cache --no-daemon nativeCompile
 
       - uses: docker/setup-buildx-action@v4
 
