@@ -3,7 +3,6 @@ package cash.atto.node.signature
 import cash.atto.commons.AttoPrivateKey
 import cash.atto.commons.AttoSigner
 import cash.atto.commons.fromHexToByteArray
-import cash.atto.commons.node.remote
 import cash.atto.commons.toHex
 import io.github.oshai.kotlinlogging.KotlinLogging
 import io.micrometer.core.instrument.MeterRegistry
@@ -22,9 +21,7 @@ class SignatureConfiguration {
     ): AttoSigner {
         val signer =
             if (signerProperties.backend == SignerProperties.Backend.REMOTE) {
-                AttoSigner.remote(signerProperties.remoteUrl!!) {
-                    mapOf("Authorization" to signerProperties.token!!)
-                }
+                NettyRemoteSigner(signerProperties.remoteUrl!!, signerProperties.token!!)
             } else {
                 val privateKey =
                     if (!signerProperties.key.isNullOrEmpty()) {

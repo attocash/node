@@ -4,8 +4,9 @@ Atto Node is the network-facing service for the **Atto** cryptocurrency. It expo
 submitting/querying blocks (transactions), maintains account state in a MySQL database, connects to other nodes over
 WebSockets, and participates in consensus by producing and relaying votes.
 
-This repository is a **Kotlin + Spring Boot (WebFlux)** application with a dedicated **Reactor Netty WebSocket/HTTP server**
-for node-to-node communication.
+This repository is a **Kotlin + Spring Boot (WebFlux)** application with dedicated **Reactor Netty WebSocket/HTTP transports**
+for node-to-node communication and remote signing. Peer server, peer client and signer I/O resources are isolated from each
+other and from the public HTTP API. See [Network Layer](NETWORK.md) for transport ownership and authentication.
 
 [Website](https://atto.cash/) | [Docs](https://atto.cash/docs/integration) | [Commons](https://github.com/attocash/commons)
 
