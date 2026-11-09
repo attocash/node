@@ -6,7 +6,9 @@ import io.netty.handler.codec.http.websocketx.TextWebSocketFrame
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -15,6 +17,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.reactor.awaitSingleOrNull
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import reactor.core.Disposable
 import reactor.core.publisher.Mono
@@ -125,10 +128,15 @@ internal class ReactorPeerSession(
                         withTimeoutOrNull(5.seconds) { closeFlushed.await() }
                     }
                 } finally {
-                    receiver.dispose()
                     closeTimeout.cancel()
-                    writer.cancel()
-                    this@ReactorPeerSession.cancel()
+                    withContext(NonCancellable) {
+                        try {
+                            writer.cancelAndJoin()
+                        } finally {
+                            receiver.dispose()
+                            this@ReactorPeerSession.cancel()
+                        }
+                    }
                 }
             }
         }
@@ -166,22 +174,37 @@ internal class ReactorPeerSession(
             )
 
     private suspend fun writeMessages() {
-        for (message in outgoingMessages) {
-            when (message) {
-                is OutgoingMessage.Binary -> {
-                    outbound.send(Mono.fromSupplier { Unpooled.wrappedBuffer(message.bytes) }).then().awaitSingleOrNull()
-                }
-
-                OutgoingMessage.Close -> {
-                    try {
-                        outbound.sendClose(1000, "").awaitSingleOrNull()
-                    } catch (_: Exception) {
-                        // A remote close can race our final close frame after its messages were drained.
-                        connection.dispose()
-                    } finally {
-                        closeFlushed.complete(Unit)
+        try {
+            for (message in outgoingMessages) {
+                when (message) {
+                    is OutgoingMessage.Binary -> {
+                        outbound.send(Mono.fromSupplier { Unpooled.wrappedBuffer(message.bytes) }).then().awaitSingleOrNull()
                     }
-                    break
+
+                    OutgoingMessage.Close -> {
+                        break
+                    }
+                }
+            }
+        } finally {
+            // Complete the writer-owned close before cancelling inbound or disposing the connection.
+            withContext(NonCancellable) {
+                try {
+                    val flushed =
+                        withTimeoutOrNull(5.seconds) {
+                            if (connection.channel().isActive) {
+                                outbound.sendClose(1000, "").awaitSingleOrNull()
+                            }
+                            true
+                        }
+                    if (flushed != true) {
+                        connection.dispose()
+                    }
+                } catch (_: Exception) {
+                    // A remote close can race our final close frame after its messages were drained.
+                    connection.dispose()
+                } finally {
+                    closeFlushed.complete(Unit)
                 }
             }
         }

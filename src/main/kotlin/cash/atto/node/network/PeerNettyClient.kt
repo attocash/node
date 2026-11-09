@@ -4,6 +4,7 @@ import cash.atto.node.JvmAddressResolverGroup
 import io.netty.buffer.Unpooled
 import io.netty.handler.codec.http.HttpHeaderNames
 import jakarta.annotation.PreDestroy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -46,6 +47,7 @@ class PeerNettyClient(
     private var closed = false
     private val jobs = mutableSetOf<Job>()
     private val connections = mutableSetOf<Connection>()
+    private val sessions = mutableSetOf<ReactorPeerSession>()
     private val dispatcher =
         Executors.newThreadPerTaskExecutor(Thread.ofVirtual().name("atto-peer-client-work-", 0).factory()).asCoroutineDispatcher()
     private val loops = LoopResources.create("atto-peer-client-io", 2, true)
@@ -86,13 +88,22 @@ class PeerNettyClient(
                 inbound.withConnection { connection = it }
                 val session = ReactorPeerSession(requireNotNull(connection), inbound, outbound)
                 mono(context) {
-                    operation {
-                        session.run { peer ->
-                            val effectiveUri = URI(requireNotNull((inbound as HttpClientInfos).resourceUrl()))
-                            val port = effectiveUri.port.takeIf { it >= 0 } ?: if (effectiveUri.isSecure()) 443 else 80
-                            val address = InetSocketAddress(dnsResolver.getByName(effectiveUri.host), port)
-                            block(peer, address)
+                    try {
+                        operation {
+                            synchronized(lifecycle) {
+                                check(!closed) { "Peer transport is closed" }
+                                sessions.add(session)
+                            }
+                            session.run { peer ->
+                                val effectiveUri = URI(requireNotNull((inbound as HttpClientInfos).resourceUrl()))
+                                val port = effectiveUri.port.takeIf { it >= 0 } ?: if (effectiveUri.isSecure()) 443 else 80
+                                val address = InetSocketAddress(dnsResolver.getByName(effectiveUri.host), port)
+                                block(peer, address)
+                            }
                         }
+                    } finally {
+                        synchronized(lifecycle) { sessions.remove(session) }
+                        session.cancel()
                     }
                 }
             }.then()
@@ -189,18 +200,31 @@ class PeerNettyClient(
 
     @PreDestroy
     fun close() {
-        val snapshot =
-            synchronized(lifecycle) {
-                if (closed) return
-                closed = true
-                jobs.toList() to connections.toList()
-            }
-        snapshot.first.forEach { it.cancel() }
-        snapshot.second.forEach { it.dispose() }
+        val activeJobs: List<Job>
+        val activeConnections: List<Connection>
+        val activeSessions: List<ReactorPeerSession>
+        synchronized(lifecycle) {
+            if (closed) return
+            closed = true
+            activeJobs = jobs.toList()
+            activeConnections = connections.toList()
+            activeSessions = sessions.toList()
+        }
         runBlocking {
+            activeSessions.forEach { session ->
+                try {
+                    session.close()
+                } catch (_: CancellationException) {
+                    // A full outgoing queue has already aborted this session.
+                }
+            }
+            // Cancelling the outer WebSocket subscription would dispose inbound before the writer can close it.
+            withTimeoutOrNull(5.seconds) { activeJobs.joinAll() }
+            activeConnections.forEach { it.dispose() }
+            activeJobs.forEach { it.cancel() }
             withTimeoutOrNull(5.seconds) {
-                snapshot.first.joinAll()
-                snapshot.second.forEach { it.onDispose().awaitSingleOrNull() }
+                activeJobs.joinAll()
+                activeConnections.forEach { it.onDispose().awaitSingleOrNull() }
             }
         }
         try {

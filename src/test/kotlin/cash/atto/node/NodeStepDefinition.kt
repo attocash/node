@@ -13,7 +13,6 @@ import io.r2dbc.spi.Option
 import org.springframework.beans.factory.annotation.Value
 import org.springframework.boot.builder.SpringApplicationBuilder
 import org.springframework.boot.r2dbc.autoconfigure.R2dbcConnectionDetails
-import org.springframework.core.io.DefaultResourceLoader
 import org.springframework.r2dbc.core.DatabaseClient
 import org.testcontainers.DockerClientFactory
 import org.testcontainers.containers.GenericContainer
@@ -25,7 +24,6 @@ import java.io.File
 import java.net.HttpURLConnection
 import java.net.ServerSocket
 import java.net.URI
-import java.net.URLClassLoader
 import java.time.Duration
 import java.util.concurrent.FutureTask
 
@@ -120,29 +118,17 @@ class NodeStepDefinition(
         nodeName: String,
         args: Array<String>,
     ) {
-        val classLoader = createClassLoader()
         val starter =
             Runnable {
-                Thread.currentThread().contextClassLoader = classLoader
-                val context =
-                    SpringApplicationBuilder(Application::class.java)
-                        .resourceLoader(DefaultResourceLoader(classLoader))
-                        .run(*args) as Closeable
-
-                NodeHolder.add(context, classLoader)
+                val context = SpringApplicationBuilder(Application::class.java).run(*args) as Closeable
+                NodeHolder.add(context, null)
             }
 
         val futureTask = FutureTask(starter, null)
         val neighbourThread = Thread(futureTask)
-        neighbourThread.contextClassLoader = classLoader
         neighbourThread.name = nodeName
         neighbourThread.start()
-        try {
-            futureTask.get()
-        } catch (exception: Exception) {
-            runCatching { classLoader.close() }.onFailure { exception.addSuppressed(it) }
-            throw exception
-        }
+        futureTask.get()
     }
 
     private fun startLiveNode(
@@ -209,19 +195,6 @@ class NodeStepDefinition(
         val ports = sockets.map { it.localPort.toUShort() }
         sockets.forEach { it.close() }
         return ports
-    }
-
-    private fun createClassLoader(): URLClassLoader {
-        val urlList =
-            System
-                .getProperty("atto.test.runtime-classpath", System.getProperty("java.class.path"))
-                .split(File.pathSeparator)
-                .asSequence()
-                .map { if (it.endsWith(".jar")) it else "$it/" }
-                .map { File(it).toURI().toURL() }
-                .toList()
-        val urlArray = Array(urlList.size) { urlList[it] }
-        return URLClassLoader(urlArray, ClassLoader.getSystemClassLoader())
     }
 
     private data class ReleasedImage(

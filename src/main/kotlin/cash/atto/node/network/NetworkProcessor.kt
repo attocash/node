@@ -379,12 +379,12 @@ class NetworkProcessor(
         server.stopAccepting()
         clear()
         try {
-            runBlocking {
-                withTimeoutOrNull(5.seconds) { scope.coroutineContext.job.cancelAndJoin() }
-            }
+            closeTransports()
         } finally {
             try {
-                closeTransports()
+                runBlocking {
+                    withTimeoutOrNull(5.seconds) { scope.coroutineContext.job.cancelAndJoin() }
+                }
             } finally {
                 try {
                     connectionManager.clear()

@@ -1,6 +1,7 @@
 package cash.atto.node
 
-import io.netty.channel.nio.NioEventLoopGroup
+import io.netty.channel.MultiThreadIoEventLoopGroup
+import io.netty.channel.nio.NioIoHandler
 import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.channel.socket.nio.NioSocketChannel
 import io.netty.resolver.dns.DnsNameResolverBuilder
@@ -21,12 +22,12 @@ class IPv6Test {
         private val ipv6Host = "::1"
         private val ipv4Host = "127.0.0.1"
 
-        val eventLoopGroup = NioEventLoopGroup()
+        val eventLoopGroup = MultiThreadIoEventLoopGroup(NioIoHandler.newFactory())
 
         @AfterAll
         @JvmStatic
         fun afterAll() {
-            eventLoopGroup.close()
+            eventLoopGroup.shutdownGracefully().syncUninterruptibly()
         }
 
         @JvmStatic
@@ -51,7 +52,11 @@ class IPv6Test {
                 .socketChannelType(NioSocketChannel::class.java, true)
                 .build()
 
-        val addressFuture = resolver.resolve(host)
-        addressFuture.get()
+        try {
+            val addressFuture = resolver.resolve(host)
+            addressFuture.get()
+        } finally {
+            resolver.close()
+        }
     }
 }

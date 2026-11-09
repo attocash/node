@@ -120,10 +120,14 @@ side effect; its connectivity check prevents a delayed disconnect from releasing
 Gap sessions identify peers by URI and retain their existing expiry; this is not connection-generation isolation.
 
 `clear()` removes connections and waits for already scheduled cleanup jobs. `stop()` clears the map and cancels the manager's
-scope. `NetworkProcessor.stop()` stops admission, cancels outbound work, closes the server and client transports, then clears
+scope. `NetworkProcessor.stop()` stops admission, closes the server and client transports, cancels remaining outbound work, then clears
 managed connections. Closing the transports first releases stalled writes before manager cleanup waits for disconnect jobs.
-`PeerNettyClient` cancels active operations and closes sockets before disposing its connection providers, resolver work and
-event loops. Transport closure is idempotent. Neither shutdown path disposes Spring's HTTP resources.
+Peer transports allow up to five seconds for session writers to send a close frame before forcing socket disposal. The client
+queues session closes before cancelling its outer WebSocket subscriptions. After the grace period it requests socket closure
+before cancelling remaining operations; channel closure is asynchronous. Session cleanup waits for its writer before
+cancelling inbound reception, which can itself trigger an abnormal transport close. `PeerNettyClient` then disposes its
+connection providers, resolver work and event loops.
+Transport closure is idempotent. Neither shutdown path disposes Spring's HTTP resources.
 
 ### Sending and Keepalives
 

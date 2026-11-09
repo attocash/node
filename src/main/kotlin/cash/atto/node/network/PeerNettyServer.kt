@@ -115,9 +115,10 @@ internal class PeerNettyServer(
             }
         server.dispose()
         snapshot.first.forEach { it.cancel() }
-        snapshot.second.forEach { it.dispose() }
         try {
             runBlocking {
+                withTimeoutOrNull(5.seconds) { snapshot.first.joinAll() }
+                snapshot.second.forEach { it.dispose() }
                 withTimeoutOrNull(5.seconds) {
                     snapshot.first.joinAll()
                     snapshot.second.forEach { it.onDispose().awaitSingleOrNull() }

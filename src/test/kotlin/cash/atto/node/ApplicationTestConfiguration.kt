@@ -9,7 +9,7 @@ import org.springframework.context.annotation.Configuration
 import org.springframework.http.client.reactive.ClientHttpConnector
 import org.springframework.http.client.reactive.ReactorClientHttpConnector
 import org.springframework.web.reactive.function.client.WebClient
-import org.testcontainers.containers.MySQLContainer
+import org.testcontainers.mysql.MySQLContainer
 import reactor.netty.http.client.HttpClient
 import reactor.netty.transport.logging.AdvancedByteBufFormat
 
@@ -38,7 +38,7 @@ class ApplicationTestConfiguration {
     @Bean
     @ServiceConnection
     @ConditionalOnProperty("atto.test.mysql-container.enabled", havingValue = "true", matchIfMissing = true)
-    fun mysqlContainer(): MySQLContainer<*> {
+    fun mysqlContainer(): MySQLContainer {
         val container = MySQLContainer("mysql:8.4")
         container.withUsername("root")
         return container
