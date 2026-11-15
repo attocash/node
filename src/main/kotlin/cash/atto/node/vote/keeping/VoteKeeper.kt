@@ -1,5 +1,6 @@
 package cash.atto.node.vote.keeping
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignedVote
@@ -54,13 +55,13 @@ class VoteKeeper(
     suspend fun process(message: InboundNetworkMessage<AttoVoteResponse>) {
         val response = message.payload
         val signedVote = response.vote
-        val missingVote = MissingVote(signedVote.vote.blockHash, signedVote.vote.publicKey)
+        val missingVote = MissingVote(signedVote.vote.blockHash, signedVote.vote.address.publicKey)
 
         if (missingVoteMap.remove(missingVote) == null) {
             return
         }
 
-        voteService.enqueue(Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote))
+        voteService.enqueue(Vote.from(voteWeighter.get(signedVote.vote.address.publicKey), signedVote))
     }
 
     @Scheduled(fixedRate = 10, timeUnit = TimeUnit.MINUTES)
@@ -103,8 +104,7 @@ class VoteKeeper(
         val attoVote =
             AttoVote(
                 version = 0U.toAttoVersion(),
-                algorithm = thisNode.algorithm,
-                publicKey = thisNode.publicKey,
+                address = AttoAddress(thisNode.algorithm, thisNode.publicKey),
                 blockAlgorithm = AttoAlgorithm.V1,
                 blockHash = blockHash,
                 timestamp = AttoVote.finalTimestamp,
@@ -115,7 +115,7 @@ class VoteKeeper(
                 signature = signer.sign(attoVote),
             )
 
-        return Vote.from(voteWeighter.get(signedVote.vote.publicKey), signedVote)
+        return Vote.from(voteWeighter.get(signedVote.vote.address.publicKey), signedVote)
     }
 
     override fun clear() {

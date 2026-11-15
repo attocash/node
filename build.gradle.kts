@@ -7,7 +7,7 @@ plugins {
     kotlin("plugin.allopen") version kotlinVersion
 
     id("org.jetbrains.kotlinx.benchmark") version "0.5.0"
-    id("org.springframework.boot") version "4.1.1"
+    id("org.springframework.boot") version "4.1.2"
     id("org.graalvm.buildtools.native") version "1.1.14"
     id("org.jlleitschuh.gradle.ktlint") version "14.2.0"
 }
@@ -53,7 +53,7 @@ allOpen {
 }
 
 dependencies {
-    val commonsVersion = "8.0.0"
+    val commonsVersion = "10.0.0-SNAPSHOT"
     val cucumberVersion = "7.34.8"
     val springdocVersion = "3.1.1"
 

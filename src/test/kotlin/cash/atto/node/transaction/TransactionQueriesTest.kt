@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -35,13 +36,13 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class TransactionControllerQueryTest {
+class TransactionQueriesTest {
     private val publicKey = AttoPublicKey(ByteArray(32) { 1 })
     private val repository = mockk<TransactionRepository>()
-    private val controller = TransactionController(repository)
+    private val queries = TransactionQueries(repository)
 
     @Test
-    fun `hash stream subscribes before lookup and retains a concurrent committed result`() =
+    fun `hash stream subscribes before lookup and retains a concurrent committed result`(): Unit =
         runTest {
             // Given
             val value = sample(2)
@@ -52,7 +53,7 @@ class TransactionControllerQueryTest {
                 finishRead.await()
                 null
             }
-            val result = backgroundScope.async { controller.stream(value.hash).first() }
+            val result = backgroundScope.async { queries.stream(value.hash).first() }
 
             // When
             runCurrent()
@@ -71,7 +72,7 @@ class TransactionControllerQueryTest {
         }
 
     @Test
-    fun `height stream orders snapshot and overlapping live updates and completes its range`() =
+    fun `height stream orders snapshot and overlapping live updates and completes its range`(): Unit =
         runTest {
             // Given
             val first = sample(2)
@@ -90,7 +91,7 @@ class TransactionControllerQueryTest {
             val values = mutableListOf<AttoTransaction>()
             val collection =
                 backgroundScope.launch {
-                    controller.stream(publicKey, 2UL.toAttoHeight(), 4UL.toAttoHeight()).toList(values)
+                    queries.stream(publicKey, 2UL.toAttoHeight(), 4UL.toAttoHeight()).toList(values)
                 }
 
             // When
@@ -114,7 +115,7 @@ class TransactionControllerQueryTest {
         }
 
     @Test
-    fun `cancelling a blocked snapshot cancels the query and releases the live publisher`() =
+    fun `cancelling a blocked snapshot cancels the query and releases the live publisher`(): Unit =
         runTest {
             // Given
             val value = sample(2)
@@ -129,7 +130,7 @@ class TransactionControllerQueryTest {
                 }
             val collection =
                 backgroundScope.launch {
-                    controller.stream(publicKey, 2UL.toAttoHeight(), 3UL.toAttoHeight()).toList()
+                    queries.stream(publicKey, 2UL.toAttoHeight(), 3UL.toAttoHeight()).toList()
                 }
             runCurrent()
             val publication = backgroundScope.async { publish(value) }
@@ -146,7 +147,7 @@ class TransactionControllerQueryTest {
         }
 
     private suspend fun publish(value: Transaction) {
-        controller.process(AccountUpdated(TransactionSource.BOOTSTRAP, mockk(), mockk(), value))
+        queries.process(AccountUpdated(TransactionSource.BOOTSTRAP, mockk(), mockk(), value))
     }
 
     private fun sample(
@@ -157,8 +158,7 @@ class TransactionControllerQueryTest {
             AttoReceiveBlock(
                 version = 0U.toAttoVersion(),
                 network = AttoNetwork.LOCAL,
-                algorithm = AttoAlgorithm.V1,
-                publicKey = publicKey,
+                address = AttoAddress(AttoAlgorithm.V1, publicKey),
                 height = height.toULong().toAttoHeight(),
                 balance = AttoAmount(height.toULong()),
                 timestamp = Instant.EPOCH.plusSeconds(height.toLong()).toAtto(),

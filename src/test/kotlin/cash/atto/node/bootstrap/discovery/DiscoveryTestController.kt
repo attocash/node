@@ -1,11 +1,13 @@
 package cash.atto.node.bootstrap.discovery
 
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Hidden
 @RestController
 @RequestMapping("/unchecked-transactions/discoveries")
 class DiscoveryTestController(

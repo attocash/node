@@ -1,10 +1,7 @@
 package cash.atto.node.network
 
-import cash.atto.commons.AttoChallenge
-import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoInstant
 import cash.atto.commons.AttoSigner
-import cash.atto.commons.fromHexToByteArray
 import cash.atto.node.CacheSupport
 import cash.atto.node.network.guardian.Guardian
 import cash.atto.node.network.guardian.InboundConnectionDecision
@@ -68,9 +65,9 @@ private data class InboundPeerHeaders(
 
 @Component
 class NetworkProcessor(
-    private val genesisTransaction: Transaction,
+    genesisTransaction: Transaction,
     private val thisNode: AttoNode,
-    private val signer: AttoSigner,
+    signer: AttoSigner,
     environment: Environment,
     private val networkProperties: NetworkProperties,
     private val peerUriValidator: PeerUriValidator,
@@ -81,6 +78,7 @@ class NetworkProcessor(
     private val peerClient: PeerNettyClient,
 ) : CacheSupport {
     private val logger = KotlinLogging.logger {}
+    private val handshakeProtocol = HandshakeProtocol(genesisTransaction, thisNode, signer)
 
     companion object {
         const val PUBLIC_URI_HEADER = "Atto-Public-Uri"
@@ -166,60 +164,10 @@ class NetworkProcessor(
                 MAX_COUNTER_CHALLENGE_RESPONSE_SIZE_BYTES,
                 request.requestHeaders().get(HttpHeaderNames.CONTENT_LENGTH)?.toLongOrNull(),
             )
-        val challenge = counterResponse.challenge
-
-        val publicUri = ChallengeStore.remove(challenge)
-        if (publicUri == null) {
-            logger.trace { "Received invalid challenge request from $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
-        }
-
-        val node = counterResponse.node
-        if (node.publicUri != publicUri) {
-            logger.trace { "Node publicUri ${node.publicUri} doesn't match expected $publicUri from $remoteHost" }
-            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
-        }
-
-        if (counterResponse.genesis != genesisTransaction.hash) {
-            logger.trace { "Received mismatched genesis hash from $publicUri $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
-        }
-
-        val counterTimestamp = counterResponse.timestamp
-        val hash =
-            AttoHash.hash(
-                64,
-                node.publicKey.value,
-                challenge.fromHexToByteArray(),
-                counterTimestamp.toByteArray(),
-            )
-
-        val signature = counterResponse.signature
-        if (!signature.isValid(node.publicKey, hash)) {
-            logger.trace { "Received invalid signature from server $remoteHost $counterResponse" }
-            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
-        }
-
-        val counterChallenge = counterResponse.counterChallenge
-        if (!counterChallenge.isChallengePrefixValid()) {
-            logger.trace {
-                "Received invalid challenge prefix request from $publicUri $remoteHost " +
-                    "$counterResponse"
-            }
-            return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
-        }
-
-        logger.trace { "Challenge $challenge validated successfully" }
-
-        val timestamp = AttoInstant.now()
-        val response =
-            ChallengeResponse(
-                thisNode,
-                timestamp,
-                signer.sign(AttoChallenge(counterChallenge.fromHexToByteArray()), timestamp),
-            )
-
-        return InboundHandshakePreparation.Accepted(publicUri, node, response)
+        val handshake =
+            handshakeProtocol.prepareResponse(remoteHost, counterResponse)
+                ?: return InboundHandshakePreparation.Rejected(HttpResponseStatus.BAD_REQUEST)
+        return InboundHandshakePreparation.Accepted(handshake.publicUri, handshake.node, handshake.response)
     }
 
     private suspend fun HttpServerResponse.finishInboundHandshake(handshake: InboundHandshakePreparation.Accepted) {
@@ -283,7 +231,7 @@ class NetworkProcessor(
         }
 
         logger.trace { "Headers received: publicUri=$publicUri, challenge=$challengeHeader" }
-        if (!challengeHeader.isChallengePrefixValid()) {
+        if (!handshakeProtocol.isChallengePrefixValid(challengeHeader)) {
             logger.trace { "Received invalid challenge prefix request from $publicUri $remoteHost" }
             return null
         }
@@ -309,14 +257,7 @@ class NetworkProcessor(
                 handshakeCallbackService.post(remoteHost, publicUri) {
                     val generatedCounterChallenge = ChallengeStore.generate(publicUri)
                     counterChallenge = generatedCounterChallenge
-                    CounterChallengeResponse(
-                        headers.challenge,
-                        genesisTransaction.hash,
-                        thisNode,
-                        timestamp,
-                        signer.sign(AttoChallenge(headers.challenge.fromHexToByteArray()), timestamp),
-                        generatedCounterChallenge,
-                    )
+                    handshakeProtocol.createCounterResponse(headers.challenge, generatedCounterChallenge, timestamp)
                 }
             val result = callbackResult as? HandshakeCallbackResult.Completed ?: return null
             authenticatedNode = validateInboundCallback(remoteHost, publicUri, counterChallenge, result)
@@ -344,28 +285,7 @@ class NetworkProcessor(
             logger.trace { "Received empty challenge response from $publicUri $remoteHost" }
             return null
         }
-        if (counterChallenge == null || ChallengeStore.remove(counterChallenge) == null) {
-            logger.trace { "Received invalid challenge response from $publicUri $remoteHost $response" }
-            return null
-        }
-
-        val node = response.node
-        if (node.publicUri != publicUri) {
-            logger.trace { "Node publicUri ${node.publicUri} doesn't match header $publicUri from $remoteHost" }
-            return null
-        }
-        val counterHash =
-            AttoHash.hash(
-                64,
-                node.publicKey.value,
-                counterChallenge.fromHexToByteArray(),
-                response.timestamp.toByteArray(),
-            )
-        if (!response.signature.isValid(node.publicKey, counterHash)) {
-            logger.trace { "Received invalid signature from client $remoteHost $response" }
-            return null
-        }
-        return node
+        return handshakeProtocol.authenticateResponse(remoteHost, publicUri, counterChallenge, response)
     }
 
     override fun clear() {
@@ -531,19 +451,6 @@ class NetworkProcessor(
         } finally {
             timeoutJob.cancel()
         }
-    }
-
-    private fun String.isChallengePrefixValid(): Boolean {
-        val challenge = this.fromHexToByteArray()
-
-        if (challenge.size <= ChallengeStore.CHALLENGE_SIZE) {
-            return false
-        }
-
-        val prefixEnd = challenge.size - ChallengeStore.CHALLENGE_SIZE
-        val url = challenge.sliceArray(0 until prefixEnd).toString(Charsets.UTF_8)
-
-        return url == thisNode.publicUri.toString()
     }
 
     private fun String.toUriOrNull(): URI? = runCatching { URI(this) }.getOrNull()

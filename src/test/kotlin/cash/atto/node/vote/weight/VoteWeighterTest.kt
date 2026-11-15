@@ -1,5 +1,6 @@
 package cash.atto.node.vote.weight
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -179,7 +180,7 @@ class VoteWeighterTest {
         balance: AttoAmount,
     ): AccountUpdated {
         val block = mockk<AttoChangeBlock>()
-        every { block.representativePublicKey } returns representative
+        every { block.representativeAddress.publicKey } returns representative
         every { block.balance } returns balance
         return accountUpdated(block, previousRepresentative, representative, balance)
     }
@@ -215,8 +216,7 @@ class VoteWeighterTest {
             AttoReceiveBlock(
                 version = 0U.toAttoVersion(),
                 network = AttoNetwork.LOCAL,
-                algorithm = AttoAlgorithm.V1,
-                publicKey = randomPublicKey(),
+                address = AttoAddress(AttoAlgorithm.V1, randomPublicKey()),
                 height = AttoHeight(2UL),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),

@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -116,8 +117,7 @@ internal class TransactionRebroadcasterTest {
             AttoReceiveBlock(
                 network = AttoNetwork.LOCAL,
                 version = 0U.toAttoVersion(),
-                algorithm = AttoAlgorithm.V1,
-                publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+                address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(Random.nextBytes(ByteArray(32)))),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount(100u),
                 timestamp = Instant.now().toAtto(),

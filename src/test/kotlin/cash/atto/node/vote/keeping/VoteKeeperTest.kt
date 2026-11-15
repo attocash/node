@@ -1,5 +1,6 @@
 package cash.atto.node.vote.keeping
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -103,7 +104,7 @@ class VoteKeeperTest {
             coVerify(exactly = 1) {
                 fixture.signer.sign(
                     match<AttoVote> {
-                        it.publicKey == thisNode.publicKey &&
+                        it.address.publicKey == thisNode.publicKey &&
                             it.blockHash == missing.lastTransactionHash &&
                             it.timestamp == AttoVote.finalTimestamp
                     },
@@ -132,8 +133,7 @@ class VoteKeeperTest {
                 AttoSignedVote(
                     AttoVote(
                         version = 0U.toAttoVersion(),
-                        algorithm = AttoAlgorithm.V1,
-                        publicKey = representative.publicKey,
+                        address = AttoAddress(AttoAlgorithm.V1, representative.publicKey),
                         blockAlgorithm = AttoAlgorithm.V1,
                         blockHash = missing.lastTransactionHash,
                         timestamp = AttoVote.finalTimestamp,

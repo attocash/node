@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -97,8 +98,7 @@ class FinalVoteRecorderTest {
             AttoReceiveBlock(
                 version = 0U.toAttoVersion(),
                 network = AttoNetwork.LOCAL,
-                algorithm = AttoAlgorithm.V1,
-                publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32))),
+                address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(Random.nextBytes(ByteArray(32)))),
                 height = AttoHeight(2UL),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),

@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoInstant
@@ -96,11 +97,11 @@ class TransactionConfiguration(
                     network = block.network,
                     hash = block.sendHash,
                     version = block.version,
-                    algorithm = block.algorithm,
-                    publicKey = block.publicKey,
+                    algorithm = block.address.algorithm,
+                    publicKey = block.address.publicKey,
                     timestamp = block.timestamp.toJavaInstant(),
-                    receiverAlgorithm = block.algorithm,
-                    receiverPublicKey = block.publicKey,
+                    receiverAlgorithm = block.address.algorithm,
+                    receiverPublicKey = block.address.publicKey,
                     amount = block.balance,
                 )
 
@@ -111,7 +112,7 @@ class TransactionConfiguration(
             val network = thisNode.network
             val hash = genesisTransaction.hash
             logger.info { "Initialized $network database with genesis transaction hash $hash" }
-        } else if (transactionRepository.findFirstByPublicKey(genesisTransaction.block.publicKey) == null) {
+        } else if (transactionRepository.findFirstByPublicKey(genesisTransaction.block.address.publicKey) == null) {
             throw IllegalStateException("Database initialized but doesn't contains current genesis account")
         }
     }
@@ -124,14 +125,12 @@ class TransactionConfiguration(
             AttoOpenBlock(
                 version = 0U.toAttoVersion(),
                 network = thisNode.network,
-                algorithm = thisNode.algorithm,
-                publicKey = signer.publicKey,
+                address = AttoAddress(thisNode.algorithm, signer.publicKey),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),
                 sendHashAlgorithm = thisNode.algorithm,
                 sendHash = AttoHash(ByteArray(32)),
-                representativeAlgorithm = thisNode.algorithm,
-                representativePublicKey = signer.publicKey,
+                representativeAddress = AttoAddress(thisNode.algorithm, signer.publicKey),
             )
 
         val transaction =

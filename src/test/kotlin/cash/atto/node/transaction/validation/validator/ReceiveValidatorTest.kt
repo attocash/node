@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.validation.validator
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -49,8 +50,7 @@ internal class ReceiveValidatorTest {
         AttoReceiveBlock(
             network = AttoNetwork.LOCAL,
             version = account.version,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(10U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
@@ -88,8 +88,8 @@ internal class ReceiveValidatorTest {
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
                     timestamp = block.timestamp.toJavaInstant().minusSeconds(1),
-                    receiverAlgorithm = block.algorithm,
-                    receiverPublicKey = block.publicKey,
+                    receiverAlgorithm = block.address.algorithm,
+                    receiverPublicKey = block.address.publicKey,
                     amount = block.balance - account.balance,
                 )
 
@@ -135,7 +135,7 @@ internal class ReceiveValidatorTest {
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
                     timestamp = block.timestamp.toJavaInstant(),
-                    receiverAlgorithm = block.algorithm,
+                    receiverAlgorithm = block.address.algorithm,
                     receiverPublicKey = AttoPublicKey(byteArray),
                     amount = block.balance - account.balance,
                 )
@@ -164,7 +164,7 @@ internal class ReceiveValidatorTest {
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
                     timestamp = block.timestamp.toJavaInstant().minusSeconds(1),
-                    receiverAlgorithm = block.algorithm,
+                    receiverAlgorithm = block.address.algorithm,
                     receiverPublicKey = account.publicKey,
                     amount = AttoAmount(2UL),
                 )
@@ -193,7 +193,7 @@ internal class ReceiveValidatorTest {
                     algorithm = AttoAlgorithm.V1,
                     publicKey = AttoPublicKey(Random.nextBytes(32)),
                     timestamp = block.timestamp.toJavaInstant(),
-                    receiverAlgorithm = block.algorithm,
+                    receiverAlgorithm = block.address.algorithm,
                     receiverPublicKey = account.publicKey,
                     amount = block.balance - account.balance,
                 )

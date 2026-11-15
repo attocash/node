@@ -46,23 +46,23 @@ class NettyRemoteSigner(
 
     override suspend fun sign(block: AttoBlock): AttoSignature =
         transport.operation {
-            checkPublicKey(block.publicKey)
+            checkPublicKey(block.address.publicKey)
             val signature =
                 retrying("sign $block") {
                     request<SignatureResponse>("blocks", json.encodeToString(BlockSignatureRequest(block)), 1).signature
                 }
-            if (!signature.isValid(block.publicKey, block.hash)) throw RemoteSignerInvalidSignatureException("block")
+            if (!signature.isValid(block.address.publicKey, block.hash)) throw RemoteSignerInvalidSignatureException("block")
             signature
         }
 
     override suspend fun sign(vote: AttoVote): AttoSignature =
         transport.operation {
-            checkPublicKey(vote.publicKey)
+            checkPublicKey(vote.address.publicKey)
             val signature =
                 retrying("sign $vote") {
                     request<SignatureResponse>("votes", json.encodeToString(VoteSignatureRequest(vote)), 1).signature
                 }
-            if (!signature.isValid(vote.publicKey, vote.hash)) throw RemoteSignerInvalidSignatureException("vote")
+            if (!signature.isValid(vote.address.publicKey, vote.hash)) throw RemoteSignerInvalidSignatureException("vote")
             signature
         }
 

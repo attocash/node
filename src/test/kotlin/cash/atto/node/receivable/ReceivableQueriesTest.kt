@@ -34,23 +34,23 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class ReceivableControllerTest {
+class ReceivableQueriesTest {
     @Test
-    fun `subscribes to live events before starting the database query`() =
+    fun `subscribes to live events before starting the database query`(): Unit =
         runTest {
             // Given
             val row = receivable(1, amount = 200UL)
             val live = receivable(2)
             val repository = mockk<ReceivableRepository>()
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             coEvery { repository.findAllDesc(any(), any()) } coAnswers {
-                controller.process(ReceivableSaved(live))
+                queries.process(ReceivableSaved(live))
                 flowOf(row)
             }
             val received = mutableListOf<AttoReceivable>()
 
             // When
-            backgroundScope.launch { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(received) }
+            backgroundScope.launch { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(received) }
             runCurrent()
 
             // Then
@@ -58,7 +58,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `queues live receivables until the database scan completes`() =
+    fun `queues live receivables until the database scan completes`(): Unit =
         runTest {
             // Given
             val first = receivable(1, amount = 300UL)
@@ -74,14 +74,14 @@ class ReceivableControllerTest {
                     finishScan.await()
                     emit(second)
                 }
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val received = mutableListOf<AttoReceivable>()
-            backgroundScope.launch { controller.stream(first.receiverPublicKey, AttoAmount(1UL)).toList(received) }
+            backgroundScope.launch { queries.stream(first.receiverPublicKey, AttoAmount(1UL)).toList(received) }
             runCurrent()
             assertTrue(scanPaused.isCompleted)
 
             // When
-            controller.process(ReceivableSaved(live))
+            queries.process(ReceivableSaved(live))
             runCurrent()
 
             // Then
@@ -96,7 +96,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `filters queued and delayed database notifications after handing off to live events`() =
+    fun `filters queued and delayed database notifications after handing off to live events`(): Unit =
         runTest {
             // Given
             val queuedOverlap = receivable(1, amount = 300UL)
@@ -111,16 +111,16 @@ class ReceivableControllerTest {
                     finishScan.await()
                     emit(delayedOverlap)
                 }
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val received = mutableListOf<AttoReceivable>()
-            backgroundScope.launch { controller.stream(queuedOverlap.receiverPublicKey, AttoAmount(1UL)).toList(received) }
+            backgroundScope.launch { queries.stream(queuedOverlap.receiverPublicKey, AttoAmount(1UL)).toList(received) }
             runCurrent()
 
             // When
-            controller.process(ReceivableSaved(queuedOverlap))
+            queries.process(ReceivableSaved(queuedOverlap))
             finishScan.complete(Unit)
             runCurrent()
-            controller.process(ReceivableSaved(firstLive))
+            queries.process(ReceivableSaved(firstLive))
             runCurrent()
 
             // Then
@@ -128,8 +128,8 @@ class ReceivableControllerTest {
 
             // When
             advanceTimeBy(60_000)
-            controller.process(ReceivableSaved(delayedOverlap))
-            controller.process(ReceivableSaved(secondLive))
+            queries.process(ReceivableSaved(delayedOverlap))
+            queries.process(ReceivableSaved(secondLive))
             runCurrent()
 
             // Then
@@ -137,7 +137,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `preserves distinct pending receivables and database amount order across senders`() =
+    fun `preserves distinct pending receivables and database amount order across senders`(): Unit =
         runTest {
             // Given
             val largest = receivable(1, amount = 300UL).copy(timestamp = Instant.EPOCH.plusSeconds(3))
@@ -146,24 +146,24 @@ class ReceivableControllerTest {
             val rows = listOf(largest, otherSender, olderFromSameSender)
             val repository = mockk<ReceivableRepository>()
             coEvery { repository.findAllDesc(any(), any()) } returns flowOf(*rows.toTypedArray())
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
 
             // When
-            val received = controller.stream(largest.receiverPublicKey, AttoAmount(1UL)).take(rows.size).toList()
+            val received = queries.stream(largest.receiverPublicKey, AttoAmount(1UL)).take(rows.size).toList()
 
             // Then
             assertEquals(rows.map { it.toAttoReceivable() }, received)
         }
 
     @Test
-    fun `each collection of the same flow has its own database hashes`() =
+    fun `each collection of the same flow has its own database hashes`(): Unit =
         runTest {
             // Given
             val row = receivable(1)
             val repository = mockk<ReceivableRepository>()
             coEvery { repository.findAllDesc(any(), any()) } returns flowOf(row)
-            val controller = ReceivableController(repository)
-            val stream = controller.stream(row.receiverPublicKey, AttoAmount(1UL))
+            val queries = ReceivableQueries(repository)
+            val stream = queries.stream(row.receiverPublicKey, AttoAmount(1UL))
             val first = mutableListOf<AttoReceivable>()
             val second = mutableListOf<AttoReceivable>()
 
@@ -182,7 +182,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `concurrent subscribers receive live events independently when one cancels`() =
+    fun `concurrent subscribers receive live events independently when one cancels`(): Unit =
         runTest {
             // Given
             val row = receivable(1)
@@ -190,19 +190,19 @@ class ReceivableControllerTest {
             val laterLive = receivable(3)
             val repository = mockk<ReceivableRepository>()
             coEvery { repository.findAllDesc(any(), any()) } returns flowOf(row)
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val first = mutableListOf<AttoReceivable>()
             val second = mutableListOf<AttoReceivable>()
-            val firstCollection = backgroundScope.launch { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(first) }
-            backgroundScope.launch { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(second) }
+            val firstCollection = backgroundScope.launch { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(first) }
+            backgroundScope.launch { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(second) }
             runCurrent()
 
             // When
-            controller.process(ReceivableSaved(live))
+            queries.process(ReceivableSaved(live))
             runCurrent()
             firstCollection.cancel()
             runCurrent()
-            controller.process(ReceivableSaved(laterLive))
+            queries.process(ReceivableSaved(laterLive))
             runCurrent()
 
             // Then
@@ -211,7 +211,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `backpressures live publication during a slow scan and preserves every buffered event`() =
+    fun `backpressures live publication during a slow scan and preserves every buffered event`(): Unit =
         runTest {
             // Given
             val row = receivable(1, amount = 300UL)
@@ -223,13 +223,13 @@ class ReceivableControllerTest {
                     finishScan.await()
                     emit(row)
                 }
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val received = mutableListOf<AttoReceivable>()
-            backgroundScope.launch { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(received) }
+            backgroundScope.launch { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).toList(received) }
             runCurrent()
 
             // When
-            val publisher = backgroundScope.launch { live.forEach { controller.process(ReceivableSaved(it)) } }
+            val publisher = backgroundScope.launch { live.forEach { queries.process(ReceivableSaved(it)) } }
             runCurrent()
 
             // Then
@@ -246,7 +246,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `cancelling an active database scan cancels the query and detaches the live listener`() =
+    fun `cancelling an active database scan cancels the query and detaches the live listener`(): Unit =
         runTest {
             // Given
             val row = receivable(1)
@@ -262,11 +262,11 @@ class ReceivableControllerTest {
                         scanCancelled.complete(Unit)
                     }
                 }
-            val controller = ReceivableController(repository)
-            val collection = backgroundScope.launch { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).collect() }
+            val queries = ReceivableQueries(repository)
+            val collection = backgroundScope.launch { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).collect() }
             runCurrent()
             assertTrue(scanStarted.isCompleted)
-            val publisher = backgroundScope.launch { (2..257).forEach { controller.process(ReceivableSaved(receivable(it))) } }
+            val publisher = backgroundScope.launch { (2..257).forEach { queries.process(ReceivableSaved(receivable(it))) } }
             runCurrent()
             assertFalse(publisher.isCompleted)
 
@@ -280,7 +280,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `a database query failure propagates and detaches the live listener`() =
+    fun `a database query failure propagates and detaches the live listener`(): Unit =
         runTest {
             // Given
             val row = receivable(1)
@@ -292,13 +292,13 @@ class ReceivableControllerTest {
                     failScan.await()
                     throw failure
                 }
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val collection =
                 backgroundScope.async {
-                    runCatching { controller.stream(row.receiverPublicKey, AttoAmount(1UL)).collect() }
+                    runCatching { queries.stream(row.receiverPublicKey, AttoAmount(1UL)).collect() }
                 }
             runCurrent()
-            val publisher = backgroundScope.launch { (2..257).forEach { controller.process(ReceivableSaved(receivable(it))) } }
+            val publisher = backgroundScope.launch { (2..257).forEach { queries.process(ReceivableSaved(receivable(it))) } }
             runCurrent()
             assertFalse(publisher.isCompleted)
 
@@ -314,7 +314,7 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `filters live events by requested receivers and inclusive minimum amount`() =
+    fun `filters live events by requested receivers and inclusive minimum amount`(): Unit =
         runTest {
             // Given
             val first = receivable(1, amount = 100UL)
@@ -324,13 +324,13 @@ class ReceivableControllerTest {
             val search = AccountSearch(listOf(first, second).map { AttoAddress(it.receiverAlgorithm, it.receiverPublicKey) })
             val repository = mockk<ReceivableRepository>()
             coEvery { repository.findAllDesc(any(), any()) } returns emptyFlow()
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val received = mutableListOf<AttoReceivable>()
-            backgroundScope.launch { controller.stream(search, AttoAmount(100UL)).toList(received) }
+            backgroundScope.launch { queries.stream(search, AttoAmount(100UL)).toList(received) }
             runCurrent()
 
             // When
-            listOf(belowMinimum, unrequested, first, second).forEach { controller.process(ReceivableSaved(it)) }
+            listOf(belowMinimum, unrequested, first, second).forEach { queries.process(ReceivableSaved(it)) }
             runCurrent()
 
             // Then
@@ -339,18 +339,18 @@ class ReceivableControllerTest {
         }
 
     @Test
-    fun `delays future timestamps without blocking ready receivables`() =
+    fun `delays future timestamps without blocking ready receivables`(): Unit =
         runTest {
             // Given
             val future = receivable(1, amount = 200UL).copy(timestamp = Instant.now().plusSeconds(60))
             val ready = receivable(2)
             val repository = mockk<ReceivableRepository>()
             coEvery { repository.findAllDesc(any(), any()) } returns flowOf(future, ready)
-            val controller = ReceivableController(repository)
+            val queries = ReceivableQueries(repository)
             val received = mutableListOf<AttoReceivable>()
 
             // When
-            backgroundScope.launch { controller.stream(ready.receiverPublicKey, AttoAmount(1UL)).toList(received) }
+            backgroundScope.launch { queries.stream(ready.receiverPublicKey, AttoAmount(1UL)).toList(received) }
             runCurrent()
 
             // Then

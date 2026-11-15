@@ -1,5 +1,6 @@
 package cash.atto.node.vote
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoHash
 import cash.atto.commons.AttoSignedVote
@@ -68,8 +69,7 @@ class VoteNetworkProvider(
             val attoVote =
                 AttoVote(
                     version = 0U.toAttoVersion(),
-                    algorithm = thisNode.algorithm,
-                    publicKey = thisNode.publicKey,
+                    address = AttoAddress(thisNode.algorithm, thisNode.publicKey),
                     blockAlgorithm = AttoAlgorithm.V1,
                     blockHash = request.blockHash,
                     timestamp = AttoVote.finalTimestamp,

@@ -29,13 +29,13 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class AccountEntryControllerQueryTest {
+class AccountEntryQueriesTest {
     private val publicKey = AttoPublicKey(ByteArray(32) { 1 })
     private val repository = mockk<AccountEntryRepository>()
-    private val controller = AccountEntryController(repository)
+    private val queries = AccountEntryQueries(repository)
 
     @Test
-    fun `hash stream subscribes before lookup and retains a concurrent committed result`() =
+    fun `hash stream subscribes before lookup and retains a concurrent committed result`(): Unit =
         runTest {
             // Given
             val value = sample(2)
@@ -46,7 +46,7 @@ class AccountEntryControllerQueryTest {
                 finishRead.await()
                 null
             }
-            val result = backgroundScope.async { controller.stream(value.hash).first() }
+            val result = backgroundScope.async { queries.stream(value.hash).first() }
 
             // When
             runCurrent()
@@ -65,7 +65,7 @@ class AccountEntryControllerQueryTest {
         }
 
     @Test
-    fun `height stream orders snapshot and overlapping live updates and completes its range`() =
+    fun `height stream orders snapshot and overlapping live updates and completes its range`(): Unit =
         runTest {
             // Given
             val first = sample(2)
@@ -84,7 +84,7 @@ class AccountEntryControllerQueryTest {
             val values = mutableListOf<AttoAccountEntry>()
             val collection =
                 backgroundScope.launch {
-                    controller.stream(publicKey, 2UL.toAttoHeight(), 4UL.toAttoHeight()).toList(values)
+                    queries.stream(publicKey, 2UL.toAttoHeight(), 4UL.toAttoHeight()).toList(values)
                 }
 
             // When
@@ -108,7 +108,7 @@ class AccountEntryControllerQueryTest {
         }
 
     @Test
-    fun `cancelling a blocked snapshot cancels the query and releases the live publisher`() =
+    fun `cancelling a blocked snapshot cancels the query and releases the live publisher`(): Unit =
         runTest {
             // Given
             val value = sample(2)
@@ -123,7 +123,7 @@ class AccountEntryControllerQueryTest {
                 }
             val collection =
                 backgroundScope.launch {
-                    controller.stream(publicKey, 2UL.toAttoHeight(), 3UL.toAttoHeight()).toList()
+                    queries.stream(publicKey, 2UL.toAttoHeight(), 3UL.toAttoHeight()).toList()
                 }
             runCurrent()
             val publication = backgroundScope.async { publish(value) }
@@ -140,7 +140,7 @@ class AccountEntryControllerQueryTest {
         }
 
     private suspend fun publish(value: AccountEntry) {
-        controller.process(AccountEntrySaved(value))
+        queries.process(AccountEntrySaved(value))
     }
 
     private fun sample(height: Int): AccountEntry =

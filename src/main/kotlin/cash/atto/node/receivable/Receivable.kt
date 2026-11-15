@@ -1,5 +1,6 @@
 package cash.atto.node.receivable
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -36,11 +37,9 @@ data class Receivable(
             network = network,
             hash = hash,
             version = version,
-            algorithm = algorithm,
-            publicKey = publicKey,
+            address = AttoAddress(algorithm, publicKey),
             timestamp = timestamp.toAtto(),
-            receiverAlgorithm = receiverAlgorithm,
-            receiverPublicKey = receiverPublicKey,
+            receiverAddress = AttoAddress(receiverAlgorithm, receiverPublicKey),
             amount = amount,
         )
 }
@@ -50,11 +49,11 @@ fun AttoReceivable.toReceivable(): Receivable =
         network = network,
         hash = hash,
         version = version,
-        algorithm = algorithm,
-        publicKey = publicKey,
+        algorithm = address.algorithm,
+        publicKey = address.publicKey,
         timestamp = timestamp.toJavaInstant(),
-        receiverAlgorithm = receiverAlgorithm,
-        receiverPublicKey = receiverPublicKey,
+        receiverAlgorithm = receiverAddress.algorithm,
+        receiverPublicKey = receiverAddress.publicKey,
         amount = amount,
     )
 

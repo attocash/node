@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.validation.validator
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -49,14 +50,12 @@ internal class BlockValidatorTest {
         AttoSendBlock(
             version = account.version,
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = AttoHeight(account.height.toULong() + 1U),
             balance = AttoAmount(0u),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
             previous = account.lastTransactionHash,
-            receiverAlgorithm = AttoAlgorithm.V1,
-            receiverPublicKey = AttoPublicKey(ByteArray(32)),
+            receiverAddress = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32))),
             amount = AttoAmount(100u),
         )
 
@@ -97,14 +96,12 @@ internal class BlockValidatorTest {
                 AttoOpenBlock(
                     version = account.version,
                     network = account.network,
-                    algorithm = account.algorithm,
-                    publicKey = account.publicKey,
+                    address = AttoAddress(account.algorithm, account.publicKey),
                     balance = account.balance,
                     timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
                     sendHashAlgorithm = AttoAlgorithm.V1,
                     sendHash = AttoHash(Random.nextBytes(ByteArray(32))),
-                    representativeAlgorithm = account.representativeAlgorithm,
-                    representativePublicKey = account.representativePublicKey,
+                    representativeAddress = AttoAddress(account.representativeAlgorithm, account.representativePublicKey),
                 )
             val openTransaction =
                 Transaction(

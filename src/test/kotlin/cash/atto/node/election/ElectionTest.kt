@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -345,7 +346,7 @@ class ElectionTest {
                 publicKey = publicKey,
                 network = blockA.network,
                 version = blockA.version,
-                algorithm = blockA.algorithm,
+                algorithm = blockA.address.algorithm,
                 height = 1,
                 balance = AttoAmount.MIN,
                 lastTransactionTimestamp = blockA.timestamp.toJavaInstant().minusSeconds(1),
@@ -947,7 +948,7 @@ class ElectionTest {
             publicKey = transaction.publicKey,
             network = transaction.block.network,
             version = transaction.block.version,
-            algorithm = transaction.block.algorithm,
+            algorithm = transaction.block.address.algorithm,
             height = transaction.height.value.toLong() - 1,
             balance = AttoAmount.MIN,
             lastTransactionTimestamp =
@@ -971,8 +972,7 @@ class ElectionTest {
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, publicKey),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),

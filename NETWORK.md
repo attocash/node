@@ -1,6 +1,6 @@
 # Network Layer
 
-The networking subsystem authenticates peers in [NetworkProcessor][processor], manages their WebSocket sessions in
+The networking subsystem authenticates peers through [NetworkProcessor][processor] and its [HandshakeProtocol][handshake-protocol], manages their WebSocket sessions in
 [NodeConnectionManager][connections], and counts traffic in [Guardian][guardian]. These owners communicate through direct
 queries and asynchronous network-message and lifecycle events.
 
@@ -27,14 +27,16 @@ Text messages are ignored after admission to the incoming queue; ping/pong and c
 
 ## Peer Authentication
 
-`NetworkProcessor` starts its private peer server with two endpoints:
+`NetworkProcessor` owns admission, deadlines, connection attempts, and its private peer server. `HandshakeProtocol` owns
+one-time challenge consumption, protocol checks, signature hash construction, and response signing. The server exposes two endpoints:
 
-- **`POST /handshakes`** accepts a `CounterChallengeResponse`. Guardian admits the remote address, the processor consumes
+- **`POST /handshakes`** accepts a `CounterChallengeResponse`. Guardian admits the remote address, the handshake protocol consumes
   a one-time challenge, checks the expected public URI, genesis hash, signature and counter-challenge prefix, then signs
   a `ChallengeResponse`. Successful authentication completes the waiting outbound attempt before the HTTP response is sent.
 - **`WS /`** accepts a WebSocket with `Atto-Public-Uri` and `Atto-Http-Challenge` headers. Guardian admits the remote address,
-  the processor validates the headers and challenge prefix, then posts a counter-challenge to the peer's `/handshakes`
-  endpoint. It checks the returned URI and signature before handing the session to `NodeConnectionManager.manage()`.
+  the processor validates the headers and the protocol validates the challenge prefix. The processor then posts a counter-challenge
+  to the peer's `/handshakes`
+  endpoint. The protocol checks the returned URI and signature before the processor hands the session to `NodeConnectionManager.manage()`.
   Authentication owns its attempt reservation: failure or cancellation removes that attempt conditionally by identity;
   success retains the existing five-second expiry window.
 
@@ -195,3 +197,5 @@ transport, feature, traffic-accounting or metrics listener to finish.
 [serializer]: src/main/kotlin/cash/atto/node/network/NetworkSerializer.kt
 [peer-bans]: src/main/kotlin/cash/atto/node/network/guardian/PeerBans.kt
 [expected-responses]: src/main/kotlin/cash/atto/node/network/guardian/ExpectedResponses.kt
+
+[handshake-protocol]: src/main/kotlin/cash/atto/node/network/HandshakeProtocol.kt

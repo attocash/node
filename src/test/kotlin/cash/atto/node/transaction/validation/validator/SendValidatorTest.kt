@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.validation.validator
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -45,14 +46,12 @@ internal class SendValidatorTest {
         AttoSendBlock(
             network = AttoNetwork.LOCAL,
             version = account.version,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(0u),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
             previous = account.lastTransactionHash,
-            receiverAlgorithm = AttoAlgorithm.V1,
-            receiverPublicKey = privateKey.toPublicKeyBlocking(),
+            receiverAddress = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             amount = AttoAmount(100u),
         )
 

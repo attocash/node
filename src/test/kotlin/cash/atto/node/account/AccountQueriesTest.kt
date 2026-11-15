@@ -40,12 +40,12 @@ import org.junit.jupiter.api.Test
 import java.time.Instant
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class AccountControllerTest {
+class AccountQueriesTest {
     private val repository = mockk<AccountRepository>()
-    private val controller = AccountController(repository, mockk())
+    private val queries = AccountQueries(repository, mockk())
 
     @Test
-    fun `subscribes before starting a blocked database read and retains a concurrent update`() =
+    fun `subscribes before starting a blocked database read and retains a concurrent update`(): Unit =
         runTest {
             // Given
             val snapshot = opened().updatedAccount
@@ -53,7 +53,7 @@ class AccountControllerTest {
             val finishRead = CompletableDeferred<Unit>()
             lateinit var publication: Deferred<Unit>
             every { repository.findAllById(any()) } answers {
-                publication = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) { controller.process(update) }
+                publication = backgroundScope.async(start = CoroutineStart.UNDISPATCHED) { queries.process(update) }
                 flow {
                     finishRead.await()
                     emit(snapshot)
@@ -62,7 +62,7 @@ class AccountControllerTest {
             val accounts = mutableListOf<AttoAccount>()
 
             // When
-            backgroundScope.launch { controller.stream(snapshot.publicKey).toList(accounts) }
+            backgroundScope.launch { queries.stream(snapshot.publicKey).toList(accounts) }
             runCurrent()
 
             // Then
@@ -79,7 +79,7 @@ class AccountControllerTest {
         }
 
     @Test
-    fun `drops equal and older snapshot overlaps and delayed updates after newer live state`() =
+    fun `drops equal and older snapshot overlaps and delayed updates after newer live state`(): Unit =
         runTest {
             // Given
             val opened = opened()
@@ -94,22 +94,22 @@ class AccountControllerTest {
                     finishRead.await()
                 }
             val accounts = mutableListOf<AttoAccount>()
-            backgroundScope.launch { controller.stream(third.updatedAccount.publicKey).toList(accounts) }
+            backgroundScope.launch { queries.stream(third.updatedAccount.publicKey).toList(accounts) }
             runCurrent()
 
             // When
-            val older = backgroundScope.async { controller.process(second) }
-            val equal = backgroundScope.async { controller.process(third) }
-            val newer = backgroundScope.async { controller.process(fourth) }
+            val older = backgroundScope.async { queries.process(second) }
+            val equal = backgroundScope.async { queries.process(third) }
+            val newer = backgroundScope.async { queries.process(fourth) }
             runCurrent()
             finishRead.complete(Unit)
             runCurrent()
             older.await()
             equal.await()
             newer.await()
-            controller.process(third)
-            controller.process(second)
-            controller.process(fifth)
+            queries.process(third)
+            queries.process(second)
+            queries.process(fifth)
             runCurrent()
 
             // Then
@@ -117,17 +117,17 @@ class AccountControllerTest {
         }
 
     @Test
-    fun `streams the first committed update for an unopened account`() =
+    fun `streams the first committed update for an unopened account`(): Unit =
         runTest {
             // Given
             val opened = opened()
             every { repository.findAllById(any()) } returns emptyFlow()
             val accounts = mutableListOf<AttoAccount>()
-            backgroundScope.launch { controller.stream(opened.updatedAccount.publicKey).toList(accounts) }
+            backgroundScope.launch { queries.stream(opened.updatedAccount.publicKey).toList(accounts) }
             runCurrent()
 
             // When
-            controller.process(opened)
+            queries.process(opened)
             runCurrent()
 
             // Then
@@ -135,26 +135,26 @@ class AccountControllerTest {
         }
 
     @Test
-    fun `each collection of the same flow owns its forward heights`() =
+    fun `each collection of the same flow owns its forward heights`(): Unit =
         runTest {
             // Given
             val snapshot = opened().updatedAccount
             val second = received(snapshot)
             val third = received(second.updatedAccount)
             every { repository.findAllById(any()) } returns flowOf(snapshot)
-            val stream = controller.stream(snapshot.publicKey)
+            val stream = queries.stream(snapshot.publicKey)
             val firstAccounts = mutableListOf<AttoAccount>()
             val secondAccounts = mutableListOf<AttoAccount>()
             val first = backgroundScope.launch { stream.toList(firstAccounts) }
             runCurrent()
-            controller.process(second)
+            queries.process(second)
             runCurrent()
 
             // When
             backgroundScope.launch { stream.toList(secondAccounts) }
             runCurrent()
             first.cancelAndJoin()
-            controller.process(third)
+            queries.process(third)
             runCurrent()
 
             // Then
@@ -163,7 +163,7 @@ class AccountControllerTest {
         }
 
     @Test
-    fun `cancelling a blocked snapshot releases the live publisher and cancels the database read`() =
+    fun `cancelling a blocked snapshot releases the live publisher and cancels the database read`(): Unit =
         runTest {
             // Given
             val snapshot = opened().updatedAccount
@@ -178,9 +178,9 @@ class AccountControllerTest {
                     }
                 }
             val accounts = mutableListOf<AttoAccount>()
-            val collection = backgroundScope.launch { controller.stream(snapshot.publicKey).toList(accounts) }
+            val collection = backgroundScope.launch { queries.stream(snapshot.publicKey).toList(accounts) }
             runCurrent()
-            val publication = backgroundScope.async { controller.process(received(snapshot)) }
+            val publication = backgroundScope.async { queries.process(received(snapshot)) }
             runCurrent()
             assertFalse(publication.isCompleted)
 
@@ -195,7 +195,7 @@ class AccountControllerTest {
         }
 
     @Test
-    fun `filters unrelated live accounts and tracks heights independently for each requested address`() =
+    fun `filters unrelated live accounts and tracks heights independently for each requested address`(): Unit =
         runTest {
             // Given
             val first = opened(1).updatedAccount
@@ -206,13 +206,13 @@ class AccountControllerTest {
             every { repository.findAllById(listOf(first.publicKey, second.publicKey)) } returns flowOf(first, second)
             val search = AccountSearch(linkedSetOf(first, second).map { AttoAddress(it.algorithm, it.publicKey) }.toSet())
             val accounts = mutableListOf<AttoAccount>()
-            backgroundScope.launch { controller.stream(search).toList(accounts) }
+            backgroundScope.launch { queries.stream(search).toList(accounts) }
             runCurrent()
 
             // When
-            controller.process(unrelated)
-            controller.process(firstNext)
-            controller.process(secondNext)
+            queries.process(unrelated)
+            queries.process(firstNext)
+            queries.process(secondNext)
             runCurrent()
 
             // Then
@@ -226,27 +226,25 @@ class AccountControllerTest {
             AttoOpenBlock(
                 version = 0U.toAttoVersion(),
                 network = AttoNetwork.LOCAL,
-                algorithm = AttoAlgorithm.V1,
-                publicKey = publicKey,
+                address = AttoAddress(AttoAlgorithm.V1, publicKey),
                 balance = AttoAmount(100UL),
                 timestamp = timestamp.toAtto(),
                 sendHashAlgorithm = AttoAlgorithm.V1,
                 sendHash = AttoHash(ByteArray(32) { key.toByte() }),
-                representativeAlgorithm = AttoAlgorithm.V1,
-                representativePublicKey = publicKey,
+                representativeAddress = AttoAddress(AttoAlgorithm.V1, publicKey),
             )
         val previous =
             Account(
                 publicKey = publicKey,
                 network = block.network,
                 version = block.version,
-                algorithm = block.algorithm,
+                algorithm = block.address.algorithm,
                 height = 0,
                 balance = AttoAmount.MIN,
                 lastTransactionHash = block.hash,
                 lastTransactionTimestamp = timestamp,
-                representativeAlgorithm = block.representativeAlgorithm,
-                representativePublicKey = block.representativePublicKey,
+                representativeAlgorithm = block.representativeAddress.algorithm,
+                representativePublicKey = block.representativeAddress.publicKey,
             )
         val account = previous.copy(height = 1, balance = block.balance, persistedAt = timestamp, updatedAt = timestamp)
         val transaction = Transaction(block, AttoSignature(ByteArray(64)), AttoWork(ByteArray(8)))
@@ -260,8 +258,7 @@ class AccountControllerTest {
             AttoReceiveBlock(
                 version = previous.version,
                 network = previous.network,
-                algorithm = previous.algorithm,
-                publicKey = previous.publicKey,
+                address = AttoAddress(previous.algorithm, previous.publicKey),
                 height = height.toULong().toAttoHeight(),
                 balance = AttoAmount(height.toULong() * 100UL),
                 timestamp = timestamp.toAtto(),

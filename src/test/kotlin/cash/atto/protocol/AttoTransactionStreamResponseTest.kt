@@ -1,5 +1,6 @@
 package cash.atto.protocol
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -44,8 +45,7 @@ class AttoTransactionStreamResponseTest {
             AttoReceiveBlock(
                 network = AttoNetwork.LOCAL,
                 version = 0U.toAttoVersion(),
-                algorithm = AttoAlgorithm.V1,
-                publicKey = privateKey.toPublicKeyBlocking(),
+                address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),

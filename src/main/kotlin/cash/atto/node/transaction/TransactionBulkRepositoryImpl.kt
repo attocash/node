@@ -34,8 +34,8 @@ class TransactionBulkRepositoryImpl(
 
                     statement
                         .bind(bindIndex++, block.hash.value)
-                        .bind(bindIndex++, block.algorithm.name)
-                        .bind(bindIndex++, block.publicKey.value)
+                        .bind(bindIndex++, block.address.algorithm.name)
+                        .bind(bindIndex++, block.address.publicKey.value)
                         .bind(bindIndex++, block.height.value.toBigInteger())
                         .bind(bindIndex++, block.type.name)
                         .bind(bindIndex++, block.timestamp.toJavaInstant())

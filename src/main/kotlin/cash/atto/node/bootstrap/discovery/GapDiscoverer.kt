@@ -109,7 +109,7 @@ class GapDiscoverer(
 
     @EventListener
     suspend fun process(message: InboundNetworkMessage<AttoTransactionStreamResponse>) {
-        val publicKey = message.payload.transaction.block.publicKey
+        val publicKey = message.payload.transaction.block.address.publicKey
         val session = activeSessions[publicKey] ?: return
         if (session.offer(message)) {
             activeSessions.replace(publicKey, session, session)

@@ -155,16 +155,49 @@ This project exposes endpoints for:
 
 - **Transactions**: submit, query, and stream
   - `POST /transactions`
-  - `POST /transactions/stream` (publish + stream confirmation)
+  - `POST /v2/transactions` (publish and wait for confirmation)
   - `GET /transactions/{hash}`
-  - `GET /transactions/stream` (NDJSON live stream)
+  - `GET /v2/transactions/stream` (NDJSON live stream)
 - **Accounts**: query and stream account snapshots
-  - `POST /accounts`
-  - `GET /accounts/{publicKey}`
-  - `POST /accounts/stream` (NDJSON)
+  - `POST /accounts` (legacy response format)
+  - `POST /v2/accounts` (finite batch snapshots)
+  - `GET /v2/accounts/{address}`
+  - `POST /v2/accounts/stream` (NDJSON)
 - **Receivables**, **Account Entries**, **Vote weight**, and **time** utilities
 
-All streaming endpoints use **NDJSON** (`application/x-ndjson`) and combine:
+Single-account v2 routes accept a full account address encoded as one path segment: `atto://...` becomes
+`atto%3A%2F%2F...`. Encode it once; raw slashes or double encoding do not identify an account route.
+
+| Operation | Route |
+| --- | --- |
+| Account snapshot | `GET /v2/accounts/{address}` |
+| Batch account snapshots | `POST /v2/accounts` with an `addresses` array |
+| Account updates | `GET /v2/accounts/{address}/stream` |
+| Receivables | `GET /v2/accounts/{address}/receivables/stream?minAmount=1` |
+| Account-entry history | `GET /v2/accounts/{address}/entries/stream?fromHeight=1&toHeight=...` |
+| Transaction history | `GET /v2/accounts/{address}/transactions/stream?fromHeight=1&toHeight=...` |
+
+V2 responses return the Commons models directly, with account, representative, receiver, and subject
+addresses instead of public-key and address-algorithm fields, including inside transaction blocks.
+Hash-algorithm fields such as `sendHashAlgorithm` remain. Amounts, heights, and timestamps use decimal
+strings in v2 JSON. `POST /v2/accounts` returns a finite JSON array using the same account lookup and
+batching as the legacy endpoint. Legacy HTTP response adapters preserve the original field sets and JSON numbers.
+Legacy transaction publication endpoints also accept key-only block identities through a local request adapter;
+canonical addresses take precedence when supplied. V2 publication requires canonical addresses for the account
+and each receiver or representative. Commons JSON decoding uses canonical models directly.
+Signatures, work, hashes, and range semantics retain their meaning. Legacy stream and public-key routes
+remain callable but are hidden from Swagger; v2 routes are documented there.
+
+All v2 NDJSON streams, including GET, POST, publication, hash, and height-range streams, attempt to flush
+a blank newline every second while open, including before the first record. Heartbeats stay between
+complete records and stop when the source completes, fails, or is cancelled. They add no domain events
+and do not extend publication deadlines. Healthy streams retain their existing lifetime. Legacy streams
+receive no heartbeat bytes.
+
+Transaction collection routes use `GET /v2/transactions/stream` for live updates and
+`POST /v2/transactions` to publish and wait for confirmation. `POST /v2/transactions/stream` is not exposed.
+
+HTTP streaming endpoints use **NDJSON** (`application/x-ndjson`) and combine:
 
 - database results (historical)
 - in-memory flows of live updates (reactive push)
@@ -180,6 +213,55 @@ Receivable streams subscribe to live updates before reading the database. They s
 a bounded live-update queue and continuing on the same subscription. Only hashes from the initial
 database scan are retained to suppress overlapping or delayed live notifications; new live hashes do not grow
 that set. Slow database reads or clients apply backpressure, and disconnecting cancels both the scan and live subscription.
+
+### Public WebSocket streams
+
+Upgrade `GET /v2/stream` on the HTTP API port to use WebSocket transport. Each connection carries one
+logical stream. Send a text `subscribe` command with the existing v2 stream `method`, `path` (including
+query parameters), and `body` for POST operations:
+
+```json
+{"type":"subscribe","request":{"method":"GET","path":"/v2/transactions/stream"}}
+```
+
+The 13 read stream operations are supported, including address, hash, height-range and POST search streams.
+Encode an `atto://` address as one percent-encoded path segment. Transaction publication and finite JSON
+queries remain HTTP-only. Commons always uses HTTP for `publish(transaction)`, including in WebSocket mode. Existing HTTP/NDJSON routes remain available and are the default
+Commons client transport; callers can explicitly select WebSocket streams.
+
+The server acknowledges subscriptions with `subscribed`. Its text JSON envelopes use `type`: `data`
+carries the unchanged endpoint record and a decimal-string `sequence`; `heartbeat` reports connection
+liveness every second while waiting; `complete` ends a successful operation; and `error` reports numeric
+`status`, `message` and whether the error is `terminal`. For example:
+
+```json
+{"type":"heartbeat"}
+{"type":"data","data":{"address":"atto://..."},"sequence":"1"}
+{"type":"complete"}
+```
+
+After accepting a data record, send `{"type":"ack","sequence":"1"}`. Acknowledgements are cumulative:
+the server sends at most 32 unacknowledged data records and waits for the final acknowledgement before
+`complete`. Continue reading heartbeats and control messages while processing data. Commons handles
+this protocol automatically.
+
+To change account membership without reconnecting, use `"mutable":true` on a subscription to one of
+the four POST streams: `/v2/accounts/stream`, `/v2/accounts/receivables/stream`,
+`/v2/accounts/entries/stream`, or `/v2/accounts/transactions/stream`. Send `update` with the same method
+and path and the full next body. Existing account subscriptions continue, newly added accounts receive
+their normal snapshot and live handoff, and removed accounts are cancelled. The server replies `updated`
+after applying the change. Filters and height ranges of retained accounts cannot change. An invalid
+update returns a nonterminal error and leaves the previous membership running. An empty mutable
+membership stays open with heartbeats. Send `{"type":"seal"}` when no more updates will follow; a sealed
+stream completes after all remaining members finish. Account and receivable streams remain live until
+the client disconnects.
+
+Heartbeats carry no ledger meaning. After an upgrade, read-operation errors use an `error` envelope
+rather than an HTTP status. A disconnect before `complete` or `error` is an interrupted stream.
+HTTP transaction publication retains its 40-second confirmation deadline.
+Closing the socket cancels its stream subscription. Slow consumers apply backpressure; domain records
+are never dropped to make room for heartbeats. A second `subscribe` command is a protocol error.
+The initial subscription must arrive within ten seconds. Each command must fit in a 256 KiB WebSocket message.
 
 ## How consensus works (high level)
 
@@ -277,6 +359,10 @@ Major modules (packages):
 - `election/` — elections, voting, and applying consensus results
 - `vote/` — vote persistence and weight calculations
 - `bootstrap/` — gap/dependency/head discovery and unchecked transaction recovery
+
+Feature-owned `AccountQueries`, `AccountEntryQueries`, `TransactionQueries`, and `ReceivableQueries` share query and
+snapshot/live stream behavior between HTTP controllers and the public WebSocket dispatcher.
+`network/HandshakeProtocol` owns peer challenge verification and signing; `NetworkProcessor` owns admission and connection lifecycle.
 
 ## Docker images
 

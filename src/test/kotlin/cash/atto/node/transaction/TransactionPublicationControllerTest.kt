@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -17,6 +18,7 @@ import cash.atto.node.ApplicationProperties
 import cash.atto.node.account.Account
 import cash.atto.node.account.AccountUpdated
 import cash.atto.node.election.ElectionRejected
+import cash.atto.node.network.InboundNetworkMessage
 import cash.atto.node.network.NetworkMessagePublisher
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.NodeFeature
@@ -27,10 +29,14 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Assertions.assertEquals
@@ -54,8 +60,7 @@ internal class TransactionPublicationControllerTest {
         AttoReceiveBlock(
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = AttoHeight(2UL),
             balance = AttoAmount(1UL),
             timestamp = AttoInstant.now(),
@@ -71,10 +76,10 @@ internal class TransactionPublicationControllerTest {
         )
     private val account =
         Account(
-            publicKey = block.publicKey,
+            publicKey = block.address.publicKey,
             network = block.network,
             version = block.version,
-            algorithm = block.algorithm,
+            algorithm = block.address.algorithm,
             height = block.height.value.toLong(),
             balance = block.balance,
             lastTransactionTimestamp = block.timestamp.toJavaInstant(),
@@ -91,6 +96,72 @@ internal class TransactionPublicationControllerTest {
             publicUri = URI("ws://localhost:8081"),
             features = setOf(NodeFeature.VOTING, NodeFeature.HISTORICAL),
         )
+
+    @Test
+    fun `HTTP publication uses the configured proxy header and remote port`(): Unit =
+        runTest {
+            // Given
+            val properties = ApplicationProperties().apply { useXForwardedFor = true }
+            val publisher = mockk<NetworkMessagePublisher>(relaxed = true)
+            val repository = mockk<TransactionRepository>()
+            val controller = TransactionPublicationController(properties, node, publisher, repository)
+            val request =
+                MockServerHttpRequest
+                    .post("/v2/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .header("X-Forwarded-For", "203.0.113.10")
+                    .build()
+            val result =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    controller.publishAndStream(transaction.toAttoTransaction(), request, false).first()
+                }
+
+            // When
+            controller.process(AccountUpdated(TransactionSource.ELECTION, account, account, transaction))
+
+            // Then
+            assertEquals(transaction.toAttoTransaction(), result.await())
+            verify(exactly = 1) {
+                publisher.publish(
+                    match<InboundNetworkMessage<*>> {
+                        it.socketAddress.hostString == "203.0.113.10" && it.socketAddress.port == 12345
+                    },
+                )
+            }
+        }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun `HTTP publication keeps the forty second confirmation deadline`(): Unit =
+        runTest {
+            // Given
+            val publisher = mockk<NetworkMessagePublisher>(relaxed = true)
+            val controller = TransactionPublicationController(ApplicationProperties(), node, publisher, mockk())
+            val request =
+                MockServerHttpRequest
+                    .post("/v2/transactions")
+                    .remoteAddress(InetSocketAddress("127.0.0.1", 12345))
+                    .build()
+            val result =
+                async(start = CoroutineStart.UNDISPATCHED) {
+                    runCatching { controller.publishAndStream(transaction.toAttoTransaction(), request, false).first() }
+                }
+
+            // When
+            advanceTimeBy(39_999)
+            runCurrent()
+
+            // Then
+            assertFalse(result.isCompleted)
+
+            // When
+            advanceTimeBy(1)
+            runCurrent()
+
+            // Then
+            assertInstanceOf(TimeoutCancellationException::class.java, result.await().exceptionOrNull())
+            verify(exactly = 1) { publisher.publish(any()) }
+        }
 
     @ParameterizedTest
     @ValueSource(booleans = [false, true])

@@ -1,5 +1,6 @@
 package cash.atto.node.account
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -262,8 +263,7 @@ class AccountCachedRepositoryTest {
                 AttoReceiveBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = publicKey,
+                    address = AttoAddress(AttoAlgorithm.V1, publicKey),
                     height = height.toULong().toAttoHeight(),
                     balance = AttoAmount(height.toULong() * 100UL),
                     timestamp = AttoInstant.now() + height.milliseconds,

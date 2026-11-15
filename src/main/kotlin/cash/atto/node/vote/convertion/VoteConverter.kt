@@ -22,7 +22,7 @@ class VoteConverter(
     }
 
     fun convert(attoVote: AttoSignedVote): Vote {
-        val weight = weightService.get(attoVote.vote.publicKey)
+        val weight = weightService.get(attoVote.vote.address.publicKey)
         return Vote.from(weight, attoVote)
     }
 }

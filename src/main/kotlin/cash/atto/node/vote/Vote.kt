@@ -1,5 +1,6 @@
 package cash.atto.node.vote
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -45,8 +46,8 @@ data class Vote(
             return Vote(
                 hash = attoSignedVote.hash,
                 version = attoVote.version,
-                algorithm = attoVote.algorithm,
-                publicKey = attoVote.publicKey,
+                algorithm = attoVote.address.algorithm,
+                publicKey = attoVote.address.publicKey,
                 blockAlgorithm = attoVote.blockAlgorithm,
                 blockHash = attoVote.blockHash,
                 timestamp = attoVote.timestamp.toJavaInstant(),
@@ -68,8 +69,7 @@ data class Vote(
         val vote =
             AttoVote(
                 version = version,
-                algorithm = algorithm,
-                publicKey = publicKey,
+                address = AttoAddress(algorithm, publicKey),
                 blockAlgorithm = blockAlgorithm,
                 blockHash = blockHash,
                 timestamp = timestamp.toAtto(),
