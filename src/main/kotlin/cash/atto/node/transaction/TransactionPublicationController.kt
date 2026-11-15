@@ -13,6 +13,7 @@ import cash.atto.node.transaction.PendingTransactionRegistry.Stream
 import cash.atto.protocol.AttoNode
 import cash.atto.protocol.AttoTransactionPush
 import io.github.oshai.kotlinlogging.KotlinLogging
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.Parameter
 import io.swagger.v3.oas.annotations.media.Content
@@ -54,8 +55,6 @@ class TransactionPublicationController(
     val repository: TransactionRepository,
 ) {
     private val logger = KotlinLogging.logger {}
-
-    private val useXForwardedForKey = "X-FORWARDED-FOR"
 
     private val pendingTransactions = PendingTransactionRegistry()
 
@@ -154,46 +153,6 @@ class TransactionPublicationController(
         )
     }
 
-    @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
-    @Operation(
-        summary = "Publish a transaction",
-        description =
-            "Validates and publishes the signed transaction, then waits for local confirmation and returns the confirmed transaction. " +
-                "The confirmation wait has a 40-second timeout. After a timeout or lost response, inspect the original hash and " +
-                "account history before creating another payment; confirmation may already have happened. " +
-                "A confirmed Send creates a receivable; a separate Open or Receive adds it to the recipient's spendable balance.",
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                description = "The confirmed transaction, including an already confirmed result when recognized by the node.",
-                content = [
-                    Content(
-                        schema = Schema(implementation = AttoTransaction::class),
-                    ),
-                ],
-            ),
-            ApiResponse(
-                responseCode = "400",
-                description = "Invalid transaction, wrong network, invalid proxy-header configuration, or transaction rejection.",
-                content = [Content()],
-            ),
-            ApiResponse(
-                responseCode = "409",
-                description = "The local election rejected this publication attempt and the hash was not found in local storage.",
-                content = [Content()],
-            ),
-            ApiResponse(
-                responseCode = "429",
-                description = "The local transaction queue dropped the transaction. Check its hash before retrying the payment.",
-                content = [Content()],
-            ),
-            ApiResponse(
-                responseCode = "503",
-                description = "The local election expired. This does not prove that the transaction failed on every node.",
-                content = [Content()],
-            ),
-        ],
-    )
     suspend fun publish(
         @RequestBody transaction: AttoTransaction,
         request: ServerHttpRequest,
@@ -249,7 +208,7 @@ class TransactionPublicationController(
         transaction: AttoTransaction,
         request: ServerHttpRequest,
     ): InetSocketAddress {
-        val ips = request.headers[useXForwardedForKey] ?: listOf()
+        val ips = request.headers["X-FORWARDED-FOR"] ?: emptyList()
         val remoteAddress = request.remoteAddress!!
 
         return if (!applicationProperties.useXForwardedFor) {
@@ -280,15 +239,16 @@ class TransactionPublicationController(
     }
 
     @PostMapping(
-        "/transactions/stream",
+        "/v2/transactions",
         consumes = [MediaType.APPLICATION_JSON_VALUE],
         produces = [MediaType.APPLICATION_NDJSON_VALUE],
     )
     @Operation(
-        summary = "Publish a transaction and stream its confirmation",
+        operationId = "publishTransactionAndWaitForConfirmation",
+        summary = "Publish a transaction and wait for confirmation",
         description =
-            "Uses the same publication and local-confirmation operation as POST /transactions, " +
-                "emitting one confirmed transaction as NDJSON. " +
+            "Validates and publishes the signed transaction, waits for local confirmation, " +
+                "then returns the confirmed transaction as NDJSON. " +
                 "The confirmation wait has a 40-second timeout. Inspect the emitted transaction, not only the initial HTTP status. " +
                 "Errors after response commitment can terminate the stream; do not assume every timeout returns HTTP 504. " +
                 "After an interrupted stream, inspect the original hash and account history before creating another payment.",
@@ -349,4 +309,109 @@ class TransactionPublicationController(
                     }
                 }.first()
         }
+
+    @Operation(
+        operationId = "publishLegacyTransactionAndWaitForConfirmation",
+        summary = "Publish a transaction and wait for confirmation",
+        description =
+            "Validates and publishes the signed transaction, then waits for local confirmation and returns the confirmed transaction. " +
+                "The confirmation wait has a 40-second timeout. After a timeout or lost response, inspect the original hash and " +
+                "account history before creating another payment; confirmation may already have happened. " +
+                "A confirmed Send creates a receivable; a separate Open or Receive adds it to the recipient's spendable balance.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "The confirmed transaction, including an already confirmed result when recognized by the node.",
+                content = [
+                    Content(
+                        schema = Schema(implementation = LegacyTransactionResponse::class),
+                    ),
+                ],
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid transaction, wrong network, invalid proxy-header configuration, or transaction rejection.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "409",
+                description = "The local election rejected this publication attempt and the hash was not found in local storage.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "429",
+                description = "The local transaction queue dropped the transaction. Check its hash before retrying the payment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "503",
+                description = "The local election expired. This does not prove that the transaction failed on every node.",
+                content = [Content()],
+            ),
+        ],
+    )
+    @PostMapping("/transactions", consumes = [MediaType.APPLICATION_JSON_VALUE])
+    suspend fun legacyPublish(
+        @RequestBody transaction: LegacyTransactionRequest,
+        request: ServerHttpRequest,
+        @Parameter(
+            description =
+                "When true, reuse a stored confirmation or an existing pending publication for the same transaction hash. " +
+                    "This does not deduplicate payment attempts with different transaction hashes.",
+        )
+        @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
+    ): LegacyTransactionResponse = publish(transaction.transaction, request, deduplicate).toLegacyResponse()
+
+    @Hidden
+    @Operation(
+        operationId = "publishLegacyTransactionAndWaitForConfirmationAsNdjson",
+        summary = "Publish a transaction and wait for confirmation",
+        description =
+            "Validates and publishes the signed transaction, waits for local confirmation, " +
+                "then returns the confirmed transaction as NDJSON. " +
+                "The confirmation wait has a 40-second timeout. Inspect the emitted transaction, not only the initial HTTP status. " +
+                "Errors after response commitment can terminate the stream; do not assume every timeout returns HTTP 504. " +
+                "After an interrupted stream, inspect the original hash and account history before creating another payment.",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                description = "One confirmed transaction emitted as NDJSON.",
+                content = [
+                    Content(
+                        schema = Schema(implementation = LegacyTransactionResponse::class),
+                    ),
+                ],
+            ),
+            ApiResponse(
+                responseCode = "400",
+                description = "Invalid or rejected transaction, or invalid proxy-header configuration, before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "409",
+                description = "The local election rejected this publication attempt before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "429",
+                description = "The local transaction queue dropped the transaction before response commitment.",
+                content = [Content()],
+            ),
+            ApiResponse(
+                responseCode = "503",
+                description = "The local election expired before response commitment.",
+                content = [Content()],
+            ),
+        ],
+    )
+    @PostMapping(
+        "/transactions/stream",
+        consumes = [MediaType.APPLICATION_JSON_VALUE],
+        produces = [MediaType.APPLICATION_NDJSON_VALUE],
+    )
+    suspend fun legacyPublishAndStream(
+        @RequestBody transaction: LegacyTransactionRequest,
+        request: ServerHttpRequest,
+        @RequestParam(defaultValue = "false", required = false) deduplicate: Boolean = false,
+    ): Flow<LegacyTransactionResponse> = publishAndStream(transaction.transaction, request, deduplicate).map { it.toLegacyResponse() }
 }

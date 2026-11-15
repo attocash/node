@@ -43,16 +43,16 @@ class AccountService(
                         AccountTransaction(
                             account =
                                 Account(
-                                    publicKey = block.publicKey,
+                                    publicKey = block.address.publicKey,
                                     network = block.network,
                                     version = block.version,
-                                    algorithm = block.algorithm,
+                                    algorithm = block.address.algorithm,
                                     height = block.height.value.toLong() - 1,
                                     balance = AttoAmount.MIN,
                                     lastTransactionHash = block.hash,
                                     lastTransactionTimestamp = block.timestamp.toJavaInstant(),
-                                    representativeAlgorithm = block.representativeAlgorithm,
-                                    representativePublicKey = block.representativePublicKey,
+                                    representativeAlgorithm = block.representativeAddress.algorithm,
+                                    representativePublicKey = block.representativeAddress.publicKey,
                                 ),
                             transaction = tx,
                         )
@@ -92,13 +92,13 @@ class AccountService(
             lastTransactionTimestamp = block.timestamp.toJavaInstant(),
             representativeAlgorithm =
                 if (block is RepresentativeSupport) {
-                    block.representativeAlgorithm
+                    block.representativeAddress.algorithm
                 } else {
                     this.representativeAlgorithm
                 },
             representativePublicKey =
                 if (block is RepresentativeSupport) {
-                    block.representativePublicKey
+                    block.representativeAddress.publicKey
                 } else {
                     this.representativePublicKey
                 },
@@ -128,11 +128,11 @@ class AccountService(
             val (subjectAlgorithm, subjectPublicKey) =
                 when (block) {
                     is AttoChangeBlock -> {
-                        block.representativeAlgorithm to block.representativePublicKey
+                        block.representativeAddress.algorithm to block.representativeAddress.publicKey
                     }
 
                     is AttoSendBlock -> {
-                        block.receiverAlgorithm to block.receiverPublicKey
+                        block.receiverAddress.algorithm to block.receiverAddress.publicKey
                     }
 
                     is AttoReceiveBlock, is AttoOpenBlock -> {

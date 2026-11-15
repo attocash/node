@@ -270,8 +270,9 @@ class Election(
         }
 }
 
-private class VoterChange(
+private class VoterState(
     val blockHash: AttoHash,
+    val latestVoteTimestamp: Instant,
     val lastChangeAt: Instant,
 )
 
@@ -281,8 +282,7 @@ class PublicKeyHeightElection(
     private val voteWeightProvider: (Vote) -> AttoAmount = { it.weight },
 ) {
     private val transactionElectionMap = HashMap<AttoHash, TransactionElection>()
-    private val voterChangeMap = HashMap<AttoPublicKey, VoterChange>()
-    private val latestVoteTimestampMap = HashMap<AttoPublicKey, Instant>()
+    private val voterStates = HashMap<AttoPublicKey, VoterState>()
 
     internal fun snapshot(): PublicKeyHeightElection {
         val minimalWeight = minimalConfirmationWeightProvider()
@@ -296,8 +296,7 @@ class PublicKeyHeightElection(
             copy.votes.putAll(election.votes)
             snapshot.transactionElectionMap[hash] = copy
         }
-        snapshot.voterChangeMap.putAll(voterChangeMap)
-        snapshot.latestVoteTimestampMap.putAll(latestVoteTimestampMap)
+        snapshot.voterStates.putAll(voterStates)
         return snapshot
     }
 
@@ -319,8 +318,8 @@ class PublicKeyHeightElection(
             transactionElectionMap[vote.blockHash]
                 ?: return false
 
-        val latestVoteTimestamp = latestVoteTimestampMap[vote.publicKey]
-        if (latestVoteTimestamp != null && vote.timestamp <= latestVoteTimestamp) {
+        val previous = voterStates[vote.publicKey]
+        if (previous != null && vote.timestamp <= previous.latestVoteTimestamp) {
             return false
         }
 
@@ -328,23 +327,15 @@ class PublicKeyHeightElection(
             return false
         }
 
-        latestVoteTimestampMap[vote.publicKey] = vote.timestamp
-
-        val oldChange = voterChangeMap[vote.publicKey]
-
-        if (oldChange?.blockHash == vote.blockHash) {
-            return true
-        }
-
-        val newChange =
-            if (oldChange != null) {
-                transactionElectionMap[oldChange.blockHash]!!.remove(vote.publicKey)
-                VoterChange(vote.blockHash, Instant.now())
+        val lastChangeAt =
+            if (previous != null && previous.blockHash != vote.blockHash) {
+                transactionElectionMap[previous.blockHash]!!.remove(vote.publicKey)
+                Instant.now()
             } else {
-                VoterChange(vote.blockHash, Instant.MIN)
+                previous?.lastChangeAt ?: Instant.MIN
             }
 
-        voterChangeMap[vote.publicKey] = newChange
+        voterStates[vote.publicKey] = VoterState(vote.blockHash, vote.timestamp, lastChangeAt)
 
         return true
     }
@@ -364,7 +355,7 @@ class PublicKeyHeightElection(
         val leader = getProvisionalLeader()
 
         val recentlyChanged =
-            voterChangeMap.entries
+            voterStates.entries
                 .asSequence()
                 .filter { it.value.lastChangeAt > Instant.now().minus(ELECTION_STABILITY_MINIMAL_TIME) }
                 .map { it.key }

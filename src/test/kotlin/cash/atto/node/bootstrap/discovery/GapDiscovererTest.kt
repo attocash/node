@@ -1,5 +1,6 @@
 package cash.atto.node.bootstrap.discovery
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -514,7 +515,7 @@ class GapDiscovererTest {
 
         fun response(transaction: AttoTransaction): InboundNetworkMessage<AttoTransactionStreamResponse> {
             val request =
-                requests.last { it.payload.publicKey == transaction.block.publicKey }
+                requests.last { it.payload.publicKey == transaction.block.address.publicKey }
             return InboundNetworkMessage(
                 source = MessageSource.WEBSOCKET,
                 publicUri = request.publicUri,
@@ -575,14 +576,12 @@ class GapDiscovererTest {
                 AttoSendBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = publicKey,
+                    address = AttoAddress(AttoAlgorithm.V1, publicKey),
                     height = height.toAttoHeight(),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),
                     previous = previous,
-                    receiverAlgorithm = AttoAlgorithm.V1,
-                    receiverPublicKey = publicKey((marker + 20).toByte()),
+                    receiverAddress = AttoAddress(AttoAlgorithm.V1, publicKey((marker + 20).toByte())),
                     amount = AttoAmount.MAX,
                 )
             return AttoTransaction(

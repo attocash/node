@@ -19,7 +19,7 @@ class TransactionSerializerDBConverter : Converter<Transaction, OutboundRow> {
         val row = OutboundRow()
         with(row) {
             put("hash", Parameter.from(block.hash))
-            put("public_key", Parameter.from(block.publicKey))
+            put("public_key", Parameter.from(block.address.publicKey))
             put("height", Parameter.from(block.height.value.toBigInteger()))
             put("block_type", Parameter.from(block.type))
             put("timestamp", Parameter.from(block.timestamp.toJavaInstant()))

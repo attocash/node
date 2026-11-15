@@ -1,5 +1,6 @@
 package cash.atto.node.signature
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -188,8 +189,7 @@ class MeteredAttoSignerTest {
     private fun AttoVote.Companion.sample(publicKey: AttoPublicKey): AttoVote =
         AttoVote(
             version = 0U.toAttoVersion(),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, publicKey),
             blockAlgorithm = AttoAlgorithm.V1,
             blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
             timestamp = AttoInstant.now(),
@@ -199,8 +199,7 @@ class MeteredAttoSignerTest {
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, publicKey),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),

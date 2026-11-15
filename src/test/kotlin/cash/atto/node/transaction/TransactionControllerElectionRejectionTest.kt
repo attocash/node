@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -220,14 +221,12 @@ internal class TransactionControllerElectionRejectionTest {
             AttoSendBlock(
                 version = account.version,
                 network = account.network,
-                algorithm = account.algorithm,
-                publicKey = account.publicKey,
+                address = AttoAddress(account.algorithm, account.publicKey),
                 height = AttoHeight((account.height + 1).toULong()),
                 balance = AttoAmount(account.balance.raw - 10UL),
                 timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
                 previous = account.lastTransactionHash,
-                receiverAlgorithm = AttoAlgorithm.V1,
-                receiverPublicKey = AttoPublicKey(Random.nextBytes(32)),
+                receiverAddress = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(Random.nextBytes(32))),
                 amount = AttoAmount(10UL),
             )
         return Transaction(block, privateKey.sign(block.hash), AttoWorker.cpu().work(block))

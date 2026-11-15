@@ -40,7 +40,7 @@ are listed in [Events and completion](#events-and-completion).
 
 ```mermaid
 flowchart TB
-    REST["TransactionPublicationController<br/>REST submission"]
+    REST["TransactionPublicationController<br/>HTTP submission"]
     P2P["NodeConnectionManager<br/>peer transaction push"]
     PRIORITY["TransactionPrioritizer<br/>deduplicate and buffer dependencies"]
     TXWORK["Transaction queue + worker"]
@@ -163,9 +163,9 @@ listener does not mean every event changes its state. Definitions live beside th
 
 | After-commit event | Registered by | Behavior listeners |
 | --- | --- | --- |
-| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [TransactionPrioritizer][transaction-prioritizer], [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountController][account-controller], [TransactionPublicationController][transaction-publication], [TransactionController][transaction-controller] |
-| `ReceivableSaved` | [ReceivableService.saveAll][receivable-service], after a successful insert | [ReceivableController][receivable-controller]; each stream buffers live updates before scanning the database, then suppresses notifications matching retained database hashes |
-| `AccountEntrySaved` | [AccountEntryService.saveAll][entry-service], historical nodes | [AccountEntryController][entry-controller] |
+| `AccountUpdated` | [AccountService.add][account-service], for `ELECTION` or `BOOTSTRAP` | [TransactionPrioritizer][transaction-prioritizer], [Election][election], [ElectionProcessor][election-processor], [ElectionVoter][election-voter], [VotePrioritizer][vote-prioritizer], [VoteCleaner][vote-cleaner], [VoteWeighter][vote-weighter], [AccountQueries][account-queries], [TransactionPublicationController][transaction-publication], [TransactionQueries][transaction-queries] |
+| `ReceivableSaved` | [ReceivableService.saveAll][receivable-service], after a successful insert | [ReceivableQueries][receivable-queries]; each stream buffers live updates before scanning the database, then suppresses notifications matching retained database hashes |
+| `AccountEntrySaved` | [AccountEntryService.saveAll][entry-service], historical nodes | [AccountEntryQueries][entry-queries] |
 
 `TransactionFailure` is the shared contract for transaction/election admission rejection, validation exceptions,
 queue drops, obsolete persistence discards, election loss, and election expiry. The prioritizer consumes it to release pending state and requeue
@@ -180,7 +180,7 @@ election admission rejection, election expiry, or queue drop; `ALREADY_CONFIRMED
 `ElectionRejected`, a stored exact hash completes successfully; otherwise the request receives HTTP 409. Lookup
 failures and validation exceptions return a generic HTTP 500 without exposing their cause. It does not listen to
 `ElectionLost` or `ElectionDiscarded`. A request timeout does not
-prove the transaction failed to commit. The separate [TransactionController][transaction-controller] consumes
+prove the transaction failed to commit. The separate [TransactionQueries][transaction-queries] consumes
 `AccountUpdated` independently to emit its live query feeds; publication confirmation does not wait for those streams.
 Historical vote and timestamp recording have their own queues; they are not
 part of the account transaction merely because they consume the consensus event.
@@ -189,19 +189,33 @@ part of the account transaction merely because they consume the consensus event.
 
 | State | Owner and synchronization | Completion/failure behavior to preserve |
 | --- | --- | --- |
-| Pending HTTP publication attempts | [PendingTransactionRegistry][pending-publications], owned by [TransactionPublicationController][transaction-publication]; concurrent hash map with per-hash registration/removal of waiter counts and replayed results | Registration precedes publication. Same-hash requests can share one attempt; joining and retiring waiters update membership and counts atomically so a retiring caller cannot detach a new waiter; each caller removes only its own registration on completion or cancellation. A suspended election-rejection lookup completes only the attempt it observed, so it cannot replace a confirmation or complete a newer publication. |
+| Pending public API publication attempts | [PendingTransactionRegistry][pending-publications], owned by [TransactionPublicationController][transaction-publication]; concurrent hash map with per-hash registration/removal of waiter counts and replayed results | HTTP submissions call the publication workflow; public WebSockets expose read subscriptions only. Registration precedes publication. Same-hash requests can share one attempt; joining and retiring waiters update membership and counts atomically so a retiring caller cannot detach a new waiter; each caller removes only its own registration on completion or cancellation. A suspended election-rejection lookup completes only the attempt it observed, so it cannot replace a confirmation or complete a newer publication. |
 | Pending hashes and dependent transactions | [TransactionPrioritizer][transaction-prioritizer]; concurrent map, with atomic operations per dependency hash | The single worker registers each dispatched hash before validation. `computeIfPresent` attaches hash-deduplicated dependents; `AccountUpdated` and processing failures detach only the completed hash, then requeue dependents outside map callbacks. Election owners report stale/obsolete candidates through failure events. The inbound duplicate filter is advisory; queue admission and the pending claim enforce unique processing. |
 | Transaction priority queue and queued hash membership | [TransactionQueue][transaction-queue]; existing lock per priority group | Queue admission and dequeue claims run under the same group lock, preventing a duplicate from slipping between queue removal and pending registration. The queue deduplicates hashes even when arrival metadata or work differs. Callbacks do not mutate the queue or publish events; deferred candidates leave the queue only after their dependency takes ownership. |
-| Candidates, votes, pending consensus, cached confirmed heights | [Election][election]; one coroutine mutex for keyed elections, pending markers, their per-account height index, the bounded confirmed-height cache, clear, and detached diagnostic snapshots | Consensus moves the public key/height into `pendingConsensus` while retaining its index membership. `AccountUpdated` and `ElectionDiscarded` advance the retained confirmed height and inspect only that account's indexed active/pending heights for retirement. Newer work is preserved. Exact-height competitors receive `ElectionLost`; historical candidates receive `ElectionRejected`. Expiry and clear also remove index membership. Admission rejects pending or cached completed heights. Snapshot and size queries suspend on the same mutex as transitions. The synchronous Spring info contributor, gauge callback, and CacheSupport clear boundary use localized blocking bridges. Diagnostics copy nested candidates, votes, weights, and quorum while holding the mutex; readers cannot mutate live elections. |
+| Candidates, votes, pending consensus, cached confirmed heights | [Election][election]; one coroutine mutex for keyed elections, pending markers, their per-account height index, the bounded confirmed-height cache, clear, and detached diagnostic snapshots | Consensus moves the public key/height into `pendingConsensus` while retaining its index membership. `AccountUpdated` and `ElectionDiscarded` advance the retained confirmed height and inspect only that account's indexed active/pending heights for retirement. Newer work is preserved. Exact-height competitors receive `ElectionLost`; historical candidates receive `ElectionRejected`. Expiry and clear also remove index membership. Admission rejects pending or cached completed heights. Snapshot and size queries suspend on the same mutex as transitions. The synchronous Spring info contributor, gauge callback, and CacheSupport clear boundary use localized blocking bridges. Each voter’s candidate, latest vote timestamp, and stability-change timestamp form one immutable state. Diagnostics copy that state, nested candidates, votes, weights, and quorum while holding the mutex; readers cannot mutate live elections. |
 | Votes awaiting an election and priority queue | [VotePrioritizer][vote-prioritizer]; mutex plus concurrent election membership | `ElectionStarted` releases buffered votes; rejection drops buffered votes; account completion and expiry remove active membership. |
 | Consensus awaiting local persistence | [ElectionProcessor][election-processor]; `bufferLock`, hash-keyed `LinkedHashMap`, one drain worker | Exact duplicates retain their insertion position. A batch stops before repeating a public key; remaining work stays queued. On persistence failure, reuse the account reconciliation read and publish `ElectionDiscarded` before removing obsolete work. Publication occurs outside the buffer lock; failure retains that work. Unresolved entries remain queued for retry. |
 | Final votes awaiting persistence | [VoteService][vote-service]; `bufferLock` protects the FIFO buffer and clear generation, with one drain worker | Each batch deduplicates signatures before insertion. Failed batches return ahead of newer votes for the worker's retry; cancellation propagates. Clearing advances the generation so an in-flight failure cannot restore cleared votes. Repository I/O runs outside the lock. |
 | Account and receivable caches | [AccountRepository][account-repository], [ReceivableRepository][receivable-repository]; reactive transaction resources and completion callbacks | Account cache updates after commit and evicts on rollback/unknown completion. Receivable cache replacement/removal is conditional on the pending entry's identity, preventing a late callback from restoring deleted state. These callbacks are separate from `AccountUpdated` listeners. |
-| Account stream snapshot and latest heights | [AccountController][account-controller]; registered SharedFlow subscription and one height map per collection | `onSubscription` reads the database after registration. Concurrent live emissions wait until that subscriber finishes its snapshot; the same subscription then delivers live updates. `forwardHeightBy` suppresses equal/older heights per requested address. Cancellation or a failed query detaches the subscriber. |
-| Transaction and account-entry stream snapshots | [TransactionController][transaction-controller] and [AccountEntryController][account-entry-controller]; one registered SharedFlow subscription per hash or account range | `onSubscription` reads the database after registration, then the same subscription supplies live updates. Hash streams take one result; range streams sort and deduplicate by height and complete at the requested count. Cancellation detaches the subscription and cancels a pending snapshot read. |
-| Receivable stream snapshot hashes and live buffer | [ReceivableController][receivable-controller]; one collecting coroutine owns the snapshot hash set, one child collector sends to a bounded live channel | Live subscription starts before the database scan. Database hashes remain for delayed overlapping notifications; live-only hashes are never added. The stream drains database rows before consuming live updates. Backpressure suspends live producers, and cancellation or a failed scan cancels the live collector and channel. |
+| Account stream snapshot and latest heights | [AccountQueries][account-queries]; registered SharedFlow subscription and one height map per collection | `onSubscription` reads the database after registration. Concurrent live emissions wait until that subscriber finishes its snapshot; the same subscription then delivers live updates. `forwardHeightBy` suppresses equal/older heights per requested address. Cancellation or a failed query detaches the subscriber. |
+| Transaction and account-entry stream snapshots | [TransactionQueries][transaction-queries] and [AccountEntryQueries][account-entry-queries]; one registered SharedFlow subscription per hash or account range | `onSubscription` reads the database after registration, then the same subscription supplies live updates. Hash streams take one result; range streams sort and deduplicate by height and complete at the requested count. Cancellation detaches the subscription and cancels a pending snapshot read. |
+| Receivable stream snapshot hashes and live buffer | [ReceivableQueries][receivable-queries]; one collecting coroutine owns the snapshot hash set, one child collector sends to a bounded live channel | Live subscription starts before the database scan. Database hashes remain for delayed overlapping notifications; live-only hashes are never added. The stream drains database rows before consuming live updates. Backpressure suspends live producers, and cancellation or a failed scan cancels the live collector and channel. |
+| Public WebSocket membership and output credits | [NodeStreamDispatcher](src/main/kotlin/cash/atto/node/stream/NodeStreamDispatcher.kt) prepares plans; Commons `AttoStreamWebSocketHandler` owns one membership actor, member jobs, bounded data/control channels, and one writer per connection | Static streams collect the feature query flow once. Mutable account streams retain unchanged member jobs, start only new account flows, and cancel removed members; each query owner retains its snapshot/live handoff. The writer drops only explicitly removed members' queued records, assigns data sequence numbers, and sends at most 32 unacknowledged records. Terminal completion or source failure follows queued data and its acknowledgements. Disconnect cancels the connection scope and every member. |
 | Local voting/signing jobs | [ElectionVoter][election-voter]; consensus state, mutexes, coroutine jobs | Provisional updates, cancellation, and committed final-vote publication have distinct lifecycles. Trace them before changing cleanup. |
 | Bootstrap persistence observations and admission target | [BootstrapLoadMonitor][bootstrap-load]; synchronized recording and polling, with a volatile capacity snapshot | Insert completion records elapsed time, successful discovery persistence records attempted rows after commit, and non-cancelled failure records a reset. Each poll consumes its accumulated observations once. Metric registration and meter values do not drive admission. |
+
+V2 HTTP routes belong to the corresponding account, receivable, entry, and transaction controllers
+and return Commons models directly. HTTP controllers and public WebSocket dispatch call the same feature-owned query components.
+Those components own event subscriptions, repository reads, and snapshot/live handoff. The shared
+[range policy](src/main/kotlin/cash/atto/node/account/HeightSearchValidation.kt) validates the complete height search in queries
+and before mutable WebSocket membership changes. The finite
+`POST /v2/accounts` route also uses the existing batch lookup without adding a subscription or queue.
+Legacy transaction request decoding reconstructs addresses from old key/algorithm pairs only at the
+unprefixed publication boundary before calling the unchanged publication workflow. V2 request decoding
+requires canonical addresses. Legacy HTTP handlers
+map each response record to a compatibility representation; that mapping adds no subscription, queue,
+or persistence boundary. The shared v2 NDJSON writer inserts heartbeat lines between encoded records
+and owns the timer. Cancellation still reaches the original snapshot/live stream and stops that timer.
 
 The intended admission invariant is **one current election height per public key**, with competing hashes at that
 height. Validate it through the account snapshot, predecessor checks, and reachable transitions. Do not confuse it with
@@ -280,7 +294,7 @@ calls. Keep source links to files and named methods so routine line movement doe
 [worker]: src/main/kotlin/cash/atto/node/DemandDrivenWorker.kt
 [connections]: src/main/kotlin/cash/atto/node/network/NodeConnectionManager.kt
 [transaction-types]: src/main/kotlin/cash/atto/node/transaction/Transaction.kt
-[transaction-controller]: src/main/kotlin/cash/atto/node/transaction/TransactionController.kt
+[transaction-queries]: src/main/kotlin/cash/atto/node/transaction/TransactionQueries.kt
 [transaction-publication]: src/main/kotlin/cash/atto/node/transaction/TransactionPublicationController.kt
 [transaction-prioritizer]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionPrioritizer.kt
 [transaction-queue]: src/main/kotlin/cash/atto/node/transaction/prioritization/TransactionQueue.kt
@@ -298,12 +312,12 @@ calls. Keep source links to files and named methods so routine line movement doe
 [account-types]: src/main/kotlin/cash/atto/node/account/Account.kt
 [account-service]: src/main/kotlin/cash/atto/node/account/AccountService.kt
 [account-repository]: src/main/kotlin/cash/atto/node/account/AccountRepository.kt
-[account-controller]: src/main/kotlin/cash/atto/node/account/AccountController.kt
+[account-queries]: src/main/kotlin/cash/atto/node/account/AccountQueries.kt
 [receivable-service]: src/main/kotlin/cash/atto/node/receivable/ReceivableService.kt
 [receivable-repository]: src/main/kotlin/cash/atto/node/receivable/ReceivableRepository.kt
-[receivable-controller]: src/main/kotlin/cash/atto/node/receivable/ReceivableController.kt
+[receivable-queries]: src/main/kotlin/cash/atto/node/receivable/ReceivableQueries.kt
 [entry-service]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryService.kt
-[entry-controller]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryController.kt
+[entry-queries]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryQueries.kt
 [vote-types]: src/main/kotlin/cash/atto/node/vote/Vote.kt
 [vote-converter]: src/main/kotlin/cash/atto/node/vote/convertion/VoteConverter.kt
 [vote-prioritizer]: src/main/kotlin/cash/atto/node/vote/prioritization/VotePrioritizer.kt
@@ -322,6 +336,6 @@ calls. Keep source links to files and named methods so routine line movement doe
 [head-broadcaster]: src/main/kotlin/cash/atto/node/bootstrap/discovery/BootstrapHeadBroadcaster.kt
 [send-discoverer]: src/main/kotlin/cash/atto/node/bootstrap/discovery/SendDiscoverer.kt
 
-[account-entry-controller]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryController.kt
+[account-entry-queries]: src/main/kotlin/cash/atto/node/account/entry/AccountEntryQueries.kt
 
 [pending-publications]: src/main/kotlin/cash/atto/node/transaction/PendingTransactionRegistry.kt

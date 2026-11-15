@@ -84,7 +84,7 @@ class VoteWeighter(
 
         when (block) {
             is AttoOpenBlock -> {
-                add(block.representativePublicKey, block.balance, block.balance)
+                add(block.representativeAddress.publicKey, block.balance, block.balance)
             }
 
             is AttoReceiveBlock -> {
@@ -99,7 +99,7 @@ class VoteWeighter(
 
             is AttoChangeBlock -> {
                 subtract(previousAccount.representativePublicKey, block.balance)
-                add(block.representativePublicKey, block.balance, block.balance)
+                add(block.representativeAddress.publicKey, block.balance, block.balance)
             }
         }
 

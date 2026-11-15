@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -81,7 +82,10 @@ class ElectionVoterTest {
         electionVoter.clear()
         every { voteWeighter.get() } returns AttoAmount.MAX
         every { thisNode.isVoter() } returns true
-        every { signer.publicKey } returns AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        val publicKey = AttoPublicKey(Random.nextBytes(ByteArray(32)))
+        every { signer.publicKey } returns publicKey
+        every { thisNode.publicKey } returns publicKey
+        every { thisNode.algorithm } returns AttoAlgorithm.V1
     }
 
     @AfterEach
@@ -659,8 +663,7 @@ class ElectionVoterTest {
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = signer.publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, signer.publicKey),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),

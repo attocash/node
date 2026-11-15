@@ -1,6 +1,7 @@
 package cash.atto.node.account
 
 import cash.atto.commons.AttoAccount
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -44,16 +45,14 @@ data class Account(
 
     fun toAttoAccount(): AttoAccount =
         AttoAccount(
-            publicKey = publicKey,
             network = network,
             version = version,
-            algorithm = algorithm,
+            address = AttoAddress(algorithm, publicKey),
             height = AttoHeight(height.toULong()),
             balance = balance,
             lastTransactionHash = lastTransactionHash,
             lastTransactionTimestamp = lastTransactionTimestamp.toAtto(),
-            representativeAlgorithm = representativeAlgorithm,
-            representativePublicKey = representativePublicKey,
+            representativeAddress = AttoAddress(representativeAlgorithm, representativePublicKey),
         )
 }
 

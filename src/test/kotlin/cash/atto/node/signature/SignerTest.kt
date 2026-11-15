@@ -1,5 +1,6 @@
 package cash.atto.node.signature
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -102,8 +103,7 @@ class SignerTest {
     private fun AttoVote.Companion.sample(): AttoVote =
         AttoVote(
             version = AttoVersion(0U),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = signer.publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, signer.publicKey),
             blockAlgorithm = AttoAlgorithm.V1,
             blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
             timestamp = AttoInstant.now(),
@@ -113,8 +113,7 @@ class SignerTest {
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = signer.publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, signer.publicKey),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),
@@ -128,11 +127,9 @@ class SignerTest {
             network = AttoNetwork.LOCAL,
             hash = AttoHash(Random.Default.nextBytes(32)),
             version = 0U.toAttoVersion(),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(Random.nextBytes(32)),
+            address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(Random.nextBytes(32))),
             timestamp = AttoInstant.now(),
-            receiverAlgorithm = AttoAlgorithm.V1,
-            receiverPublicKey = signer.publicKey,
+            receiverAddress = AttoAddress(AttoAlgorithm.V1, signer.publicKey),
             amount = 1000UL.toAttoAmount(),
         )
 

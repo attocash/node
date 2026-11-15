@@ -2,30 +2,16 @@ package cash.atto.node.account
 
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAddress
-import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoPublicKey
 import cash.atto.commons.node.AccountSearch
-import cash.atto.commons.spring.forwardHeightBy
-import io.github.oshai.kotlinlogging.KotlinLogging
 import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
 import io.swagger.v3.oas.annotations.media.Schema
 import io.swagger.v3.oas.annotations.responses.ApiResponse
 import io.swagger.v3.oas.annotations.tags.Tag
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.asFlow
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.flatMapConcat
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onCompletion
-import kotlinx.coroutines.flow.onStart
-import kotlinx.coroutines.flow.onSubscription
-import org.springframework.context.event.EventListener
 import org.springframework.http.MediaType
 import org.springframework.http.ResponseEntity
 import org.springframework.web.bind.annotation.GetMapping
@@ -36,7 +22,7 @@ import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-@RequestMapping("/accounts")
+@RequestMapping
 @Tag(
     name = "Accounts",
     description =
@@ -44,20 +30,10 @@ import org.springframework.web.bind.annotation.RestController
             "Since transactions mutate accounts, this reflects the result of all previous operations.",
 )
 class AccountController(
-    val repository: AccountRepository,
-    val crudRepository: AccountCrudRepository,
+    private val queries: AccountQueries,
 ) {
-    private val logger = KotlinLogging.logger {}
-
-    private val accountFlow = MutableSharedFlow<AttoAccount>()
-
-    @EventListener
-    suspend fun process(accountUpdated: AccountUpdated) {
-        accountFlow.emit(accountUpdated.updatedAccount.toAttoAccount())
-    }
-
-    @GetMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
+        operationId = "streamAllAccounts",
         summary = "Stream all latest accounts",
         responses = [
             ApiResponse(
@@ -70,54 +46,27 @@ class AccountController(
             ),
         ],
     )
-    suspend fun stream(): Flow<AttoAccount> =
-        accountFlow
-            .onStart { logger.trace { "Started streaming latest transactions" } }
-            .onCompletion { logger.trace { "Stopped streaming latest transactions" } }
+    @GetMapping("/v2/accounts/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun stream(): Flow<AttoAccount> = queries.stream()
 
-    @OptIn(ExperimentalCoroutinesApi::class)
-    @PostMapping
-    @Operation(
-        summary = "Get accounts for given addresses",
-        responses = [
-            ApiResponse(
-                responseCode = "200",
-                content = [
-                    Content(
-                        schema = Schema(implementation = AttoAccount::class),
-                    ),
-                ],
-            ),
-        ],
-    )
+    @Operation(operationId = "getAccountsByAddresses", summary = "Get accounts for given addresses")
+    @PostMapping("/v2/accounts", produces = [MediaType.APPLICATION_JSON_VALUE])
     fun get(
         @RequestBody search: AccountSearch,
-    ): Flow<AttoAccount> {
-        val publicKeys = search.addresses.map { it.publicKey }
+    ): Flow<AttoAccount> = queries.get(search)
 
-        return publicKeys
-            .chunked(1_000)
-            .asFlow()
-            .flatMapConcat { batch ->
-                repository
-                    .findAllById(batch)
-                    .map { it.toAttoAccount() }
-            }
-    }
+    @Operation(operationId = "getAccountByAddress", summary = "Get account by address")
+    @GetMapping("/v2/accounts/{address}")
+    suspend fun get(
+        @PathVariable address: AttoAddress,
+    ): ResponseEntity<AttoAccount> = get(address.publicKey)
 
-    @GetMapping("/{publicKey}")
-    @Operation(
-        summary = "Get account",
-    )
     suspend fun get(
         @PathVariable publicKey: AttoPublicKey,
-    ): ResponseEntity<AttoAccount> {
-        val account = repository.findById(publicKey)?.toAttoAccount()
-        return ResponseEntity.ofNullable(account)
-    }
+    ): ResponseEntity<AttoAccount> = ResponseEntity.ofNullable(queries.get(publicKey))
 
-    @PostMapping("/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
+        operationId = "streamAccountsByAddresses",
         summary = "Stream all accounts for the given addresses",
         responses = [
             ApiResponse(
@@ -130,58 +79,105 @@ class AccountController(
             ),
         ],
     )
+    @PostMapping("/v2/accounts/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     suspend fun stream(
         @RequestBody search: AccountSearch,
-    ): Flow<AttoAccount> {
-        val addresses = search.addresses.toSet()
+    ): Flow<AttoAccount> = queries.stream(search)
 
-        val accountDatabaseFlow =
-            flow {
-                val publicKeys =
-                    search.addresses
-                        .asSequence()
-                        .map { it.publicKey }
-                        .toSet()
-
-                publicKeys.chunked(1000).forEach { chunk ->
-                    repository
-                        .findAllById(chunk)
-                        .map { it.toAttoAccount() }
-                        .collect { emit(it) }
-                }
-            }
-
-        return accountFlow
-            // Register before reading the snapshot so concurrent updates wait for the handoff.
-            .onSubscription { emitAll(accountDatabaseFlow) }
-            .filter { addresses.contains(AttoAddress(it.algorithm, it.publicKey)) }
-            .forwardHeightBy { it.address }
-            .onStart { logger.trace { "Started streaming accounts for $addresses" } }
-            .onCompletion { logger.trace { "Stopped streaming accounts for $addresses" } }
-    }
-
-    @GetMapping("/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
     @Operation(
-        summary = "Stream account",
+        operationId = "streamAccountByAddress",
+        summary = "Stream account by address",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [Content(schema = Schema(implementation = AttoAccount::class))],
+            ),
+        ],
+    )
+    @GetMapping("/v2/accounts/{address}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun stream(
+        @PathVariable address: AttoAddress,
+    ): Flow<AttoAccount> = stream(address.publicKey)
+
+    suspend fun stream(
+        @PathVariable publicKey: AttoPublicKey,
+    ): Flow<AttoAccount> = queries.stream(publicKey)
+
+    suspend fun getTop100(): List<AttoAccount> = queries.getTop100()
+
+    @Hidden
+    @Operation(
+        operationId = "streamAllLegacyAccounts",
+        summary = "Stream all latest accounts",
         responses = [
             ApiResponse(
                 responseCode = "200",
                 content = [
                     Content(
-                        schema = Schema(implementation = AttoAccount::class),
+                        schema = Schema(implementation = LegacyAccountResponse::class),
                     ),
                 ],
             ),
         ],
     )
-    suspend fun stream(
-        @PathVariable publicKey: AttoPublicKey,
-    ): Flow<AttoAccount> {
-        val address = AttoAddress(AttoAlgorithm.V1, publicKey)
-        return stream(AccountSearch(setOf(address)))
-    }
+    @GetMapping("/accounts/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun legacyStream(): Flow<LegacyAccountResponse> = stream().map { it.toLegacyResponse() }
 
-    @GetMapping("/top")
+    @Operation(
+        operationId = "getLegacyAccountsByAddresses",
+        summary = "Get accounts for given addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = LegacyAccountResponse::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    @PostMapping("/accounts")
+    fun legacyGet(
+        @RequestBody search: AccountSearch,
+    ): Flow<LegacyAccountResponse> = get(search).map { it.toLegacyResponse() }
+
     @Hidden
-    suspend fun getTop100(): List<AttoAccount> = crudRepository.getTop100().map { it.toAttoAccount() }
+    @Operation(operationId = "getLegacyAccountByPublicKey")
+    @GetMapping("/accounts/{publicKey}")
+    suspend fun legacyGet(
+        @PathVariable publicKey: AttoPublicKey,
+    ): ResponseEntity<LegacyAccountResponse> = get(publicKey).let { ResponseEntity(it.body?.toLegacyResponse(), it.headers, it.statusCode) }
+
+    @Hidden
+    @Operation(
+        operationId = "streamLegacyAccountsByAddresses",
+        summary = "Stream all accounts for the given addresses",
+        responses = [
+            ApiResponse(
+                responseCode = "200",
+                content = [
+                    Content(
+                        schema = Schema(implementation = LegacyAccountResponse::class),
+                    ),
+                ],
+            ),
+        ],
+    )
+    @PostMapping("/accounts/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun legacyStream(
+        @RequestBody search: AccountSearch,
+    ): Flow<LegacyAccountResponse> = stream(search).map { it.toLegacyResponse() }
+
+    @Hidden
+    @Operation(operationId = "streamLegacyAccountByPublicKey")
+    @GetMapping("/accounts/{publicKey}/stream", produces = [MediaType.APPLICATION_NDJSON_VALUE])
+    suspend fun legacyStream(
+        @PathVariable publicKey: AttoPublicKey,
+    ): Flow<LegacyAccountResponse> = stream(publicKey).map { it.toLegacyResponse() }
+
+    @Hidden
+    @Operation(operationId = "getLegacyTop100Accounts")
+    @GetMapping("/accounts/top")
+    suspend fun legacyGetTop100(): List<LegacyAccountResponse> = getTop100().map { it.toLegacyResponse() }
 }

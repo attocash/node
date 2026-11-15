@@ -22,7 +22,7 @@ class UncheckedTransactionSerializerDBConverter : Converter<UncheckedTransaction
         val row = OutboundRow()
         with(row) {
             put("hash", Parameter.from(uncheckedTransaction.hash))
-            put("public_key", Parameter.from(block.publicKey))
+            put("public_key", Parameter.from(block.address.publicKey))
             put("height", Parameter.from(block.height.value))
             put(
                 "previous",

@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.validation.validator
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoChangeBlock
@@ -45,14 +46,12 @@ internal class ChangeValidatorTest {
         AttoChangeBlock(
             network = AttoNetwork.LOCAL,
             version = account.version,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = AttoHeight((account.height + 1).toULong()),
             balance = AttoAmount(0U),
             timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),
             previous = account.lastTransactionHash,
-            representativeAlgorithm = AttoAlgorithm.V1,
-            representativePublicKey = privateKey.toPublicKeyBlocking(),
+            representativeAddress = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
         )
 
     val node =
@@ -88,7 +87,7 @@ internal class ChangeValidatorTest {
     fun `should return INVALID_REPRESENTATIVE when representative is equals previous one`() =
         runBlocking {
             // when
-            val violation = validator.validate(account.copy(representativePublicKey = block.representativePublicKey), transaction)
+            val violation = validator.validate(account.copy(representativePublicKey = block.representativeAddress.publicKey), transaction)
 
             // then
             assertEquals(TransactionRejectionReason.INVALID_REPRESENTATIVE, violation?.reason)

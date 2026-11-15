@@ -1,7 +1,6 @@
 package cash.atto.node.vote.weight
 
 import cash.atto.commons.AttoAddress
-import cash.atto.commons.AttoVoterWeight
 import cash.atto.commons.toAtto
 import io.swagger.v3.oas.annotations.Operation
 import io.swagger.v3.oas.annotations.media.Content
@@ -22,6 +21,7 @@ class VoteWeightController(
 ) {
     @GetMapping("/{address}")
     @Operation(
+        operationId = "getVoterWeightByAddress",
         summary = "Get voter weight",
         responses = [
             ApiResponse(
@@ -36,10 +36,10 @@ class VoteWeightController(
     )
     fun get(
         @PathVariable address: AttoAddress,
-    ): ResponseEntity<AttoVoterWeight> {
+    ): ResponseEntity<LegacyVoterWeightResponse> {
         val weight = voteWeighter.get(address.publicKey)
         val lastVotedAt = voteWeighter.getLatestVoteTimestamp(address.publicKey).toAtto()
-        val voterWeight = AttoVoterWeight(address, weight, lastVotedAt)
+        val voterWeight = LegacyVoterWeightResponse(address, weight, lastVotedAt)
         return ResponseEntity.ok(voterWeight)
     }
 }

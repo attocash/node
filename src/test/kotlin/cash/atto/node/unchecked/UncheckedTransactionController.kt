@@ -3,6 +3,7 @@ package cash.atto.node.unchecked
 import cash.atto.commons.AttoTransaction
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionProcessor
 import cash.atto.node.bootstrap.unchecked.UncheckedTransactionRepository
+import io.swagger.v3.oas.annotations.Hidden
 import io.swagger.v3.oas.annotations.Operation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RestController
 
+@Hidden
 @RestController
 @RequestMapping("/unchecked-transactions")
 @Profile("default")

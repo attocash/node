@@ -26,7 +26,7 @@ data class UncheckedTransaction(
     @Id
     val hash = block.hash
 
-    val publicKey = block.publicKey
+    val publicKey = block.address.publicKey
     val height = block.height
 
     @Transient

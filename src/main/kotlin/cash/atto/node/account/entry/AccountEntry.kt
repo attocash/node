@@ -1,6 +1,7 @@
 package cash.atto.node.account.entry
 
 import cash.atto.commons.AttoAccountEntry
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlockType
@@ -36,12 +37,10 @@ data class AccountEntry(
 fun AccountEntry.toAtto(): AttoAccountEntry =
     AttoAccountEntry(
         hash = hash,
-        algorithm = algorithm,
-        publicKey = publicKey,
+        address = AttoAddress(algorithm, publicKey),
         height = height,
         blockType = blockType,
-        subjectAlgorithm = subjectAlgorithm,
-        subjectPublicKey = subjectPublicKey,
+        subjectAddress = AttoAddress(subjectAlgorithm, subjectPublicKey),
         previousBalance = previousBalance,
         balance = balance,
         timestamp = timestamp.toAtto(),
@@ -50,12 +49,12 @@ fun AccountEntry.toAtto(): AttoAccountEntry =
 fun AttoAccountEntry.toEntity(): AccountEntry =
     AccountEntry(
         hash = hash,
-        algorithm = algorithm,
-        publicKey = publicKey,
+        algorithm = address.algorithm,
+        publicKey = address.publicKey,
         height = height,
         blockType = blockType,
-        subjectAlgorithm = subjectAlgorithm,
-        subjectPublicKey = subjectPublicKey,
+        subjectAlgorithm = subjectAddress.algorithm,
+        subjectPublicKey = subjectAddress.publicKey,
         previousBalance = previousBalance,
         balance = balance,
         timestamp = timestamp.toJavaInstant(),

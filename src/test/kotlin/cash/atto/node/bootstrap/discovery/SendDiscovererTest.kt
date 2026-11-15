@@ -1,5 +1,6 @@
 package cash.atto.node.bootstrap.discovery
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -72,7 +73,7 @@ class SendDiscovererTest {
             coEvery { discoveryQueue.queue(any(), DiscoverySource.SEND) } returns true
             coEvery {
                 uncheckedTransactionRepository.hasHigherTransaction(
-                    missingSend.block.publicKey,
+                    missingSend.block.address.publicKey,
                     missingSend.block.height,
                 )
             } returns 0L
@@ -160,7 +161,7 @@ class SendDiscovererTest {
                 )
             coEvery {
                 uncheckedTransactionRepository.hasHigherTransaction(
-                    missingSend.block.publicKey,
+                    missingSend.block.address.publicKey,
                     missingSend.block.height,
                 )
             } returns 1L
@@ -183,7 +184,7 @@ class SendDiscovererTest {
             // then
             coVerify(exactly = 1) {
                 uncheckedTransactionRepository.hasHigherTransaction(
-                    missingSend.block.publicKey,
+                    missingSend.block.address.publicKey,
                     missingSend.block.height,
                 )
             }
@@ -283,14 +284,12 @@ class SendDiscovererTest {
             AttoSendBlock(
                 version = 0U.toAttoVersion(),
                 network = AttoNetwork.LOCAL,
-                algorithm = AttoAlgorithm.V1,
-                publicKey = publicKey,
+                address = AttoAddress(AttoAlgorithm.V1, publicKey),
                 height = 2U.toAttoHeight(),
                 balance = AttoAmount.MAX,
                 timestamp = AttoInstant.now(),
                 previous = AttoHash(ByteArray(32) { (marker + 1).toByte() }),
-                receiverAlgorithm = AttoAlgorithm.V1,
-                receiverPublicKey = AttoPublicKey(ByteArray(32) { (marker + 2).toByte() }),
+                receiverAddress = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32) { (marker + 2).toByte() })),
                 amount = AttoAmount.MAX,
             )
         return AttoTransaction(
@@ -309,8 +308,7 @@ class SendDiscovererTest {
                 AttoReceiveBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = AttoPublicKey(ByteArray(32) { marker }),
+                    address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32) { marker })),
                     height = 2U.toAttoHeight(),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),

@@ -195,8 +195,7 @@ private fun createTransaction(
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = node.network,
-            algorithm = node.algorithm,
-            publicKey = node.publicKey,
+            address = AttoAddress(node.algorithm, node.publicKey),
             height = height.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),

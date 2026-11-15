@@ -2,6 +2,7 @@ package cash.atto.node.transaction
 
 import cash.atto.commons.AttoAccount
 import cash.atto.commons.AttoAccountEntry
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -15,10 +16,14 @@ import cash.atto.node.Neighbour
 import cash.atto.node.PropertyHolder
 import cash.atto.node.Waiter
 import cash.atto.node.Waiter.waitUntilNonNull
+import cash.atto.node.account.LegacyAccountResponse
+import cash.atto.node.account.entry.LegacyAccountEntryResponse
+import cash.atto.node.receivable.LegacyReceivableResponse
 import io.cucumber.java.en.Then
 import io.cucumber.java.en.When
 import io.github.oshai.kotlinlogging.KotlinLogging
 import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.json.Json
 import org.springframework.http.MediaType
 import org.springframework.web.reactive.function.client.WebClient
 import org.springframework.web.reactive.function.client.bodyToFlux
@@ -48,7 +53,7 @@ class TransactionStepDefinition(
         val receiverPublicKeyAlgorithm = PropertyHolder[AttoAlgorithm::class.java, receiverShortId]
         val receiverPublicKey = PropertyHolder[AttoPublicKey::class.java, receiverShortId]
 
-        val send = account.send(receiverPublicKeyAlgorithm, receiverPublicKey, defaultSendAmount)
+        val send = account.send(AttoAddress(receiverPublicKeyAlgorithm, receiverPublicKey), defaultSendAmount)
         val sendBlock = send.first
         val sendTransaction =
             Transaction(
@@ -88,7 +93,7 @@ class TransactionStepDefinition(
                 )
             } else {
                 val open =
-                    AttoAccount.open(receivable.receiverAlgorithm, receivable.receiverPublicKey, receivable)
+                    AttoAccount.open(receivable.receiverAddress, receivable)
                 val openBlock = open.first
                 Transaction(
                     block = openBlock,
@@ -116,7 +121,7 @@ class TransactionStepDefinition(
 
         val representativePublicKey = PropertyHolder.get(AttoPublicKey::class.java, representativeShortId)
 
-        val change = account.change(AttoAlgorithm.V1, representativePublicKey)
+        val change = account.change(AttoAddress(AttoAlgorithm.V1, representativePublicKey))
         val changeBlock = change.first
         val changeTransaction =
             Transaction(
@@ -148,31 +153,61 @@ class TransactionStepDefinition(
         streamTransaction(PropertyHolder[Neighbour::class.java, shortId], expectedTransaction.hash)
     }
 
-    private fun getAccount(
+    internal fun getAccount(
         neighbour: Neighbour,
         publicKey: AttoPublicKey,
-    ): AttoAccount? =
-        webClient
-            .get()
-            .uri("http://localhost:${neighbour.httpPort}/accounts/{publicKey}", publicKey.toString())
-            .retrieve()
-            .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<AttoAccount>()
-            .blockOptional()
-            .orElse(null)
+    ): AttoAccount? {
+        val response =
+            webClient
+                .get()
+                .uri(
+                    "http://localhost:${neighbour.httpPort}" + if (neighbour.released) "/accounts/{account}" else "/v2/accounts/{account}",
+                    accountIdentifier(neighbour, publicKey),
+                ).retrieve()
+                .onStatus({ it.value() == 404 }, { Mono.empty() })
+        return if (neighbour.released) {
+            response.bodyToMono<LegacyAccountResponse>().map {
+                AttoAccount(
+                    address = AttoAddress(it.algorithm, it.publicKey),
+                    network = it.network,
+                    version = it.version,
+                    height = it.height,
+                    balance = it.balance,
+                    lastTransactionHash = it.lastTransactionHash,
+                    lastTransactionTimestamp = it.lastTransactionTimestamp,
+                    representativeAddress = AttoAddress(it.representativeAlgorithm, it.representativePublicKey),
+                )
+            }
+        } else {
+            response.bodyToMono<AttoAccount>()
+        }.blockOptional().orElse(null)
+    }
 
-    private fun streamTransaction(
+    internal fun streamTransaction(
         neighbour: Neighbour,
         hash: AttoHash,
     ): AttoTransaction {
         try {
             return waitUntilNonNull {
-                webClient
-                    .get()
-                    .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}/stream", hash.toString())
-                    .retrieve()
-                    .onStatus({ it.value() == 404 }, { Mono.empty() })
-                    .bodyToMono<AttoTransaction>()
+                val response =
+                    webClient
+                        .get()
+                        .uri(
+                            "http://localhost:${neighbour.httpPort}${if (neighbour.released) "" else "/v2"}/transactions/{hash}/stream",
+                            hash.toString(),
+                        ).retrieve()
+                        .onStatus({ it.value() == 404 }, { Mono.empty() })
+                val transaction =
+                    if (neighbour.released) {
+                        response.bodyToMono<LegacyTransactionRequest>().map { it.transaction }
+                    } else {
+                        response
+                            .bodyToFlux<String>()
+                            .filter { it.isNotBlank() }
+                            .map { Json.decodeFromString<AttoTransaction>(it) }
+                            .single()
+                    }
+                transaction
                     .timeout(Duration.ofSeconds(1))
                     .onErrorResume(TimeoutException::class.java) { Mono.empty() }
                     .doOnSubscribe { logger.info { "Started streaming transaction $hash" } }
@@ -185,20 +220,39 @@ class TransactionStepDefinition(
         }
     }
 
-    private fun streamAccountEntries(
+    internal fun streamAccountEntries(
         neighbour: Neighbour,
         publicKey: AttoPublicKey,
         hash: AttoHash,
         height: AttoHeight,
     ): AttoAccountEntry {
-        val url = "http://localhost:${neighbour.httpPort}/accounts/$publicKey/entries/stream?fromHeight=$height&toHeight=$height"
+        val prefix = if (neighbour.released) "" else "/v2"
+        val url = "http://localhost:${neighbour.httpPort}$prefix/accounts/{account}/entries/stream?fromHeight=$height&toHeight=$height"
         try {
-            return webClient
-                .get()
-                .uri(url)
-                .retrieve()
-                .onStatus({ it.value() == 404 }, { Mono.empty() })
-                .bodyToFlux<AttoAccountEntry>()
+            val response =
+                webClient
+                    .get()
+                    .uri(url, accountIdentifier(neighbour, publicKey))
+                    .retrieve()
+                    .onStatus({ it.value() == 404 }, { Mono.empty() })
+            val entries =
+                if (neighbour.released) {
+                    response.bodyToFlux<LegacyAccountEntryResponse>().map {
+                        AttoAccountEntry(
+                            hash = it.hash,
+                            address = it.address,
+                            height = it.height,
+                            blockType = it.blockType,
+                            subjectAddress = it.subjectAddress,
+                            previousBalance = it.previousBalance,
+                            balance = it.balance,
+                            timestamp = it.timestamp,
+                        )
+                    }
+                } else {
+                    response.bodyToFlux<String>().filter { it.isNotBlank() }.map { Json.decodeFromString<AttoAccountEntry>(it) }
+                }
+            return entries
                 .filter { it.hash == hash }
                 .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
         } catch (e: Exception) {
@@ -206,32 +260,73 @@ class TransactionStepDefinition(
         }
     }
 
-    private fun streamReceivable(
+    internal fun streamReceivable(
         neighbour: Neighbour,
         publicKey: AttoPublicKey,
         sendHash: AttoHash,
-    ): AttoReceivable =
-        webClient
-            .get()
-            .uri("http://localhost:${neighbour.httpPort}/accounts/{publicKey}/receivables/stream", publicKey.toString())
-            .retrieve()
-            .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToFlux<AttoReceivable>()
+    ): AttoReceivable {
+        val prefix = if (neighbour.released) "" else "/v2"
+        val response =
+            webClient
+                .get()
+                .uri(
+                    "http://localhost:${neighbour.httpPort}$prefix/accounts/{account}/receivables/stream",
+                    accountIdentifier(neighbour, publicKey),
+                ).retrieve()
+                .onStatus({ it.value() == 404 }, { Mono.empty() })
+        val receivables =
+            if (neighbour.released) {
+                response.bodyToFlux<LegacyReceivableResponse>().map {
+                    AttoReceivable(
+                        network = it.network,
+                        hash = it.hash,
+                        version = it.version,
+                        address = AttoAddress(it.algorithm, it.publicKey),
+                        timestamp = it.timestamp,
+                        receiverAddress = AttoAddress(it.receiverAlgorithm, it.receiverPublicKey),
+                        amount = it.amount,
+                    )
+                }
+            } else {
+                response.bodyToFlux<String>().filter { it.isNotBlank() }.map { Json.decodeFromString<AttoReceivable>(it) }
+            }
+        return receivables
             .filter { it.hash == sendHash }
             .blockFirst(Duration.ofSeconds(Waiter.timeoutInSeconds))!!
+    }
+
+    private fun accountIdentifier(
+        neighbour: Neighbour,
+        publicKey: AttoPublicKey,
+    ): String = if (neighbour.released) publicKey.toString() else AttoAddress(AttoAlgorithm.V1, publicKey).toString()
 
     private fun publish(
         neighbourShortId: String,
         transaction: Transaction,
+    ) = publish(PropertyHolder[Neighbour::class.java, neighbourShortId], transaction)
+
+    internal fun publish(
+        neighbour: Neighbour,
+        transaction: Transaction,
     ) {
-        val neighbour = PropertyHolder[Neighbour::class.java, neighbourShortId]
-        webClient
-            .post()
-            .uri("http://localhost:${neighbour.httpPort}/transactions")
-            .contentType(MediaType.APPLICATION_JSON)
-            .bodyValue(transaction.toAttoTransaction())
-            .retrieve()
-            .bodyToMono<Void>()
-            .block()
+        val canonical = transaction.toAttoTransaction()
+        val response =
+            webClient
+                .post()
+                .uri("http://localhost:${neighbour.httpPort}${if (neighbour.released) "" else "/v2"}/transactions")
+                .contentType(MediaType.APPLICATION_JSON)
+                .bodyValue(if (neighbour.released) canonical.toLegacyResponse() else canonical)
+                .retrieve()
+        val confirmed =
+            if (neighbour.released) {
+                response.bodyToMono<LegacyTransactionRequest>().map { it.transaction }
+            } else {
+                response
+                    .bodyToFlux<String>()
+                    .filter { it.isNotBlank() }
+                    .map { Json.decodeFromString<AttoTransaction>(it) }
+                    .single()
+            }.block()
+        check(confirmed?.hash == transaction.hash) { "Publication did not confirm ${transaction.hash} (neighbour=$neighbour)" }
     }
 }

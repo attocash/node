@@ -34,7 +34,7 @@ class TransactionValidationManager(
         val account: Account
         val violation: TransactionViolation?
         try {
-            account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
+            account = accountRepository.getByAlgorithmAndPublicKey(block.address.algorithm, block.address.publicKey, block.network)
             violation = validate(account, transaction)
         } catch (exception: CancellationException) {
             throw exception

@@ -72,7 +72,7 @@ class LastDiscoverer(
 
         logger.trace { "Received bootstrap head transaction ${transaction.hash}" }
 
-        val account = accountRepository.getByAlgorithmAndPublicKey(block.algorithm, block.publicKey, block.network)
+        val account = accountRepository.getByAlgorithmAndPublicKey(block.address.algorithm, block.address.publicKey, block.network)
 
         if (account.height.toULong() == block.height.value) {
             return

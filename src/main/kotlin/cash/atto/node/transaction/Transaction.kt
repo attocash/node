@@ -36,9 +36,9 @@ data class Transaction(
     val hash = block.hash
 
     @Transient
-    val algorithm = block.algorithm
+    val algorithm = block.address.algorithm
 
-    val publicKey = block.publicKey
+    val publicKey = block.address.publicKey
     val height = block.height
 
     val serialized: Buffer
@@ -55,7 +55,7 @@ data class Transaction(
             work = work,
         )
 
-    fun toPublicKeyHeight(): PublicKeyHeight = PublicKeyHeight(this.block.publicKey, this.block.height)
+    fun toPublicKeyHeight(): PublicKeyHeight = PublicKeyHeight(this.block.address.publicKey, this.block.height)
 
     override fun equals(other: Any?): Boolean {
         if (this === other) return true

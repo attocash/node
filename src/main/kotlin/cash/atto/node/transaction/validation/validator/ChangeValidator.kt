@@ -20,7 +20,7 @@ class ChangeValidator : TransactionValidator {
     ): TransactionViolation? {
         val block = transaction.block as AttoChangeBlock
 
-        if (account.representativePublicKey == block.representativePublicKey) {
+        if (account.representativePublicKey == block.representativeAddress.publicKey) {
             return TransactionViolation(
                 TransactionRejectionReason.INVALID_REPRESENTATIVE,
                 "The account ${account.lastTransactionHash} already has the " +

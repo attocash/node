@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoBlock
@@ -150,6 +151,76 @@ internal class PublicKeyHeightElectionTest {
         val transactionElection = election.getProvisionalLeader()
         assertEquals(1, transactionElection.votes.size)
         assertEquals(AttoAmount(8u), transactionElection.totalWeight)
+    }
+
+    @Test
+    fun `should count a newer vote for the same candidate without starting a stability delay`() {
+        // Given
+        val election = PublicKeyHeightElection(sampleAccount(), minimalConfirmationWeightProvider())
+        val transaction = Transaction.sample()
+        val voter = AttoPublicKey(ByteArray(32) { 23 })
+        val timestamp = Instant.now()
+        election.add(transaction)
+        assertTrue(election.add(vote(voter, transaction.hash, timestamp, AttoAmount(5u))))
+
+        // When
+        assertTrue(election.add(vote(voter, transaction.hash, timestamp.plusSeconds(1), AttoAmount(11u))))
+
+        // Then
+        assertEquals(AttoAmount(11u), election.getConsensus()?.totalWeight)
+    }
+
+    @Test
+    fun `should preserve stability exclusion when a newer vote reaffirms a flipped candidate`() {
+        // Given
+        val election = PublicKeyHeightElection(sampleAccount(), minimalConfirmationWeightProvider())
+        val transactionA = Transaction.sample()
+        val transactionB = Transaction.sample()
+        val flipper = AttoPublicKey(ByteArray(32) { 24 })
+        val stableVoter = AttoPublicKey(ByteArray(32) { 25 })
+        val timestamp = Instant.now()
+        election.add(transactionA)
+        election.add(transactionB)
+        assertTrue(election.add(vote(stableVoter, transactionB.hash, timestamp, AttoAmount(9u))))
+        assertTrue(election.add(vote(flipper, transactionA.hash, timestamp, AttoAmount(3u))))
+        assertTrue(election.add(vote(flipper, transactionB.hash, timestamp.plusSeconds(1), AttoAmount(3u))))
+
+        // When
+        assertTrue(election.add(vote(flipper, transactionB.hash, timestamp.plusSeconds(2), AttoAmount(3u))))
+
+        // Then
+        assertSame(transactionB, election.getProvisionalLeader().transaction)
+        assertEquals(AttoAmount(12u), election.getProvisionalLeader().totalWeight)
+        assertNull(election.getConsensus())
+        assertFalse(election.add(vote(flipper, transactionA.hash, timestamp.plusSeconds(2), AttoAmount(3u))))
+    }
+
+    @Test
+    fun `should keep voter timestamps and stability state detached in a snapshot`() {
+        // Given
+        val election = PublicKeyHeightElection(sampleAccount(), minimalConfirmationWeightProvider())
+        val transactionA = Transaction.sample()
+        val transactionB = Transaction.sample()
+        val voter = AttoPublicKey(ByteArray(32) { 26 })
+        val timestamp = Instant.now()
+        election.add(transactionA)
+        election.add(transactionB)
+        assertTrue(election.add(vote(voter, transactionA.hash, timestamp, AttoAmount(11u))))
+        val stableSnapshot = election.snapshot()
+        assertTrue(election.add(vote(voter, transactionB.hash, timestamp.plusSeconds(1), AttoAmount(11u))))
+        val flippedSnapshot = election.snapshot()
+
+        // When
+        assertTrue(election.add(vote(voter, transactionA.hash, timestamp.plusSeconds(2), AttoAmount(11u))))
+
+        // Then
+        assertSame(transactionA, stableSnapshot.getConsensus()?.transaction)
+        assertSame(transactionB, flippedSnapshot.getProvisionalLeader().transaction)
+        assertNull(flippedSnapshot.getConsensus())
+        assertFalse(flippedSnapshot.add(vote(voter, transactionA.hash, timestamp.plusSeconds(1), AttoAmount(11u))))
+        assertTrue(flippedSnapshot.add(vote(voter, transactionB.hash, timestamp.plusSeconds(2), AttoAmount(11u))))
+        assertNull(flippedSnapshot.getConsensus())
+        assertSame(transactionA, election.getProvisionalLeader().transaction)
     }
 
     @Test
@@ -344,8 +415,7 @@ internal class PublicKeyHeightElectionTest {
         AttoReceiveBlock(
             version = 0u.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = publicKey,
+            address = AttoAddress(AttoAlgorithm.V1, publicKey),
             height = 1u.toAttoHeight(),
             balance = AttoAmount(0u),
             timestamp = AttoInstant.now(),

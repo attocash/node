@@ -1,5 +1,6 @@
 package cash.atto.protocol
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -45,8 +46,7 @@ internal fun localTransaction(): AttoTransaction {
         AttoReceiveBlock(
             network = AttoNetwork.LOCAL,
             version = 0U.toAttoVersion(),
-            algorithm = AttoAlgorithm.V1,
-            publicKey = privateKey.toPublicKeyBlocking(),
+            address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
             height = 2U.toAttoHeight(),
             balance = AttoAmount.MAX,
             timestamp = AttoInstant.now(),
@@ -88,8 +88,7 @@ private fun vote(
 ): AttoVote =
     AttoVote(
         version = 0U.toAttoVersion(),
-        algorithm = AttoAlgorithm.V1,
-        publicKey = privateKey.toPublicKeyBlocking(),
+        address = AttoAddress(AttoAlgorithm.V1, privateKey.toPublicKeyBlocking()),
         blockAlgorithm = AttoAlgorithm.V1,
         blockHash = AttoHash(Random.nextBytes(ByteArray(32))),
         timestamp = timestamp,

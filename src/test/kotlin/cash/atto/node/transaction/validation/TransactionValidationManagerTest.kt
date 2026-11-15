@@ -1,5 +1,6 @@
 package cash.atto.node.transaction.validation
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -40,8 +41,7 @@ class TransactionValidationManagerTest {
         AttoReceiveBlock(
             version = 0U.toAttoVersion(),
             network = AttoNetwork.LOCAL,
-            algorithm = AttoAlgorithm.V1,
-            publicKey = AttoPublicKey(ByteArray(32) { 1 }),
+            address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32) { 1 })),
             height = AttoHeight(2UL),
             balance = AttoAmount(1UL),
             timestamp = AttoInstant.now(),
@@ -57,16 +57,16 @@ class TransactionValidationManagerTest {
         )
     private val account =
         Account(
-            publicKey = block.publicKey,
+            publicKey = block.address.publicKey,
             network = block.network,
             version = block.version,
-            algorithm = block.algorithm,
+            algorithm = block.address.algorithm,
             height = 1,
             balance = AttoAmount.MIN,
             lastTransactionHash = block.previous,
             lastTransactionTimestamp = block.timestamp.toJavaInstant().minusSeconds(1),
             representativeAlgorithm = AttoAlgorithm.V1,
-            representativePublicKey = block.publicKey,
+            representativePublicKey = block.address.publicKey,
         )
     private val accountRepository = mockk<AccountRepository>()
     private val validator = mockk<TransactionValidator>()

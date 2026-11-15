@@ -170,11 +170,12 @@ class UncheckedTransactionStepDefinition(
             .uri("http://localhost:${neighbour.httpPort}/transactions/{hash}", hash.toString())
             .retrieve()
             .onStatus({ it.value() == 404 }, { Mono.empty() })
-            .bodyToMono<AttoTransaction>()
+            .toBodilessEntity()
+            .map { it.statusCode.is2xxSuccessful }
             .timeout(Duration.ofSeconds(1))
             .onErrorResume(TimeoutException::class.java) { Mono.empty() }
             .blockOptional(Duration.ofSeconds(2))
-            .isPresent
+            .orElse(false)
 
     private fun describeDiscoveryState(
         neighbour: Neighbour,

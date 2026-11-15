@@ -1,5 +1,6 @@
 package cash.atto.node.transaction
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -276,14 +277,12 @@ class TransactionNetworkProviderTest {
                 AttoSendBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = publicKey,
+                    address = AttoAddress(AttoAlgorithm.V1, publicKey),
                     height = height.toAttoHeight(),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),
                     previous = previous,
-                    receiverAlgorithm = AttoAlgorithm.V1,
-                    receiverPublicKey = publicKey(102),
+                    receiverAddress = AttoAddress(AttoAlgorithm.V1, publicKey(102)),
                     amount = AttoAmount.MAX,
                 )
             return Transaction(

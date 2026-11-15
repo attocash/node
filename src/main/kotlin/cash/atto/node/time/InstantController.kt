@@ -21,7 +21,7 @@ import kotlin.time.ExperimentalTime
 class InstantController {
     @OptIn(ExperimentalTime::class)
     @GetMapping("/{clientInstant}")
-    @Operation(summary = "Return time adjustment to send transactions")
+    @Operation(operationId = "getTimeDifference", summary = "Return time adjustment to send transactions")
     suspend fun get(
         @PathVariable clientInstant: Instant,
     ): TimeDifferenceResponse {

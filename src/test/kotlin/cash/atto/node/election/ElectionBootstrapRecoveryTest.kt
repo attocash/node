@@ -1,5 +1,6 @@
 package cash.atto.node.election
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -408,8 +409,7 @@ class ElectionBootstrapRecoveryTest {
             AttoReceiveBlock(
                 version = account.version,
                 network = account.network,
-                algorithm = account.algorithm,
-                publicKey = account.publicKey,
+                address = AttoAddress(account.algorithm, account.publicKey),
                 height = AttoHeight((account.height + 1).toULong()),
                 balance = AttoAmount(account.balance.raw + 100UL),
                 timestamp = account.lastTransactionTimestamp.plusSeconds(1).toAtto(),

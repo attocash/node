@@ -1,5 +1,6 @@
 package cash.atto.node.bootstrap.unchecked
 
+import cash.atto.commons.AttoAddress
 import cash.atto.commons.AttoAlgorithm
 import cash.atto.commons.AttoAmount
 import cash.atto.commons.AttoHash
@@ -149,14 +150,12 @@ class UncheckedTransactionInserterTest {
                 AttoOpenBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = publicKey,
+                    address = AttoAddress(AttoAlgorithm.V1, publicKey),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),
                     sendHashAlgorithm = AttoAlgorithm.V1,
                     sendHash = AttoHash(ByteArray(32) { 2 }),
-                    representativeAlgorithm = AttoAlgorithm.V1,
-                    representativePublicKey = publicKey,
+                    representativeAddress = AttoAddress(AttoAlgorithm.V1, publicKey),
                 ),
             signature = AttoSignature(ByteArray(64) { 3 }),
             work = AttoWork(ByteArray(8) { 4 }),
@@ -169,8 +168,7 @@ class UncheckedTransactionInserterTest {
                 AttoReceiveBlock(
                     version = 0U.toAttoVersion(),
                     network = AttoNetwork.LOCAL,
-                    algorithm = AttoAlgorithm.V1,
-                    publicKey = AttoPublicKey(ByteArray(32) { 5 }),
+                    address = AttoAddress(AttoAlgorithm.V1, AttoPublicKey(ByteArray(32) { 5 })),
                     height = 2U.toAttoHeight(),
                     balance = AttoAmount.MAX,
                     timestamp = AttoInstant.now(),

@@ -112,11 +112,11 @@ class SendDiscoverer(
         }
 
         val block = transaction.block
-        if (uncheckedTransactionRepository.hasHigherTransaction(block.publicKey, block.height) != 0L) {
+        if (uncheckedTransactionRepository.hasHigherTransaction(block.address.publicKey, block.height) != 0L) {
             skippedForGap.increment()
             logger.debug {
                 "Skipping missing send transaction ${transaction.hash} at height ${block.height} because account " +
-                    "${block.publicKey} has a higher unchecked transaction"
+                    "${block.address.publicKey} has a higher unchecked transaction"
             }
             return
         }
