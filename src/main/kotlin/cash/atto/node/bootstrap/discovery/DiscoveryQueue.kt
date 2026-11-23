@@ -28,7 +28,7 @@ class DiscoveryQueue(
     private val size = AtomicInteger()
     private val buffer =
         Channel<PendingDiscovery>(
-            capacity = properties.capacity + properties.headroom,
+            capacity = discoveryChannelCapacity(properties.capacity, properties.headroom),
             onUndeliveredElement = ::discard,
         )
 

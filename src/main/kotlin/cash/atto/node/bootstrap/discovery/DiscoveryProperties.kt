@@ -20,7 +20,7 @@ class DiscoveryProperties {
         require(capacity <= Int.MAX_VALUE - headroom) {
             "Discovery capacity plus headroom exceeds the supported channel size"
         }
-        require(capacity + headroom < Channel.UNLIMITED) {
+        require(discoveryChannelCapacity(capacity, headroom) < Channel.UNLIMITED) {
             "Discovery capacity plus headroom must be a bounded channel size"
         }
         require(batchSize in 1..minOf(capacity, MAX_BATCH_SIZE)) {

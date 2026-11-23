@@ -1,0 +1,40 @@
+name: SnaKt
+
+on:
+  pull_request:
+    paths:
+      - 'src/main/kotlin/cash/atto/node/bootstrap/discovery/**'
+      - 'verification/snakt/**'
+      - '.github/workflows/snakt.yaml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
+        with:
+          repository: JetBrains/SnaKt
+          ref: e8d86408298192f121ba835a4f5d87ecf388356d
+          path: build/snakt/SnaKt
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: cda-tum/setup-z3@0401375ea1e34d77ef35bbeb634f6203f3bcde60 # v1
+        id: z3
+        with:
+          version: '4.8.7'
+
+      - name: Build SnaKt and verify Kotlin contracts
+        env:
+          Z3_EXE: ${{ steps.z3.outputs.z3-root }}/bin/z3
+        run: |
+          build/snakt/SnaKt/gradlew -Dmaven.repo.local="$PWD/build/snakt/maven" -p build/snakt/SnaKt publishToMavenLocal
+          build/snakt/SnaKt/gradlew -Dmaven.repo.local="$PWD/build/snakt/maven" -p verification/snakt compileKotlin --rerun-tasks

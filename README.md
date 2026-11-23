@@ -256,6 +256,8 @@ stores it as an **unchecked transaction**:
 The overall effect: nodes can reconnect, observe the network’s latest heads, request missing ranges, and replay into
 their ledger state.
 
+The discovery queue’s capacity calculation has a [SnaKt proof](verification/snakt/README.md).
+
 ## Code map
 
 For implementation work, use these repository guides:
